@@ -1,0 +1,87 @@
+import React from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import TabIcon from '../components/TabIcon';
+
+import ExploreTrainingScreen from '../screens/ExploreTrainingScreen';
+import ProgramScreen from '../screens/ProgramScreen';
+import CoachScreen from '../screens/CoachScreen';
+import LogbookScreen from '../screens/LogbookScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+
+const Tab = createBottomTabNavigator();
+
+export default function MainTabNavigator({ onLogout, initialRouteName = 'Explore' }) {
+  return (
+    <Tab.Navigator
+      initialRouteName={initialRouteName}
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+
+          if (route.name === 'Explore') {
+            iconName = 'training';
+          } else if (route.name === 'Training2') {
+            iconName = 'training2';
+          } else if (route.name === 'Coach') {
+            iconName = 'coach';
+          } else if (route.name === 'Logbook') {
+            iconName = 'logbook';
+          } else if (route.name === 'Profile') {
+            iconName = 'profile';
+          }
+
+          return <TabIcon name={iconName} focused={focused} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#6366F1',
+        tabBarInactiveTintColor: '#94A3B8',
+        headerShown: false,
+        tabBarStyle: {
+          backgroundColor: 'white',
+          borderTopWidth: 0,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          elevation: 8,
+          paddingBottom: 12,
+          paddingTop: 12,
+          height: 80,
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 6,
+          marginBottom: 2,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
+        },
+      })}
+    >
+      <Tab.Screen 
+        name="Explore" 
+        component={ExploreTrainingScreen}
+      />
+      <Tab.Screen 
+        name="Training2" 
+        component={ProgramScreen}
+        options={{ title: 'Program' }}
+      />
+      <Tab.Screen 
+        name="Coach" 
+        component={CoachScreen}
+      />
+      <Tab.Screen 
+        name="Logbook" 
+        component={LogbookScreen}
+      />
+      <Tab.Screen 
+        name="Profile"
+      >
+        {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
+      </Tab.Screen>
+    </Tab.Navigator>
+  );
+}
