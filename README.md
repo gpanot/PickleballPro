@@ -1,100 +1,165 @@
-# PicklePro Mobile App
+# PickleballPro
 
-A React Native mobile application for pickleball training progression, built according to the PicklePro PRD specifications.
+A comprehensive React Native app for pickleball training with personalized onboarding and structured workout plans.
 
-## 🎾 Features
+## 🏓 Features
 
-- **DUPR Integration**: Syncs with official DUPR ratings (2.0-8.0)
-- **Structured Training**: Tiered progression system (Beginner, Intermediate, Advanced)
-- **Skill Tree View**: Visual progression through levels and exercises
-- **Coach Discovery**: Find and connect with certified pickleball coaches
-- **Badge System**: Unlock achievements as you complete levels
-- **Clean UI/UX**: Modern design following best practices
+### 📱 Complete Onboarding System
+- **Gender Selection**: Custom image-based selection with smooth animations
+- **Rating Integration**: DUPR rating input with validation and beginner-friendly defaults
+- **Personal Program Setup**: Name collection and user profile creation
+- **Training Goals**: Choose from improving DUPR rating, learning basics, consistency, or tournament prep
+- **Time Commitment**: Flexible scheduling from 1-2 hours to 5+ hours per week
+- **3-Month Commitment Visualization**: Interactive progress visualization encouraging long-term commitment
+- **Focus Areas**: Multi-select training focus areas (serves, volleys, footwork, etc.)
+- **Intensity Selection**: Personalized training intensity based on lifestyle
+- **Coaching Preferences**: Option to connect with qualified coaches
 
-## 🏗️ Architecture
+### 🎨 Modern UI Design
+- Clean, consistent design across all screens
+- Progress bars without text clutter for streamlined experience
+- Phone status bar integration
+- Card-based interface with shadows and animations
+- Blue accent color scheme (#007AFF)
+- Responsive layout for all screen sizes
 
-### Screens
-- **Authentication**: Mock sign-in with email/password
-- **Training**: Skill tree with tier/level progression
-- **Coach**: Directory with search and filters
-- **Profile**: DUPR rating, badges, stats, and settings
+### 📊 User Experience
+- Smooth navigation flow between onboarding screens
+- Visual feedback for selections
+- Auto-proceed for certain selections
+- Keyboard-avoiding views for input screens
+- Data persistence throughout the onboarding process
 
-### Navigation
-- Bottom tab navigation (Training, Coach, Profile)
-- Stack navigation for authentication flow
+## 🛠 Technical Stack
+
+- **Framework**: React Native with Expo
+- **Navigation**: React Navigation v6
+- **Context**: React Context for state management
+- **UI Components**: Custom components with modern design
+- **Icons**: Custom ModernIcon component
+- **Safe Areas**: React Native Safe Area Context
+- **Platform**: iOS and Android support
+
+## 📁 Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   ├── ModernIcon.js   # Custom icon component
+│   ├── TabIcon.js      # Tab navigation icons
+│   └── ...
+├── context/            # React Context providers
+│   ├── UserContext.js  # User data and onboarding state
+│   └── LogbookContext.js
+├── navigation/         # Navigation configuration
+│   ├── MainTabNavigator.js
+│   └── OnboardingNavigator.js
+├── screens/           # Screen components
+│   ├── IntroScreen.js
+│   ├── GenderSelectionScreen.js
+│   ├── RatingSelectionScreen.js
+│   ├── PersonalProgramScreen.js
+│   ├── TrainingGoalScreen.js
+│   ├── TimeCommitmentScreen.js
+│   ├── CommitmentVisualizationScreen.js
+│   ├── FocusAreasScreen.js
+│   ├── IntensitySelectionScreen.js
+│   ├── CoachingPreferenceScreen.js
+│   └── ...
+└── data/              # Mock data and constants
+```
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- Expo CLI (`npm install -g @expo/cli`)
-- iOS Simulator or Android Emulator (optional)
+- Node.js (v14 or later)
+- Expo CLI
+- iOS Simulator or Android Emulator (for testing)
 
 ### Installation
 
-1. Install dependencies:
+1. Clone the repository:
+```bash
+git clone https://github.com/guillaumepanot/PickleballPro.git
+cd PickleballPro
+```
+
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Start the development server:
+3. Start the development server:
 ```bash
-npm start
+npx expo start
 ```
 
-3. Run on device/simulator:
-```bash
-# iOS
-npm run ios
+4. Run on your preferred platform:
+   - Press `i` for iOS Simulator
+   - Press `a` for Android Emulator
+   - Scan QR code with Expo Go app on your device
 
-# Android
-npm run android
+## 📱 Onboarding Flow
 
-# Web (for testing)
-npm run web
-```
+1. **Intro Screen**: Welcome and app introduction
+2. **Gender Selection**: Visual selection with custom images
+3. **Rating Selection**: DUPR rating input or beginner option
+4. **Personal Program**: Name input and profile setup
+5. **Training Goals**: Select primary training objectives
+6. **Time Commitment**: Choose weekly training time
+7. **Commitment Visualization**: 3-month progress motivation
+8. **Focus Areas**: Multi-select training focus areas
+9. **Intensity Selection**: Personalized training intensity
+10. **Coaching Preference**: Optional coach matching
+11. **Program Loading**: Generate personalized training plan
 
-## 📱 App Structure
+## 🎯 Key Components
 
-```
-src/
-├── screens/
-│   ├── AuthScreen.js          # Login/authentication
-│   ├── ExploreTrainingScreen.js # Explore programs and DUPR training
-│   ├── CoachScreen.js         # Coach directory
-│   └── ProfileScreen.js       # User profile and settings
-├── navigation/
-│   └── MainTabNavigator.js    # Bottom tab navigation
-└── data/
-    └── mockData.js            # Mock data for development
-```
+### GenderSelectionScreen
+- Custom image-based selection
+- Text overlay on images
+- Smooth animations and transitions
 
-## 🎯 Current Implementation
+### RatingSelectionScreen
+- DUPR rating input with validation
+- Beginner-friendly default option
+- Keyboard-avoiding layout
 
-This MVP includes:
-- ✅ Authentication with mock sign-in
-- ✅ Training screen with tier/level progression
-- ✅ Coach finder with search and filters
-- ✅ Profile with DUPR rating and badges
-- ✅ Modern UI/UX design
-- ✅ Mock data for all features
+### CommitmentVisualizationScreen
+- 3-month progress visualization
+- Motivational messaging
+- Simple commitment button
 
-## 🔜 Next Steps
+### FocusAreasScreen
+- Multi-select grid layout
+- Visual selection indicators
+- Comprehensive training areas
 
-- Integrate with Supabase backend
-- Add DUPR API integration
-- Implement exercise detail screens
-- Add real-time progress tracking
-- Build coach booking system
+## 🔧 Development
 
-## 🛠️ Tech Stack
+### Code Style
+- Clean, modern React Native patterns
+- Functional components with hooks
+- Consistent styling with StyleSheet
+- Proper error handling and validation
 
-- **React Native**: Cross-platform mobile development
-- **Expo**: Development platform and tools
-- **React Navigation**: Navigation library
-- **Expo Linear Gradient**: Gradient backgrounds
-- **Expo Vector Icons**: Icon library
+### State Management
+- React Context for global state
+- Local state for component-specific data
+- Persistent storage for user preferences
 
 ## 📄 License
 
-This project is part of the PicklePro MVP development.
+This project is licensed under the MIT License.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📞 Support
+
+For questions or support, please open an issue in the GitHub repository.
+
+---
+
+**PickleballPro** - Your personalized pickleball training companion! 🏓
