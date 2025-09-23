@@ -149,6 +149,30 @@ export default function TabIcon({ name, focused, size = 24, color = '#000' }) {
           </View>
         );
         
+      case 'feedback':
+        return (
+          <View style={[styles.iconContainer, { width: size, height: size }]}>
+            <View style={[
+              styles.feedbackIcon,
+              { 
+                backgroundColor: focused ? color : 'transparent',
+                borderColor: color,
+                width: size * 0.8,
+                height: size * 0.7,
+              }
+            ]}>
+              <View style={[
+                styles.feedbackHeart,
+                { 
+                  backgroundColor: focused ? 'white' : color,
+                  width: size * 0.3,
+                  height: size * 0.3,
+                }
+              ]} />
+            </View>
+          </View>
+        );
+        
       default:
         return (
           <View style={[
@@ -244,6 +268,18 @@ const styles = StyleSheet.create({
   training2Plus2: {
     borderRadius: 1,
     position: 'absolute',
+  },
+  // Feedback icon (heart shape)
+  feedbackIcon: {
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '45deg' }],
+  },
+  feedbackHeart: {
+    borderRadius: 50,
+    transform: [{ rotate: '-45deg' }],
   },
   // Default fallback
   defaultIcon: {

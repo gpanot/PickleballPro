@@ -69,7 +69,9 @@ export const UserProvider = ({ children }) => {
   };
 
   const completeIntro = () => {
+    console.log('UserContext: completeIntro called - setting hasCompletedIntro to true');
     setHasCompletedIntro(true);
+    console.log('UserContext: hasCompletedIntro state should now be true');
   };
 
   const goBackToIntro = () => {
@@ -82,6 +84,15 @@ export const UserProvider = ({ children }) => {
 
   const completeOnboarding = () => {
     setHasCompletedOnboarding(true);
+  };
+
+  const resetAllOnboarding = () => {
+    console.log('UserContext: Resetting all onboarding state');
+    setHasCompletedIntro(false);
+    setHasSelectedGender(false);
+    setHasSetRating(false);
+    setHasCompletedPersonalProgram(false);
+    setHasCompletedOnboarding(false);
   };
 
   const getTierFromRating = (rating) => {
@@ -107,6 +118,7 @@ export const UserProvider = ({ children }) => {
     completeGenderSelection,
     completePersonalProgram,
     completeOnboarding,
+    resetAllOnboarding,
     setUser
   };
 

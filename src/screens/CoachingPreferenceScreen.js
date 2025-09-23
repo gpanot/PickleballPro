@@ -33,10 +33,10 @@ export default function CoachingPreferenceScreen({ onComplete }) {
 
   const handlePreferenceSelect = (preferenceId) => {
     setSelectedPreference(preferenceId);
-    // Immediately complete onboarding and navigate based on choice
+    // Navigate to CreateAccountScreen with coaching preference data
     onComplete({ 
       coach_preference: preferenceId,
-      navigateTo: preferenceId === 'yes' ? 'Coach' : 'Explore'
+      navigateTo: 'CreateAccount'
     });
   };
 

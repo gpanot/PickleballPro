@@ -6,14 +6,21 @@ import ExploreTrainingScreen from '../screens/ExploreTrainingScreen';
 import ProgramScreen from '../screens/ProgramScreen';
 import CoachScreen from '../screens/CoachScreen';
 import LogbookScreen from '../screens/LogbookScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function MainTabNavigator({ onLogout, initialRouteName = 'Explore' }) {
+export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Explore' }) {
+  // Get props from route params if passed via initialParams
+  const finalOnLogout = onLogout || route?.params?.onLogout;
+  const finalInitialRouteName = initialRouteName || route?.params?.initialRouteName || 'Explore';
+  
+  console.log('MainTabNavigator rendering! initialRouteName:', finalInitialRouteName);
+  console.log('onLogout available:', !!finalOnLogout);
+  
   return (
     <Tab.Navigator
-      initialRouteName={initialRouteName}
+      initialRouteName={finalInitialRouteName}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -26,8 +33,8 @@ export default function MainTabNavigator({ onLogout, initialRouteName = 'Explore
             iconName = 'coach';
           } else if (route.name === 'Logbook') {
             iconName = 'logbook';
-          } else if (route.name === 'Profile') {
-            iconName = 'profile';
+          } else if (route.name === 'Feedback') {
+            iconName = 'feedback';
           }
 
           return <TabIcon name={iconName} focused={focused} size={size} color={color} />;
@@ -78,10 +85,10 @@ export default function MainTabNavigator({ onLogout, initialRouteName = 'Explore
         component={LogbookScreen}
       />
       <Tab.Screen 
-        name="Profile"
-      >
-        {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
-      </Tab.Screen>
+        name="Feedback"
+        component={FeedbackScreen}
+        options={{ title: 'Feedback♥️' }}
+      />
     </Tab.Navigator>
   );
 }

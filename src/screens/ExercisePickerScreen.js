@@ -79,6 +79,11 @@ export default function ExercisePickerScreen({ navigation, route }) {
     }
   };
 
+  const handleExerciseDetail = (exercise) => {
+    // Navigate to exercise detail screen
+    navigation.navigate('ExerciseDetail', { exercise });
+  };
+
   const isExerciseUnavailable = (exerciseId) => {
     return alreadyAddedIds.includes(exerciseId) || removedExerciseIds.has(exerciseId);
   };
@@ -157,23 +162,28 @@ export default function ExercisePickerScreen({ navigation, route }) {
         {availableExercises.length > 0 ? (
           <View style={styles.exerciseListContainer}>
             {availableExercises.map((exercise, index) => (
-              <TouchableOpacity
+              <View
                 key={exercise.id}
                 style={[
                   styles.exerciseItem,
                   index === availableExercises.length - 1 && styles.exerciseItemLast
                 ]}
-                onPress={() => handleAddExercise(exercise)}
               >
-                <View style={styles.exerciseContent}>
+                <TouchableOpacity
+                  style={styles.exerciseContent}
+                  onPress={() => handleExerciseDetail(exercise)}
+                >
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.exerciseTarget}>Target: {exercise.target}</Text>
                   <Text style={styles.exerciseDescription}>{exercise.description}</Text>
-                </View>
-                <View style={styles.exerciseActions}>
-                  <Ionicons name="add-circle" size={24} color="#3B82F6" />
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.exerciseActions}
+                  onPress={() => handleAddExercise(exercise)}
+                >
+                  <Ionicons name="add-circle" size={32} color="#3B82F6" />
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
         ) : (
@@ -317,6 +327,10 @@ const styles = StyleSheet.create({
   exerciseActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    minWidth: 48,
+    minHeight: 48,
   },
   emptyState: {
     backgroundColor: 'white',

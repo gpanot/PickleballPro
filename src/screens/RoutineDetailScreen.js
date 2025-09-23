@@ -16,7 +16,7 @@ import WebIcon from '../components/WebIcon';
 import { useLogbook } from '../context/LogbookContext';
 
 export default function RoutineDetailScreen({ navigation, route }) {
-  const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker } = route.params;
+  const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source } = route.params;
   const insets = useSafeAreaInsets();
   const [routine, setRoutine] = React.useState(initialRoutine);
   const { addLogbookEntry } = useLogbook();
@@ -26,6 +26,11 @@ export default function RoutineDetailScreen({ navigation, route }) {
   const [selectedExercise, setSelectedExercise] = React.useState(null);
   const [logResult, setLogResult] = React.useState('');
   const [logNotes, setLogNotes] = React.useState('');
+  
+  // Session timer state
+  const [isSessionActive, setIsSessionActive] = React.useState(false);
+  const [sessionTime, setSessionTime] = React.useState(0);
+  const timerRef = React.useRef(null);
 
   // Update routine in parent when it changes
   React.useEffect(() => {
@@ -44,6 +49,26 @@ export default function RoutineDetailScreen({ navigation, route }) {
       return () => clearTimeout(timer);
     }
   }, [autoOpenExercisePicker]);
+
+  // Timer management
+  React.useEffect(() => {
+    if (isSessionActive) {
+      timerRef.current = setInterval(() => {
+        setSessionTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isSessionActive]);
 
   // Static exercises for exercise picker (would move to context in real app)
   const staticExercises = {
@@ -188,6 +213,38 @@ export default function RoutineDetailScreen({ navigation, route }) {
     setLogNotes('');
   };
 
+  // Session timer functions
+  const startSession = () => {
+    setIsSessionActive(true);
+    setSessionTime(0);
+  };
+
+  const cancelSession = () => {
+    setIsSessionActive(false);
+    setSessionTime(0);
+  };
+
+  const completeSession = () => {
+    setIsSessionActive(false);
+    setSessionTime(0);
+    Alert.alert(
+      'Session Completed!', 
+      'Great work on completing your training session!',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const exercises = routine.exercises || [];
 
   const renderExercisesContent = () => (
@@ -197,15 +254,20 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <Text style={styles.emptyExercisesIcon}>💪</Text>
           <Text style={styles.emptyExercisesTitle}>No Exercises Yet</Text>
           <Text style={styles.emptyExercisesDescription}>
-            Add exercises to this routine to create your training plan.
+            {source === 'explore' 
+              ? 'This routine doesn\'t have any exercises yet.'
+              : 'Add exercises to this routine to create your training plan.'
+            }
           </Text>
-          <TouchableOpacity
-            style={styles.addFirstExerciseButton}
-            onPress={openExercisePicker}
-          >
-            <WebIcon name="add" size={20} color="white" />
-            <Text style={styles.addFirstExerciseButtonText}>Add First Exercise</Text>
-          </TouchableOpacity>
+          {source !== 'explore' && (
+            <TouchableOpacity
+              style={styles.addFirstExerciseButton}
+              onPress={openExercisePicker}
+            >
+              <WebIcon name="add" size={20} color="white" />
+              <Text style={styles.addFirstExerciseButtonText}>Add First Exercise</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView 
@@ -215,43 +277,49 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <View style={styles.exercisesHeader}>
             <View style={styles.exercisesHeaderTop}>
               <Text style={styles.exercisesTitle}>Exercises ({exercises.length})</Text>
-              <TouchableOpacity
-                style={styles.addExerciseHeaderButton}
-                onPress={openExercisePicker}
-              >
-                <WebIcon name="add" size={16} color="#3B82F6" />
-                <Text style={styles.addExerciseHeaderButtonText}>Add</Text>
-              </TouchableOpacity>
+              {source !== 'explore' && (
+                <TouchableOpacity
+                  style={styles.addExerciseHeaderButton}
+                  onPress={openExercisePicker}
+                >
+                  <WebIcon name="add" size={16} color="#3B82F6" />
+                  <Text style={styles.addExerciseHeaderButtonText}>Add</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={styles.exercisesSubtitle}>Tap to practice • Long press to remove</Text>
+            <Text style={styles.exercisesSubtitle}>
+              {source === 'explore' ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
+            </Text>
           </View>
           
           {exercises.map((exercise, index) => (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
-              <View style={styles.exerciseReorderHandle}>
-                <TouchableOpacity
-                  style={styles.reorderButton}
-                  onPress={() => moveExerciseUp(index)}
-                  disabled={index === 0}
-                >
-                  <WebIcon 
-                    name="chevron-up" 
-                    size={16} 
-                    color={index === 0 ? "#D1D5DB" : "#6B7280"} 
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.reorderButton}
-                  onPress={() => moveExerciseDown(index)}
-                  disabled={index === exercises.length - 1}
-                >
-                  <WebIcon 
-                    name="chevron-down" 
-                    size={16} 
-                    color={index === exercises.length - 1 ? "#D1D5DB" : "#6B7280"} 
-                  />
-                </TouchableOpacity>
-              </View>
+              {source !== 'explore' && (
+                <View style={styles.exerciseReorderHandle}>
+                  <TouchableOpacity
+                    style={styles.reorderButton}
+                    onPress={() => moveExerciseUp(index)}
+                    disabled={index === 0}
+                  >
+                    <WebIcon 
+                      name="chevron-up" 
+                      size={16} 
+                      color={index === 0 ? "#D1D5DB" : "#6B7280"} 
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.reorderButton}
+                    onPress={() => moveExerciseDown(index)}
+                    disabled={index === exercises.length - 1}
+                  >
+                    <WebIcon 
+                      name="chevron-down" 
+                      size={16} 
+                      color={index === exercises.length - 1 ? "#D1D5DB" : "#6B7280"} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
               
               <TouchableOpacity
                 style={styles.exerciseContent}
@@ -276,7 +344,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                     previousAttempts: []
                   }
                 })}
-                onLongPress={() => removeExerciseFromRoutine(exercise.routineExerciseId)}
+                onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
@@ -284,39 +352,79 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   <Text style={styles.exerciseDescription}>{exercise.description}</Text>
                 </View>
                 
-                <View style={styles.exerciseActions}>
-                  <View style={styles.exerciseButtonsContainer}>
-                    <View style={[
-                      styles.exerciseButton,
-                      { backgroundColor: '#3B82F6' }
-                    ]}>
-                      <Text style={[
-                        styles.exerciseButtonText,
-                        { color: 'white' }
-                      ]}>
-                        Details
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[
+                {source !== 'explore' && (
+                  <View style={styles.exerciseActions}>
+                    <View style={styles.exerciseButtonsContainer}>
+                      <View style={[
                         styles.exerciseButton,
-                        styles.addLogButton,
-                        { backgroundColor: '#10B981' }
-                      ]}
-                      onPress={() => handleAddLog(exercise)}
-                    >
-                      <Text style={[
-                        styles.exerciseButtonText,
-                        { color: 'white' }
+                        { backgroundColor: '#3B82F6' }
                       ]}>
-                        Add Log
-                      </Text>
-                    </TouchableOpacity>
+                        <Text style={[
+                          styles.exerciseButtonText,
+                          { color: 'white' }
+                        ]}>
+                          Details
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.exerciseButton,
+                          styles.addLogButton,
+                          { backgroundColor: '#10B981' }
+                        ]}
+                        onPress={() => handleAddLog(exercise)}
+                      >
+                        <Text style={[
+                          styles.exerciseButtonText,
+                          { color: 'white' }
+                        ]}>
+                          Add Log
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
+                )}
               </TouchableOpacity>
             </View>
           ))}
+          
+          {/* Session Controls */}
+          {exercises.length > 0 && source !== 'explore' && (
+            <View style={styles.sessionControls}>
+              {!isSessionActive ? (
+                <TouchableOpacity
+                  style={styles.startSessionButton}
+                  onPress={startSession}
+                >
+                  <WebIcon name="play" size={20} color="white" />
+                  <Text style={styles.startSessionButtonText}>Start this session</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.activeSessionContainer}>
+                  <View style={styles.timerContainer}>
+                    <WebIcon name="time" size={24} color="#3B82F6" />
+                    <Text style={styles.timerText}>{formatTime(sessionTime)}</Text>
+                  </View>
+                  
+                  <View style={styles.sessionActions}>
+                    <TouchableOpacity
+                      style={styles.cancelButton}
+                      onPress={cancelSession}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.completeButton}
+                      onPress={completeSession}
+                    >
+                      <Text style={styles.completeButtonText}>Completed</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       )}
     </View>
@@ -741,5 +849,85 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  // Session timer styles
+  sessionControls: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  startSessionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  startSessionButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  activeSessionContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+  },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    gap: 8,
+  },
+  timerText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  sessionActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  completeButton: {
+    flex: 1,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  completeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });

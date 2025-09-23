@@ -15,18 +15,23 @@ import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import { useLogbook } from '../context/LogbookContext';
 
-export default function AddTrainingSessionScreen({ navigation }) {
-  const { addLogbookEntry } = useLogbook();
+export default function EditTrainingSessionScreen({ navigation, route }) {
+  const { updateLogbookEntry } = useLogbook();
   const insets = useSafeAreaInsets();
+  const { entry } = route.params;
   
-  // Form state
-  const [hours, setHours] = useState(1); // Default to 1 hour
-  const [date, setDate] = useState(new Date());
-  const [feeling, setFeeling] = useState(3); // 1-5 scale
-  const [trainingFocus, setTrainingFocus] = useState(['dinks']); // Array for multiple selections
-  const [difficulty, setDifficulty] = useState(['dinks']); // Array for multiple selections
-  const [sessionType, setSessionType] = useState('single'); // Single selection only
-  const [notes, setNotes] = useState('');
+  // Initialize form state with existing entry data
+  const [hours, setHours] = useState(entry.hours || 1);
+  const [date, setDate] = useState(new Date(entry.date));
+  const [feeling, setFeeling] = useState(entry.feeling || 3);
+  const [trainingFocus, setTrainingFocus] = useState(
+    Array.isArray(entry.trainingFocus) ? entry.trainingFocus : [entry.trainingFocus || 'dinks']
+  );
+  const [difficulty, setDifficulty] = useState(
+    Array.isArray(entry.difficulty) ? entry.difficulty : [entry.difficulty || 'dinks']
+  );
+  const [sessionType, setSessionType] = useState(entry.sessionType || 'single');
+  const [notes, setNotes] = useState(entry.notes || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Feeling options
@@ -94,8 +99,7 @@ export default function AddTrainingSessionScreen({ navigation }) {
       return;
     }
 
-    const entry = {
-      id: Date.now().toString(),
+    const updatedEntry = {
       date: date.toISOString().split('T')[0], // Convert to YYYY-MM-DD format
       hours: hours,
       feeling,
@@ -103,14 +107,14 @@ export default function AddTrainingSessionScreen({ navigation }) {
       difficulty,
       sessionType,
       notes: notes.trim(),
-      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    addLogbookEntry(entry);
+    updateLogbookEntry(entry.id, updatedEntry);
     
     Alert.alert(
       'Success', 
-      'Training session logged successfully!',
+      'Training session updated successfully!',
       [
         {
           text: 'OK',
@@ -157,7 +161,7 @@ export default function AddTrainingSessionScreen({ navigation }) {
             color="#007AFF" 
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Log Training Session</Text>
+        <Text style={styles.headerTitle}>Edit Training Session</Text>
         <TouchableOpacity
           style={styles.saveButton}
           onPress={handleSubmit}

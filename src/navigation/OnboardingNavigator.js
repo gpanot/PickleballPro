@@ -6,6 +6,8 @@ import CommitmentVisualizationScreen from '../screens/CommitmentVisualizationScr
 import FocusAreasScreen from '../screens/FocusAreasScreen';
 import IntensitySelectionScreen from '../screens/IntensitySelectionScreen';
 import CoachingPreferenceScreen from '../screens/CoachingPreferenceScreen';
+import CreateAccountScreen from '../screens/CreateAccountScreen';
+import SignUpScreen from '../screens/SignUpScreen';
 import ProgramLoadingScreen from '../screens/ProgramLoadingScreen';
 
 const Stack = createStackNavigator();
@@ -101,8 +103,8 @@ export default function OnboardingNavigator({ onComplete }) {
           <CoachingPreferenceScreen 
             {...props} 
             onComplete={(data) => {
-              // Navigate to program loading screen
-              props.navigation.navigate('ProgramLoading', { 
+              // Navigate to create account screen
+              props.navigation.navigate('CreateAccount', { 
                 previousData: { 
                   ...props.route.params?.previousData, 
                   ...data 
@@ -113,14 +115,53 @@ export default function OnboardingNavigator({ onComplete }) {
         )}
       </Stack.Screen>
       
+      <Stack.Screen name="CreateAccount">
+        {(props) => (
+          <CreateAccountScreen 
+            {...props} 
+            onContinueWithEmail={(data) => {
+              // Navigate to sign up screen
+              props.navigation.navigate('SignUp', { 
+                previousData: data
+              });
+            }} 
+          />
+        )}
+      </Stack.Screen>
+      
+      <Stack.Screen name="SignUp">
+        {(props) => (
+          <SignUpScreen 
+            {...props} 
+            onSignUp={(data) => {
+              // Navigate to program loading screen after successful sign up
+              props.navigation.navigate('ProgramLoading', { 
+                previousData: { 
+                  ...props.route.params?.previousData, 
+                  ...data 
+                } 
+              });
+            }}
+            onSignIn={() => {
+              // Navigate back to create account or implement sign in flow
+              props.navigation.goBack();
+            }}
+          />
+        )}
+      </Stack.Screen>
+      
       <Stack.Screen name="ProgramLoading">
         {(props) => (
           <ProgramLoadingScreen 
             {...props} 
             onComplete={() => {
-              // Complete onboarding with all collected data
+              // Complete onboarding with all collected data and navigate to Explore
               const allData = props.route.params?.previousData || {};
-              onComplete(allData);
+              // Set navigateTo to Explore for this specific flow
+              onComplete({
+                ...allData,
+                navigateTo: 'Explore'
+              });
             }} 
           />
         )}

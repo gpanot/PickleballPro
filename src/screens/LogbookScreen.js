@@ -12,10 +12,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
 
 export default function LogbookScreen({ navigation }) {
   const { user } = useUser();
+  const { user: authUser } = useAuth();
   const { logbookEntries, isLoading, deleteLogbookEntry, getLogbookSummary } = useLogbook();
   const insets = useSafeAreaInsets();
 
@@ -35,6 +37,14 @@ export default function LogbookScreen({ navigation }) {
     { value: 'serves', emoji: '🎾', label: 'Serves', color: '#F59E0B' },
     { value: 'returns', emoji: '↩️', label: 'Returns', color: '#8B5CF6' },
     { value: 'volleys', emoji: '🛡️', label: 'Volleys/Resets', color: '#EF4444' },
+  ];
+
+  // Session type options
+  const sessionTypeOptions = [
+    { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
+    { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
+    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
+    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
   ];
 
 
@@ -76,24 +86,27 @@ export default function LogbookScreen({ navigation }) {
     return trainingFocusOptions.find(option => option.value === value) || trainingFocusOptions[0];
   };
 
+  const getSessionTypeData = (value) => {
+    return sessionTypeOptions.find(option => option.value === value) || sessionTypeOptions[0];
+  };
+
 
   const summary = getLogbookSummary();
 
   const renderHeader = () => (
-    <View style={styles.header}>
-      <WebLinearGradient
-        colors={['#10B981', '#059669']}
-        style={styles.headerGradient}
+    <View style={styles.headerContainer}>
+      <Text style={styles.headerTitle}>Your Logbook</Text>
+      <TouchableOpacity 
+        style={styles.avatarButton}
+        onPress={() => navigation.navigate('Profile')}
+        activeOpacity={0.7}
       >
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.headerTitle}>Your Logbook</Text>
-              <Text style={styles.headerSubtitle}>Track your training progress</Text>
-            </View>
-          </View>
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>
+            {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+          </Text>
         </View>
-      </WebLinearGradient>
+      </TouchableOpacity>
     </View>
   );
 
@@ -172,9 +185,12 @@ export default function LogbookScreen({ navigation }) {
               ? entry.trainingFocus 
               : [entry.trainingFocus || 'dinks'];
             
+            const sessionTypeData = getSessionTypeData(entry.sessionType);
+            
             return (
               <TouchableWithoutFeedback
                 key={entry.id}
+                onPress={() => navigation.navigate('EditTrainingSession', { entry })}
                 onLongPress={() => handleDeleteEntry(entry)}
                 delayLongPress={800}
               >
@@ -184,17 +200,25 @@ export default function LogbookScreen({ navigation }) {
                       <Text style={styles.entryDate}>{formatDate(entry.date)}</Text>
                       <Text style={styles.entryHours}>{entry.hours}h</Text>
                     </View>
-                    <View style={styles.entryFeeling}>
-                      <Text style={styles.entryFeelingEmoji}>{feelingData.emoji}</Text>
-                      <Text style={[styles.entryFeelingLabel, { color: feelingData.color }]}>
-                        {feelingData.label}
-                      </Text>
+                    <View style={styles.entryMetadata}>
+                      <View style={styles.entrySessionType}>
+                        <Text style={styles.entrySessionTypeEmoji}>{sessionTypeData.emoji}</Text>
+                        <Text style={[styles.entrySessionTypeLabel, { color: sessionTypeData.color }]}>
+                          {sessionTypeData.label}
+                        </Text>
+                      </View>
+                      <View style={styles.entryFeeling}>
+                        <Text style={styles.entryFeelingEmoji}>{feelingData.emoji}</Text>
+                        <Text style={[styles.entryFeelingLabel, { color: feelingData.color }]}>
+                          {feelingData.label}
+                        </Text>
+                      </View>
                     </View>
                   </View>
                   
-                  {/* Training focus display */}
+                  {/* What went good display */}
                   <View style={styles.entryFocusContainer}>
-                    <Text style={styles.entryFocusTitle}>Focused on:</Text>
+                    <Text style={styles.entryFocusTitle}>What went good:</Text>
                     <View style={styles.entryFocusTags}>
                       {entryFocuses.map((focus, index) => {
                         const focusData = getTrainingFocusData(focus);
@@ -210,13 +234,33 @@ export default function LogbookScreen({ navigation }) {
                     </View>
                   </View>
                   
+                  {/* What went wrong display */}
+                  {entry.difficulty && (
+                    <View style={styles.entryDifficultyContainer}>
+                      <Text style={styles.entryDifficultyTitle}>What went wrong:</Text>
+                      <View style={styles.entryDifficultyTags}>
+                        {(Array.isArray(entry.difficulty) ? entry.difficulty : [entry.difficulty]).map((difficulty, index) => {
+                          const difficultyData = getTrainingFocusData(difficulty);
+                          return (
+                            <View key={index} style={[styles.entryDifficultyTag, { borderColor: difficultyData.color }]}>
+                              <Text style={styles.entryDifficultyTagEmoji}>{difficultyData.emoji}</Text>
+                              <Text style={[styles.entryDifficultyTagLabel, { color: difficultyData.color }]}>
+                                {difficultyData.label}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+                  
                   {entry.notes && (
                     <Text style={styles.entryNotes}>{entry.notes}</Text>
                   )}
                   
-                  {/* Visual hint for long press */}
+                  {/* Visual hint for interactions */}
                   <View style={styles.entryHint}>
-                    <Text style={styles.entryHintText}>Hold to delete</Text>
+                    <Text style={styles.entryHintText}>Tap to edit • Hold to delete</Text>
                   </View>
                 </View>
               </TouchableWithoutFeedback>
@@ -267,7 +311,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   headerSafeArea: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     zIndex: 1000,
   },
   scrollView: {
@@ -277,33 +321,42 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   // Header styles
-  header: {
-    marginBottom: 0,
-  },
-  headerGradient: {
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  headerContent: {
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerTop: {
+  headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 0,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937',
+    flex: 1,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+  avatarButton: {
+    padding: 4,
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
   // Floating Action Button
   fab: {
@@ -483,6 +536,23 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontWeight: '600',
   },
+  entryMetadata: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  entrySessionType: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  entrySessionTypeEmoji: {
+    fontSize: 16,
+  },
+  entrySessionTypeLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
   entryFeeling: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -524,6 +594,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   entryFocusTagLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  // Difficulty styles (reuse focus styles with different naming)
+  entryDifficultyContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  entryDifficultyTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 6,
+  },
+  entryDifficultyTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  entryDifficultyTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    gap: 4,
+  },
+  entryDifficultyTagEmoji: {
+    fontSize: 12,
+  },
+  entryDifficultyTagLabel: {
     fontSize: 11,
     fontWeight: '600',
   },

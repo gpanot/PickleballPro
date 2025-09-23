@@ -9,16 +9,40 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
-import LogResultComponent from '../components/LogResultComponent';
 import { Ionicons } from '@expo/vector-icons';
 
 const ExerciseDetailScreen = ({ route, navigation }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showLogResult, setShowLogResult] = useState(false);
   const insets = useSafeAreaInsets();
   
   // Get exercise data from navigation params or use mock data
-  const exercise = route?.params?.exercise || {
+  const rawExercise = route?.params?.exercise;
+  
+  // Transform picker exercise format to detail screen format
+  const exercise = rawExercise ? {
+    code: rawExercise.id || "1.1",
+    title: rawExercise.name || "Exercise",
+    level: `Difficulty Level ${rawExercise.difficulty || 1}`,
+    goal: rawExercise.description || "Complete the exercise successfully",
+    instructions: `Target: ${rawExercise.target || "Complete the exercise"}
+
+Description:
+${rawExercise.description || "No additional instructions available"}
+
+Success Criteria:
+${rawExercise.target || "Complete as instructed"}`,
+    targetType: "count",
+    targetValue: rawExercise.target || "Complete",
+    difficulty: rawExercise.difficulty || 1,
+    validationMode: "manual",
+    estimatedTime: "10-15 min",
+    equipment: ["Balls", "Paddle"],
+    tips: [
+      "Focus on proper form and technique",
+      "Take your time with each repetition", 
+      "Practice consistently for best results"
+    ]
+  } : {
     code: "7.1",
     title: "Drop Consistency",
     level: "Level 7: Third Shot Drop",
@@ -46,22 +70,9 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
       "Keep your paddle face open",
       "Use your legs for power, not your arm", 
       "Aim for the kitchen line, not the net"
-    ],
-    previousAttempts: [
-      { date: "2 days ago", result: "4/10", passed: false },
-      { date: "1 week ago", result: "3/10", passed: false }
     ]
   };
 
-  const handleResultSubmitted = (resultData) => {
-    // Handle the result submission - could save to local storage, API, etc.
-    console.log('Result submitted:', resultData);
-    // You can add logic here to update the exercise progress
-  };
-
-  const handleLogResultClose = () => {
-    setShowLogResult(false);
-  };
 
   const getDifficultyStars = () => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -135,31 +146,31 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
     </View>
   );
 
-  const renderInstructions = () => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Instructions</Text>
-      
-      <View style={styles.instructionSection}>
-        <Text style={styles.instructionSectionTitle}>Setup:</Text>
-        <Text style={styles.instructionItem}>- Stand at the baseline</Text>
-        <Text style={styles.instructionItem}>- Partner feeds balls from the NVZ</Text>
-        <Text style={styles.instructionItem}>- Focus on soft touch and arc</Text>
+  const renderInstructions = () => {
+    // Split instructions by double newlines to create sections
+    const instructionSections = exercise.instructions.split('\n\n');
+    
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Instructions</Text>
+        
+        {instructionSections.map((section, index) => {
+          const lines = section.split('\n');
+          const title = lines[0];
+          const items = lines.slice(1);
+          
+          return (
+            <View key={index} style={styles.instructionSection}>
+              <Text style={styles.instructionSectionTitle}>{title}</Text>
+              {items.map((item, itemIndex) => (
+                <Text key={itemIndex} style={styles.instructionItem}>{item}</Text>
+              ))}
+            </View>
+          );
+        })}
       </View>
-
-      <View style={styles.instructionSection}>
-        <Text style={styles.instructionSectionTitle}>Execution:</Text>
-        <Text style={styles.instructionItem}>1. Take a comfortable ready position</Text>
-        <Text style={styles.instructionItem}>2. Use a pendulum swing motion</Text>
-        <Text style={styles.instructionItem}>3. Aim for the NVZ with proper arc</Text>
-        <Text style={styles.instructionItem}>4. Reset after each attempt</Text>
-      </View>
-
-      <View style={styles.instructionSection}>
-        <Text style={styles.instructionSectionTitle}>Success Criteria:</Text>
-        <Text style={styles.instructionItem}>Land 6 out of 10 drops in the NVZ to pass this drill.</Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderTips = () => (
     <View style={styles.card}>
@@ -177,42 +188,7 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
     </View>
   );
 
-  const renderPreviousAttempts = () => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Previous Attempts</Text>
-      {exercise.previousAttempts.length > 0 ? (
-        <View style={styles.attemptsContainer}>
-          {exercise.previousAttempts.map((attempt, index) => (
-            <View key={index} style={styles.attemptItem}>
-              <Text style={styles.attemptDate}>{attempt.date}</Text>
-              <View style={styles.attemptResult}>
-                <Text style={styles.attemptScore}>{attempt.result}</Text>
-                <ModernIcon 
-                  name={attempt.passed ? "checkmark" : "close"} 
-                  size={16} 
-                  color={attempt.passed ? "#10B981" : "#EF4444"} 
-                />
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <Text style={styles.noAttemptsText}>No previous attempts</Text>
-      )}
-    </View>
-  );
 
-  const renderFixedLogButton = () => (
-    <View style={[styles.fixedButtonContainer, { paddingBottom: insets.bottom || 16 }]}>
-      <TouchableOpacity
-        style={styles.logButton}
-        onPress={() => setShowLogResult(true)}
-      >
-        <ModernIcon name="clipboard" size={20} color="white" />
-        <Text style={styles.logButtonText}>Log your result</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -229,18 +205,8 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
           {renderVideoSection()}
           {renderInstructions()}
           {renderTips()}
-          {renderPreviousAttempts()}
-          <View style={styles.bottomSpacing} />
         </View>
       </ScrollView>
-      {renderFixedLogButton()}
-      <LogResultComponent
-        exercise={exercise}
-        visible={showLogResult}
-        onResultSubmitted={handleResultSubmitted}
-        onClose={handleLogResultClose}
-        navigation={navigation}
-      />
     </View>
   );
 };
@@ -433,69 +399,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
-  },
-  attemptsContainer: {
-    gap: 8,
-  },
-  attemptItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 8,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-  },
-  attemptDate: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  attemptResult: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  attemptScore: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
-  },
-  noAttemptsText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontStyle: 'italic',
-  },
-  fixedButtonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
-  },
-  logButton: {
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  logButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  bottomSpacing: {
-    height: 120, // Extra space for fixed button
   },
 });
 

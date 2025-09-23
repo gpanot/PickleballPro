@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 
 export default function ProgramDetailScreen({ navigation, route }) {
-  const { program: initialProgram, onUpdateProgram } = route.params;
+  const { program: initialProgram, onUpdateProgram, source } = route.params;
   const insets = useSafeAreaInsets();
   const [program, setProgram] = React.useState(initialProgram);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = React.useState(false);
@@ -92,6 +92,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
     navigation.navigate('RoutineDetail', { 
       program,
       routine,
+      source,
       onUpdateRoutine: (updatedRoutine) => {
         setProgram(prev => ({
           ...prev,
@@ -103,6 +104,35 @@ export default function ProgramDetailScreen({ navigation, route }) {
     });
   };
 
+  const addToMyPrograms = () => {
+    Alert.alert(
+      'Add to My Programs',
+      `Do you want to add "${program.name}" to your personal program list?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Add Program', 
+          onPress: () => {
+            // Create a new program object with a new ID and timestamp for the user's collection
+            const newProgram = {
+              ...program,
+              id: Date.now().toString(), // New ID for user's collection
+              addedFromExplore: true,
+              addedAt: new Date().toISOString(),
+            };
+            
+            // Navigate back to main Programs screen and pass the new program
+            navigation.navigate('Training2', { 
+              newProgram: newProgram 
+            });
+            
+            Alert.alert('Success', 'Program added to your list!');
+          }
+        }
+      ]
+    );
+  };
+
   const renderRoutinesContent = () => (
     <View style={styles.routinesContainer}>
       {program.routines.length === 0 ? (
@@ -110,14 +140,26 @@ export default function ProgramDetailScreen({ navigation, route }) {
           <Text style={styles.emptyRoutinesIcon}>📋</Text>
           <Text style={styles.emptyRoutinesTitle}>No Routines Yet</Text>
           <Text style={styles.emptyRoutinesDescription}>
-            Create your first routine to organize exercises within this program.
+            {source === 'explore' 
+              ? 'Preview this program and add it to your personal collection.'
+              : 'Create your first routine to organize exercises within this program.'
+            }
           </Text>
           <TouchableOpacity
-            style={styles.addFirstRoutineButton}
-            onPress={() => setShowCreateRoutineModal(true)}
+            style={[
+              styles.addFirstRoutineButton,
+              source === 'explore' && styles.addToProgramsButton
+            ]}
+            onPress={source === 'explore' ? addToMyPrograms : () => setShowCreateRoutineModal(true)}
           >
-            <WebIcon name="add" size={20} color="white" />
-            <Text style={styles.addFirstRoutineButtonText}>Create First Routine</Text>
+            <WebIcon 
+              name={source === 'explore' ? 'bookmark' : 'add'} 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.addFirstRoutineButtonText}>
+              {source === 'explore' ? 'Add to my Program List' : 'Create First Routine'}
+            </Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -127,7 +169,9 @@ export default function ProgramDetailScreen({ navigation, route }) {
         >
           <View style={styles.routinesHeader}>
             <Text style={styles.routinesTitle}>Routines ({program.routines.length})</Text>
-            <Text style={styles.routinesSubtitle}>Tap to open • Long press to delete</Text>
+            <Text style={styles.routinesSubtitle}>
+              {source === 'explore' ? 'Tap to preview routine' : 'Tap to open • Long press to delete'}
+            </Text>
           </View>
           
           {program.routines.map((routine) => (
@@ -135,7 +179,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
               <TouchableOpacity
                 style={styles.routineContent}
                 onPress={() => navigateToRoutine(routine)}
-                onLongPress={() => deleteRoutine(routine.id)}
+                onLongPress={source === 'explore' ? undefined : () => deleteRoutine(routine.id)}
               >
                 <View style={styles.routineInfo}>
                   <Text style={styles.routineName}>{routine.name}</Text>
@@ -159,11 +203,20 @@ export default function ProgramDetailScreen({ navigation, route }) {
           ))}
 
           <TouchableOpacity
-            style={styles.addMoreRoutinesButton}
-            onPress={() => setShowCreateRoutineModal(true)}
+            style={[
+              styles.addMoreRoutinesButton,
+              source === 'explore' && styles.addToProgramsButton
+            ]}
+            onPress={source === 'explore' ? addToMyPrograms : () => setShowCreateRoutineModal(true)}
           >
-            <WebIcon name="add" size={20} color="white" />
-            <Text style={styles.addMoreRoutinesButtonText}>Add new routine</Text>
+            <WebIcon 
+              name={source === 'explore' ? 'bookmark' : 'add'} 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.addMoreRoutinesButtonText}>
+              {source === 'explore' ? 'Add to my Program List' : 'Add new routine'}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -417,6 +470,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  addToProgramsButton: {
+    backgroundColor: '#8B5CF6',
   },
   // Modal styles
   modalContainer: {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,22 +6,20 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../context/AuthContext';
+import { checkAdminAccess } from '../lib/supabase';
 
 import { tiers, levels } from '../data/mockData';
 
 // Combined data for the merged profile/home screen
-const quickActions = [
-  { id: 1, title: 'Continue Training', icon: 'training', color: '#3B82F6', description: 'Resume your progress' },
-  { id: 2, title: 'Find Coach', icon: 'coach', color: '#10B981', description: 'Book a session' },
-  { id: 3, title: 'View Progress', icon: 'progress', color: '#8B5CF6', description: 'Track your stats' },
-  { id: 4, title: 'Challenges', icon: 'challenge', color: '#F59E0B', description: 'Extra practice' },
-];
 
 const recentActivity = [
   { id: 1, type: 'exercise', title: 'Dink Wall Drill', status: 'completed', time: '2 hours ago', points: '+15 XP' },
@@ -31,12 +29,29 @@ const recentActivity = [
 ];
 
 
-export default function ProfileScreen({ onLogout }) {
+export default function ProfileScreen({ onLogout, navigation }) {
   const { user } = useUser();
+  const { user: authUser, isAuthenticated, signOut } = useAuth();
   const insets = useSafeAreaInsets();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && authUser) {
+      checkAdmin();
+    }
+  }, [isAuthenticated, authUser]);
+
+  const checkAdmin = async () => {
+    try {
+      const { isAdmin: adminStatus } = await checkAdminAccess(authUser.id);
+      setIsAdmin(adminStatus);
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      setIsAdmin(false);
+    }
+  };
   const completedLevels = levels.filter(level => level.completed).length;
   const totalLevels = levels.length;
-  const unlockedBadges = user.badges.filter(badge => badge.unlocked);
   
 
   const handleSyncDUPR = () => {
@@ -67,7 +82,15 @@ export default function ProfileScreen({ onLogout }) {
 
   const handleLogout = () => {
     console.log('handleLogout called!');
-    console.log('onLogout prop:', onLogout);
+    
+    // For web, bypass the Alert and logout directly (Alert doesn't work well on web)
+    if (Platform.OS === 'web') {
+      console.log('Web platform detected - logging out directly...');
+      performLogout();
+      return;
+    }
+    
+    // For mobile, show confirmation alert
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
@@ -76,68 +99,77 @@ export default function ProfileScreen({ onLogout }) {
         { 
           text: 'Logout', 
           style: 'destructive', 
-          onPress: () => {
-            console.log('Logout confirmed, calling onLogout...');
-            if (onLogout) {
-              onLogout();
-            } else {
-              console.log('onLogout is not available!');
-            }
-          }
+          onPress: performLogout
         }
       ]
     );
   };
+  
+  const performLogout = async () => {
+    console.log('performLogout called - signing out from Supabase...');
+    try {
+      await signOut();
+      console.log('Successfully signed out from Supabase');
+      
+      // Also call the onLogout prop if available (for additional cleanup)
+      if (onLogout) {
+        console.log('Calling onLogout prop for additional cleanup...');
+        onLogout();
+      }
+    } catch (error) {
+      console.error('Error signing out:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
+  };
 
-  const renderProfileHeader = () => (
-    <View style={styles.profileHeader}>
-      <WebLinearGradient
-        colors={['#4F46E5', '#7C3AED']}
-        style={styles.profileGradient}
+  const renderTopBar = () => (
+    <View style={styles.topBar}>
+      <TouchableOpacity 
+        style={styles.backButton} 
+        onPress={() => navigation.goBack()}
+        activeOpacity={0.7}
       >
-        <View style={styles.profileContent}>
-          <View style={styles.profileTop}>
-            <View style={styles.profileInfo}>
-              <View style={styles.avatarContainer}>
-                <Text style={styles.avatarText}>
-                  {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
-                </Text>
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{user.name || 'User'}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.duprCard}>
-              <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
-              <TouchableOpacity style={styles.syncButton} onPress={handleSyncDUPR}>
-                <ModernIcon name="sync" size={14} color="white" />
-                <Text style={styles.syncText}>DUPR sync</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </WebLinearGradient>
+        <Ionicons 
+          name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
+          size={24} 
+          color="#007AFF" 
+        />
+      </TouchableOpacity>
+      <Text style={styles.topBarTitle}>Profile</Text>
+      <View style={styles.topBarRightSpace} />
     </View>
   );
 
-
-  const renderQuickActions = () => (
+  const renderProfileSection = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-      <View style={styles.actionsGrid}>
-        {quickActions.map((action) => (
-          <TouchableOpacity key={action.id} style={styles.actionCard}>
-            <View style={[styles.actionIcon, { backgroundColor: action.color }]}>
-              <ModernIcon name={action.icon} size={24} color="white" focused={true} />
+      <View style={styles.profileCard}>
+        <View style={styles.profileContent}>
+          <View style={styles.profileInfo}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.avatarText}>
+                {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+              </Text>
             </View>
-            <Text style={styles.actionTitle}>{action.title}</Text>
-            <Text style={styles.actionDescription}>{action.description}</Text>
-          </TouchableOpacity>
-        ))}
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user.name || 'User'}</Text>
+              <Text style={styles.userEmail}>{authUser?.email || user.email || ''}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.duprSection}>
+            <Text style={styles.duprLabel}>DUPR Rating</Text>
+            <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
+            <TouchableOpacity style={styles.syncButton} onPress={handleSyncDUPR}>
+              <ModernIcon name="sync" size={14} color="#6366F1" />
+              <Text style={styles.syncText}>Sync DUPR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </View>
   );
+
+
 
   const renderRecentActivity = () => (
     <View style={styles.section}>
@@ -165,47 +197,6 @@ export default function ProfileScreen({ onLogout }) {
     </View>
   );
 
-  const renderAchievements = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Achievements</Text>
-      
-      <View style={styles.badgesGrid}>
-        {user.badges.slice(0, 6).map((badge) => (
-          <View 
-            key={badge.id} 
-            style={[
-              styles.badgeCard,
-              !badge.unlocked && styles.badgeCardLocked
-            ]}
-          >
-            <Text style={[
-              styles.badgeEmoji,
-              !badge.unlocked && styles.badgeEmojiLocked
-            ]}>
-              {badge.emoji}
-            </Text>
-            <Text style={[
-              styles.badgeName,
-              !badge.unlocked && styles.badgeNameLocked
-            ]}>
-              {badge.name}
-            </Text>
-            {!badge.unlocked && (
-              <View style={styles.lockedOverlay}>
-                <ModernIcon name="settings" size={16} color="#9CA3AF" />
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-      
-      <View style={styles.badgesSummary}>
-        <Text style={styles.badgesSummaryText}>
-          {unlockedBadges.length} of {user.badges.length} achievements unlocked
-        </Text>
-      </View>
-    </View>
-  );
 
   const renderOverallStats = () => (
     <View style={styles.section}>
@@ -218,7 +209,7 @@ export default function ProfileScreen({ onLogout }) {
         </View>
         
         <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>{unlockedBadges.length}</Text>
+          <Text style={styles.statNumber}>8</Text>
           <Text style={styles.statLabel}>Badges Earned</Text>
         </View>
         
@@ -238,6 +229,36 @@ export default function ProfileScreen({ onLogout }) {
   const renderSettings = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Settings</Text>
+      
+      {/* Admin Dashboard Button - Only show for admins */}
+      {isAdmin && (
+        <TouchableOpacity 
+          style={[styles.settingsItem, { backgroundColor: '#F0F9FF' }]} 
+          onPress={() => navigation?.navigate('Admin')}
+        >
+          <View style={styles.settingsItemLeft}>
+            <ModernIcon name="settings" size={20} color="#3B82F6" />
+            <Text style={[styles.settingsItemText, { color: '#3B82F6', fontWeight: '600' }]}>
+              Admin Dashboard
+            </Text>
+          </View>
+          <ModernIcon name="action" size={8} color="#3B82F6" />
+        </TouchableOpacity>
+      )}
+      
+      {/* Create Coach Profile Button */}
+      <TouchableOpacity 
+        style={[styles.settingsItem, { backgroundColor: '#F0FDF4' }]} 
+        onPress={() => navigation?.navigate('CreateCoachProfile')}
+      >
+        <View style={styles.settingsItemLeft}>
+          <ModernIcon name="coach" size={20} color="#059669" />
+          <Text style={[styles.settingsItemText, { color: '#059669', fontWeight: '600' }]}>
+            Create Your Coach Profile
+          </Text>
+        </View>
+        <ModernIcon name="action" size={8} color="#059669" />
+      </TouchableOpacity>
       
       <TouchableOpacity style={styles.settingsItem} onPress={handleSettings}>
         <View style={styles.settingsItemLeft}>
@@ -274,7 +295,7 @@ export default function ProfileScreen({ onLogout }) {
   return (
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        {renderProfileHeader()}
+        {renderTopBar()}
       </View>
       <ScrollView 
         style={styles.scrollView} 
@@ -282,9 +303,7 @@ export default function ProfileScreen({ onLogout }) {
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
       >
-        {renderQuickActions()}
-        {renderRecentActivity()}
-        {renderAchievements()}
+        {renderProfileSection()}
         {renderOverallStats()}
         {renderSettings()}
         
@@ -300,8 +319,35 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   headerSafeArea: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'white',
     zIndex: 1000,
+  },
+  // Top Bar styles
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+    marginLeft: -4, // Align with iOS guidelines
+  },
+  topBarTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 16,
+  },
+  topBarRightSpace: {
+    width: 40, // Same width as back button to center the title
   },
   scrollView: {
     flex: 1,
@@ -309,42 +355,45 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  // Profile Header
-  profileHeader: {
-    marginBottom: 0,
-  },
-  profileGradient: {
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+  // Profile Section
+  profileCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   profileContent: {
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  profileTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   profileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 16,
+    marginRight: 20,
   },
   avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '700',
     color: 'white',
   },
   userInfo: {
@@ -353,36 +402,53 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'white',
-    marginBottom: 2,
+    color: '#1F2937',
+    marginBottom: 4,
   },
-  duprCard: {
+  userEmail: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#6B7280',
+  },
+  duprSection: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minWidth: 120,
+  },
+  duprLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   duprRating: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 2,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1F2937',
+    marginBottom: 8,
   },
   syncButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: '#F0F4FF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   syncText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: 'white',
-    marginLeft: 6,
+    color: '#6366F1',
+    marginLeft: 4,
   },
   // Sections
   section: {
@@ -394,44 +460,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 12,
-  },
-  // Quick Actions
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    width: '48%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  actionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  actionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  actionDescription: {
-    fontSize: 12,
-    color: '#6B7280',
-    textAlign: 'center',
   },
   // Recent Activity
   activityList: {
@@ -476,56 +504,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#10B981',
-  },
-  // Achievements
-  badgesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  badgeCard: {
-    width: '30%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  badgeCardLocked: {
-    opacity: 0.6,
-  },
-  badgeEmoji: {
-    fontSize: 24,
-    marginBottom: 6,
-  },
-  badgeEmojiLocked: {
-    opacity: 0.3,
-  },
-  badgeName: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#1F2937',
-    textAlign: 'center',
-  },
-  badgeNameLocked: {
-    color: '#9CA3AF',
-  },
-  lockedOverlay: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-  },
-  badgesSummary: {
-    alignItems: 'center',
-  },
-  badgesSummaryText: {
-    fontSize: 12,
-    color: '#6B7280',
   },
   // Overall Stats
   statsGrid: {

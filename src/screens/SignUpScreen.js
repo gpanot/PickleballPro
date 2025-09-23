@@ -13,15 +13,33 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
 
-export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSignUp }) {
+export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn, route }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const insets = useSafeAreaInsets();
-  const { signIn } = useAuth();
+  const { signUp } = useAuth();
+  const { user } = useUser();
+
+  // Pre-populate name from onboarding flow or user context
+  React.useEffect(() => {
+    const prefilledName = route?.params?.previousData?.prefilledName || 
+                         route?.params?.previousData?.name ||
+                         route?.params?.prefilledName ||
+                         user?.name;
+    if (prefilledName && prefilledName !== 'Alex Johnson') { // Don't use default name
+      setName(prefilledName);
+    }
+  }, [route?.params, user?.name]);
 
   const validateForm = () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your name');
+      return false;
+    }
     if (!email.trim()) {
       Alert.alert('Error', 'Please enter your email');
       return false;
@@ -31,83 +49,62 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
       return false;
     }
     if (!password) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert('Error', 'Please enter a password');
+      return false;
+    }
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
       return false;
     }
     return true;
   };
 
-  const handleSignIn = async () => {
+  const handleSignUp = async () => {
     if (!validateForm()) return;
-
-    console.log('Sign in button clicked!');
+    
+    console.log('Sign up button clicked!');
     setIsLoading(true);
     
     try {
-      const { data, error } = await signIn(email, password);
+      const { data, error } = await signUp(email, password, {
+        name: name.trim()
+      });
       
       if (error) {
-        Alert.alert('Sign In Failed', error.message || 'Please check your credentials and try again.');
+        Alert.alert('Sign Up Failed', error.message || 'Please try again.');
         return;
       }
 
       if (data?.user) {
-        console.log('Sign in successful!');
-        
-        // Call onAuthenticate to trigger app state updates (complete onboarding)
-        if (onAuthenticate) {
-          console.log('Calling onAuthenticate to complete onboarding...');
-          onAuthenticate();
-          console.log('onAuthenticate callback completed');
-        } else {
-          console.log('❌ No onAuthenticate callback provided!');
+        console.log('Sign up successful!');
+        // Directly call onSignUp without showing popup
+        if (onSignUp) {
+          onSignUp({ email, password, name });
         }
-        
-        console.log('Authentication complete - app will automatically show main screen');
       }
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('Sign up error:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    Alert.alert('Forgot Password', 'Password reset link would be sent to your email');
-  };
-
   const handleBack = () => {
-    console.log('Back button pressed!');
-    
-    // Use React Navigation to go back directly
-    if (navigation?.goBack && navigation?.canGoBack?.()) {
-      console.log('Using navigation.goBack...');
+    if (onGoBack) {
+      onGoBack();
+    } else if (navigation?.goBack) {
       navigation.goBack();
-    } else if (navigation?.navigate) {
-      console.log('Navigating directly to Intro screen...');
-      navigation.navigate('Intro');
-    } else {
-      console.log('No navigation available, trying onGoBack prop...');
-      if (onGoBack) {
-        onGoBack();
-      }
     }
   };
 
-  const handleSignUp = () => {
-    console.log('Sign Up button pressed!');
-    if (onSignUp) {
-      console.log('Calling onSignUp prop...');
-      onSignUp();
-    } else if (navigation?.navigate) {
-      console.log('Using navigation to go to SignUp...');
-      navigation.navigate('SignUp');
-    } else {
-      console.log('No navigation available, showing alert...');
-      Alert.alert('Sign Up', 'Sign up functionality will be available soon!');
+  const handleSignIn = () => {
+    if (onSignIn) {
+      onSignIn();
     }
   };
+
+  const isFormValid = name.trim() && email.trim() && password;
 
   return (
     <>
@@ -122,8 +119,7 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
             <TouchableOpacity 
               style={styles.backButton} 
               onPress={handleBack}
-              activeOpacity={0.6}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              activeOpacity={0.7}
             >
               <Ionicons 
                 name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
@@ -134,12 +130,25 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
             
             {/* Header Section */}
             <View style={styles.header}>
-              <Text style={styles.title}>Welcome Back</Text>
-              <Text style={styles.subtitle}>Sign in to continue your training</Text>
+              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>Join PicklePro and start your training journey</Text>
             </View>
 
             {/* Form Section */}
             <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your full name"
+                  placeholderTextColor="#9CA3AF"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+              </View>
+
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
@@ -158,7 +167,7 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
                 <Text style={styles.inputLabel}>Password</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="Enter your password"
+                  placeholder="Create a password"
                   placeholderTextColor="#9CA3AF"
                   value={password}
                   onChangeText={setPassword}
@@ -169,25 +178,30 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
 
               <TouchableOpacity 
                 style={[
-                  styles.signInButton,
-                  isLoading && styles.signInButtonDisabled
+                  styles.signUpButton,
+                  (!isFormValid || isLoading) && styles.signUpButtonDisabled
                 ]}
-                onPress={handleSignIn}
-                disabled={isLoading}
+                onPress={handleSignUp}
+                disabled={!isFormValid || isLoading}
               >
-                <Text style={styles.signInButtonText}>
-                  {isLoading ? 'Signing In...' : 'SIGN IN'}
+                <Text style={[
+                  styles.signUpButtonText,
+                  (!isFormValid || isLoading) && styles.signUpButtonTextDisabled
+                ]}>
+                  {isLoading ? 'Creating Account...' : 'CREATE ACCOUNT'}
                 </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.forgotPasswordButton}
-                onPress={handleForgotPassword}
-              >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
+            {/* Footer */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Already have an account?{' '}
+              </Text>
+              <TouchableOpacity onPress={handleSignIn}>
+                <Text style={styles.footerLink}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -212,18 +226,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 0,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    padding: 8,
     marginLeft: -4, // Align with iOS guidelines
+    zIndex: 1,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   title: {
     fontSize: 48,
@@ -268,7 +277,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  signInButton: {
+  signUpButton: {
     backgroundColor: '#007AFF',
     borderRadius: 30,
     paddingVertical: 18,
@@ -280,24 +289,32 @@ const styles = StyleSheet.create({
     elevation: 8,
     marginTop: 8,
   },
-  signInButtonDisabled: {
+  signUpButtonDisabled: {
     backgroundColor: '#E5E5E5',
     shadowOpacity: 0,
     elevation: 0,
   },
-  signInButtonText: {
+  signUpButtonText: {
     fontSize: 16,
     fontWeight: '700',
     color: 'white',
     letterSpacing: 0.5,
   },
-  forgotPasswordButton: {
-    alignItems: 'center',
-    marginTop: 16,
+  signUpButtonTextDisabled: {
+    color: '#666666',
   },
-  forgotPasswordText: {
+  footer: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  footerText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#666666',
+  },
+  footerLink: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#007AFF',
   },
 });

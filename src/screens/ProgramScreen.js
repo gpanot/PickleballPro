@@ -8,20 +8,29 @@ import {
   Alert,
   TextInput,
   Modal,
+  Image,
+  Dimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import WebIcon from '../components/WebIcon';
-import { useUser } from '../context/UserContext';
 
-export default function ProgramScreen({ navigation }) {
+const { width } = Dimensions.get('window');
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUser } from '../context/UserContext';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import SkillsScreen from './SkillsScreen';
+import BadgesScreen from './BadgesScreen';
+
+export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+  const [currentView, setCurrentView] = React.useState('skills'); // 'skills', 'programs', or 'badges'
   const [programs, setPrograms] = React.useState([
     // Sample program to demonstrate the structure
     {
       id: 'sample_1',
       name: 'Master the Soft Game (4 weeks)',
       description: 'Focus on developing consistent dinking, drop shots, and net play fundamentals',
+      thumbnail: null, // Will show placeholder
       routines: [
         {
           id: 'routine_1',
@@ -62,6 +71,26 @@ export default function ProgramScreen({ navigation }) {
   ]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
+  const [selectedImage, setSelectedImage] = React.useState(null);
+  const [isProcessingImage, setIsProcessingImage] = React.useState(false);
+
+  // Handle new program added from Explore
+  React.useEffect(() => {
+    if (route.params?.newProgram) {
+      const newProgram = route.params.newProgram;
+      setPrograms(prev => {
+        // Check if program already exists to avoid duplicates
+        const exists = prev.some(p => p.name === newProgram.name);
+        if (!exists) {
+          return [...prev, newProgram];
+        }
+        return prev;
+      });
+      
+      // Clear the parameter to avoid re-adding on subsequent navigations
+      navigation.setParams({ newProgram: undefined });
+    }
+  }, [route.params?.newProgram, navigation]);
 
   // Static exercises for customized tab
   const staticExercises = {
@@ -103,22 +132,89 @@ export default function ProgramScreen({ navigation }) {
   };
 
   // Program management functions
-  const createProgram = () => {
+  const createProgram = async () => {
     if (!newProgramName.trim()) {
       Alert.alert('Error', 'Please enter a program name');
       return;
     }
     
+    let compressedThumbnail = null;
+    if (selectedImage) {
+      try {
+        // Compress the selected image
+        const manipResult = await ImageManipulator.manipulateAsync(
+          selectedImage.uri,
+          [{ resize: { width: 300, height: 300 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        compressedThumbnail = manipResult;
+      } catch (error) {
+        console.error('Error compressing image:', error);
+        Alert.alert('Error', 'Failed to process image. Program will be created without thumbnail.');
+      }
+    }
+    
     const newProgram = {
       id: Date.now().toString(),
       name: newProgramName.trim(),
+      thumbnail: compressedThumbnail,
       routines: [],
       createdAt: new Date().toISOString(),
     };
     
     setPrograms(prev => [...prev, newProgram]);
     setNewProgramName('');
+    setSelectedImage(null);
     setShowCreateProgramModal(false);
+  };
+
+  // Image handling functions
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to add program thumbnails.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsProcessingImage(true);
+        const asset = result.assets[0];
+        
+        try {
+          // Ensure square crop and reasonable size
+          const manipResult = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            [{ resize: { width: 400, height: 400 } }],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          
+          setSelectedImage(manipResult);
+        } catch (error) {
+          console.error('Error processing image:', error);
+          Alert.alert('Error', 'Failed to process the selected image.');
+        } finally {
+          setIsProcessingImage(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to open image picker.');
+      setIsProcessingImage(false);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
   };
 
   const deleteProgram = (programId) => {
@@ -147,6 +243,7 @@ export default function ProgramScreen({ navigation }) {
     });
   };
 
+
   const renderProgramsContent = () => (
     <View style={styles.customizedContainer}>
       {programs.length === 0 ? (
@@ -160,7 +257,7 @@ export default function ProgramScreen({ navigation }) {
             style={styles.addFirstProgramButton}
             onPress={() => setShowCreateProgramModal(true)}
           >
-            <WebIcon name="add" size={20} color="white" />
+            <Text style={styles.addIconText}>+</Text>
             <Text style={styles.addFirstProgramButtonText}>Create Your First Program</Text>
           </TouchableOpacity>
         </View>
@@ -180,25 +277,42 @@ export default function ProgramScreen({ navigation }) {
                 onPress={() => navigateToProgram(program)}
                 onLongPress={() => deleteProgram(program.id)}
               >
+                <View style={styles.programThumbnailContainer}>
+                  {program.thumbnail ? (
+                    <Image 
+                      source={{ 
+                        uri: typeof program.thumbnail === 'string' 
+                          ? program.thumbnail 
+                          : program.thumbnail.uri 
+                      }} 
+                      style={styles.programThumbnail}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.programPlaceholder}>
+                      <Text style={styles.placeholderText}>🏆</Text>
+                    </View>
+                  )}
+                </View>
+                
                 <View style={styles.programInfo}>
                   <Text style={styles.programName}>{program.name}</Text>
                   {program.description ? (
                     <Text style={styles.programDescription}>{program.description}</Text>
                   ) : null}
-                  <View style={styles.programStats}>
-                    <Text style={styles.programStatsText}>
-                      {program.routines.length} routine{program.routines.length !== 1 ? 's' : ''}
-                    </Text>
-                    <Text style={styles.programStatsText}>•</Text>
-                    <Text style={styles.programStatsText}>
-                      {program.routines.reduce((total, routine) => total + (routine.exercises?.length || 0), 0)} exercises
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={styles.programActions}>
-                  <View style={styles.programButton}>
-                    <WebIcon name="chevron-right" size={16} color="#6B7280" />
+                  <View style={styles.programStatsRow}>
+                    <View style={styles.programStats}>
+                      <Text style={styles.programStatsText}>
+                        {program.routines.length} routine{program.routines.length !== 1 ? 's' : ''}
+                      </Text>
+                      <Text style={styles.programStatsText}>•</Text>
+                      <Text style={styles.programStatsText}>
+                        {program.routines.reduce((total, routine) => total + (routine.exercises?.length || 0), 0)} exercises
+                      </Text>
+                    </View>
+                    <View style={styles.programActions}>
+                      <Text style={styles.chevronText}>{'>'}</Text>
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -209,7 +323,7 @@ export default function ProgramScreen({ navigation }) {
             style={styles.addMoreProgramsButton}
             onPress={() => setShowCreateProgramModal(true)}
           >
-            <WebIcon name="add" size={20} color="white" />
+            <Text style={styles.addIconText}>+</Text>
             <Text style={styles.addMoreProgramsButtonText}>Create new program</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -221,33 +335,80 @@ export default function ProgramScreen({ navigation }) {
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Training Programs</Text>
-          <Text style={styles.headerSubtitle}>Build structured training programs</Text>
+          <Text style={styles.headerTitle}>
+            Level Up With Fun
+          </Text>
+          
+          {/* Tab Navigation */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={styles.tab}
+              onPress={() => setCurrentView('skills')}
+            >
+              <Text style={[styles.tabText, currentView === 'skills' && styles.activeTabText]}>
+                Skills
+              </Text>
+              {currentView === 'skills' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tab}
+              onPress={() => setCurrentView('badges')}
+            >
+              <Text style={[styles.tabText, currentView === 'badges' && styles.activeTabText]}>
+                Badges
+              </Text>
+              {currentView === 'badges' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tab}
+              onPress={() => setCurrentView('programs')}
+            >
+              <Text style={[styles.tabText, currentView === 'programs' && styles.activeTabText]}>
+                Programs
+              </Text>
+              {currentView === 'programs' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
-      >
-        {renderProgramsContent()}
-        
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
+      
+      {currentView === 'skills' ? (
+        <SkillsScreen navigation={navigation} />
+      ) : currentView === 'badges' ? (
+        <BadgesScreen navigation={navigation} />
+      ) : (
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          {renderProgramsContent()}
+          
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      )}
 
       {/* Create Program Modal */}
       <Modal
         visible={showCreateProgramModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowCreateProgramModal(false)}
+        onRequestClose={() => {
+          setShowCreateProgramModal(false);
+          setNewProgramName('');
+          setSelectedImage(null);
+        }}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <TouchableOpacity
               style={styles.modalCancelButton}
-              onPress={() => setShowCreateProgramModal(false)}
+              onPress={() => {
+                setShowCreateProgramModal(false);
+                setNewProgramName('');
+                setSelectedImage(null);
+              }}
             >
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -275,6 +436,38 @@ export default function ProgramScreen({ navigation }) {
                 autoFocus
               />
               
+              <Text style={styles.modalLabel}>Program Thumbnail</Text>
+              <View style={styles.imageUploadSection}>
+                {selectedImage ? (
+                  <View style={styles.selectedImageContainer}>
+                    <Image 
+                      source={{ uri: selectedImage.uri }} 
+                      style={styles.selectedImage}
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={removeImage}
+                    >
+                      <Text style={styles.removeImageText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.uploadImageButton}
+                    onPress={pickImage}
+                    disabled={isProcessingImage}
+                  >
+                    <Text style={styles.uploadImageIcon}>📷</Text>
+                    <Text style={styles.uploadImageText}>
+                      {isProcessingImage ? 'Processing...' : 'Add Thumbnail'}
+                    </Text>
+                    <Text style={styles.uploadImageSubtext}>
+                      Square images work best
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -289,23 +482,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   headerSafeArea: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   header: {
     paddingHorizontal: 16,
     paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
   },
   scrollView: {
     flex: 1,
@@ -390,8 +579,30 @@ const styles = StyleSheet.create({
   },
   programContent: {
     flexDirection: 'row',
-    padding: 16,
+    paddingTop: 16,
+    paddingRight: 16,
+    paddingBottom: 16,
+    paddingLeft: 0,
     alignItems: 'center',
+  },
+  programThumbnailContainer: {
+    width: 60,
+    height: 100,
+    borderRadius: 8,
+    marginRight: 16,
+    overflow: 'hidden',
+  },
+  programThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  programPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
   },
   programInfo: {
     flex: 1,
@@ -408,21 +619,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 20,
   },
+  programStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   programStats: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   programStatsText: {
     fontSize: 13,
     color: '#9CA3AF',
   },
   programActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  programButton: {
-    padding: 8,
+    paddingLeft: 8,
   },
   addMoreProgramsButton: {
     flexDirection: 'row',
@@ -439,6 +652,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  addIconText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+  },
+  placeholderText: {
+    fontSize: 24,
+  },
+  chevronText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   // Modal styles
   modalContainer: {
@@ -508,7 +734,97 @@ const styles = StyleSheet.create({
     height: 80,
     paddingTop: 12,
   },
+  // Image upload styles
+  imageUploadSection: {
+    marginBottom: 16,
+  },
+  uploadImageButton: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadImageIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  uploadImageText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  uploadImageSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  selectedImageContainer: {
+    position: 'relative',
+    alignSelf: 'center',
+  },
+  selectedImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#EF4444',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  removeImageText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    lineHeight: 18,
+  },
   bottomSpacing: {
     height: 24,
+  },
+  // Tab Navigation Styles
+  tabContainer: {
+    flexDirection: 'row',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  tab: {
+    marginRight: 32,
+    paddingBottom: 8,
+    position: 'relative',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#9CA3AF',
+  },
+  activeTabText: {
+    color: '#1F2937',
+    fontWeight: '600',
+  },
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#1F2937',
+    borderRadius: 1,
   },
 });

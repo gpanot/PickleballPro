@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,55 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
-
-import { coaches } from '../data/mockData';
+import { getCoaches, transformCoachData } from '../lib/supabase';
 
 export default function CoachScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [sortBy, setSortBy] = useState('Rating');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const insets = useSafeAreaInsets();
+  
+  // API state
+  const [coaches, setCoaches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   const specialtyFilters = ['Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
+
+  // Fetch coaches from API on component mount
+  useEffect(() => {
+    fetchCoaches();
+  }, []);
+
+  const fetchCoaches = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await getCoaches();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Transform the data to match your current app structure
+      const transformedCoaches = transformCoachData(data);
+      setCoaches(transformedCoaches);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching coaches:', err);
+      setError(err.message);
+      // Fallback to empty array if API fails
+      setCoaches([]);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const filteredAndSortedCoaches = coaches
     .filter(coach => {
@@ -52,6 +86,22 @@ export default function CoachScreen() {
         ? prev.filter(f => f !== filter)
         : [...prev, filter]
     );
+  };
+
+  const toggleSearch = () => {
+    if (isSearchExpanded) {
+      // When closing, clear the search query as well
+      setSearchQuery('');
+      setIsSearchExpanded(false);
+    } else {
+      // When opening, just expand
+      setIsSearchExpanded(true);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setIsSearchExpanded(false);
   };
 
   const handleContactCoach = (coach) => {
@@ -96,8 +146,8 @@ export default function CoachScreen() {
     </View>
   );
 
-  const renderSearchAndFilters = () => (
-    <View style={styles.searchContainer}>
+  const renderExpandableSearch = () => (
+    <View style={[styles.expandableSearchContainer, isSearchExpanded && styles.expandableSearchExpanded]}>
       <View style={styles.searchInputContainer}>
         <WebIcon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
@@ -106,13 +156,23 @@ export default function CoachScreen() {
           placeholderTextColor="#9CA3AF"
           value={searchQuery}
           onChangeText={setSearchQuery}
+          autoFocus={isSearchExpanded}
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+            <WebIcon name="close" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
       </View>
-      
+    </View>
+  );
+
+  const renderFilters = () => (
+    <View style={styles.filtersContainer}>
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
-        style={styles.filtersContainer}
+        style={styles.filtersScroll}
         contentContainerStyle={styles.filtersContent}
       >
         {specialtyFilters.map((filter) => (
@@ -209,31 +269,59 @@ export default function CoachScreen() {
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Find Your Perfect Coach</Text>
-          <Text style={styles.headerSubtitle}>
-            Connect with certified pickleball coaches in your area
-          </Text>
+          <Text style={styles.headerTitle}>Certified Coaches</Text>
+          <TouchableOpacity 
+            style={styles.searchIconButton}
+            onPress={toggleSearch}
+          >
+            <WebIcon 
+              name={isSearchExpanded ? "close" : "search"} 
+              size={24} 
+              color="#1F2937" 
+            />
+          </TouchableOpacity>
         </View>
-        {renderSearchAndFilters()}
+        {isSearchExpanded && renderExpandableSearch()}
+        {renderFilters()}
         {renderSortOptions()}
       </View>
       
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
-      >
-        <View style={styles.resultsContainer}>
-          <Text style={styles.resultsText}>
-            {filteredAndSortedCoaches.length} {filteredAndSortedCoaches.length === 1 ? 'coach' : 'coaches'} found
-          </Text>
-          
-          {filteredAndSortedCoaches.map(renderCoachCard)}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Loading coaches...</Text>
         </View>
-        
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load coaches</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchCoaches}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          <View style={styles.resultsContainer}>
+            <Text style={styles.resultsText}>
+              {filteredAndSortedCoaches.length} {filteredAndSortedCoaches.length === 1 ? 'coach' : 'coaches'} found
+            </Text>
+            
+            {filteredAndSortedCoaches.length > 0 ? (
+              filteredAndSortedCoaches.map(renderCoachCard)
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No coaches match your criteria</Text>
+              </View>
+            )}
+          </View>
+          
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -244,7 +332,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   headerSafeArea: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
     zIndex: 1000,
   },
   scrollView: {
@@ -254,23 +342,37 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   headerContainer: {
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 8,
+    flex: 1,
   },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#6B7280',
+  searchIconButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
   },
-  searchContainer: {
+  expandableSearchContainer: {
     paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingVertical: 0,
+    maxHeight: 0,
+    opacity: 0,
+    overflow: 'hidden',
+  },
+  expandableSearchExpanded: {
+    paddingVertical: 12,
+    maxHeight: 100,
+    opacity: 1,
   },
   searchInputContainer: {
     flexDirection: 'row',
@@ -278,7 +380,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -294,7 +395,15 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     paddingVertical: 16,
   },
+  clearButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
   filtersContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  filtersScroll: {
     marginBottom: 8,
   },
   filtersContent: {
@@ -497,5 +606,52 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 24,
+  },
+  // Loading, error, and empty states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });
