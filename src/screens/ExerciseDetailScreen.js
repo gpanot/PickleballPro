@@ -16,12 +16,13 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
   
   // Get exercise data from navigation params or use mock data
-  const rawExercise = route?.params?.exercise;
+  const rawExercise = route?.params?.exercise || route?.params?.rawExercise;
+  const onExerciseUpdated = route?.params?.onExerciseUpdated;
   
   // Transform picker exercise format to detail screen format
   const exercise = rawExercise ? {
-    code: rawExercise.id || "1.1",
-    title: rawExercise.name || "Exercise",
+    code: rawExercise.code || rawExercise.id || "1.1",
+    title: rawExercise.title || rawExercise.name || "Exercise",
     level: `Difficulty Level ${rawExercise.difficulty || 1}`,
     goal: rawExercise.description || "Complete the exercise successfully",
     instructions: `Target: ${rawExercise.target || "Complete the exercise"}
@@ -141,7 +142,6 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
           <ModernIcon name="time" size={16} color="#6B7280" />
           <Text style={styles.videoDetailText}>{exercise.estimatedTime}</Text>
         </View>
-        <Text style={styles.equipmentText}>Equipment: {exercise.equipment.join(", ")}</Text>
       </View>
     </View>
   );
@@ -207,6 +207,30 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
           {renderTips()}
         </View>
       </ScrollView>
+      
+      {/* Edit button at bottom */}
+      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom }]}>
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => {
+            console.log('Edit button pressed, navigating to AddExercise with data:', rawExercise);
+            navigation.navigate('AddExercise', { 
+              exercise: rawExercise,
+              isEditing: true,
+              onExerciseUpdated: (updatedExercise) => {
+                console.log('Exercise updated:', updatedExercise);
+                if (onExerciseUpdated) {
+                  onExerciseUpdated(updatedExercise);
+                }
+                navigation.goBack();
+              }
+            });
+          }}
+        >
+          <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.editButtonText}>Edit Exercise</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -336,10 +360,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 4,
   },
-  equipmentText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
   card: {
     backgroundColor: 'white',
     borderRadius: 8,
@@ -399,6 +419,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
+  },
+  
+  // Bottom button styles
+  bottomButtonContainer: {
+    backgroundColor: 'white',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  editButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
 

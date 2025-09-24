@@ -8,45 +8,32 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
+import skillsData from '../data/Commun_skills_tags.json';
 
 export default function FocusAreasScreen({ onComplete }) {
   const [selectedFocus, setSelectedFocus] = useState([]);
   const insets = useSafeAreaInsets();
 
-  const focusAreas = [
-    {
-      id: 'dinks',
-      title: 'Dinks & Control'
-    },
-    {
-      id: 'serves',
-      title: 'Serves & Returns'
-    },
-    {
-      id: 'power',
-      title: 'Power & Attacking'
-    },
-    {
-      id: 'strategy',
-      title: 'Strategy & Positioning'
-    },
-    {
-      id: 'footwork',
-      title: 'Footwork & Movement'
-    },
-    {
-      id: 'doubles',
-      title: 'Doubles Play'
-    },
-    {
-      id: 'singles',
-      title: 'Singles Play'
-    },
-    {
-      id: 'fitness',
-      title: 'Fitness & Conditioning'
-    }
-  ];
+  // Get first 8 skills from the skills data
+  const getFirst8Skills = () => {
+    const allSkills = [];
+    
+    // Collect all skills from all categories
+    Object.values(skillsData.skillCategories).forEach(category => {
+      allSkills.push(...category.skills);
+    });
+    
+    // Return first 8 skills mapped to focus areas format
+    return allSkills.slice(0, 8).map(skill => ({
+      id: skill.id,
+      title: skill.name,
+      emoji: skill.emoji,
+      color: skill.color,
+      description: skill.description
+    }));
+  };
+
+  const focusAreas = getFirst8Skills();
 
   const handleFocusSelect = (focusId) => {
     setSelectedFocus(prev => {
@@ -62,7 +49,7 @@ export default function FocusAreasScreen({ onComplete }) {
 
   const handleContinue = () => {
     if (selectedFocus.length > 0) {
-      onComplete({ focus: selectedFocus });
+      onComplete({ focus_areas: selectedFocus });
     }
   };
 
@@ -79,6 +66,7 @@ export default function FocusAreasScreen({ onComplete }) {
         onPress={() => handleFocusSelect(area.id)}
       >
         <View style={styles.focusContent}>
+          <Text style={styles.focusEmoji}>{area.emoji}</Text>
           <Text style={[
             styles.focusTitle,
             isSelected && styles.focusTitleSelected
@@ -236,6 +224,10 @@ const styles = StyleSheet.create({
   focusContent: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  focusEmoji: {
+    fontSize: 24,
+    marginBottom: 6,
   },
   focusTitle: {
     fontSize: 13,

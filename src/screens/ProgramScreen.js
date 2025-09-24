@@ -23,7 +23,7 @@ import BadgesScreen from './BadgesScreen';
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [currentView, setCurrentView] = React.useState('skills'); // 'skills', 'programs', or 'badges'
+  const [currentView, setCurrentView] = React.useState('programs'); // 'skills', 'programs', or 'badges'
   const [programs, setPrograms] = React.useState([
     // Sample program to demonstrate the structure
     {
@@ -343,10 +343,19 @@ export default function ProgramScreen({ navigation, route }) {
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={styles.tab}
+              onPress={() => setCurrentView('programs')}
+            >
+              <Text style={[styles.tabText, currentView === 'programs' && styles.activeTabText]}>
+                Programs
+              </Text>
+              {currentView === 'programs' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tab}
               onPress={() => setCurrentView('skills')}
             >
               <Text style={[styles.tabText, currentView === 'skills' && styles.activeTabText]}>
-                Skills
+                DUPR
               </Text>
               {currentView === 'skills' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
@@ -358,15 +367,6 @@ export default function ProgramScreen({ navigation, route }) {
                 Badges
               </Text>
               {currentView === 'badges' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => setCurrentView('programs')}
-            >
-              <Text style={[styles.tabText, currentView === 'programs' && styles.activeTabText]}>
-                Programs
-              </Text>
-              {currentView === 'programs' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
           </View>
         </View>

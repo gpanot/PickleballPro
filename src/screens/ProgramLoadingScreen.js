@@ -7,10 +7,14 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUser } from '../context/UserContext';
+import { generatePersonalizedProgram, canGenerateProgram } from '../lib/programGenerator';
 
-export default function ProgramLoadingScreen({ onComplete }) {
+export default function ProgramLoadingScreen({ onComplete, route }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  const [generatedProgram, setGeneratedProgram] = useState(null);
   const insets = useSafeAreaInsets();
+  const { user, storePersonalizedProgram } = useUser();
   
   // Animation values
   const spinValue = useRef(new Animated.Value(0)).current;
@@ -86,14 +90,57 @@ export default function ProgramLoadingScreen({ onComplete }) {
     return () => pulseAnimation.stop();
   }, []);
 
+  // Generate personalized program based on onboarding data
+  useEffect(() => {
+    const generateProgram = () => {
+      try {
+        // Get onboarding data from route params
+        const onboardingData = route?.params?.previousData || {};
+        const focusAreas = onboardingData.focus_areas || [];
+        
+        console.log('Generating program with data:', {
+          focusAreas,
+          userRating: user?.duprRating || 3.0,
+          userName: user?.name || onboardingData.name
+        });
+
+        // Check if user has completed onboarding (would be set after this screen)
+        if (focusAreas.length > 0) {
+          const program = generatePersonalizedProgram(
+            focusAreas,
+            user?.duprRating || 3.0,
+            {
+              name: user?.name || onboardingData.name || 'Your',
+              tier: user?.tier || 'Intermediate'
+            }
+          );
+          
+          console.log('Generated personalized program:', program);
+          setGeneratedProgram(program);
+          
+          // Store program in user context
+          storePersonalizedProgram(program);
+          
+          // This could be saved to Supabase when backend is ready
+        }
+      } catch (error) {
+        console.error('Error generating personalized program:', error);
+      }
+    };
+
+    // Generate program immediately
+    generateProgram();
+  }, [route?.params, user]);
+
   // Complete loading after 2.5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
-      onComplete();
+      // Pass generated program data to completion handler
+      onComplete(generatedProgram ? { personalizedProgram: generatedProgram } : {});
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [onComplete]);
+  }, [onComplete, generatedProgram]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],

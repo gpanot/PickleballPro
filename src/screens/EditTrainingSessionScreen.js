@@ -14,6 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import { useLogbook } from '../context/LogbookContext';
+import skillsData from '../data/Commun_skills_tags.json';
 
 export default function EditTrainingSessionScreen({ navigation, route }) {
   const { updateLogbookEntry } = useLogbook();
@@ -43,16 +44,20 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
     { value: 5, emoji: '🤩', label: 'Excellent', color: '#8B5CF6' },
   ];
 
-  // Training focus options
+  // Training focus options - extracted from common skills data
   const trainingFocusOptions = [
-    { value: 'dinks', emoji: '🥒', label: 'Dinks', color: '#10B981' },
-    { value: 'drives', emoji: '🚀', label: 'Drives', color: '#3B82F6' },
-    { value: 'serves', emoji: '🎾', label: 'Serves', color: '#F59E0B' },
-    { value: 'returns', emoji: '↩️', label: 'Returns', color: '#8B5CF6' },
-    { value: 'volleys', emoji: '🛡️', label: 'Volleys/Resets', color: '#EF4444' },
-    { value: 'lobs', emoji: '🌙', label: 'Lobs', color: '#06B6D4' },
-    { value: 'drops', emoji: '💧', label: 'Drop Shots', color: '#84CC16' },
-    { value: 'footwork', emoji: '👟', label: 'Footwork', color: '#F97316' },
+    ...skillsData.skillCategories.technical.skills.map(skill => ({
+      value: skill.id,
+      emoji: skill.emoji,
+      label: skill.name,
+      color: skill.color
+    })),
+    ...skillsData.skillCategories.movement.skills.map(skill => ({
+      value: skill.id,
+      emoji: skill.emoji,
+      label: skill.name,
+      color: skill.color
+    }))
   ];
 
   // Session type options

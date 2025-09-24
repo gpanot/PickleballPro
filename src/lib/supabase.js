@@ -199,6 +199,7 @@ export const createAdminUser = async (email, password, name, role = 'content_edi
 // 1. Get all published programs for Explore screen
 export const getPrograms = async () => {
   try {
+    console.log('🗄️ Supabase: Starting getPrograms query...');
     const { data, error } = await supabase
       .from('programs')
       .select(`
@@ -216,11 +217,17 @@ export const getPrograms = async () => {
       .eq('is_published', true)
       .order('is_featured', { ascending: false });
 
-    if (error) throw error;
+    console.log('🗄️ Supabase: Query completed - data:', !!data, 'error:', !!error);
     
+    if (error) {
+      console.error('🗄️ Supabase: Query error:', error);
+      throw error;
+    }
+    
+    console.log('🗄️ Supabase: ✅ Successfully fetched', data?.length, 'programs');
     return { data, error: null };
   } catch (error) {
-    console.error('Error fetching programs:', error);
+    console.error('🗄️ Supabase: Error fetching programs:', error);
     return { data: null, error };
   }
 };

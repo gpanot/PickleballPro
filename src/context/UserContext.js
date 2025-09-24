@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { useAuth } from './AuthContext';
 
 const UserContext = createContext();
 
@@ -11,6 +12,7 @@ export const useUser = () => {
 };
 
 export const UserProvider = ({ children }) => {
+  const { updateProfile } = useAuth();
   const [user, setUser] = useState({
     id: 1,
     name: 'Alex Johnson',
@@ -23,8 +25,9 @@ export const UserProvider = ({ children }) => {
     // Onboarding data
     goal: null, // 'dupr', 'basics', 'consistency', 'tournament'
     timeCommitment: null, // 'low', 'medium', 'high'
-    focusAreas: [], // array of focus tags like ['dinks', 'power']
+    focus_areas: [], // array of focus tags like ['dinks', 'power']
     coachPreference: null, // 'yes', 'no'
+    personalizedProgram: null, // Generated program after onboarding
     badges: [
       { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
       { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -50,11 +53,29 @@ export const UserProvider = ({ children }) => {
     setHasSetRating(true);
   };
 
-  const updateOnboardingData = (data) => {
+  const updateOnboardingData = async (data) => {
+    console.log('UserContext: updateOnboardingData called with:', data);
+    
+    // Update local state
     setUser(prevUser => ({
       ...prevUser,
       ...data
     }));
+    
+    // Also save to database via AuthContext
+    try {
+      if (updateProfile) {
+        console.log('UserContext: Saving onboarding data to database:', data);
+        const result = await updateProfile(data);
+        if (result.error) {
+          console.error('UserContext: Error saving onboarding data to database:', result.error);
+        } else {
+          console.log('UserContext: ✅ Onboarding data saved successfully to database');
+        }
+      }
+    } catch (error) {
+      console.error('UserContext: Error saving onboarding data to database:', error);
+    }
   };
 
   const updateUserName = (name) => {
@@ -62,6 +83,14 @@ export const UserProvider = ({ children }) => {
       ...prevUser,
       name
     }));
+  };
+
+  const storePersonalizedProgram = (program) => {
+    setUser(prevUser => ({
+      ...prevUser,
+      personalizedProgram: program
+    }));
+    console.log('Personalized program stored in user context:', program);
   };
 
   const completePersonalProgram = () => {
@@ -113,6 +142,7 @@ export const UserProvider = ({ children }) => {
     updateUserRating,
     updateUserName,
     updateOnboardingData,
+    storePersonalizedProgram,
     completeIntro,
     goBackToIntro,
     completeGenderSelection,

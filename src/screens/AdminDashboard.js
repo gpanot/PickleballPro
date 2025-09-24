@@ -23,8 +23,37 @@ import WebCreateRoutineModal from '../components/WebCreateRoutineModal';
 import WebCreateExerciseModal from '../components/WebCreateExerciseModal';
 import ProgramStructureModal from '../components/ProgramStructureModal';
 import EditableProgramStructureModal from '../components/EditableProgramStructureModal';
+import skillsData from '../data/Commun_skills_tags.json';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+// Helper function to get skill names from focus area IDs
+const getSkillNamesFromFocusAreas = (focusAreas) => {
+  if (!focusAreas || !Array.isArray(focusAreas) || focusAreas.length === 0) {
+    return [];
+  }
+
+  const allSkills = [];
+  
+  // Collect all skills from all categories
+  Object.values(skillsData.skillCategories).forEach(category => {
+    allSkills.push(...category.skills);
+  });
+
+  // Map focus area IDs to skill objects
+  return focusAreas
+    .map(focusAreaId => allSkills.find(skill => skill.id === focusAreaId))
+    .filter(Boolean); // Remove any undefined values
+};
+
+// Helper function to format skills for display
+const formatSkillsDisplay = (skills) => {
+  if (!skills || skills.length === 0) {
+    return 'Not set';
+  }
+
+  return skills.map(skill => `${skill.emoji} ${skill.name}`).join(', ');
+};
 
 export default function AdminDashboard({ navigation }) {
   const { user, profile, signOut } = useAuth();
@@ -281,9 +310,12 @@ export default function AdminDashboard({ navigation }) {
     try {
       const { data, error } = await supabase
         .from('exercises')
-        .select('*')
+        .select(`
+          *,
+          users:created_by(name, email)
+        `)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(100); // Increase limit to show more exercises
 
       if (error) throw error;
       setExercises(data || []);
@@ -1156,18 +1188,173 @@ export default function AdminDashboard({ navigation }) {
     );
   };
 
-  const renderExercisesTable = () => (
-    <View style={styles.contentSection}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Exercise Library</Text>
-        <Text style={styles.sectionSubtitle}>Manage individual exercises and drills</Text>
+  const renderExercisesTable = () => {
+    const filteredExercises = exercises.filter(exercise => 
+      exercise.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exercise.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exercise.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exercise.skill_category?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return (
+      <View style={styles.contentSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Exercise Library</Text>
+          <Text style={styles.sectionSubtitle}>Manage individual exercises and drills</Text>
+        </View>
+        
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+            <Text style={styles.loadingText}>Loading exercises...</Text>
+          </View>
+        ) : (
+          <View style={styles.modernTable}>
+            <View style={styles.modernTableHeader}>
+              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Exercise</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Description</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Difficulty</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Categories</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Type</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
+            </View>
+            <ScrollView style={styles.modernTableBody}>
+              {filteredExercises.length > 0 ? filteredExercises.map(exercise => (
+                <View key={exercise.id} style={styles.modernTableRow}>
+                  {/* Exercise Info */}
+                  <View style={[styles.modernTableCell, { flex: 2 }]}>
+                    <View style={styles.exerciseInfoContainer}>
+                      <View style={styles.exerciseInfo}>
+                        <Text style={styles.exerciseTitle}>{exercise.title || exercise.code}</Text>
+                        <Text style={styles.exerciseMeta}>
+                          {exercise.code && exercise.title !== exercise.code && `Code: ${exercise.code}`}
+                        </Text>
+                        {exercise.estimated_minutes && (
+                          <Text style={styles.exerciseMeta}>
+                            ⏱️ {exercise.estimated_minutes} min
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Description */}
+                  <View style={[styles.modernTableCell, { flex: 2 }]}>
+                    <Text style={styles.exerciseDescription} numberOfLines={2}>
+                      {exercise.description || exercise.instructions || '—'}
+                    </Text>
+                    {exercise.goal && (
+                      <Text style={styles.exerciseGoal} numberOfLines={1}>
+                        Goal: {exercise.goal}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Difficulty */}
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <View style={styles.difficultyContainer}>
+                      <View style={styles.difficultyStars}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Ionicons
+                            key={star}
+                            name={star <= (exercise.difficulty || 1) ? "star" : "star-outline"}
+                            size={12}
+                            color={star <= (exercise.difficulty || 1) ? "#F59E0B" : "#E5E7EB"}
+                          />
+                        ))}
+                      </View>
+                      <Text style={styles.difficultyText}>{exercise.difficulty || 1}/5</Text>
+                    </View>
+                  </View>
+
+                  {/* Categories */}
+                  <View style={[styles.modernTableCell, { flex: 1.5 }]}>
+                    <View style={styles.exerciseCategoriesContainer}>
+                      {exercise.skill_categories_json && Array.isArray(exercise.skill_categories_json) ? (
+                        exercise.skill_categories_json.slice(0, 2).map((category, index) => (
+                          <View key={index} style={styles.exerciseCategoryTag}>
+                            <Text style={styles.exerciseCategoryText}>{category}</Text>
+                          </View>
+                        ))
+                      ) : exercise.skill_category ? (
+                        exercise.skill_category.split(',').slice(0, 2).map((category, index) => (
+                          <View key={index} style={styles.exerciseCategoryTag}>
+                            <Text style={styles.exerciseCategoryText}>{category.trim()}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <Text style={styles.noCategoryText}>—</Text>
+                      )}
+                      {((exercise.skill_categories_json && exercise.skill_categories_json.length > 2) ||
+                        (exercise.skill_category && exercise.skill_category.split(',').length > 2)) && (
+                        <Text style={styles.moreCategoriesText}>
+                          +{((exercise.skill_categories_json && exercise.skill_categories_json.length) || 
+                             (exercise.skill_category && exercise.skill_category.split(',').length) || 0) - 2} more
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Type */}
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <View style={[styles.exerciseTypeBadge, 
+                      exercise.created_by ? styles.userCreatedBadge : styles.defaultBadge
+                    ]}>
+                      <Text style={[styles.exerciseTypeText,
+                        exercise.created_by ? styles.userCreatedText : styles.defaultText
+                      ]}>
+                        {exercise.created_by ? 'User' : 'Default'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Status */}
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <TouchableOpacity
+                      style={[styles.modernStatusChip, 
+                        exercise.is_published ? styles.publishedStatusChip : styles.draftStatusChip
+                      ]}
+                      onPress={() => togglePublishStatus('exercise', exercise.id, exercise.is_published)}
+                    >
+                      <Text style={[styles.modernStatusText,
+                        exercise.is_published ? styles.publishedStatusText : styles.draftStatusText
+                      ]}>
+                        {exercise.is_published ? 'Published' : 'Draft'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Actions */}
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <View style={styles.modernActionButtons}>
+                      <TouchableOpacity style={styles.modernActionButton}>
+                        <Ionicons name="eye-outline" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.modernActionButton}>
+                        <Ionicons name="create-outline" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.modernActionButton}>
+                        <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              )) : (
+                <View style={styles.comingSoon}>
+                  <Ionicons name="fitness-outline" size={48} color="#9CA3AF" />
+                  <Text style={styles.comingSoonText}>No exercises found</Text>
+                  <Text style={styles.comingSoonSubtext}>
+                    {searchQuery ? 'Try adjusting your search criteria' : 'Create your first exercise to get started'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        )}
       </View>
-      <View style={styles.comingSoon}>
-        <Ionicons name="construct-outline" size={48} color="#9CA3AF" />
-        <Text style={styles.comingSoonText}>Exercise management coming soon</Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderRoutinesTable = () => {
     const filteredRoutines = routines.filter(routine => 
@@ -1245,102 +1432,6 @@ export default function AdminDashboard({ navigation }) {
     );
   };
 
-  const renderExercises = () => {
-    const filteredExercises = exercises.filter(exercise => 
-      exercise.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exercise.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exercise.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    return (
-      <View style={styles.content}>
-        <View style={styles.pageHeader}>
-          <View style={styles.pageHeaderLeft}>
-            <Text style={styles.pageTitle}>Exercises</Text>
-            <Text style={styles.pageSubtitle}>{filteredExercises.length} total exercises</Text>
-          </View>
-          <View style={styles.pageHeaderRight}>
-            <TouchableOpacity style={styles.filterButton}>
-              <Ionicons name="filter" size={20} color="#6B7280" />
-              <Text style={styles.filterButtonText}>Filter</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.primaryButton}
-              onPress={() => Alert.alert('Coming Soon', 'Exercise creation will be available soon')}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.primaryButtonText}>Add Exercise</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text style={styles.loadingText}>Loading exercises...</Text>
-          </View>
-        ) : (
-          <View style={styles.tableContainer}>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.tableHeaderText, { flex: 2 }]}>Exercise</Text>
-              <Text style={[styles.tableHeaderText, { flex: 2 }]}>Description</Text>
-              <Text style={[styles.tableHeaderText, { flex: 1 }]}>Difficulty</Text>
-              <Text style={[styles.tableHeaderText, { flex: 1 }]}>Category</Text>
-              <Text style={[styles.tableHeaderText, { flex: 1 }]}>Status</Text>
-              <Text style={[styles.tableHeaderText, { flex: 1 }]}>Actions</Text>
-            </View>
-            <ScrollView style={styles.tableBody}>
-              {filteredExercises.map(exercise => (
-                <View key={exercise.id} style={styles.tableRow}>
-                  <View style={[styles.tableCell, { flex: 2 }]}>
-                    <Text style={styles.tableCellTitle}>{exercise.code}</Text>
-                    <Text style={styles.tableCellSubtitle}>{exercise.title}</Text>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 2 }]}>
-                    <Text style={styles.tableCellText} numberOfLines={2}>{exercise.description}</Text>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <View style={styles.difficultyBadge}>
-                      <Text style={styles.difficultyText}>{exercise.difficulty}/5</Text>
-                    </View>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryBadgeText}>{exercise.skill_category}</Text>
-                    </View>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <TouchableOpacity
-                      style={[styles.statusChip, exercise.is_published ? styles.publishedChip : styles.draftChip]}
-                      onPress={() => togglePublishStatus('exercise', exercise.id, exercise.is_published)}
-                    >
-                      <View style={[styles.statusDot, { backgroundColor: exercise.is_published ? '#10B981' : '#F59E0B' }]} />
-                      <Text style={[styles.statusChipText, { color: exercise.is_published ? '#10B981' : '#F59E0B' }]}>
-                        {exercise.is_published ? 'Published' : 'Draft'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={[styles.tableCell, { flex: 1 }]}>
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity style={styles.actionButton}>
-                        <Ionicons name="eye-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.actionButton}>
-                        <Ionicons name="create-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.actionButton}>
-                        <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    );
-  };
 
   const renderCoaches = () => (
     <View style={styles.content}>
@@ -1620,6 +1711,11 @@ export default function AdminDashboard({ navigation }) {
           <Text style={styles.userStatLabel}>DUPR Users</Text>
           <Text style={styles.userStatSubtext}>Users with DUPR rating</Text>
         </View>
+        <View style={styles.userStatCard}>
+          <Text style={styles.userStatNumber}>{users.filter(u => u.focus_areas && u.focus_areas.length > 0).length}</Text>
+          <Text style={styles.userStatLabel}>Users with Skills</Text>
+          <Text style={styles.userStatSubtext}>Users with selected skills</Text>
+        </View>
       </View>
 
       {/* User Accounts Section */}
@@ -1681,6 +1777,7 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>User</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Tier</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>DUPR Rating</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Skills</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Activity</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Progress</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
@@ -1777,10 +1874,30 @@ export default function AdminDashboard({ navigation }) {
           )}
         </View>
 
+        {/* Skills */}
+        <View style={[styles.modernTableCell, { flex: 2 }]}>
+          <View style={styles.skillsContainer}>
+            {user.focus_areas && user.focus_areas.length > 0 ? (
+              <>
+                {getSkillNamesFromFocusAreas(user.focus_areas).slice(0, 3).map((skill, index) => (
+                  <View key={skill.id} style={[styles.skillTag, { backgroundColor: skill.color + '20' }]}>
+                    <Text style={styles.skillEmoji}>{skill.emoji}</Text>
+                    <Text style={[styles.skillText, { color: skill.color }]}>{skill.name}</Text>
+                  </View>
+                ))}
+                {user.focus_areas.length > 3 && (
+                  <Text style={styles.moreSkillsText}>+{user.focus_areas.length - 3} more</Text>
+                )}
+              </>
+            ) : (
+              <Text style={styles.noSkillsText}>No skills selected</Text>
+            )}
+          </View>
+        </View>
+
         {/* Activity */}
         <View style={[styles.modernTableCell, { flex: 1.5 }]}>
           <Text style={styles.activityText}>Time: {user.time_commitment || 'Not set'}</Text>
-          <Text style={styles.activitySubtext}>Focus: {user.focus_areas ? user.focus_areas.join(', ') : 'Not set'}</Text>
           <Text style={styles.activitySubtext}>Rating: {user.rating_type || 'none'}</Text>
         </View>
 
@@ -3505,6 +3622,41 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  // Skills Column Styles
+  skillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 4,
+  },
+  skillTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 2,
+  },
+  skillEmoji: {
+    fontSize: 12,
+    marginRight: 4,
+  },
+  skillText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  moreSkillsText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginLeft: 4,
+  },
+  noSkillsText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+
   // Feedback Management Styles
   feedbackStatsGrid: {
     flexDirection: 'row',
@@ -3586,6 +3738,96 @@ const styles = StyleSheet.create({
   },
   feedbackTime: {
     fontSize: 11,
+    color: '#6B7280',
+  },
+
+  // Exercise Table Styles
+  exerciseInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  exerciseInfo: {
+    flex: 1,
+  },
+  exerciseTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  exerciseMeta: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginBottom: 1,
+  },
+  exerciseDescription: {
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  exerciseGoal: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  difficultyContainer: {
+    alignItems: 'flex-start',
+  },
+  difficultyStars: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  difficultyText: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  exerciseCategoriesContainer: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  exerciseCategoryTag: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  exerciseCategoryText: {
+    fontSize: 10,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  noCategoryText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  moreCategoriesText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  exerciseTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  userCreatedBadge: {
+    backgroundColor: '#ECFDF5',
+  },
+  defaultBadge: {
+    backgroundColor: '#F3F4F6',
+  },
+  exerciseTypeText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  userCreatedText: {
+    color: '#10B981',
+  },
+  defaultText: {
     color: '#6B7280',
   },
 

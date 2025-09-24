@@ -4,6 +4,7 @@
     "slug": "picklepro-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "backgroundColor": "#4F46E5",
@@ -14,13 +15,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.picklepro.mobile"
+      "bundleIdentifier": "com.picklepro.mobile",
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "backgroundColor": "#4F46E5",
       "package": "com.picklepro.mobile",
       "versionCode": 1,
+      "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#4F46E5"
       },
       "permissions": []
@@ -30,6 +34,11 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d9a056b2-6df1-44d9-bf47-7d928a2029b2"
+      }
+    }
   }
 }

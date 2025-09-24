@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,68 +6,177 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebIcon from '../components/WebIcon';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import skillsData from '../data/Commun_skills_tags.json';
 
 export default function ExercisePickerScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { onAddExercise, alreadyAddedIds = [] } = route.params || {};
   
   // Track locally removed exercises for better UX
   const [removedExerciseIds, setRemovedExerciseIds] = useState(new Set());
   
-  // Track selected category (default to first category)
-  const [selectedCategory, setSelectedCategory] = useState('dinks');
+  // State for real exercises from Supabase
+  const [userCreatedExercises, setUserCreatedExercises] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Generate skill-based categories from the JSON data
+  const skillCategories = Object.values(skillsData.skillCategories).flatMap(category => 
+    category.skills.map(skill => ({
+      ...skill,
+      categoryName: category.name
+    }))
+  );
 
-  // Static exercises data - can be moved to a separate file later
-  const staticExercises = {
-    dinks: [
-      { id: "1.1", name: "Dink Wall Drill", target: "15 consecutive soft dinks", difficulty: 2, description: "Practice consistent dinking against a wall" },
-      { id: "1.2", name: "Cross-Court Dinks", target: "8 consecutive cross-court dinks", difficulty: 2, description: "Develop cross-court dinking accuracy" },
-      { id: "1.3", name: "Dink Targets", target: "6/12 land in NVZ cones", difficulty: 3, description: "Precision dinking to specific targets" },
-      { id: "s3.1", name: "Advanced Cross-Court Dinks", target: "12/15 in NVZ", difficulty: 3, description: "From Net Play Excellence session" }
-    ],
-    drives: [
-      { id: "2.1", name: "FH Drive Depth", target: "7/10 beyond NVZ", difficulty: 2, description: "Forehand drive depth control" },
-      { id: "2.2", name: "BH Drive Depth", target: "6/10 beyond NVZ", difficulty: 3, description: "Backhand drive depth control" },
-      { id: "2.3", name: "Drive & Recover", target: "5-drive sequence", difficulty: 3, description: "Drive and return to ready position" },
-      { id: "s4.1", name: "Power Drive Targets", target: "7/12 to corners", difficulty: 4, description: "From Power & Placement session" }
-    ],
-    serves: [
-      { id: "6.1", name: "Deep Serve Mastery", target: "7/10 in back third", difficulty: 3, description: "Consistent deep serving" },
-      { id: "6.2", name: "Spin Serve", target: "5/10 with visible spin", difficulty: 4, description: "Develop spin serve technique" },
-      { id: "6.3", name: "Serve Placement Drill", target: "4/6 to chosen corner", difficulty: 3, description: "Precise serve placement" },
-      { id: "s1.1", name: "Corner Placement Serves", target: "8/12 to chosen corners", difficulty: 3, description: "From Serve & Return Mastery session" }
-    ],
-    returns: [
-      { id: "s1.2", name: "Deep Return Practice", target: "7/10 past midline", difficulty: 3, description: "Return serves deep into court" },
-      { id: "s1.3", name: "Return & Approach", target: "5/8 successful approaches", difficulty: 4, description: "Return and move to net" },
-      { id: "r1", name: "Defensive Returns", target: "6/10 successful defensive returns", difficulty: 3, description: "Master defensive return shots" }
-    ],
-    volleys: [
-      { id: "s3.2", name: "Volley Positioning", target: "8/10 clean volleys", difficulty: 3, description: "Perfect volley positioning" },
-      { id: "s3.3", name: "Attack the High Ball", target: "6/8 putaway attempts", difficulty: 4, description: "Aggressive high ball volleys" },
-      { id: "v1", name: "Reflex Volleys", target: "10/15 quick volleys", difficulty: 4, description: "Improve volley reaction time" }
-    ],
-    others: [
-      { id: "7.1", name: "Drop Consistency", target: "6/10 into NVZ", difficulty: 3, description: "Master the critical third shot" },
-      { id: "7.2", name: "Target Drops", target: "4/10 to backhand corner", difficulty: 4, description: "Precision third shot drops" },
-      { id: "s4.2", name: "Lob Placement", target: "5/8 over opponent", difficulty: 3, description: "Effective lob placement" },
-      { id: "s5.3", name: "Court Positioning", target: "8/10 optimal positions", difficulty: 4, description: "Maintain optimal court position" },
-      { id: "s6.3", name: "Endurance Rally", target: "25+ shot rallies", difficulty: 4, description: "Long rally endurance training" }
-    ]
+  // Track selected category (default to first skill)
+  const [selectedCategory, setSelectedCategory] = useState(skillCategories[0]?.id || 'dinks');
+
+  // Load user-created exercises
+  useEffect(() => {
+    loadUserCreatedExercises();
+  }, []);
+
+  const loadUserCreatedExercises = async (isRefreshing = false) => {
+    if (!user) return;
+    
+    try {
+      if (isRefreshing) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('created_by', user.id)
+        .eq('is_published', false); // User exercises are saved as drafts
+      
+      if (error) throw error;
+      setUserCreatedExercises(data || []);
+    } catch (error) {
+      console.error('Error loading user exercises:', error);
+    } finally {
+      if (isRefreshing) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+    }
   };
 
-  const categories = [
-    { key: 'dinks', title: 'Dinks', icon: '🏓', exercises: staticExercises.dinks },
-    { key: 'drives', title: 'Drives', icon: '💨', exercises: staticExercises.drives },
-    { key: 'serves', title: 'Serves', icon: '🎯', exercises: staticExercises.serves },
-    { key: 'returns', title: 'Returns', icon: '↩️', exercises: staticExercises.returns },
-    { key: 'volleys', title: 'Volleys', icon: '⚡', exercises: staticExercises.volleys },
-    { key: 'others', title: 'Others', icon: '🔄', exercises: staticExercises.others }
-  ];
+  // Callback for when a new exercise is created
+  const handleExerciseCreated = (newExercise) => {
+    // Add to user-created exercises list
+    setUserCreatedExercises(prev => [...prev, newExercise]);
+    // Also add to the selected category if it matches
+    loadUserCreatedExercises(); // Refresh the list
+  };
+
+  // Callback for when an exercise is updated or deleted
+  const handleExerciseUpdated = (updatedExercise) => {
+    if (updatedExercise === null) {
+      // Exercise was deleted, refresh the list
+      console.log('Exercise was deleted, refreshing list');
+      loadUserCreatedExercises();
+    } else {
+      // Exercise was updated, refresh the list to get latest data
+      console.log('Exercise was updated, refreshing list');
+      loadUserCreatedExercises();
+    }
+  };
+
+  // Pull to refresh handler
+  const onRefresh = () => {
+    loadUserCreatedExercises(true);
+  };
+
+  // Generate sample exercises for each skill
+  const generateExercisesForSkill = (skill) => {
+    const difficultyMap = { beginner: 2, intermediate: 3, advanced: 4 };
+    const baseDifficulty = difficultyMap[skill.difficulty] || 3;
+    
+    const exerciseTemplates = [
+      {
+        suffix: "Wall Drill",
+        target: "15 consecutive repetitions",
+        description: `Practice ${skill.name.toLowerCase()} against a wall for consistency`
+      },
+      {
+        suffix: "Target Practice",
+        target: "8/12 successful attempts",
+        description: `Precision ${skill.name.toLowerCase()} to specific targets`
+      },
+      {
+        suffix: "Progressive Drill",
+        target: "Complete 3-level progression",
+        description: `Progressive ${skill.name.toLowerCase()} difficulty training`
+      },
+      {
+        suffix: "Game Simulation",
+        target: "Execute in 5 rally scenarios",
+        description: `Apply ${skill.name.toLowerCase()} in realistic game situations`
+      }
+    ];
+
+    return exerciseTemplates.map((template, index) => ({
+      id: `${skill.id}_${index + 1}`,
+      name: `${skill.name} ${template.suffix}`,
+      target: template.target,
+      difficulty: Math.min(5, baseDifficulty + index),
+      description: template.description,
+      skillId: skill.id,
+      tags: skill.tags || []
+    }));
+  };
+
+  // Transform user-created exercises to match the expected format
+  const transformUserExercise = (exercise) => ({
+    id: `user_${exercise.id}`,
+    code: exercise.code || 'USER_EXERCISE',
+    title: exercise.title,
+    name: exercise.title,
+    target: exercise.goal || exercise.goal_text || 'Complete the exercise',
+    difficulty: exercise.difficulty || 3,
+    description: exercise.description || exercise.instructions || 'User-created exercise',
+    skillId: 'user_created',
+    tags: ['user_created'],
+    isUserCreated: true,
+    originalId: exercise.id,
+    skillCategories: exercise.skill_categories_json || exercise.skill_category?.split(',') || []
+  });
+
+  // Create categories with their exercises (both generated and user-created)
+  const categories = skillCategories.map(skill => {
+    const generatedExercises = generateExercisesForSkill(skill);
+    
+    // Filter user-created exercises for this skill category
+    const userExercisesForSkill = userCreatedExercises
+      .filter(exercise => {
+        const exerciseSkills = exercise.skill_categories_json || 
+                             (exercise.skill_category ? exercise.skill_category.split(',') : []);
+        return exerciseSkills.includes(skill.id);
+      })
+      .map(transformUserExercise);
+
+    return {
+      key: skill.id,
+      title: skill.name,
+      icon: skill.emoji,
+      color: skill.color,
+      difficulty: skill.difficulty,
+      exercises: [...userExercisesForSkill, ...generatedExercises], // User exercises first
+      categoryName: skill.categoryName
+    };
+  });
 
   const handleAddExercise = (exercise) => {
     // Add to removed list for immediate UI feedback
@@ -80,8 +189,12 @@ export default function ExercisePickerScreen({ navigation, route }) {
   };
 
   const handleExerciseDetail = (exercise) => {
-    // Navigate to exercise detail screen
-    navigation.navigate('ExerciseDetail', { exercise });
+    // Navigate to exercise detail screen with updated callback
+    navigation.navigate('ExerciseDetail', { 
+      exercise,
+      rawExercise: exercise,
+      onExerciseUpdated: handleExerciseUpdated
+    });
   };
 
   const isExerciseUnavailable = (exerciseId) => {
@@ -116,7 +229,16 @@ export default function ExercisePickerScreen({ navigation, route }) {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add Exercise</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => navigation.navigate('AddExercise', { 
+            selectedSkillCategory: selectedCategory,
+            onExerciseCreated: handleExerciseCreated
+          })}
+        >
+          <Ionicons name="add" size={16} color="#FFFFFF" />
+          <Text style={styles.createButtonText}>Create Yours</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Category Tabs */}
@@ -131,7 +253,8 @@ export default function ExercisePickerScreen({ navigation, route }) {
               key={category.key}
               style={[
                 styles.categoryTab,
-                selectedCategory === category.key && styles.categoryTabActive
+                selectedCategory === category.key && styles.categoryTabActive,
+                selectedCategory === category.key && { backgroundColor: category.color }
               ]}
               onPress={() => setSelectedCategory(category.key)}
             >
@@ -141,6 +264,12 @@ export default function ExercisePickerScreen({ navigation, route }) {
                 selectedCategory === category.key && styles.categoryTabTextActive
               ]}>
                 {category.title}
+              </Text>
+              <Text style={[
+                styles.categoryTabDifficulty,
+                selectedCategory === category.key && styles.categoryTabDifficultyActive
+              ]}>
+                {category.difficulty}
               </Text>
               <Text style={[
                 styles.categoryTabCount,
@@ -158,6 +287,14 @@ export default function ExercisePickerScreen({ navigation, route }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#3B82F6"
+            colors={["#3B82F6"]}
+          />
+        }
       >
         {availableExercises.length > 0 ? (
           <View style={styles.exerciseListContainer}>
@@ -173,7 +310,14 @@ export default function ExercisePickerScreen({ navigation, route }) {
                   style={styles.exerciseContent}
                   onPress={() => handleExerciseDetail(exercise)}
                 >
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
+                  <View style={styles.exerciseHeader}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    {exercise.isUserCreated && (
+                      <View style={styles.userCreatedTag}>
+                        <Text style={styles.userCreatedTagText}>YOURS</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.exerciseTarget}>Target: {exercise.target}</Text>
                   <Text style={styles.exerciseDescription}>{exercise.description}</Text>
                 </TouchableOpacity>
@@ -231,6 +375,20 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 32,
   },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
+  },
+  createButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   scrollView: {
     flex: 1,
   },
@@ -256,9 +414,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#F3F4F6',
     borderRadius: 8,
-    minWidth: 80,
-    minHeight: 70,
-    gap: 4,
+    minWidth: 90,
+    minHeight: 85,
+    gap: 2,
   },
   categoryTabActive: {
     backgroundColor: '#3B82F6',
@@ -274,6 +432,16 @@ const styles = StyleSheet.create({
   },
   categoryTabTextActive: {
     color: 'white',
+  },
+  categoryTabDifficulty: {
+    fontSize: 10,
+    color: '#6B7280',
+    fontWeight: '600',
+    textAlign: 'center',
+    textTransform: 'capitalize',
+  },
+  categoryTabDifficultyActive: {
+    color: '#F3F4F6',
   },
   categoryTabCount: {
     fontSize: 10,
@@ -308,11 +476,29 @@ const styles = StyleSheet.create({
   exerciseContent: {
     flex: 1,
   },
+  exerciseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   exerciseName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 4,
+    flex: 1,
+  },
+  userCreatedTag: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  userCreatedTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   exerciseTarget: {
     fontSize: 14,

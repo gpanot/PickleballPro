@@ -283,7 +283,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   onPress={openExercisePicker}
                 >
                   <WebIcon name="add" size={16} color="#3B82F6" />
-                  <Text style={styles.addExerciseHeaderButtonText}>Add</Text>
+                  <Text style={styles.addExerciseHeaderButtonText}>Add Exercise</Text>
                 </TouchableOpacity>
               )}
             </View>

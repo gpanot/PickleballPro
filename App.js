@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 
 import IntroScreen from './src/screens/IntroScreen';
 import GenderSelectionScreen from './src/screens/GenderSelectionScreen';
@@ -16,14 +17,17 @@ import ExercisePickerScreen from './src/screens/ExercisePickerScreen';
 import AddTrainingSessionScreen from './src/screens/AddTrainingSessionScreen';
 import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 const Stack = createStackNavigator();
 
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
-  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasCompletedPersonalProgram, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, completePersonalProgram, completeOnboarding } = useUser();
+  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasCompletedPersonalProgram, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, completePersonalProgram, completeOnboarding, updateUserRating } = useUser();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const handleIntroComplete = () => {
     console.log('Intro completed!');
@@ -32,8 +36,18 @@ function AppContent() {
 
   const handleAuthenticate = () => {
     console.log('Authentication triggered!');
-    // Authentication will now complete the intro and proceed to rating selection
+    console.log('Platform:', Platform.OS);
+    
+    // For authenticated users, complete all onboarding steps to go directly to main app
+    console.log('Completing all onboarding steps for authenticated user...');
+    
+    // Complete onboarding steps immediately - the auth state change will trigger navigation
     completeIntro();
+    completeGenderSelection();
+    updateUserRating(2.5, 'self'); // Set a default rating
+    completePersonalProgram();
+    completeOnboarding();
+    console.log('All onboarding steps completed - navigation should be handled by isAuthenticated change');
   };
 
   const handleAuthGoBack = () => {
@@ -74,12 +88,57 @@ function AppContent() {
   };
 
   console.log('App render - hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasCompletedPersonalProgram:', hasCompletedPersonalProgram, 'hasCompletedOnboarding:', hasCompletedOnboarding);
+  
+  // Debug navigation logic
+  console.log('🔐 Authentication status - isAuthenticated:', isAuthenticated, 'authLoading:', authLoading, 'Platform:', Platform.OS);
+  console.log('🔄 Onboarding states:', {
+    hasCompletedIntro,
+    hasSelectedGender,
+    hasSetRating,
+    hasCompletedPersonalProgram,
+    hasCompletedOnboarding
+  });
+  
+  if (isAuthenticated) {
+    console.log('🚀 User authenticated - should show Main tab navigator with initialRouteName:', initialTabRoute);
+  } else if (hasCompletedOnboarding) {
+    console.log('🚀 All onboarding complete - should show Main tab navigator with initialRouteName:', initialTabRoute);
+  } else if (!hasCompletedPersonalProgram) {
+    console.log('📝 Should show PersonalProgram screen');
+  } else if (!hasSetRating) {
+    console.log('⭐ Should show RatingSelection screen');
+  } else if (!hasSelectedGender) {
+    console.log('👤 Should show GenderSelection screen');
+  } else if (!hasCompletedIntro) {
+    console.log('👋 Should show Intro screen');
+  }
 
   return (
     <NavigationContainer>
       <StatusBar style="auto" backgroundColor="transparent" translucent />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!hasCompletedIntro ? (
+        {isAuthenticated ? (
+          <>
+            <Stack.Screen name="Main">
+              {(props) => {
+                console.log('🎯 Rendering Main screen for authenticated user, initialRouteName:', initialTabRoute);
+                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
+              }}
+            </Stack.Screen>
+            <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
+            <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
+            <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
+            <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
+            <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
+            <Stack.Screen 
+              name="Profile" 
+              component={ProfileScreen}
+              options={{ 
+                headerShown: false
+              }}
+            />
+          </>
+        ) : !hasCompletedIntro ? (
           <>
             <Stack.Screen name="Intro">
               {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}
@@ -127,7 +186,10 @@ function AppContent() {
         ) : (
           <>
             <Stack.Screen name="Main">
-              {(props) => <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />}
+              {(props) => {
+                console.log('🎯 Rendering Main screen with MainTabNavigator, initialRouteName:', initialTabRoute);
+                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
+              }}
             </Stack.Screen>
             <Stack.Screen name="Auth">
               {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -137,6 +199,13 @@ function AppContent() {
             <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
             <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
             <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
+            <Stack.Screen 
+              name="Profile" 
+              component={ProfileScreen}
+              options={{ 
+                headerShown: false
+              }}
+            />
           </>
         )}
       </Stack.Navigator>
@@ -147,12 +216,13 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <UserProvider>
-        <LogbookProvider>
-          <AppContent />
-        </LogbookProvider>
-      </UserProvider>
+      <AuthProvider>
+        <UserProvider>
+          <LogbookProvider>
+            <AppContent />
+          </LogbookProvider>
+        </UserProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
-

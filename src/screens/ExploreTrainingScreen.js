@@ -19,7 +19,7 @@ import { getPrograms, transformProgramData } from '../lib/supabase';
 const { width } = Dimensions.get('window');
 
 export default function ExploreTrainingScreen({ navigation }) {
-  console.log('ExploreTrainingScreen rendering!');
+  console.log('🎾 ExploreTrainingScreen rendering!');
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   
@@ -36,24 +36,42 @@ export default function ExploreTrainingScreen({ navigation }) {
 
   const fetchPrograms = async () => {
     try {
+      console.log('🎾 ExploreTrainingScreen: Starting fetchPrograms...');
       setLoading(true);
-      const { data, error } = await getPrograms();
+      console.log('🎾 ExploreTrainingScreen: Calling getPrograms API...');
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('API timeout after 10 seconds')), 10000)
+      );
+      
+      const { data, error } = await Promise.race([getPrograms(), timeoutPromise]);
+      
+      console.log('🎾 ExploreTrainingScreen: API response received - data:', !!data, 'error:', !!error);
       
       if (error) {
+        console.error('🎾 ExploreTrainingScreen: API error:', error);
         throw error;
       }
       
+      console.log('🎾 ExploreTrainingScreen: Raw data received:', data?.length, 'programs');
+      
       // Transform the data to match your current app structure
       const transformedPrograms = transformProgramData(data);
+      console.log('🎾 ExploreTrainingScreen: Transformed programs:', transformedPrograms?.length, 'programs');
+      
       setExplorePrograms(transformedPrograms);
       setError(null);
+      console.log('🎾 ExploreTrainingScreen: ✅ Programs loaded successfully');
     } catch (err) {
-      console.error('Error fetching programs:', err);
+      console.error('🎾 ExploreTrainingScreen: Error fetching programs:', err);
       setError(err.message);
       // Fallback to empty array if API fails
       setExplorePrograms([]);
+      console.log('🎾 ExploreTrainingScreen: Set empty programs due to error');
     } finally {
       setLoading(false);
+      console.log('🎾 ExploreTrainingScreen: Loading state set to false');
     }
   };
 

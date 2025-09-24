@@ -19,6 +19,7 @@ const { width } = Dimensions.get('window');
 const EXERCISE_RATINGS_KEY = '@pickleball_hero:exercise_ratings';
 const COLLECTED_BADGES_KEY = '@pickleball_hero:collected_badges';
 const PROGRAM_PROGRESS_KEY = '@pickleball_hero:program_progress';
+const HEADER_EXPANDED_KEY = '@pickleball_hero:header_expanded';
 
 // Storage functions
 const saveExerciseRatings = async (ratings) => {
@@ -88,6 +89,27 @@ const loadProgramProgress = async () => {
   } catch (error) {
     console.error('Error loading program progress:', error);
     return new Map();
+  }
+};
+
+const saveHeaderExpanded = async (isExpanded) => {
+  try {
+    await AsyncStorage.setItem(HEADER_EXPANDED_KEY, JSON.stringify(isExpanded));
+  } catch (error) {
+    console.error('Error saving header expanded state:', error);
+  }
+};
+
+const loadHeaderExpanded = async () => {
+  try {
+    const expandedJson = await AsyncStorage.getItem(HEADER_EXPANDED_KEY);
+    if (expandedJson !== null) {
+      return JSON.parse(expandedJson);
+    }
+    return true; // Default to expanded for new users
+  } catch (error) {
+    console.error('Error loading header expanded state:', error);
+    return true; // Default to expanded on error
   }
 };
 
@@ -706,20 +728,22 @@ export default function SkillsScreen({ navigation }) {
   const [showBadgeCongratulationModal, setShowBadgeCongratulationModal] = React.useState(false);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isHeaderExpanded, setIsHeaderExpanded] = React.useState(false);
+  const [isHeaderExpanded, setIsHeaderExpanded] = React.useState(true);
 
-  // Load exercise ratings, badges, and program progress from storage on component mount
+  // Load exercise ratings, badges, program progress, and header state from storage on component mount
   React.useEffect(() => {
     const loadInitialData = async () => {
-      const [savedRatings, savedCollectedBadges, savedProgramProgress] = await Promise.all([
+      const [savedRatings, savedCollectedBadges, savedProgramProgress, savedHeaderExpanded] = await Promise.all([
         loadExerciseRatings(),
         loadCollectedBadges(),
-        loadProgramProgress()
+        loadProgramProgress(),
+        loadHeaderExpanded()
       ]);
       
       setExerciseRatings(savedRatings);
       setCollectedBadges(savedCollectedBadges);
       setProgramProgress(savedProgramProgress);
+      setIsHeaderExpanded(savedHeaderExpanded);
       setUserSkills(getUserSkillsForRating(currentRating, savedRatings));
       setIsLoading(false);
     };
@@ -747,6 +771,13 @@ export default function SkillsScreen({ navigation }) {
       saveProgramProgress(programProgress);
     }
   }, [programProgress, isLoading]);
+
+  // Save header expanded state when it changes
+  React.useEffect(() => {
+    if (!isLoading) {
+      saveHeaderExpanded(isHeaderExpanded);
+    }
+  }, [isHeaderExpanded, isLoading]);
 
   // Detect program completion when exercise ratings change
   React.useEffect(() => {

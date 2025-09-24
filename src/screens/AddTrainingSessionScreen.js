@@ -14,6 +14,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import { useLogbook } from '../context/LogbookContext';
+import skillsData from '../data/Commun_skills_tags.json';
 
 export default function AddTrainingSessionScreen({ navigation }) {
   const { addLogbookEntry } = useLogbook();
@@ -38,16 +39,20 @@ export default function AddTrainingSessionScreen({ navigation }) {
     { value: 5, emoji: '🤩', label: 'Excellent', color: '#8B5CF6' },
   ];
 
-  // Training focus options
+  // Training focus options - extracted from common skills data
   const trainingFocusOptions = [
-    { value: 'dinks', emoji: '🥒', label: 'Dinks', color: '#10B981' },
-    { value: 'drives', emoji: '🚀', label: 'Drives', color: '#3B82F6' },
-    { value: 'serves', emoji: '🎾', label: 'Serves', color: '#F59E0B' },
-    { value: 'returns', emoji: '↩️', label: 'Returns', color: '#8B5CF6' },
-    { value: 'volleys', emoji: '🛡️', label: 'Volleys/Resets', color: '#EF4444' },
-    { value: 'lobs', emoji: '🌙', label: 'Lobs', color: '#06B6D4' },
-    { value: 'drops', emoji: '💧', label: 'Drop Shots', color: '#84CC16' },
-    { value: 'footwork', emoji: '👟', label: 'Footwork', color: '#F97316' },
+    ...skillsData.skillCategories.technical.skills.map(skill => ({
+      value: skill.id,
+      emoji: skill.emoji,
+      label: skill.name,
+      color: skill.color
+    })),
+    ...skillsData.skillCategories.movement.skills.map(skill => ({
+      value: skill.id,
+      emoji: skill.emoji,
+      label: skill.name,
+      color: skill.color
+    }))
   ];
 
   // Session type options
@@ -158,12 +163,7 @@ export default function AddTrainingSessionScreen({ navigation }) {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Log Training Session</Text>
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={handleSubmit}
-        >
-          <Text style={styles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView 
@@ -345,6 +345,12 @@ export default function AddTrainingSessionScreen({ navigation }) {
             />
           </View>
 
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={handleSubmit}
+          >
+            <Text style={styles.saveButtonText}>Save Training Session</Text>
+          </TouchableOpacity>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -378,14 +384,8 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  saveButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  saveButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#007AFF',
+  headerSpacer: {
+    width: 60, // Same width as back button to center title
   },
   scrollView: {
     flex: 1,
@@ -569,5 +569,20 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  // Save button styles
+  saveButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  saveButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

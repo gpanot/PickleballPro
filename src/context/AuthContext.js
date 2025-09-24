@@ -75,20 +75,16 @@ export const AuthProvider = ({ children }) => {
 
   const handleUserSignedIn = async (authUser) => {
     console.log('AuthContext: handleUserSignedIn called with user:', authUser.email);
+    
+    // Set authentication state immediately for faster navigation
+    setUser(authUser);
+    setIsAuthenticated(true);
+    setLoading(false);
+    console.log('AuthContext: ✅ User authentication set immediately for fast navigation');
+    console.log('AuthContext: Final state - isAuthenticated: true, user:', authUser.email);
+    
     try {
-      // Skip database profile fetch for now - just authenticate the user
-      console.log('AuthContext: Skipping database profile fetch for web - setting authentication directly');
-      
-      // Set user as authenticated immediately without waiting for profile
-      setUser(authUser);
-      setIsAuthenticated(true);
-      setLoading(false);
-      console.log('AuthContext: ✅ User authentication completed successfully (bypassed profile fetch)');
-      console.log('AuthContext: Final state - isAuthenticated: true, user:', authUser.email);
-      return;
-      
-      // Original profile fetch code (commented out for debugging)
-      /*
+      // Fetch or create user profile in database (in background)
       console.log('AuthContext: Fetching user profile from database...');
       const { data: userProfile, error } = await supabase
         .from('users')
@@ -108,7 +104,8 @@ export const AuthProvider = ({ children }) => {
             id: authUser.id,
             email: authUser.email,
             name: defaultName,
-            rating: 2.0 // Default rating
+            dupr_rating: 2.0, // Default rating
+            focus_areas: [] // Initialize empty focus areas
           })
           .select()
           .single();
@@ -117,6 +114,7 @@ export const AuthProvider = ({ children }) => {
           console.error('Error creating user profile:', createError);
           setProfile(null);
         } else {
+          console.log('AuthContext: ✅ Created new user profile:', newProfile);
           setProfile(newProfile);
         }
       } else {
@@ -124,24 +122,16 @@ export const AuthProvider = ({ children }) => {
         const profileWithDefaults = {
           ...userProfile,
           name: userProfile.name || userProfile.email?.split('@')[0] || userProfile.id,
-          rating: userProfile.rating || 2.0
+          dupr_rating: userProfile.dupr_rating || 2.0,
+          focus_areas: userProfile.focus_areas || []
         };
+        console.log('AuthContext: ✅ Found existing user profile:', profileWithDefaults);
         setProfile(profileWithDefaults);
       }
-
-      setUser(authUser);
-      setIsAuthenticated(true);
-      setLoading(false);
-      console.log('AuthContext: ✅ User authentication completed successfully');
-      console.log('AuthContext: Final state - isAuthenticated: true, user:', authUser.email);
-      */
     } catch (error) {
-      console.error('AuthContext: Error handling user sign in:', error);
-      setUser(authUser);
+      console.error('AuthContext: Error handling user profile fetch:', error);
       setProfile(null);
-      setIsAuthenticated(true);
-      setLoading(false);
-      console.log('AuthContext: ⚠️ Authentication completed with errors, but user still authenticated');
+      console.log('AuthContext: ⚠️ Profile fetch failed, but user is still authenticated');
     }
   };
 
