@@ -7,10 +7,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
+import { useUser } from '../context/UserContext';
 
 export default function CoachingPreferenceScreen({ onComplete }) {
   const [selectedPreference, setSelectedPreference] = useState(null);
   const insets = useSafeAreaInsets();
+  const { updateOnboardingData } = useUser();
 
   const preferences = [
     {
@@ -31,8 +33,13 @@ export default function CoachingPreferenceScreen({ onComplete }) {
     }
   ];
 
-  const handlePreferenceSelect = (preferenceId) => {
+  const handlePreferenceSelect = async (preferenceId) => {
     setSelectedPreference(preferenceId);
+    
+    // Save coaching preference data to UserContext
+    console.log('CoachingPreferenceScreen: Saving coaching preference to UserContext:', preferenceId);
+    await updateOnboardingData({ coachPreference: preferenceId });
+    
     // Navigate to CreateAccountScreen with coaching preference data
     onComplete({ 
       coach_preference: preferenceId,

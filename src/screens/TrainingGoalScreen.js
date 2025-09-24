@@ -7,10 +7,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
+import { useUser } from '../context/UserContext';
 
 export default function TrainingGoalScreen({ onComplete }) {
   const [selectedGoal, setSelectedGoal] = useState(null);
   const insets = useSafeAreaInsets();
+  const { updateOnboardingData } = useUser();
 
   const goals = [
     {
@@ -43,8 +45,13 @@ export default function TrainingGoalScreen({ onComplete }) {
     }
   ];
 
-  const handleGoalSelect = (goalId) => {
+  const handleGoalSelect = async (goalId) => {
     setSelectedGoal(goalId);
+    
+    // Save goal data to UserContext
+    console.log('TrainingGoalScreen: Saving goal to UserContext:', goalId);
+    await updateOnboardingData({ goal: goalId });
+    
     // Immediately proceed to next screen
     onComplete({ goal: goalId });
   };

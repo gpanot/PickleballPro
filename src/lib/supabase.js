@@ -5,6 +5,13 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Add auth state listener for debugging
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('🔐 Supabase Auth State Change:', event, session?.user?.email || 'No user');
+  console.log('🔐 Supabase Session valid:', !!session);
+  console.log('🔐 Supabase Access token present:', !!session?.access_token);
+});
+
 // Authentication functions
 export const signUp = async (email, password, userData = {}) => {
   try {
@@ -18,20 +25,32 @@ export const signUp = async (email, password, userData = {}) => {
 
     if (error) throw error;
 
-    // If signup successful, create user profile in our users table
+    // If signup successful, create or update user profile in our users table
     if (data.user && !error) {
+      console.log('Creating user profile with data:', userData);
+      
+      const profileData = {
+        id: data.user.id,
+        email: data.user.email,
+        name: userData.name || email.split('@')[0], // Default name from email
+        ...userData // Spread all onboarding data
+      };
+      
+      console.log('Final profile data being saved:', profileData);
+      
+      // Use upsert to handle cases where profile already exists
       const { error: profileError } = await supabase
         .from('users')
-        .insert({
-          id: data.user.id,
-          email: data.user.email,
-          name: userData.name || email.split('@')[0], // Default name from email
-          ...userData
+        .upsert(profileData, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
         });
 
       if (profileError) {
-        console.error('Error creating user profile:', profileError);
+        console.error('Error creating/updating user profile:', profileError);
         // Don't throw here as the auth user was created successfully
+      } else {
+        console.log('✅ User profile created/updated successfully');
       }
     }
 
@@ -72,16 +91,46 @@ export const signOut = async () => {
 
 export const getCurrentUser = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
+    console.log('🔐 getCurrentUser: Starting user fetch...');
     
-    // Handle auth session missing error - this is normal when no user is signed in
-    if (error) {
-      if (error.name === 'AuthSessionMissingError' || error.message?.includes('Auth session missing')) {
-        // This is expected when no user is signed in
+    // Check if we have a session first (more reliable on web)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    console.log('🔐 getCurrentUser: Session check - error:', !!sessionError, 'session valid:', !!session);
+    
+    if (sessionError) {
+      if (sessionError.name === 'AuthSessionMissingError' || sessionError.message?.includes('Auth session missing')) {
+        console.log('🔐 getCurrentUser: No session found (normal when not logged in)');
         return { user: null, profile: null, error: null };
       }
-      // For other errors, log and return error
-      throw error;
+      throw sessionError;
+    }
+    
+    // If no session, no user is logged in
+    if (!session) {
+      console.log('🔐 getCurrentUser: No session, returning null user');
+      return { user: null, profile: null, error: null };
+    }
+    
+    let user = session.user;
+    console.log('🔐 getCurrentUser: User found from session:', user?.email);
+    
+    // Legacy fallback - try getUser() if session doesn't have user
+    if (!user) {
+      console.log('🔐 getCurrentUser: No user in session, trying getUser()...');
+      const { data: { user: fallbackUser }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        if (error.name === 'AuthSessionMissingError' || error.message?.includes('Auth session missing')) {
+          return { user: null, profile: null, error: null };
+        }
+        throw error;
+      }
+      
+      if (!fallbackUser) {
+        return { user: null, profile: null, error: null };
+      }
+      
+      user = fallbackUser;
     }
     
     // If user exists, get their profile from our users table
@@ -198,36 +247,82 @@ export const createAdminUser = async (email, password, name, role = 'content_edi
 
 // 1. Get all published programs for Explore screen
 export const getPrograms = async () => {
+  console.log('📊 Supabase: getPrograms called');
+  
   try {
-    console.log('🗄️ Supabase: Starting getPrograms query...');
+    console.log('📊 Supabase: Executing streamlined query (skip session checks for web compatibility)...');
+    
+    // Direct query without session validation - works with anonymous access
     const { data, error } = await supabase
       .from('programs')
       .select(`
-        *,
+        id,
+        name,
+        description,
+        category,
+        tier,
+        thumbnail_url,
+        rating,
+        added_count,
+        created_at,
         routines (
-          *,
+          id,
+          name,
+          description,
+          order_index,
+          time_estimate_minutes,
           routine_exercises (
             order_index,
             custom_target_value,
             is_optional,
-            exercises (*)
+            exercises (
+              id,
+              code,
+              title,
+              description,
+              difficulty,
+              target_value,
+              target_unit
+            )
           )
         )
       `)
       .eq('is_published', true)
       .order('is_featured', { ascending: false });
 
-    console.log('🗄️ Supabase: Query completed - data:', !!data, 'error:', !!error);
+    console.log('📊 Supabase: Query executed - error:', !!error, 'data count:', data?.length || 0);
     
     if (error) {
-      console.error('🗄️ Supabase: Query error:', error);
+      console.error('📊 Supabase: Query error details:', error);
+      console.error('📊 Supabase: Error message:', error.message);
+      console.error('📊 Supabase: Error details:', error.details);
+      console.error('📊 Supabase: Error hint:', error.hint);
+      console.error('📊 Supabase: Error code:', error.code);
+      
+      // Check for common RLS issues
+      if (error.code === '42501' || error.message?.includes('row-level security')) {
+        console.error('📊 Supabase: 🚨 RLS POLICY ERROR DETECTED! 🚨');
+        console.error('📊 Supabase: The query is being blocked by Row Level Security');
+      }
+      
       throw error;
     }
     
-    console.log('🗄️ Supabase: ✅ Successfully fetched', data?.length, 'programs');
+    if (!data || data.length === 0) {
+      console.warn('📊 Supabase: No programs found in database');
+      return { data: [], error: null };
+    }
+    
+    console.log('📊 Supabase: Raw query result sample (first program):');
+    console.log(JSON.stringify(data[0], null, 2));
+    console.log('📊 Supabase: ✅ getPrograms successful - returning', data.length, 'programs');
+    
     return { data, error: null };
   } catch (error) {
-    console.error('🗄️ Supabase: Error fetching programs:', error);
+    console.error('📊 Supabase: Error fetching programs:', error);
+    console.error('📊 Supabase: Error details:', error.details);
+    console.error('📊 Supabase: Error hint:', error.hint);
+    console.error('📊 Supabase: Error code:', error.code);
     return { data: null, error };
   }
 };
@@ -398,35 +493,70 @@ export const getUserProgress = async () => {
 
 // Helper function to transform program data to match your current app structure
 export const transformProgramData = (programs) => {
-  return programs.map(program => ({
-    id: program.id,
-    name: program.name,
-    description: program.description,
-    category: program.category,
-    tier: program.tier,
-    thumbnail: program.thumbnail_url,
-    rating: parseFloat(program.rating),
-    addedCount: program.added_count,
-    routines: program.routines
-      .sort((a, b) => a.order_index - b.order_index)
-      .map(routine => ({
-        id: routine.id,
-        name: routine.name,
-        description: routine.description,
-        timeEstimate: `${routine.time_estimate_minutes} min`,
-        exercises: routine.routine_exercises
-          .sort((a, b) => a.order_index - b.order_index)
-          .map(re => ({
-            id: re.exercises.code,
-            name: re.exercises.title,
-            target: `${re.custom_target_value || re.exercises.target_value} ${re.exercises.target_unit}`,
-            difficulty: re.exercises.difficulty,
-            description: re.exercises.description,
-            routineExerciseId: re.exercises.id
-          }))
-      })),
-    createdAt: program.created_at
-  }));
+  console.log('🔄 Supabase: transformProgramData called with', programs?.length || 0, 'programs');
+  
+  if (!programs || !Array.isArray(programs)) {
+    console.warn('🔄 Supabase: Invalid programs data:', programs);
+    return [];
+  }
+  
+  try {
+    const transformed = programs.map((program, index) => {
+      console.log(`🔄 Supabase: Transforming program ${index + 1}:`, program.name);
+      
+      if (!program.routines) {
+        console.warn(`🔄 Supabase: Program ${program.name} has no routines`);
+      }
+      
+      return {
+        id: program.id,
+        name: program.name,
+        description: program.description,
+        category: program.category,
+        tier: program.tier,
+        thumbnail: program.thumbnail_url,
+        rating: parseFloat(program.rating) || 0,
+        addedCount: program.added_count || 0,
+        routines: (program.routines || [])
+          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+          .map(routine => {
+            console.log(`🔄 Supabase: Processing routine:`, routine.name);
+            return {
+              id: routine.id,
+              name: routine.name,
+              description: routine.description,
+              timeEstimate: `${routine.time_estimate_minutes || 0} min`,
+              exercises: (routine.routine_exercises || [])
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map(re => {
+                  if (!re.exercises) {
+                    console.warn(`🔄 Supabase: Missing exercise data for routine exercise`);
+                    return null;
+                  }
+                  return {
+                    id: re.exercises.code,
+                    name: re.exercises.title,
+                    target: `${re.custom_target_value || re.exercises.target_value || 0} ${re.exercises.target_unit || ''}`,
+                    difficulty: re.exercises.difficulty,
+                    description: re.exercises.description,
+                    routineExerciseId: re.exercises.id
+                  };
+                })
+                .filter(Boolean) // Remove null entries
+            };
+          }),
+        createdAt: program.created_at
+      };
+    });
+    
+    console.log('🔄 Supabase: ✅ Transform completed, result:', transformed.length, 'programs');
+    console.log('🔄 Supabase: First transformed program sample:', JSON.stringify(transformed[0], null, 2));
+    
+    return transformed;
+  } catch (error) {
+    console.error('🔄 Supabase: Error transforming program data:', error);
+    return [];
+  }
 };
 
 // Helper function to transform coach data to match your current app structure

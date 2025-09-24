@@ -7,10 +7,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
+import { useUser } from '../context/UserContext';
 
 export default function TimeCommitmentScreen({ onComplete }) {
   const [selectedTime, setSelectedTime] = useState(null);
   const insets = useSafeAreaInsets();
+  const { updateOnboardingData } = useUser();
 
   const timeOptions = [
     {
@@ -39,8 +41,13 @@ export default function TimeCommitmentScreen({ onComplete }) {
     }
   ];
 
-  const handleTimeSelect = (timeId) => {
+  const handleTimeSelect = async (timeId) => {
     setSelectedTime(timeId);
+    
+    // Save time commitment data to UserContext
+    console.log('TimeCommitmentScreen: Saving time commitment to UserContext:', timeId);
+    await updateOnboardingData({ timeCommitment: timeId });
+    
     // Immediately proceed to next screen
     onComplete({ time_commitment: timeId });
   };

@@ -22,7 +22,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
   const [isLoading, setIsLoading] = useState(false);
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
-  const { user } = useUser();
+  const { user, getOnboardingData } = useUser();
 
   // Pre-populate name from onboarding flow or user context
   React.useEffect(() => {
@@ -66,9 +66,19 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
     setIsLoading(true);
     
     try {
-      const { data, error } = await signUp(email, password, {
-        name: name.trim()
-      });
+      // Get all onboarding data collected during the flow
+      const onboardingData = getOnboardingData();
+      console.log('SignUp: Including onboarding data:', onboardingData);
+      
+      // Include both account data and onboarding data
+      const userData = {
+        name: name.trim(),
+        ...onboardingData // Include gender, rating, tier, goals, etc.
+      };
+      
+      console.log('SignUp: Complete user data being saved:', userData);
+      
+      const { data, error } = await signUp(email, password, userData);
       
       if (error) {
         Alert.alert('Sign Up Failed', error.message || 'Please try again.');
@@ -76,7 +86,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       }
 
       if (data?.user) {
-        console.log('Sign up successful!');
+        console.log('Sign up successful with complete onboarding data!');
         // Directly call onSignUp without showing popup
         if (onSignUp) {
           onSignUp({ email, password, name });

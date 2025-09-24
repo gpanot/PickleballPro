@@ -3,7 +3,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
 
 import IntroScreen from './src/screens/IntroScreen';
 import GenderSelectionScreen from './src/screens/GenderSelectionScreen';
@@ -18,6 +17,7 @@ import AddTrainingSessionScreen from './src/screens/AddTrainingSessionScreen';
 import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import AdminRoute from './src/components/AdminRoute';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -26,7 +26,7 @@ const Stack = createStackNavigator();
 
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
-  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasCompletedPersonalProgram, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, completePersonalProgram, completeOnboarding, updateUserRating } = useUser();
+  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
   const handleIntroComplete = () => {
@@ -36,18 +36,19 @@ function AppContent() {
 
   const handleAuthenticate = () => {
     console.log('Authentication triggered!');
-    console.log('Platform:', Platform.OS);
+    // For authenticated users, they should bypass onboarding entirely
+    // The isAuthenticated check in navigation logic will handle showing Main screen
+    console.log('✅ User authenticated - navigation will show Main screen automatically');
     
-    // For authenticated users, complete all onboarding steps to go directly to main app
-    console.log('Completing all onboarding steps for authenticated user...');
-    
-    // Complete onboarding steps immediately - the auth state change will trigger navigation
-    completeIntro();
-    completeGenderSelection();
-    updateUserRating(2.5, 'self'); // Set a default rating
-    completePersonalProgram();
-    completeOnboarding();
-    console.log('All onboarding steps completed - navigation should be handled by isAuthenticated change');
+    // Optional: Set onboarding flags for consistency, but not required for navigation
+    setTimeout(() => {
+      completeIntro();
+      completeGenderSelection();
+      updateUserRating(2.5, 'self'); // Set a default rating
+      completeNameSelection();
+      completeOnboarding();
+      console.log('✅ Onboarding flags set for authenticated user (optional consistency)');
+    }, 100);
   };
 
   const handleAuthGoBack = () => {
@@ -71,9 +72,14 @@ function AppContent() {
     console.log('Rating selection completed!');
   };
 
+  const handleNameComplete = (data) => {
+    console.log('Name selection completed with data:', data);
+    completeNameSelection();
+  };
+
   const handlePersonalProgramComplete = (data) => {
     console.log('Personal program setup completed with data:', data);
-    completePersonalProgram();
+    // Personal program completion no longer needed in flow
   };
 
   const handleOnboardingComplete = (data) => {
@@ -87,26 +93,42 @@ function AppContent() {
     }
   };
 
-  console.log('App render - hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasCompletedPersonalProgram:', hasCompletedPersonalProgram, 'hasCompletedOnboarding:', hasCompletedOnboarding);
+  console.log('App render - hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasSetName:', hasSetName, 'hasCompletedOnboarding:', hasCompletedOnboarding);
   
   // Debug navigation logic
-  console.log('🔐 Authentication status - isAuthenticated:', isAuthenticated, 'authLoading:', authLoading, 'Platform:', Platform.OS);
-  console.log('🔄 Onboarding states:', {
-    hasCompletedIntro,
-    hasSelectedGender,
-    hasSetRating,
-    hasCompletedPersonalProgram,
-    hasCompletedOnboarding
-  });
+  console.log('🔐 Authentication status - isAuthenticated:', isAuthenticated, 'authLoading:', authLoading);
+  
+  // Don't render anything while auth is loading
+  if (authLoading) {
+    console.log('⏳ Auth loading - showing loading state');
+    return null; // Or return a loading component
+  }
+  
+  // Add detailed navigation decision logging
+  if (isAuthenticated) {
+    console.log('🚀 Decision: Show Main (authenticated user - bypassing all onboarding)');
+  } else if (!hasCompletedIntro) {
+    console.log('👋 Decision: Show Intro screen');
+  } else if (!hasSelectedGender) {
+    console.log('👤 Decision: Show GenderSelection screen');
+  } else if (!hasSetRating) {
+    console.log('⭐ Decision: Show RatingSelection screen'); 
+  } else if (!hasSetName) {
+    console.log('📝 Decision: Show PersonalProgram screen');
+  } else if (!hasCompletedOnboarding) {
+    console.log('🎯 Decision: Show Onboarding screen');
+  } else {
+    console.log('✅ Decision: Show Main (onboarding complete, not authenticated)');
+  }
   
   if (isAuthenticated) {
     console.log('🚀 User authenticated - should show Main tab navigator with initialRouteName:', initialTabRoute);
   } else if (hasCompletedOnboarding) {
     console.log('🚀 All onboarding complete - should show Main tab navigator with initialRouteName:', initialTabRoute);
-  } else if (!hasCompletedPersonalProgram) {
-    console.log('📝 Should show PersonalProgram screen');
   } else if (!hasSetRating) {
     console.log('⭐ Should show RatingSelection screen');
+  } else if (!hasSetName) {
+    console.log('📝 Should show PersonalProgram screen');
   } else if (!hasSelectedGender) {
     console.log('👤 Should show GenderSelection screen');
   } else if (!hasCompletedIntro) {
@@ -133,6 +155,13 @@ function AppContent() {
             <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
+              options={{ 
+                headerShown: false
+              }}
+            />
+            <Stack.Screen 
+              name="Admin" 
+              component={AdminRoute}
               options={{ 
                 headerShown: false
               }}
@@ -165,10 +194,10 @@ function AppContent() {
               {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
             </Stack.Screen>
           </>
-        ) : !hasCompletedPersonalProgram ? (
+        ) : !hasSetName ? (
           <>
             <Stack.Screen name="PersonalProgram">
-              {(props) => <PersonalProgramScreen {...props} onComplete={handlePersonalProgramComplete} />}
+              {(props) => <PersonalProgramScreen {...props} onComplete={handleNameComplete} />}
             </Stack.Screen>
             <Stack.Screen name="Auth">
               {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -202,6 +231,13 @@ function AppContent() {
             <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
+              options={{ 
+                headerShown: false
+              }}
+            />
+            <Stack.Screen 
+              name="Admin" 
+              component={AdminRoute}
               options={{ 
                 headerShown: false
               }}

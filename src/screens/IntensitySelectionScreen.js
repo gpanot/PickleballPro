@@ -8,10 +8,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
+import { useUser } from '../context/UserContext';
 
 export default function IntensitySelectionScreen({ onComplete }) {
   const [selectedIntensity, setSelectedIntensity] = useState(null);
   const insets = useSafeAreaInsets();
+  const { updateOnboardingData } = useUser();
 
   const intensityOptions = [
     {
@@ -43,8 +45,13 @@ export default function IntensitySelectionScreen({ onComplete }) {
     }
   ];
 
-  const handleIntensitySelect = (intensityId) => {
+  const handleIntensitySelect = async (intensityId) => {
     setSelectedIntensity(intensityId);
+    
+    // Save intensity data to UserContext (note: this might not have a direct DB field)
+    console.log('IntensitySelectionScreen: Saving intensity to UserContext:', intensityId);
+    await updateOnboardingData({ intensity: intensityId });
+    
     // Immediately proceed to next screen
     onComplete({ intensity: intensityId });
   };

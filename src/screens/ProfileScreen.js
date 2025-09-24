@@ -81,11 +81,11 @@ export default function ProfileScreen({ onLogout, navigation }) {
   };
 
   const handleLogout = () => {
-    console.log('🚪 handleLogout called! Platform:', Platform.OS);
+    console.log('handleLogout called!');
     
     // For web, bypass the Alert and logout directly (Alert doesn't work well on web)
     if (Platform.OS === 'web') {
-      console.log('🌐 Web platform detected - logging out directly...');
+      console.log('Web platform detected - logging out directly...');
       performLogout();
       return;
     }
@@ -106,25 +106,22 @@ export default function ProfileScreen({ onLogout, navigation }) {
   };
   
   const performLogout = async () => {
-    console.log('🚪 performLogout called - signing out from Supabase...');
+    console.log('performLogout called - signing out from Supabase...');
     try {
       // Reset onboarding state first to ensure clean logout
-      console.log('🔄 Resetting onboarding state to return to IntroScreen...');
+      console.log('Resetting onboarding state to return to IntroScreen...');
       resetAllOnboarding();
       
-      console.log('🔐 Calling Supabase signOut...');
       await signOut();
-      console.log('✅ Successfully signed out from Supabase');
+      console.log('Successfully signed out from Supabase');
       
       // Also call the onLogout prop if available (for additional cleanup)
       if (onLogout) {
-        console.log('🔧 Calling onLogout prop for additional cleanup...');
+        console.log('Calling onLogout prop for additional cleanup...');
         onLogout();
       }
-      
-      console.log('🏁 Logout process completed');
     } catch (error) {
-      console.error('❌ Error signing out:', error);
+      console.error('Error signing out:', error);
       Alert.alert('Error', 'Failed to sign out. Please try again.');
     }
   };
@@ -286,21 +283,10 @@ export default function ProfileScreen({ onLogout, navigation }) {
       <TouchableOpacity 
         style={[styles.settingsItem, styles.logoutItem, { backgroundColor: '#FEF2F2' }]} 
         onPress={() => {
-          console.log('🚪 Logout TouchableOpacity pressed! Platform:', Platform.OS);
+          console.log('Logout TouchableOpacity pressed!');
           handleLogout();
         }}
         activeOpacity={0.7}
-        // Add web-specific properties to ensure clickability
-        accessible={true}
-        accessibilityRole={Platform.OS === 'web' ? 'button' : undefined}
-        {...(Platform.OS === 'web' && {
-          onMouseEnter: () => console.log('🖱️ Mouse entered logout button'),
-          onMouseLeave: () => console.log('🖱️ Mouse left logout button'),
-          onClick: () => {
-            console.log('🖱️ Web onClick triggered!');
-            handleLogout();
-          }
-        })}
       >
         <View style={styles.settingsItemLeft}>
           <ModernIcon name="logout" size={20} color="#EF4444" />
@@ -573,12 +559,6 @@ const styles = StyleSheet.create({
   },
   logoutItem: {
     marginTop: 8,
-    // Ensure web clickability
-    ...(Platform.OS === 'web' && {
-      cursor: 'pointer',
-      userSelect: 'none',
-      pointerEvents: 'auto'
-    })
   },
   logoutText: {
     color: '#EF4444',

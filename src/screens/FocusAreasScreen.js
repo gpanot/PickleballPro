@@ -9,10 +9,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import skillsData from '../data/Commun_skills_tags.json';
+import { useUser } from '../context/UserContext';
 
 export default function FocusAreasScreen({ onComplete }) {
   const [selectedFocus, setSelectedFocus] = useState([]);
   const insets = useSafeAreaInsets();
+  const { updateOnboardingData } = useUser();
 
   // Get first 8 skills from the skills data
   const getFirst8Skills = () => {
@@ -47,8 +49,12 @@ export default function FocusAreasScreen({ onComplete }) {
     });
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedFocus.length > 0) {
+      // Save focus areas data to UserContext
+      console.log('FocusAreasScreen: Saving focus areas to UserContext:', selectedFocus);
+      await updateOnboardingData({ focus_areas: selectedFocus });
+      
       onComplete({ focus_areas: selectedFocus });
     }
   };

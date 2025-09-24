@@ -63,7 +63,10 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
           console.log('❌ No onAuthenticate callback provided!');
         }
         
-        console.log('Authentication complete - app will automatically show main screen');
+        // Add a small delay to ensure auth state is processed
+        setTimeout(() => {
+          console.log('Authentication complete - app should now show main screen');
+        }, 500);
       }
     } catch (error) {
       console.error('Sign in error:', error);

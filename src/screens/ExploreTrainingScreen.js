@@ -23,6 +23,12 @@ export default function ExploreTrainingScreen({ navigation }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   
+  console.log('🎾 ExploreTrainingScreen: User context state:', {
+    hasUser: !!user,
+    userId: user?.id,
+    userEmail: user?.email
+  });
+  
   // State for API data
   const [explorePrograms, setExplorePrograms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,68 +37,115 @@ export default function ExploreTrainingScreen({ navigation }) {
 
   // Fetch programs from API on component mount
   useEffect(() => {
+    console.log('🎾 ExploreTrainingScreen: useEffect triggered - component mounted');
+    console.log('🎾 ExploreTrainingScreen: User state:', !!user, 'User ID:', user?.id);
     fetchPrograms();
   }, []);
 
   const fetchPrograms = async () => {
-    try {
-      console.log('🎾 ExploreTrainingScreen: Starting fetchPrograms...');
-      setLoading(true);
-      console.log('🎾 ExploreTrainingScreen: Calling getPrograms API...');
-      
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('API timeout after 10 seconds')), 10000)
-      );
-      
-      const { data, error } = await Promise.race([getPrograms(), timeoutPromise]);
-      
-      console.log('🎾 ExploreTrainingScreen: API response received - data:', !!data, 'error:', !!error);
-      
-      if (error) {
-        console.error('🎾 ExploreTrainingScreen: API error:', error);
-        throw error;
+    console.log('🎾 ExploreTrainingScreen: Starting fetchPrograms...');
+    
+    // Add timeout for the entire fetch operation
+    const fetchTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Fetch programs timeout after 20 seconds')), 20000)
+    );
+    
+    const fetchOperation = async () => {
+      try {
+        setLoading(true);
+        console.log('🎾 ExploreTrainingScreen: Loading state set to true');
+        
+        console.log('🎾 ExploreTrainingScreen: Calling getPrograms from Supabase...');
+        const startTime = Date.now();
+        const { data, error } = await getPrograms();
+        const endTime = Date.now();
+        
+        console.log(`🎾 ExploreTrainingScreen: getPrograms completed in ${endTime - startTime}ms`);
+        console.log('🎾 ExploreTrainingScreen: getPrograms response - error:', !!error, 'data length:', data?.length || 0);
+        
+        if (error) {
+          console.error('🎾 ExploreTrainingScreen: Supabase error:', error);
+          console.error('🎾 ExploreTrainingScreen: Error type:', typeof error);
+          console.error('🎾 ExploreTrainingScreen: Error details:', error.message, error.code, error.details);
+          throw error;
+        }
+        
+        if (!data) {
+          console.warn('🎾 ExploreTrainingScreen: No data returned from getPrograms - setting empty array');
+          setExplorePrograms([]);
+          setError(null);
+          return;
+        }
+        
+        if (Array.isArray(data) && data.length === 0) {
+          console.warn('🎾 ExploreTrainingScreen: Empty array returned from database');
+          setExplorePrograms([]);
+          setError(null);
+          return;
+        }
+        
+        console.log('🎾 ExploreTrainingScreen: Raw data from Supabase (first item):');
+        console.log(JSON.stringify(data[0], null, 2));
+        
+        // Transform the data to match your current app structure
+        console.log('🎾 ExploreTrainingScreen: Transforming program data...');
+        const transformedPrograms = transformProgramData(data);
+        console.log('🎾 ExploreTrainingScreen: Transformed programs:', transformedPrograms.length, 'items');
+        
+        if (transformedPrograms.length > 0) {
+          console.log('🎾 ExploreTrainingScreen: First transformed program:', JSON.stringify(transformedPrograms[0], null, 2));
+        }
+        
+        setExplorePrograms(transformedPrograms);
+        setError(null);
+        console.log('🎾 ExploreTrainingScreen: ✅ Programs loaded successfully');
+      } catch (err) {
+        console.error('🎾 ExploreTrainingScreen: Error fetching programs:', err);
+        console.error('🎾 ExploreTrainingScreen: Error name:', err.name);
+        console.error('🎾 ExploreTrainingScreen: Error message:', err.message);
+        console.error('🎾 ExploreTrainingScreen: Error stack:', err.stack);
+        setError(err.message || 'Failed to load programs');
+        // Fallback to empty array if API fails
+        setExplorePrograms([]);
+      } finally {
+        setLoading(false);
+        console.log('🎾 ExploreTrainingScreen: Loading state set to false');
       }
-      
-      console.log('🎾 ExploreTrainingScreen: Raw data received:', data?.length, 'programs');
-      
-      // Transform the data to match your current app structure
-      const transformedPrograms = transformProgramData(data);
-      console.log('🎾 ExploreTrainingScreen: Transformed programs:', transformedPrograms?.length, 'programs');
-      
-      setExplorePrograms(transformedPrograms);
-      setError(null);
-      console.log('🎾 ExploreTrainingScreen: ✅ Programs loaded successfully');
-    } catch (err) {
-      console.error('🎾 ExploreTrainingScreen: Error fetching programs:', err);
-      setError(err.message);
-      // Fallback to empty array if API fails
+    };
+    
+    try {
+      await Promise.race([fetchOperation(), fetchTimeout]);
+    } catch (timeoutError) {
+      console.error('🎾 ExploreTrainingScreen: Fetch operation timed out:', timeoutError);
+      setError('Request timed out. Please try again.');
       setExplorePrograms([]);
-      console.log('🎾 ExploreTrainingScreen: Set empty programs due to error');
-    } finally {
       setLoading(false);
-      console.log('🎾 ExploreTrainingScreen: Loading state set to false');
     }
   };
 
   const onRefresh = async () => {
+    console.log('🎾 ExploreTrainingScreen: Pull to refresh triggered');
     setRefreshing(true);
     try {
+      console.log('🎾 ExploreTrainingScreen: Calling getPrograms for refresh...');
       const { data, error } = await getPrograms();
       
       if (error) {
+        console.error('🎾 ExploreTrainingScreen: Refresh error:', error);
         throw error;
       }
       
       // Transform the data to match your current app structure
       const transformedPrograms = transformProgramData(data);
+      console.log('🎾 ExploreTrainingScreen: Refresh successful, got', transformedPrograms.length, 'programs');
       setExplorePrograms(transformedPrograms);
       setError(null);
     } catch (err) {
-      console.error('Error refreshing programs:', err);
+      console.error('🎾 ExploreTrainingScreen: Error refreshing programs:', err);
       setError(err.message);
     } finally {
       setRefreshing(false);
+      console.log('🎾 ExploreTrainingScreen: Refresh completed');
     }
   };
 

@@ -17,7 +17,7 @@ import { useUser } from '../context/UserContext';
 export default function PersonalProgramScreen({ onComplete }) {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { user, updateUserName } = useUser();
+  const { user, updateUserName, updateOnboardingData } = useUser();
   const insets = useSafeAreaInsets();
 
   // Keep name field empty for fresh user input
@@ -27,7 +27,7 @@ export default function PersonalProgramScreen({ onComplete }) {
   //   }
   // }, [user]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!name.trim()) {
       Alert.alert('Name Required', 'Please enter your name to continue.');
       return;
@@ -35,14 +35,24 @@ export default function PersonalProgramScreen({ onComplete }) {
 
     setIsLoading(true);
     
-    // Update user name in context
-    updateUserName(name.trim());
-    
-    // Small delay for UX feedback
-    setTimeout(() => {
+    try {
+      // Update user name in context and save to onboarding data
+      updateUserName(name.trim());
+      
+      // Save name data to UserContext for database persistence
+      console.log('PersonalProgramScreen: Saving name to UserContext:', name.trim());
+      await updateOnboardingData({ name: name.trim() });
+      
+      // Small delay for UX feedback
+      setTimeout(() => {
+        setIsLoading(false);
+        onComplete({ name: name.trim() });
+      }, 300);
+    } catch (error) {
+      console.error('Error saving name:', error);
       setIsLoading(false);
-      onComplete({ name: name.trim() });
-    }, 300);
+      Alert.alert('Error', 'Failed to save your name. Please try again.');
+    }
   };
 
   return (

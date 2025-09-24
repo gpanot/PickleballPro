@@ -1865,10 +1865,7 @@ export default function AdminDashboard({ navigation }) {
         {/* DUPR Rating */}
         <View style={[styles.modernTableCell, { flex: 1 }]}>
           {user.dupr_rating ? (
-            <View style={styles.duprContainer}>
-              <Ionicons name="star" size={14} color="#F59E0B" />
-              <Text style={styles.duprText}>{user.dupr_rating}</Text>
-            </View>
+            <Text style={styles.duprText}>{parseFloat(user.dupr_rating).toFixed(3)}</Text>
           ) : (
             <Text style={styles.noDuprText}>—</Text>
           )}

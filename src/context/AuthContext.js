@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [initializationComplete, setInitializationComplete] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -24,16 +25,32 @@ export const AuthProvider = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        console.log('🔄 Auth state changed:', event, session?.user?.email || 'No user');
+        console.log('🔄 Auth event details - event:', event, 'session valid:', !!session);
         
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🔄 Handling SIGNED_IN event...');
           await handleUserSignedIn(session.user);
         } else if (event === 'SIGNED_OUT') {
+          console.log('🔄 Handling SIGNED_OUT event...');
           handleUserSignedOut();
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('🔄 Handling TOKEN_REFRESHED event...');
           await handleUserSignedIn(session.user);
+        } else if (event === 'INITIAL_SESSION') {
+          console.log('🔄 Handling INITIAL_SESSION event - session:', !!session);
+          // INITIAL_SESSION is fired on app start/refresh
+          if (session?.user) {
+            console.log('🔄 INITIAL_SESSION has user, handling sign in...');
+            await handleUserSignedIn(session.user);
+          } else {
+            console.log('🔄 INITIAL_SESSION has no user');
+          }
+        } else {
+          console.log('🔄 Unhandled auth event:', event);
         }
         
+        console.log('🔄 Setting loading to false after auth state change');
         setLoading(false);
       }
     );
@@ -43,48 +60,164 @@ export const AuthProvider = ({ children }) => {
 
   const initializeAuth = async () => {
     try {
-      const { user: currentUser, profile: userProfile, error } = await getCurrentUser();
+      console.log('🔄 AuthContext: Initializing authentication...');
+      console.log('🔄 AuthContext: This could be app start OR browser refresh');
       
-      // Handle errors that aren't just "no user signed in"
-      if (error) {
-        console.error('Error initializing auth:', error);
-        setUser(null);
-        setProfile(null);
-        setIsAuthenticated(false);
-        return;
-      }
+      // Detect platform
+      const isWeb = typeof window !== 'undefined';
+      console.log('🔄 AuthContext: Platform detected:', isWeb ? 'Web' : 'Mobile');
       
-      if (currentUser && userProfile) {
-        setUser(currentUser);
-        setProfile(userProfile);
+      if (isWeb) {
+        // For web, use a more conservative approach
+        console.log('🔄 AuthContext: Using web-optimized auth initialization...');
+        console.log('🔄 AuthContext: About to call supabase.auth.getSession()...');
+        
+        const sessionStart = Date.now();
+        
+        // Quick check for existing session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        const sessionEnd = Date.now();
+        console.log(`🔄 AuthContext: getSession() completed in ${sessionEnd - sessionStart}ms`);
+        console.log('🔄 AuthContext: Web session check - error:', !!sessionError, 'session valid:', !!session);
+        
+        if (session) {
+          console.log('🔄 AuthContext: Session details - user email:', session.user?.email, 'expires at:', session.expires_at);
+        }
+        
+        if (sessionError) {
+          console.log('🔄 AuthContext: Session error on web, assuming no auth:', sessionError.message);
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
+          return;
+        }
+        
+        if (!session || !session.user) {
+          console.log('🔄 AuthContext: No session on web, user not authenticated');
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
+          return;
+        }
+        
+        // If we have a session, set auth immediately and fetch profile async
+        const user = session.user;
+        console.log('🔄 AuthContext: Found web session for user:', user.email);
+        console.log('🔄 AuthContext: Setting authenticated state immediately...');
+        setUser(user);
         setIsAuthenticated(true);
+        
+        // Fetch profile asynchronously with detailed logging and timeout
+        console.log('🔄 AuthContext: About to fetch user profile from database...');
+        const profileStart = Date.now();
+        
+        try {
+          // Add timeout to profile fetch to prevent hanging
+          const profileTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // 10s timeout
+          );
+          
+          const profileFetch = supabase
+            .from('users')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          const { data: profile, error: profileError } = await Promise.race([
+            profileFetch,
+            profileTimeout
+          ]);
+          
+          const profileEnd = Date.now();
+          console.log(`🔄 AuthContext: Profile fetch completed in ${profileEnd - profileStart}ms`);
+            
+          if (profileError) {
+            console.warn('🔄 AuthContext: Web profile fetch error:', profileError);
+            setProfile(null);
+          } else {
+            console.log('🔄 AuthContext: Web profile loaded successfully:', !!profile);
+            setProfile(profile);
+          }
+        } catch (profileError) {
+          console.warn('🔄 AuthContext: Web profile fetch failed/timed out:', profileError.message);
+          setProfile(null);
+          // Don't let profile fetch failure break auth - user is still authenticated
+        }
+        
       } else {
-        setUser(null);
-        setProfile(null);
-        setIsAuthenticated(false);
+        // Mobile: use original approach with timeout
+        console.log('AuthContext: Using mobile auth initialization with timeout...');
+        const timeout = 15000; // 15s for mobile
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth initialization timeout')), timeout)
+        );
+        
+        const authPromise = getCurrentUser();
+        
+        const { user: currentUser, profile: userProfile, error } = await Promise.race([
+          authPromise,
+          timeoutPromise
+        ]);
+        
+        // Handle errors that aren't just "no user signed in"
+        if (error) {
+          console.error('Error initializing auth:', error);
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
+          return;
+        }
+        
+        if (currentUser && userProfile) {
+          console.log('AuthContext: Found existing session for user:', currentUser.email);
+          setUser(currentUser);
+          setProfile(userProfile);
+          setIsAuthenticated(true);
+        } else if (currentUser) {
+          console.log('AuthContext: Found user but no profile, setting authenticated state');
+          setUser(currentUser);
+          setProfile(null);
+          setIsAuthenticated(true);
+        } else {
+          console.log('AuthContext: No existing session found');
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
+        }
       }
     } catch (error) {
       console.error('Error initializing auth:', error);
+      
+      // Handle timeout specifically
+      if (error.message?.includes('timeout')) {
+        console.warn('AuthContext: ⚠️ Auth initialization timed out - proceeding without auth');
+      } else {
+        console.error('AuthContext: ❌ Auth initialization failed with error:', error);
+      }
+      
+      // Always set to not authenticated on error
       setUser(null);
       setProfile(null);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
+      setInitializationComplete(true);
+      console.log('🔄 AuthContext: ✅ Authentication initialization completed - loading set to false');
     }
   };
 
   const handleUserSignedIn = async (authUser) => {
     console.log('AuthContext: handleUserSignedIn called with user:', authUser.email);
-    
-    // Set authentication state immediately for faster navigation
-    setUser(authUser);
-    setIsAuthenticated(true);
-    setLoading(false);
-    console.log('AuthContext: ✅ User authentication set immediately for fast navigation');
-    console.log('AuthContext: Final state - isAuthenticated: true, user:', authUser.email);
-    
     try {
-      // Fetch or create user profile in database (in background)
+      // Set authenticated state immediately to prevent UI hanging
+      setUser(authUser);
+      setIsAuthenticated(true);
+      setLoading(false);
+      console.log('AuthContext: ✅ Authentication state set immediately for user:', authUser.email);
+      
+      // Fetch or create user profile in database (async, non-blocking)
       console.log('AuthContext: Fetching user profile from database...');
       const { data: userProfile, error } = await supabase
         .from('users')
@@ -112,7 +245,14 @@ export const AuthProvider = ({ children }) => {
 
         if (createError) {
           console.error('Error creating user profile:', createError);
-          setProfile(null);
+          // Set a default profile to prevent null issues
+          setProfile({
+            id: authUser.id,
+            email: authUser.email,
+            name: authUser.email ? authUser.email.split('@')[0] : authUser.id,
+            dupr_rating: 2.0,
+            focus_areas: []
+          });
         } else {
           console.log('AuthContext: ✅ Created new user profile:', newProfile);
           setProfile(newProfile);
@@ -128,10 +268,23 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext: ✅ Found existing user profile:', profileWithDefaults);
         setProfile(profileWithDefaults);
       }
+
+      console.log('AuthContext: ✅ User authentication and profile setup completed successfully');
     } catch (error) {
-      console.error('AuthContext: Error handling user profile fetch:', error);
-      setProfile(null);
-      console.log('AuthContext: ⚠️ Profile fetch failed, but user is still authenticated');
+      console.error('AuthContext: Error handling user sign in:', error);
+      // Ensure authentication state is still set even if profile fails
+      setUser(authUser);
+      setIsAuthenticated(true);
+      setLoading(false);
+      // Set a default profile to prevent null issues
+      setProfile({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.email ? authUser.email.split('@')[0] : authUser.id,
+        dupr_rating: 2.0,
+        focus_areas: []
+      });
+      console.log('AuthContext: ⚠️ Authentication completed with errors, but user still authenticated');
     }
   };
 
