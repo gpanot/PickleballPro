@@ -104,9 +104,9 @@ function AppContent() {
     return null; // Or return a loading component
   }
   
-  // Add detailed navigation decision logging
+  // Simple decision logic: Authenticated users ALWAYS go to Main, no exceptions
   if (isAuthenticated) {
-    console.log('🚀 Decision: Show Main (authenticated user - bypassing all onboarding)');
+    console.log('🚀 Decision: Show Main (authenticated user - bypassing ALL onboarding checks)');
   } else if (!hasCompletedIntro) {
     console.log('👋 Decision: Show Intro screen');
   } else if (!hasSelectedGender) {
@@ -120,26 +120,13 @@ function AppContent() {
   } else {
     console.log('✅ Decision: Show Main (onboarding complete, not authenticated)');
   }
-  
-  if (isAuthenticated) {
-    console.log('🚀 User authenticated - should show Main tab navigator with initialRouteName:', initialTabRoute);
-  } else if (hasCompletedOnboarding) {
-    console.log('🚀 All onboarding complete - should show Main tab navigator with initialRouteName:', initialTabRoute);
-  } else if (!hasSetRating) {
-    console.log('⭐ Should show RatingSelection screen');
-  } else if (!hasSetName) {
-    console.log('📝 Should show PersonalProgram screen');
-  } else if (!hasSelectedGender) {
-    console.log('👤 Should show GenderSelection screen');
-  } else if (!hasCompletedIntro) {
-    console.log('👋 Should show Intro screen');
-  }
 
   return (
     <NavigationContainer>
       <StatusBar style="auto" backgroundColor="transparent" translucent />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
+          // AUTHENTICATED USER FLOW - Always show Main app
           <>
             <Stack.Screen name="Main">
               {(props) => {
@@ -155,93 +142,91 @@ function AppContent() {
             <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
-              options={{ 
-                headerShown: false
-              }}
+              options={{ headerShown: false }}
             />
             <Stack.Screen 
               name="Admin" 
               component={AdminRoute}
-              options={{ 
-                headerShown: false
-              }}
+              options={{ headerShown: false }}
             />
-          </>
-        ) : !hasCompletedIntro ? (
-          <>
-            <Stack.Screen name="Intro">
-              {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}
-            </Stack.Screen>
-            <Stack.Screen name="Auth">
-              {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
-            </Stack.Screen>
-          </>
-        ) : !hasSelectedGender ? (
-          <>
-            <Stack.Screen name="GenderSelection">
-              {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} />}
-            </Stack.Screen>
-            <Stack.Screen name="Auth">
-              {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
-            </Stack.Screen>
-          </>
-        ) : !hasSetRating ? (
-          <>
-            <Stack.Screen name="RatingSelection">
-              {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} />}
-            </Stack.Screen>
-            <Stack.Screen name="Auth">
-              {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
-            </Stack.Screen>
-          </>
-        ) : !hasSetName ? (
-          <>
-            <Stack.Screen name="PersonalProgram">
-              {(props) => <PersonalProgramScreen {...props} onComplete={handleNameComplete} />}
-            </Stack.Screen>
-            <Stack.Screen name="Auth">
-              {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
-            </Stack.Screen>
-          </>
-        ) : !hasCompletedOnboarding ? (
-          <>
-            <Stack.Screen name="Onboarding">
-              {(props) => <OnboardingNavigator {...props} onComplete={handleOnboardingComplete} />}
-            </Stack.Screen>
-            <Stack.Screen name="Auth">
-              {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
-            </Stack.Screen>
           </>
         ) : (
+          // ONBOARDING FLOW - Only for non-authenticated users
           <>
-            <Stack.Screen name="Main">
-              {(props) => {
-                console.log('🎯 Rendering Main screen with MainTabNavigator, initialRouteName:', initialTabRoute);
-                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
-              }}
-            </Stack.Screen>
-            <Stack.Screen name="Auth">
-              {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
-            </Stack.Screen>
-            <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
-            <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
-            <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
-            <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
-            <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
-            <Stack.Screen 
-              name="Profile" 
-              component={ProfileScreen}
-              options={{ 
-                headerShown: false
-              }}
-            />
-            <Stack.Screen 
-              name="Admin" 
-              component={AdminRoute}
-              options={{ 
-                headerShown: false
-              }}
-            />
+            {!hasCompletedIntro ? (
+              <>
+                <Stack.Screen name="Intro">
+                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+              </>
+            ) : !hasSelectedGender ? (
+              <>
+                <Stack.Screen name="GenderSelection">
+                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+              </>
+            ) : !hasSetRating ? (
+              <>
+                <Stack.Screen name="RatingSelection">
+                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+              </>
+            ) : !hasSetName ? (
+              <>
+                <Stack.Screen name="PersonalProgram">
+                  {(props) => <PersonalProgramScreen {...props} onComplete={handleNameComplete} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+              </>
+            ) : !hasCompletedOnboarding ? (
+              <>
+                <Stack.Screen name="Onboarding">
+                  {(props) => <OnboardingNavigator {...props} onComplete={handleOnboardingComplete} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+              </>
+            ) : (
+              // COMPLETED ONBOARDING, NOT AUTHENTICATED - Show Main app
+              <>
+                <Stack.Screen name="Main">
+                  {(props) => {
+                    console.log('🎯 Rendering Main screen for completed onboarding (non-auth), initialRouteName:', initialTabRoute);
+                    return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
+                  }}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
+                <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
+                <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
+                <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
+                <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
+                <Stack.Screen 
+                  name="Profile" 
+                  component={ProfileScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="Admin" 
+                  component={AdminRoute}
+                  options={{ headerShown: false }}
+                />
+              </>
+            )}
           </>
         )}
       </Stack.Navigator>
