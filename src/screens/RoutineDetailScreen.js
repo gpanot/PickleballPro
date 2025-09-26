@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import { useLogbook } from '../context/LogbookContext';
+import { supabase } from '../lib/supabase';
 
 export default function RoutineDetailScreen({ navigation, route }) {
   const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source } = route.params;
@@ -26,6 +27,12 @@ export default function RoutineDetailScreen({ navigation, route }) {
   const [selectedExercise, setSelectedExercise] = React.useState(null);
   const [logResult, setLogResult] = React.useState('');
   const [logNotes, setLogNotes] = React.useState('');
+  
+  // Session start modal state
+  const [showSessionStartModal, setShowSessionStartModal] = React.useState(false);
+  
+  // Track logged results for each exercise
+  const [exerciseResults, setExerciseResults] = React.useState({});
   
   // Session timer state
   const [isSessionActive, setIsSessionActive] = React.useState(false);
@@ -158,14 +165,25 @@ export default function RoutineDetailScreen({ navigation, route }) {
   // Quick log functions
   const handleAddLog = (exercise) => {
     setSelectedExercise(exercise);
-    setLogResult('');
-    setLogNotes('');
+    
+    // Check if there's an existing result for this exercise
+    const existingResult = exerciseResults[exercise.routineExerciseId];
+    setLogResult(existingResult?.result || '');
+    setLogNotes(existingResult?.notes || '');
+    
     setShowQuickLogModal(true);
   };
 
   const handleSubmitLog = () => {
     if (!logResult.trim()) {
       Alert.alert('Missing Information', 'Please enter your result.');
+      return;
+    }
+
+    // Validate numeric input
+    const numericResult = parseInt(logResult);
+    if (isNaN(numericResult) || numericResult < 0 || numericResult > 99) {
+      Alert.alert('Invalid Result', 'Please enter a number between 0 and 99.');
       return;
     }
 
@@ -187,13 +205,20 @@ export default function RoutineDetailScreen({ navigation, route }) {
     };
 
     addLogbookEntry(entry);
-    setShowQuickLogModal(false);
     
-    Alert.alert(
-      'Success', 
-      'Exercise logged successfully!',
-      [{ text: 'OK' }]
-    );
+    // Store the result for this exercise
+    setExerciseResults(prev => ({
+      ...prev,
+      [selectedExercise.routineExerciseId]: {
+        result: logResult,
+        notes: logNotes,
+        timestamp: new Date().toISOString(),
+        exerciseName: selectedExercise.name || selectedExercise.title,
+        target: selectedExercise.target || selectedExercise.goal
+      }
+    }));
+    
+    setShowQuickLogModal(false);
   };
 
   const getExerciseCategory = (exercise) => {
@@ -215,6 +240,11 @@ export default function RoutineDetailScreen({ navigation, route }) {
 
   // Session timer functions
   const startSession = () => {
+    setShowSessionStartModal(true);
+  };
+
+  const confirmStartSession = () => {
+    setShowSessionStartModal(false);
     setIsSessionActive(true);
     setSessionTime(0);
   };
@@ -225,12 +255,54 @@ export default function RoutineDetailScreen({ navigation, route }) {
   };
 
   const completeSession = () => {
+    const sessionTimeInHours = Math.round((sessionTime / 3600) * 2) / 2; // Round to nearest 0.5 hour
+    const finalSessionTime = Math.max(sessionTimeInHours, 1.0); // Minimum 1.0 hours for training sessions
+    
     setIsSessionActive(false);
-    setSessionTime(0);
+    
     Alert.alert(
       'Session Completed!', 
-      'Great work on completing your training session!',
-      [{ text: 'OK' }]
+      'Do you want to save your results in your Logbook?',
+      [
+        {
+          text: 'Not Now',
+          style: 'cancel',
+          onPress: () => {
+            setSessionTime(0);
+          }
+        },
+        {
+          text: 'Save to Logbook',
+          onPress: () => {
+            setSessionTime(0);
+            
+            // Prepare exercise logs for the session
+            console.log('Exercise results:', exerciseResults);
+            const exerciseLogs = Object.entries(exerciseResults)
+              .filter(([_, result]) => result.result && result.result.trim())
+              .map(([routineExerciseId, result]) => {
+                console.log('Processing exercise result for routineExerciseId', routineExerciseId, ':', result);
+                return {
+                  exerciseName: result.exerciseName || `Exercise ${routineExerciseId}`,
+                  target: result.target || '',
+                  result: result.result,
+                  notes: result.notes || ''
+                };
+              });
+            
+            // Navigate to AddTrainingSession with pre-filled data
+            navigation.navigate('AddTrainingSession', {
+              prefillData: {
+                sessionType: 'training',
+                hours: finalSessionTime,
+                routineName: routine.name,
+                programName: program.name,
+                exerciseLogs: exerciseLogs
+              }
+            });
+          }
+        }
+      ]
     );
   };
 
@@ -323,33 +395,87 @@ export default function RoutineDetailScreen({ navigation, route }) {
               
               <TouchableOpacity
                 style={styles.exerciseContent}
-                onPress={() => navigation.navigate('ExerciseDetail', {
-                  exercise: {
-                    code: exercise.id,
-                    title: exercise.name,
-                    level: `${program.name} - ${routine.name}`,
-                    goal: exercise.description,
-                    instructions: `Practice the ${exercise.name} exercise.\n\nTarget: ${exercise.target}\n\nDifficulty: ${exercise.difficulty}/5`,
-                    targetType: "count",
-                    targetValue: exercise.target.includes('/') ? exercise.target : "6/10",
-                    difficulty: exercise.difficulty,
-                    validationMode: "manual",
-                    estimatedTime: "10-15 min",
-                    equipment: ["Balls", "Partner/Coach"],
-                    tips: [
-                      "Focus on technique over power",
-                      "Take your time with each attempt",
-                      "Reset between attempts"
-                    ],
-                    previousAttempts: []
+                onPress={async () => {
+                  try {
+                    // Fetch complete exercise data from database using the exercise code
+                    const { data, error } = await supabase
+                      .from('exercises')
+                      .select('*')
+                      .eq('code', exercise.id)  // exercise.id is actually the code
+                      .single();
+                    
+                    if (error) throw error;
+                    
+                    if (data) {
+                      // Navigate with complete database exercise data
+                      navigation.navigate('ExerciseDetail', {
+                        exercise: data,
+                        rawExercise: data
+                      });
+                    } else {
+                      // Fallback to simplified exercise if database fetch fails
+                      const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
+                      const exerciseName = exercise.name || exercise.title || 'Exercise';
+                      const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+                      
+                      navigation.navigate('ExerciseDetail', {
+                        exercise: {
+                          code: exercise.id,
+                          title: exerciseName,
+                          level: `${program.name} - ${routine.name}`,
+                          goal: exerciseDescription,
+                          instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
+                          targetType: exercise.targetType || "count",
+                          targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
+                          difficulty: exercise.difficulty,
+                          validationMode: "manual",
+                          estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
+                          equipment: ["Balls", "Partner/Coach"],
+                          tips: [
+                            "Focus on technique over power",
+                            "Take your time with each attempt",
+                            "Reset between attempts"
+                          ],
+                          previousAttempts: []
+                        }
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error fetching exercise data:', error);
+                    // Fallback to simplified exercise data
+                    const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
+                    const exerciseName = exercise.name || exercise.title || 'Exercise';
+                    const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+                    
+                    navigation.navigate('ExerciseDetail', {
+                      exercise: {
+                        code: exercise.id,
+                        title: exerciseName,
+                        level: `${program.name} - ${routine.name}`,
+                        goal: exerciseDescription,
+                        instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
+                        targetType: exercise.targetType || "count",
+                        targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
+                        difficulty: exercise.difficulty,
+                        validationMode: "manual",
+                        estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
+                        equipment: ["Balls", "Partner/Coach"],
+                        tips: [
+                          "Focus on technique over power",
+                          "Take your time with each attempt",
+                          "Reset between attempts"
+                        ],
+                        previousAttempts: []
+                      }
+                    });
                   }
-                })}
+                }}
                 onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  <Text style={styles.exerciseTarget}>Target: {exercise.target}</Text>
-                  <Text style={styles.exerciseDescription}>{exercise.description}</Text>
+                  <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
+                  <Text style={styles.exerciseTarget}>Target: {exercise.target || exercise.goal}</Text>
+                  <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
                 </View>
                 
                 {source !== 'explore' && (
@@ -370,7 +496,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
                         style={[
                           styles.exerciseButton,
                           styles.addLogButton,
-                          { backgroundColor: '#10B981' }
+                          exerciseResults[exercise.routineExerciseId] 
+                            ? { backgroundColor: '#059669' } 
+                            : { backgroundColor: '#10B981' }
                         ]}
                         onPress={() => handleAddLog(exercise)}
                       >
@@ -378,7 +506,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
                           styles.exerciseButtonText,
                           { color: 'white' }
                         ]}>
-                          Add Log
+                          {exerciseResults[exercise.routineExerciseId] 
+                            ? exerciseResults[exercise.routineExerciseId].result 
+                            : 'Add Log'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -387,22 +517,29 @@ export default function RoutineDetailScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
           ))}
-          
-          {/* Session Controls */}
-          {exercises.length > 0 && source !== 'explore' && (
-            <View style={styles.sessionControls}>
+        </ScrollView>
+      )}
+    </View>
+  );
+
+  const renderSessionControls = () => {
+    if (exercises.length === 0 || source === 'explore') {
+      return null;
+    }
+
+    return (
+      <View style={styles.sessionControlsFixed}>
               {!isSessionActive ? (
                 <TouchableOpacity
                   style={styles.startSessionButton}
                   onPress={startSession}
                 >
-                  <WebIcon name="play" size={20} color="white" />
                   <Text style={styles.startSessionButtonText}>Start this session</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={styles.activeSessionContainer}>
                   <View style={styles.timerContainer}>
-                    <WebIcon name="time" size={24} color="#3B82F6" />
+              <WebIcon name="time" size={18} color="#3B82F6" />
                     <Text style={styles.timerText}>{formatTime(sessionTime)}</Text>
                   </View>
                   
@@ -424,10 +561,275 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 </View>
               )}
             </View>
+    );
+  };
+
+  const renderExercisesContentUpdated = () => (
+    <View style={styles.exercisesContainer}>
+      {exercises.length === 0 ? (
+        <View style={styles.emptyExercisesList}>
+          <Text style={styles.emptyExercisesIcon}>💪</Text>
+          <Text style={styles.emptyExercisesTitle}>No Exercises Yet</Text>
+          <Text style={styles.emptyExercisesDescription}>
+            {source === 'explore' 
+              ? 'This routine doesn\'t have any exercises yet.'
+              : 'Add exercises to this routine to create your training plan.'
+            }
+          </Text>
+          {source !== 'explore' && (
+            <TouchableOpacity
+              style={styles.addFirstExerciseButton}
+              onPress={openExercisePicker}
+            >
+              <WebIcon name="add" size={20} color="white" />
+              <Text style={styles.addFirstExerciseButtonText}>Add First Exercise</Text>
+            </TouchableOpacity>
           )}
+        </View>
+      ) : (
+        <ScrollView 
+          style={styles.exercisesList}
+          contentContainerStyle={styles.exercisesContent}
+        >
+          <View style={styles.exercisesHeader}>
+            <View style={styles.exercisesHeaderTop}>
+              <Text style={styles.exercisesTitle}>Exercises ({exercises.length})</Text>
+              {source !== 'explore' && (
+                <TouchableOpacity
+                  style={styles.addExerciseHeaderButton}
+                  onPress={openExercisePicker}
+                >
+                  <WebIcon name="add" size={16} color="#3B82F6" />
+                  <Text style={styles.addExerciseHeaderButtonText}>Add Exercise</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.exercisesSubtitle}>
+              {source === 'explore' ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
+            </Text>
+          </View>
+          
+          {exercises.map((exercise, index) => (
+            <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
+              {source !== 'explore' && (
+                <View style={styles.exerciseReorderHandle}>
+                  <TouchableOpacity
+                    style={styles.reorderButton}
+                    onPress={() => moveExerciseUp(index)}
+                    disabled={index === 0}
+                  >
+                    <WebIcon 
+                      name="chevron-up" 
+                      size={16} 
+                      color={index === 0 ? "#D1D5DB" : "#6B7280"} 
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.reorderButton}
+                    onPress={() => moveExerciseDown(index)}
+                    disabled={index === exercises.length - 1}
+                  >
+                    <WebIcon 
+                      name="chevron-down" 
+                      size={16} 
+                      color={index === exercises.length - 1 ? "#D1D5DB" : "#6B7280"} 
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+              
+              <TouchableOpacity
+                style={styles.exerciseContent}
+                onPress={async () => {
+                  try {
+                    // Fetch complete exercise data from database using the exercise code
+                    const { data, error } = await supabase
+                      .from('exercises')
+                      .select('*')
+                      .eq('code', exercise.id)  // exercise.id is actually the code
+                      .single();
+                    
+                    if (error) throw error;
+                    
+                    if (data) {
+                      // Navigate with complete database exercise data
+                      navigation.navigate('ExerciseDetail', {
+                        exercise: data,
+                        rawExercise: data
+                      });
+                    } else {
+                      // Fallback to simplified exercise if database fetch fails
+                      const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
+                      const exerciseName = exercise.name || exercise.title || 'Exercise';
+                      const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+                      
+                      navigation.navigate('ExerciseDetail', {
+                        exercise: {
+                          code: exercise.id,
+                          title: exerciseName,
+                          level: `${program.name} - ${routine.name}`,
+                          goal: exerciseDescription,
+                          instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
+                          targetType: exercise.targetType || "count",
+                          targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
+                          difficulty: exercise.difficulty,
+                          validationMode: "manual",
+                          estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
+                          equipment: ["Balls", "Partner/Coach"],
+                          tips: [
+                            "Focus on technique over power",
+                            "Take your time with each attempt",
+                            "Reset between attempts"
+                          ],
+                          previousAttempts: []
+                        }
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error fetching exercise data:', error);
+                    // Fallback to simplified exercise data
+                    const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
+                    const exerciseName = exercise.name || exercise.title || 'Exercise';
+                    const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+                    
+                    navigation.navigate('ExerciseDetail', {
+                      exercise: {
+                        code: exercise.id,
+                        title: exerciseName,
+                        level: `${program.name} - ${routine.name}`,
+                        goal: exerciseDescription,
+                        instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
+                        targetType: exercise.targetType || "count",
+                        targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
+                        difficulty: exercise.difficulty,
+                        validationMode: "manual",
+                        estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
+                        equipment: ["Balls", "Partner/Coach"],
+                        tips: [
+                          "Focus on technique over power",
+                          "Take your time with each attempt",
+                          "Reset between attempts"
+                        ],
+                        previousAttempts: []
+                      }
+                    });
+                  }
+                }}
+                onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
+              >
+                <View style={styles.exerciseInfo}>
+                  <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
+                  <Text style={styles.exerciseTarget}>Target: {exercise.target || exercise.goal}</Text>
+                  <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
+                </View>
+                
+                {source !== 'explore' && (
+                  <View style={styles.exerciseActions}>
+                    <View style={styles.exerciseButtonsContainer}>
+                      <View style={[
+                        styles.exerciseButton,
+                        { backgroundColor: '#3B82F6' }
+                      ]}>
+                        <Text style={[
+                          styles.exerciseButtonText,
+                          { color: 'white' }
+                        ]}>
+                          Details
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.exerciseButton,
+                          styles.addLogButton,
+                          exerciseResults[exercise.routineExerciseId] 
+                            ? { backgroundColor: '#059669' } 
+                            : { backgroundColor: '#10B981' }
+                        ]}
+                        onPress={() => handleAddLog(exercise)}
+                      >
+                        <Text style={[
+                          styles.exerciseButtonText,
+                          { color: 'white' }
+                        ]}>
+                          {exerciseResults[exercise.routineExerciseId] 
+                            ? exerciseResults[exercise.routineExerciseId].result 
+                            : 'Add Log'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          ))}
         </ScrollView>
       )}
     </View>
+  );
+
+  const renderSessionStartModal = () => (
+    <Modal
+      visible={showSessionStartModal}
+      animationType="fade"
+      transparent={true}
+      onRequestClose={() => setShowSessionStartModal(false)}
+    >
+      <View style={styles.sessionModalOverlay}>
+        <View style={[styles.sessionModalContainer, { paddingTop: insets.top + 20 }]}>
+          <View style={styles.sessionModalContent}>
+            {/* Header with fun emoji and title */}
+            <View style={styles.sessionModalHeader}>
+              <Text style={styles.sessionModalEmoji}>🎾</Text>
+              <Text style={styles.sessionModalTitle}>Ready to Play!</Text>
+              <Text style={styles.sessionModalSubtitle}>Let's start your training session</Text>
+            </View>
+            
+            {/* Main message */}
+            <View style={styles.sessionModalMessage}>
+              <Text style={styles.sessionModalText}>
+                Your training session is about to begin! Complete the exercises and log your results as you go.
+              </Text>
+              <Text style={styles.sessionModalText}>
+                At the end of your session, you can save all your progress to your Logbook.
+              </Text>
+            </View>
+            
+            {/* Session info */}
+            <View style={styles.sessionModalInfo}>
+              <View style={styles.sessionInfoItem}>
+                <WebIcon name="fitness" size={20} color="#10B981" />
+                <Text style={styles.sessionInfoText}>{exercises.length} exercises to complete</Text>
+              </View>
+              <View style={styles.sessionInfoItem}>
+                <WebIcon name="time" size={20} color="#3B82F6" />
+                <Text style={styles.sessionInfoText}>Track your session time</Text>
+              </View>
+              <View style={styles.sessionInfoItem}>
+                <WebIcon name="checkmark-circle" size={20} color="#F59E0B" />
+                <Text style={styles.sessionInfoText}>Log results for each exercise</Text>
+              </View>
+            </View>
+            
+            {/* Action buttons */}
+            <View style={styles.sessionModalActions}>
+              <TouchableOpacity
+                style={styles.sessionModalCancelButton}
+                onPress={() => setShowSessionStartModal(false)}
+              >
+                <Text style={styles.sessionModalCancelText}>Not Now</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.sessionModalStartButton}
+                onPress={confirmStartSession}
+              >
+                <Text style={styles.sessionModalStartText}>Let's Go! 💪</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 
   const renderQuickLogModal = () => (
@@ -445,7 +847,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
           >
             <WebIcon name="close" size={24} color="#6B7280" />
           </TouchableOpacity>
-          <Text style={styles.modalTitle}>Log Exercise</Text>
+          <Text style={styles.modalTitle}>
+            {exerciseResults[selectedExercise?.routineExerciseId] ? 'Edit Log' : 'Log Exercise'}
+          </Text>
           <TouchableOpacity
             style={[styles.modalSubmitButton, !logResult.trim() && styles.modalSubmitButtonDisabled]}
             onPress={handleSubmitLog}
@@ -462,21 +866,36 @@ export default function RoutineDetailScreen({ navigation, route }) {
             <>
               <View style={styles.exerciseInfoSection}>
                 <Text style={styles.modalExerciseName}>{selectedExercise.name}</Text>
-                <Text style={styles.modalExerciseTarget}>Target: {selectedExercise.target}</Text>
                 <Text style={styles.modalExerciseDescription}>{selectedExercise.description}</Text>
               </View>
               
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Result *</Text>
-                <TextInput
-                  style={styles.resultInput}
-                  value={logResult}
-                  onChangeText={setLogResult}
-                  placeholder="e.g., 7/10, completed, 15 reps"
-                  placeholderTextColor="#9CA3AF"
-                  multiline
-                  autoFocus
-                />
+              <View style={styles.targetSection}>
+                <Text style={styles.targetLabel}>TARGET</Text>
+                <Text style={styles.targetValue}>{selectedExercise.target}</Text>
+              </View>
+              
+              <View style={styles.resultSection}>
+                <Text style={styles.inputLabel}>Your Result *</Text>
+                <View style={styles.resultInputContainer}>
+                  <TextInput
+                    style={styles.resultInput}
+                    value={logResult}
+                    onChangeText={(text) => {
+                      // Only allow numbers and limit to 2 digits
+                      const numericValue = text.replace(/[^0-9]/g, '');
+                      if (numericValue === '' || (parseInt(numericValue) >= 0 && parseInt(numericValue) <= 99)) {
+                        setLogResult(numericValue);
+                      }
+                    }}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                    maxLength={2}
+                    autoFocus
+                    textAlign="center"
+                  />
+                  <Text style={styles.resultUnit}>/ target</Text>
+                </View>
               </View>
               
               <View style={styles.inputSection}>
@@ -485,7 +904,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   style={styles.notesInput}
                   value={logNotes}
                   onChangeText={setLogNotes}
-                  placeholder="Additional observations or comments..."
+                  placeholder="How did it feel? Any observations..."
                   placeholderTextColor="#9CA3AF"
                   multiline
                   numberOfLines={3}
@@ -515,9 +934,6 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>{routine.name}</Text>
             <Text style={styles.headerSubtitle}>from {program.name}</Text>
-            {routine.description ? (
-              <Text style={styles.headerDescription}>{routine.description}</Text>
-            ) : null}
           </View>
         </View>
       </View>
@@ -528,11 +944,13 @@ export default function RoutineDetailScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
       >
-        {renderExercisesContent()}
+        {renderExercisesContentUpdated()}
         
         <View style={styles.bottomSpacing} />
       </ScrollView>
       
+      {renderSessionControls()}
+      {renderSessionStartModal()}
       {renderQuickLogModal()}
     </View>
   );
@@ -745,7 +1163,111 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomSpacing: {
-    height: 24,
+    height: 120, // Add extra spacing to account for fixed session controls
+  },
+  // Session Start Modal styles
+  sessionModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  sessionModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  sessionModalContent: {
+    padding: 24,
+  },
+  sessionModalHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  sessionModalEmoji: {
+    fontSize: 60,
+    marginBottom: 12,
+  },
+  sessionModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  sessionModalSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  sessionModalMessage: {
+    marginBottom: 24,
+  },
+  sessionModalText: {
+    fontSize: 16,
+    color: '#374151',
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  sessionModalInfo: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  sessionInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  sessionInfoText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+  },
+  sessionModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  sessionModalCancelButton: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  sessionModalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  sessionModalStartButton: {
+    flex: 2,
+    backgroundColor: '#10B981',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sessionModalStartText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
   },
   // Modal styles
   modalContainer: {
@@ -793,30 +1315,52 @@ const styles = StyleSheet.create({
   },
   exerciseInfoSection: {
     backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   modalExerciseName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
-    marginBottom: 4,
-  },
-  modalExerciseTarget: {
-    fontSize: 14,
-    color: '#6B7280',
     marginBottom: 8,
+    textAlign: 'center',
   },
   modalExerciseDescription: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    lineHeight: 20,
+    fontSize: 15,
+    color: '#6B7280',
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  targetSection: {
+    backgroundColor: '#F0F9FF',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+  },
+  targetLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3B82F6',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  targetValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  resultSection: {
+    marginBottom: 24,
   },
   inputSection: {
     marginBottom: 16,
@@ -825,18 +1369,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  resultInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: '#10B981',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   resultInput: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 32,
+    fontWeight: 'bold',
     color: '#1F2937',
-    minHeight: 48,
+    minWidth: 80,
+    textAlign: 'center',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  resultUnit: {
+    fontSize: 18,
+    color: '#6B7280',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   notesInput: {
     backgroundColor: 'white',
@@ -855,15 +1419,29 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 16,
   },
+  sessionControlsFixed: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#F9FAFB',
+    padding: 16,
+    paddingBottom: 34, // Account for home indicator on newer devices
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   startSessionButton: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#10B981',
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderRadius: 12,
-    gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -878,7 +1456,7 @@ const styles = StyleSheet.create({
   activeSessionContainer: {
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 20,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -891,18 +1469,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-    gap: 8,
+    marginBottom: 12,
+    gap: 6,
   },
   timerText: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1F2937',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   sessionActions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   cancelButton: {
     flex: 1,

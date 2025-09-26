@@ -16,19 +16,50 @@ import WebIcon from '../components/WebIcon';
 import { useLogbook } from '../context/LogbookContext';
 import skillsData from '../data/Commun_skills_tags.json';
 
-export default function AddTrainingSessionScreen({ navigation }) {
+export default function AddTrainingSessionScreen({ navigation, route }) {
   const { addLogbookEntry } = useLogbook();
   const insets = useSafeAreaInsets();
   
+  // Get prefill data from route params
+  const prefillData = route?.params?.prefillData;
+  const isTrainingSession = prefillData?.sessionType === 'training';
+  
   // Form state
-  const [hours, setHours] = useState(1); // Default to 1 hour
+  const [hours, setHours] = useState(prefillData?.hours || 1.0); // Default to 1 hour
   const [date, setDate] = useState(new Date());
   const [feeling, setFeeling] = useState(3); // 1-5 scale
   const [trainingFocus, setTrainingFocus] = useState(['dinks']); // Array for multiple selections
   const [difficulty, setDifficulty] = useState(['dinks']); // Array for multiple selections
-  const [sessionType, setSessionType] = useState('single'); // Single selection only
-  const [notes, setNotes] = useState('');
+  const [sessionType, setSessionType] = useState(prefillData?.sessionType || 'single'); // Single selection only
+  const [notes, setNotes] = useState(prefillData ? generateInitialNotes(prefillData) : '');
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Helper function to generate initial notes with exercise logs
+  function generateInitialNotes(data) {
+    let initialNotes = '';
+    
+    if (data.routineName && data.programName) {
+      initialNotes += `${data.programName} - ${data.routineName}\n\n`;
+    }
+    
+    if (data.exerciseLogs && data.exerciseLogs.length > 0) {
+      initialNotes += 'Exercise Results:\n';
+      data.exerciseLogs.forEach((log, index) => {
+        console.log(`Exercise log ${index}:`, JSON.stringify(log, null, 2)); // Debug logging
+        const exerciseName = log.exerciseName || log.name || log.title || `Exercise ${index + 1}`;
+        initialNotes += `• ${exerciseName}: ${log.result}`;
+        if (log.target) {
+          initialNotes += ` (Target: ${log.target})`;
+        }
+        if (log.notes) {
+          initialNotes += ` - ${log.notes}`;
+        }
+        initialNotes += '\n';
+      });
+    }
+    
+    return initialNotes;
+  }
 
   // Feeling options
   const feelingOptions = [
@@ -57,6 +88,7 @@ export default function AddTrainingSessionScreen({ navigation }) {
 
   // Session type options
   const sessionTypeOptions = [
+    { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
     { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
     { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
     { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
@@ -113,16 +145,36 @@ export default function AddTrainingSessionScreen({ navigation }) {
 
     addLogbookEntry(entry);
     
-    Alert.alert(
-      'Success', 
-      'Training session logged successfully!',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        }
-      ]
-    );
+    if (isTrainingSession) {
+      // For training sessions, navigate directly to Logbook
+      Alert.alert(
+        '🎉 Session Saved!', 
+        'Your training session has been saved to your logbook.',
+        [
+          {
+            text: 'View Logbook',
+            onPress: () => {
+              // Navigate to Main with Logbook tab
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Main', state: { routes: [{ name: 'Logbook' }], index: 0 } }],
+              });
+            },
+          }
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Success', 
+        'Training session logged successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          }
+        ]
+      );
+    }
   };
 
   const toggleTrainingFocus = (focusValue) => {
@@ -162,7 +214,9 @@ export default function AddTrainingSessionScreen({ navigation }) {
             color="#007AFF" 
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Log Training Session</Text>
+        <Text style={styles.headerTitle}>
+          {isTrainingSession ? 'Save Training Session' : 'Log Training Session'}
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -171,9 +225,35 @@ export default function AddTrainingSessionScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Notes section - moved to top for training sessions */}
+        {isTrainingSession && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Training Session Notes</Text>
+            <Text style={styles.inputHint}>
+              Review your exercise results and add any additional notes about your session
+            </Text>
+            <TextInput
+              style={[styles.textInput, styles.notesInput]}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Additional notes about your training session..."
+              multiline
+              textAlignVertical="top"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
+        )}
+
+        {/* Session Type - hidden for training sessions */}
+        {!isTrainingSession && (
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Session Type</Text>
-            <View style={styles.sessionTypeSelector}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.sessionTypeScrollView}
+            >
+              <View style={styles.sessionTypeSelector}>
               {sessionTypeOptions.map((option) => (
                 <TouchableOpacity
                   key={option.value}
@@ -195,8 +275,10 @@ export default function AddTrainingSessionScreen({ navigation }) {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+              </View>
+            </ScrollView>
           </View>
+        )}
 
         <View style={styles.formRow}>
             <View style={styles.inputGroup}>
@@ -331,19 +413,21 @@ export default function AddTrainingSessionScreen({ navigation }) {
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Notes (Optional)</Text>
-            <TextInput
-              style={[styles.textInput, styles.notesInput]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="What did you work on? Any insights or goals for next time?"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
+          {/* Notes section - only show for non-training sessions */}
+          {!isTrainingSession && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={[styles.textInput, styles.notesInput]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="What did you work on? Any insights or goals for next time?"
+                multiline
+                textAlignVertical="top"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.saveButton}
@@ -423,7 +507,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   notesInput: {
-    height: 100,
+    minHeight: 100,
+    maxHeight: 200,
     textAlignVertical: 'top',
   },
   // Hours input styles
@@ -542,14 +627,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   // Session type selector styles
+  sessionTypeScrollView: {
+    flexGrow: 0,
+    height: 100, // Fixed height to prevent wrapping
+  },
   sessionTypeSelector: {
     flexDirection: 'row',
     gap: 8,
-    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+    alignItems: 'center',
   },
   sessionTypeOption: {
-    flex: 1,
-    minWidth: 70,
+    width: 80,
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: 12,
@@ -584,5 +673,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  headerSpacer: {
+    width: 60, // Same width as back button to center the title
   },
 });
