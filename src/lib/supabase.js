@@ -264,6 +264,7 @@ export const getPrograms = async () => {
         thumbnail_url,
         rating,
         added_count,
+        order_index,
         created_at,
         routines (
           id,
@@ -288,6 +289,8 @@ export const getPrograms = async () => {
         )
       `)
       .eq('is_published', true)
+      .order('category', { ascending: true })
+      .order('order_index', { ascending: true })
       .order('is_featured', { ascending: false });
 
     console.log('📊 Supabase: Query executed - error:', !!error, 'data count:', data?.length || 0);
@@ -517,6 +520,7 @@ export const transformProgramData = (programs) => {
         thumbnail: program.thumbnail_url,
         rating: parseFloat(program.rating) || 0,
         addedCount: program.added_count || 0,
+        orderIndex: program.order_index || 0,
         routines: (program.routines || [])
           .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
           .map(routine => {

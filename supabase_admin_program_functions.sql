@@ -503,3 +503,99 @@ BEGIN
   RETURNING exercises.code, exercises.title, exercises.description, exercises.instructions, exercises.goal, exercises.difficulty, exercises.target_value, exercises.target_unit, exercises.estimated_minutes, exercises.skill_category, exercises.skill_categories_json, exercises.is_published, exercises.created_at, exercises.updated_at, exercises.created_by;
 END;
 $$;
+
+-- =====================================================
+-- CATEGORY ORDER MANAGEMENT FUNCTIONS
+-- =====================================================
+
+-- Create a simple table to store category order settings
+CREATE TABLE IF NOT EXISTS category_order_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_order JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE category_order_settings ENABLE ROW LEVEL SECURITY;
+
+-- Create a policy that allows admin users to read and write (only if it doesn't exist)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'category_order_settings' 
+    AND policyname = 'Admin users can manage category order'
+  ) THEN
+    CREATE POLICY "Admin users can manage category order" ON category_order_settings
+      FOR ALL 
+      TO authenticated
+      USING (
+        EXISTS (
+          SELECT 1 FROM users 
+          WHERE users.id = auth.uid() 
+          AND users.is_admin = true
+        )
+      )
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM users 
+          WHERE users.id = auth.uid() 
+          AND users.is_admin = true
+        )
+      );
+  END IF;
+END $$;
+
+-- Create function to save category order
+CREATE OR REPLACE FUNCTION save_category_order(category_order JSONB)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Check if user is admin
+  IF NOT EXISTS (
+    SELECT 1 FROM users 
+    WHERE users.id = auth.uid() 
+    AND users.is_admin = true
+  ) THEN
+    RAISE EXCEPTION 'Access denied: Admin privileges required';
+  END IF;
+  
+  -- Use UPSERT approach: first try to update, then insert if no record exists
+  IF EXISTS (SELECT 1 FROM category_order_settings LIMIT 1) THEN
+    -- Update existing record
+    UPDATE category_order_settings 
+    SET category_order = save_category_order.category_order, 
+        updated_at = NOW()
+    WHERE id = (SELECT id FROM category_order_settings ORDER BY updated_at DESC LIMIT 1);
+  ELSE
+    -- Insert new record
+    INSERT INTO category_order_settings (category_order, updated_at)
+    VALUES (save_category_order.category_order, NOW());
+  END IF;
+  
+  RETURN TRUE;
+END;
+$$;
+
+-- Create function to get category order
+CREATE OR REPLACE FUNCTION get_category_order()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  result JSONB;
+BEGIN
+  -- Get the category order
+  SELECT category_order INTO result
+  FROM category_order_settings
+  ORDER BY updated_at DESC
+  LIMIT 1;
+  
+  -- Return null if no settings found
+  RETURN COALESCE(result, '[]'::jsonb);
+END;
+$$;

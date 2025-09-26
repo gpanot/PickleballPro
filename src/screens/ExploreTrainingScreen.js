@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
-import { getPrograms, transformProgramData } from '../lib/supabase';
+import { getPrograms, transformProgramData, supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -34,12 +34,14 @@ export default function ExploreTrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [savedCategoryOrder, setSavedCategoryOrder] = useState([]);
 
   // Fetch programs from API on component mount
   useEffect(() => {
     console.log('🎾 ExploreTrainingScreen: useEffect triggered - component mounted');
     console.log('🎾 ExploreTrainingScreen: User state:', !!user, 'User ID:', user?.id);
     fetchPrograms();
+    fetchCategoryOrder();
   }, []);
 
   const fetchPrograms = async () => {
@@ -94,10 +96,15 @@ export default function ExploreTrainingScreen({ navigation }) {
         
         if (transformedPrograms.length > 0) {
           console.log('🎾 ExploreTrainingScreen: First transformed program:', JSON.stringify(transformedPrograms[0], null, 2));
+          
         }
         
         setExplorePrograms(transformedPrograms);
         setError(null);
+        
+        // Log categories for debugging
+        const categories = [...new Set(transformedPrograms.map(p => p.category).filter(Boolean))];
+        console.log('🎾 ExploreTrainingScreen: Available categories:', categories);
         console.log('🎾 ExploreTrainingScreen: ✅ Programs loaded successfully');
       } catch (err) {
         console.error('🎾 ExploreTrainingScreen: Error fetching programs:', err);
@@ -123,6 +130,25 @@ export default function ExploreTrainingScreen({ navigation }) {
     }
   };
 
+  const fetchCategoryOrder = async () => {
+    try {
+      console.log('📋 ExploreTrainingScreen: Fetching saved category order...');
+      const { data: orderData, error: orderError } = await supabase
+        .rpc('get_category_order');
+      
+      if (orderError) {
+        console.log('📋 ExploreTrainingScreen: No saved category order found:', orderError.message);
+        setSavedCategoryOrder([]);
+      } else {
+        console.log('📋 ExploreTrainingScreen: Loaded saved category order:', orderData);
+        setSavedCategoryOrder(orderData || []);
+      }
+    } catch (error) {
+      console.log('📋 ExploreTrainingScreen: Could not load saved category order:', error.message);
+      setSavedCategoryOrder([]);
+    }
+  };
+
   const onRefresh = async () => {
     console.log('🎾 ExploreTrainingScreen: Pull to refresh triggered');
     setRefreshing(true);
@@ -140,6 +166,9 @@ export default function ExploreTrainingScreen({ navigation }) {
       console.log('🎾 ExploreTrainingScreen: Refresh successful, got', transformedPrograms.length, 'programs');
       setExplorePrograms(transformedPrograms);
       setError(null);
+      
+      // Also refresh category order
+      await fetchCategoryOrder();
     } catch (err) {
       console.error('🎾 ExploreTrainingScreen: Error refreshing programs:', err);
       setError(err.message);
@@ -169,10 +198,24 @@ export default function ExploreTrainingScreen({ navigation }) {
     return currentHalf + 0.5;
   };
 
+  const getTotalExerciseCount = () => {
+    return explorePrograms.reduce((total, program) => {
+      const programExerciseCount = program.routines?.reduce((routineTotal, routine) => {
+        return routineTotal + (routine.exercises?.length || 0);
+      }, 0) || 0;
+      return total + programExerciseCount;
+    }, 0);
+  };
+
   const renderHeader = () => {
+    const exerciseCount = getTotalExerciseCount();
+    
     return (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Explore</Text>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Explore</Text>
+          <Text style={styles.exerciseCount}>{exerciseCount} exercises</Text>
+        </View>
       </View>
     );
   };
@@ -200,9 +243,50 @@ export default function ExploreTrainingScreen({ navigation }) {
       );
     }
 
-    // Group programs by category
-    const proTrainingPrograms = filteredPrograms.filter(p => p.category === 'Pro Training');
-    const fundamentalsPrograms = filteredPrograms.filter(p => p.category === 'Fundamentals');
+    // Get all unique categories from programs and sort them according to saved order
+    const uniqueCategories = [...new Set(filteredPrograms.map(p => p.category).filter(Boolean))];
+    
+    // Sort categories according to saved order
+    let categories;
+    if (savedCategoryOrder && savedCategoryOrder.length > 0) {
+      console.log('📋 ExploreTrainingScreen: Using saved category order:', savedCategoryOrder);
+      
+      // Create ordered list based on saved order
+      const orderedCategories = [];
+      
+      // Add categories in saved order
+      savedCategoryOrder.forEach(savedCat => {
+        if (uniqueCategories.includes(savedCat.name)) {
+          orderedCategories.push(savedCat.name);
+        }
+      });
+      
+      // Add any new categories that weren't in saved order
+      const savedCategoryNames = savedCategoryOrder.map(sc => sc.name);
+      const newCategories = uniqueCategories.filter(cat => !savedCategoryNames.includes(cat));
+      orderedCategories.push(...newCategories);
+      
+      categories = orderedCategories;
+      console.log('📋 ExploreTrainingScreen: Final category order:', categories);
+    } else {
+      console.log('📋 ExploreTrainingScreen: No saved order, using default order');
+      categories = uniqueCategories;
+    }
+    
+    // Define category icons for better visual appeal
+    const getCategoryIcon = (category) => {
+      switch (category.toLowerCase()) {
+        case 'pro training': return '🏆';
+        case 'fundamentals': return '📚';
+        case 'technique': return '🎯';
+        case 'fitness': return '💪';
+        case 'strategy': return '🧠';
+        case 'mental game': return '🧘';
+        case 'conditioning': return '🏃';
+        case 'drills': return '⚡';
+        default: return '🏓';
+      }
+    };
 
     return (
       <ScrollView 
@@ -218,81 +302,90 @@ export default function ExploreTrainingScreen({ navigation }) {
           />
         }
       >
-        {/* Pro Training Section */}
-        {proTrainingPrograms.length > 0 && (
-          <View style={styles.categoriesSection}>
-            <Text style={styles.sectionTitle}>Pro Training</Text>
-            <View style={styles.programsGrid}>
-              {proTrainingPrograms.map((program) => (
-                <TouchableOpacity
-                  key={program.id}
-                  style={styles.programCard}
-                  onPress={() => navigateToProgram(program)}
+        {/* Dynamically render all categories */}
+        {categories.map((category) => {
+          const categoryPrograms = filteredPrograms.filter(p => p.category === category);
+          
+          if (categoryPrograms.length === 0) return null;
+          
+          const useHorizontalScroll = categoryPrograms.length > 2;
+          
+          return (
+            <View key={category} style={styles.categoriesSection}>
+              <Text style={styles.sectionTitle}>{category}</Text>
+              {useHorizontalScroll ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalScrollContent}
+                  style={styles.horizontalScroll}
                 >
-                  <View style={styles.thumbnailContainer}>
-                    {program.thumbnail ? (
-                      <Image 
-                        source={{ uri: program.thumbnail }} 
-                        style={styles.programThumbnail}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.placeholderThumbnail}>
-                        <Text style={styles.placeholderText}>🏆</Text>
+                  {categoryPrograms.map((program) => (
+                    <TouchableOpacity
+                      key={program.id}
+                      style={styles.horizontalProgramCard}
+                      onPress={() => navigateToProgram(program)}
+                    >
+                      <View style={styles.thumbnailContainer}>
+                        {program.thumbnail ? (
+                          <Image 
+                            source={{ uri: program.thumbnail }} 
+                            style={styles.programThumbnail}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.placeholderThumbnail}>
+                            <Text style={styles.placeholderText}>{getCategoryIcon(category)}</Text>
+                          </View>
+                        )}
                       </View>
-                    )}
-                  </View>
-                  <View style={styles.programDetails}>
-                    <Text style={styles.programTitle}>{program.name}</Text>
-                    <View style={styles.ratingContainer}>
-                      <WebIcon name="star" size={12} color="#FFB800" />
-                      <Text style={styles.ratingText}>{program.rating}</Text>
-                      <Text style={styles.addedText}>• Added {program.addedCount.toLocaleString()} times</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Fundamentals Section */}
-        {fundamentalsPrograms.length > 0 && (
-          <View style={styles.categoriesSection}>
-            <Text style={styles.sectionTitle}>Fundamentals</Text>
-            <View style={styles.programsGrid}>
-              {fundamentalsPrograms.map((program) => (
-                <TouchableOpacity
-                  key={program.id}
-                  style={styles.programCard}
-                  onPress={() => navigateToProgram(program)}
-                >
-                  <View style={styles.thumbnailContainer}>
-                    {program.thumbnail ? (
-                      <Image 
-                        source={{ uri: program.thumbnail }} 
-                        style={styles.programThumbnail}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View style={styles.placeholderThumbnail}>
-                        <Text style={styles.placeholderText}>📚</Text>
+                      <View style={styles.programDetails}>
+                        <Text style={styles.programTitle}>{program.name}</Text>
+                        <View style={styles.ratingContainer}>
+                          <WebIcon name="star" size={12} color="#FFB800" />
+                          <Text style={styles.ratingText}>{program.rating}</Text>
+                          <Text style={styles.addedText}>• Added {program.addedCount.toLocaleString()} times</Text>
+                        </View>
                       </View>
-                    )}
-                  </View>
-                  <View style={styles.programDetails}>
-                    <Text style={styles.programTitle}>{program.name}</Text>
-                    <View style={styles.ratingContainer}>
-                      <WebIcon name="star" size={12} color="#FFB800" />
-                      <Text style={styles.ratingText}>{program.rating}</Text>
-                      <Text style={styles.addedText}>• Added {program.addedCount.toLocaleString()} times</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.programsGrid}>
+                  {categoryPrograms.map((program) => (
+                    <TouchableOpacity
+                      key={program.id}
+                      style={styles.programCard}
+                      onPress={() => navigateToProgram(program)}
+                    >
+                      <View style={styles.thumbnailContainer}>
+                        {program.thumbnail ? (
+                          <Image 
+                            source={{ uri: program.thumbnail }} 
+                            style={styles.programThumbnail}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.placeholderThumbnail}>
+                            <Text style={styles.placeholderText}>{getCategoryIcon(category)}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.programDetails}>
+                        <Text style={styles.programTitle}>{program.name}</Text>
+                        <View style={styles.ratingContainer}>
+                          <WebIcon name="star" size={12} color="#FFB800" />
+                          <Text style={styles.ratingText}>{program.rating}</Text>
+                          <Text style={styles.addedText}>• Added {program.addedCount.toLocaleString()} times</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
-          </View>
-        )}
+          );
+        })}
 
         {/* Empty state */}
         {filteredPrograms.length === 0 && !loading && !error && (
@@ -330,10 +423,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  exerciseCount: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#6B7280',
   },
   // Programs Content styles
   programsContainer: {
@@ -359,10 +462,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     justifyContent: 'space-between',
   },
+  horizontalScroll: {
+    paddingLeft: 16,
+  },
+  horizontalScrollContent: {
+    paddingRight: 16,
+  },
   programCard: {
     width: (width - 48) / 2,
     marginHorizontal: 8,
     marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  horizontalProgramCard: {
+    width: ((width - 48) / 2) * 0.9,
+    marginRight: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     shadowColor: '#000',
