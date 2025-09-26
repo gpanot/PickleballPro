@@ -4,6 +4,17 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+// Filter out Grammarly console errors during development
+if (__DEV__) {
+  const originalError = console.error;
+  console.error = (...args) => {
+    if (args[0]?.includes?.('grm ERROR') || args[0]?.includes?.('Grammarly')) {
+      return; // Suppress Grammarly errors
+    }
+    originalError(...args);
+  };
+}
+
 import IntroScreen from './src/screens/IntroScreen';
 import GenderSelectionScreen from './src/screens/GenderSelectionScreen';
 import AuthScreen from './src/screens/AuthScreen';
@@ -14,9 +25,11 @@ import MainTabNavigator from './src/navigation/MainTabNavigator';
 import ExerciseDetailScreen from './src/screens/ExerciseDetailScreen';
 import ExercisePickerScreen from './src/screens/ExercisePickerScreen';
 import AddTrainingSessionScreen from './src/screens/AddTrainingSessionScreen';
+import EditTrainingSessionScreen from './src/screens/EditTrainingSessionScreen';
 import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import CreateCoachProfileScreen from './src/screens/CreateCoachProfileScreen';
 import AdminRoute from './src/components/AdminRoute';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
@@ -137,6 +150,7 @@ function AppContent() {
             <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
             <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
             <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
+            <Stack.Screen name="EditTrainingSession" component={EditTrainingSessionScreen} />
             <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
             <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
             <Stack.Screen 
@@ -147,6 +161,11 @@ function AppContent() {
             <Stack.Screen 
               name="Admin" 
               component={AdminRoute}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="CreateCoachProfile" 
+              component={CreateCoachProfileScreen}
               options={{ headerShown: false }}
             />
           </>

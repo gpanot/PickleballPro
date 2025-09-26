@@ -81,6 +81,9 @@ export default function AdminDashboard({ navigation }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [programToDelete, setProgramToDelete] = useState(null);
   
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1169,9 +1172,32 @@ export default function AdminDashboard({ navigation }) {
                       >
                         <Ionicons name="create-outline" size={16} color="#6B7280" />
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.modernActionButton}>
-                        <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
-                      </TouchableOpacity>
+                      <View style={styles.dropdownContainer}>
+                        <TouchableOpacity 
+                          style={styles.modernActionButton}
+                          onPress={() => {
+                            const newDropdown = activeDropdown === program.id ? null : program.id;
+                            console.log('⋯ Three dots clicked for program:', program.name, 'Setting dropdown to:', newDropdown);
+                            setActiveDropdown(newDropdown);
+                          }}
+                        >
+                          <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
+                        </TouchableOpacity>
+                        {activeDropdown === program.id && (
+                          <View style={styles.dropdownMenu}>
+                            <TouchableOpacity 
+                              style={styles.dropdownItem}
+                              onPress={() => {
+                                console.log('🗑️ Delete button clicked for program:', program.name, program.id);
+                                handleDeleteProgram(program);
+                              }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                              <Text style={styles.dropdownItemTextDelete}>Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -2244,6 +2270,107 @@ export default function AdminDashboard({ navigation }) {
     }
   };
 
+  const handleDeleteProgram = (program) => {
+    console.log('🔥 DELETE CLICKED - handleDeleteProgram called with program:', program);
+    console.log('📱 Opening custom confirmation dialog...');
+    setProgramToDelete(program);
+    setShowDeleteConfirmation(true);
+    setActiveDropdown(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!programToDelete) return;
+    
+    console.log('✅ User confirmed delete - starting deletion process');
+    
+    try {
+      console.log('🔄 Setting loading to true');
+      setLoading(true);
+      setShowDeleteConfirmation(false);
+      
+      console.log('🎯 Program details:', {
+        id: programToDelete.id,
+        name: programToDelete.name,
+        type: typeof programToDelete.id
+      });
+      
+      console.log('👤 Current user check:', user?.id);
+      
+      // Check user admin status first
+      console.log('🔍 Checking user admin status...');
+      const { data: userProfile, error: userError } = await supabase
+        .from('users')
+        .select('is_admin, id, email')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('👥 User profile check result:', { userProfile, userError });
+      
+      if (userError) {
+        console.error('❌ Error checking user profile:', userError);
+        throw new Error(`User profile check failed: ${userError.message}`);
+      }
+      
+      if (!userProfile?.is_admin) {
+        console.error('❌ User is not admin:', userProfile);
+        throw new Error('You do not have admin privileges');
+      }
+      
+      console.log('✅ User is admin, proceeding with deletion');
+      
+      // Use the secure delete function
+      console.log('🚀 Calling delete_program_as_admin RPC...');
+      const { data, error } = await supabase
+        .rpc('delete_program_as_admin', {
+          program_id: programToDelete.id
+        });
+
+      console.log('📥 Delete RPC result:', { 
+        data, 
+        error,
+        dataType: typeof data,
+        errorType: typeof error 
+      });
+
+      if (error) {
+        console.error('❌ Delete RPC error:', error);
+        throw error;
+      }
+
+      console.log('🎉 Delete successful, data returned:', data);
+
+      if (data === true) {
+        console.log('✅ Deletion confirmed successful');
+        Alert.alert('Success', `Program "${programToDelete.name}" has been deleted successfully.`);
+        
+        console.log('🔄 Refreshing programs list...');
+        fetchPrograms();
+        
+        if (activeTab === 'dashboard') {
+          console.log('🔄 Refreshing dashboard stats...');
+          fetchStats();
+        }
+      } else {
+        console.error('❌ Delete returned unexpected value:', data);
+        throw new Error(`Delete operation returned: ${data}`);
+      }
+    } catch (error) {
+      console.error('💥 Error in delete process:', error);
+      console.error('💥 Error stack:', error.stack);
+      Alert.alert('Error', `Failed to delete program: ${error.message}`);
+    } finally {
+      console.log('🏁 Cleaning up - setting loading false and resetting states');
+      setLoading(false);
+      setProgramToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    console.log('❌ User cancelled delete');
+    setShowDeleteConfirmation(false);
+    setProgramToDelete(null);
+  };
+
   const handleRefresh = () => {
     // Refresh data based on current active tab
     switch (activeTab) {
@@ -2279,8 +2406,18 @@ export default function AdminDashboard({ navigation }) {
       {renderSidebar()}
       <View style={[styles.mainContent, { marginLeft: sidebarWidth }]}>
         {renderTopBar()}
-        <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
-          {renderContent()}
+        <ScrollView 
+          style={styles.contentScrollView} 
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={() => setActiveDropdown(null)}
+        >
+          <TouchableOpacity 
+            style={{ flex: 1 }} 
+            activeOpacity={1} 
+            onPress={() => setActiveDropdown(null)}
+          >
+            {renderContent()}
+          </TouchableOpacity>
         </ScrollView>
       </View>
       <AddCoachModal
@@ -2343,6 +2480,45 @@ export default function AdminDashboard({ navigation }) {
         }}
         onSave={handleProgramSaved}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={24} color="#EF4444" />
+              <Text style={styles.deleteModalTitle}>Delete Program</Text>
+            </View>
+            
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete "{programToDelete?.name}"? 
+              {'\n\n'}
+              This action cannot be undone and will also delete all associated routines and exercises.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity 
+                style={styles.deleteModalCancelButton}
+                onPress={handleCancelDelete}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.deleteModalConfirmButton}
+                onPress={handleConfirmDelete}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.deleteModalConfirmText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -3249,6 +3425,43 @@ const styles = StyleSheet.create({
     }),
   },
 
+  // Dropdown Menu
+  dropdownContainer: {
+    position: 'relative',
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: 36,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    minWidth: 120,
+    zIndex: 1000,
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+    }),
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      '&:hover': {
+        backgroundColor: '#F9FAFB',
+      },
+    }),
+  },
+  dropdownItemTextDelete: {
+    fontSize: 14,
+    color: '#EF4444',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+
   // Coming Soon
   comingSoon: {
     flex: 1,
@@ -4151,5 +4364,79 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 8,
     textAlign: 'center',
+  },
+
+  // Delete Modal Styles
+  deleteModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2000,
+  },
+  deleteModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 24,
+    marginHorizontal: 20,
+    maxWidth: 400,
+    width: '100%',
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+    }),
+  },
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 12,
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  deleteModalCancelText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  deleteModalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteModalConfirmText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

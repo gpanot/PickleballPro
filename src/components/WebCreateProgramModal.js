@@ -150,6 +150,22 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
     try {
       setLoading(true);
       
+      // Debug: Check current user details
+      console.log('Current user:', user);
+      
+      // Check if user has admin role
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+      } else {
+        console.log('User profile:', profile);
+      }
+      
       // Create the program data
       const programData = {
         name: programName.trim(),
@@ -175,21 +191,34 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
       let data, error;
 
       if (isEditing) {
-        // Update existing program
-        programData.updated_at = new Date().toISOString();
+        // Update existing program using database function
         const result = await supabase
-          .from('programs')
-          .update(programData)
-          .eq('id', editingProgram.id)
-          .select();
+          .rpc('update_program_as_admin', {
+            program_id: editingProgram.id,
+            program_name: programData.name,
+            program_description: programData.description,
+            program_category: programData.category,
+            program_tier: programData.tier,
+            program_rating: programData.rating,
+            program_added_count: programData.added_count,
+            program_is_published: programData.is_published,
+            program_thumbnail_url: programData.thumbnail_url
+          });
         data = result.data;
         error = result.error;
       } else {
-        // Create new program
+        // Create new program using database function
         const result = await supabase
-          .from('programs')
-          .insert([programData])
-          .select();
+          .rpc('create_program_as_admin', {
+            program_name: programData.name,
+            program_description: programData.description,
+            program_category: programData.category,
+            program_tier: programData.tier,
+            program_rating: programData.rating,
+            program_added_count: programData.added_count,
+            program_is_published: programData.is_published,
+            program_thumbnail_url: programData.thumbnail_url
+          });
         data = result.data;
         error = result.error;
       }

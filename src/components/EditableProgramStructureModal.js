@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
@@ -27,6 +28,74 @@ export default function EditableProgramStructureModal({ visible, program, onClos
   const [showProgramModal, setShowProgramModal] = useState(false);
   const [showRoutineModal, setShowRoutineModal] = useState(false);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
+  
+  // Delete states
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [routineToDelete, setRoutineToDelete] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Function to refresh program data from database
+  const refreshProgramData = async () => {
+    if (!program?.id) return;
+    
+    try {
+      console.log('🔄 Refreshing program data from database...');
+      const { data, error } = await supabase
+        .from('programs')
+        .select(`
+          *,
+          routines (
+            *,
+            routine_exercises (
+              order_index,
+              custom_target_value,
+              exercises (*)
+            )
+          )
+        `)
+        .eq('id', program.id)
+        .single();
+
+      if (error) throw error;
+      
+      // Transform the data to match the expected structure
+      const transformedProgram = {
+        ...data,
+        routines: data.routines
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(routine => ({
+            ...routine,
+            exercises: routine.routine_exercises
+              .sort((a, b) => a.order_index - b.order_index)
+              .map(re => ({
+                id: re.exercises.code,
+                name: re.exercises.title,
+                target: `${re.custom_target_value || re.exercises.target_value} ${re.exercises.target_unit}`,
+                difficulty: re.exercises.difficulty,
+                description: re.exercises.description,
+                order_index: re.order_index
+              }))
+          }))
+      };
+
+      console.log('📝 Refreshed program data:', transformedProgram);
+      setEditedProgram(transformedProgram);
+      
+      // Update selected routine if needed
+      if (selectedRoutine) {
+        const updatedSelectedRoutine = transformedProgram.routines.find(r => r.id === selectedRoutine.id);
+        if (updatedSelectedRoutine) {
+          setSelectedRoutine(updatedSelectedRoutine);
+        } else {
+          // Selected routine was deleted, select first available or null
+          setSelectedRoutine(transformedProgram.routines.length > 0 ? transformedProgram.routines[0] : null);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error refreshing program data:', error);
+    }
+  };
 
   useEffect(() => {
     if (program) {
@@ -38,21 +107,24 @@ export default function EditableProgramStructureModal({ visible, program, onClos
     }
   }, [program]);
 
-  const handleProgramUpdated = () => {
+  const handleProgramUpdated = async () => {
     // Refresh program data
     onSave && onSave();
+    await refreshProgramData();
     setShowProgramModal(false);
   };
 
-  const handleRoutineUpdated = () => {
+  const handleRoutineUpdated = async () => {
     // Refresh program data
     onSave && onSave();
+    await refreshProgramData();
     setShowRoutineModal(false);
   };
 
-  const handleExerciseUpdated = () => {
+  const handleExerciseUpdated = async () => {
     // Refresh program data
     onSave && onSave();
+    await refreshProgramData();
     setShowExerciseModal(false);
   };
 
@@ -63,6 +135,90 @@ export default function EditableProgramStructureModal({ visible, program, onClos
   const getSelectedRoutineExercises = () => {
     if (!selectedRoutine) return [];
     return selectedRoutine.exercises || [];
+  };
+
+  const handleDeleteRoutine = (routine) => {
+    console.log('🗑️ Delete routine clicked:', routine.name, routine.id);
+    setRoutineToDelete(routine);
+    setShowDeleteConfirmation(true);
+  };
+
+  const handleConfirmDeleteRoutine = async () => {
+    if (!routineToDelete) return;
+    
+    console.log('✅ Confirming routine deletion:', routineToDelete.name);
+    
+    try {
+      setLoading(true);
+      setShowDeleteConfirmation(false);
+      
+      console.log('🚀 Calling delete routine API...');
+      
+      // Delete the routine using the secure admin function
+      const { data, error } = await supabase
+        .rpc('delete_routine_as_admin', {
+          routine_id: routineToDelete.id
+        });
+
+      console.log('📥 Delete routine RPC result:', { data, error });
+
+      if (error) {
+        console.error('❌ Error deleting routine:', error);
+        throw error;
+      }
+
+      if (data !== true) {
+        console.error('❌ Delete returned unexpected value:', data);
+        throw new Error(`Delete operation returned: ${data}`);
+      }
+
+      console.log('✅ Routine deleted successfully');
+      Alert.alert('Success', `Routine "${routineToDelete.name}" has been deleted successfully.`);
+      
+      // Update local state immediately
+      console.log('🔄 Updating local program state...');
+      setEditedProgram(prevProgram => {
+        const updatedProgram = {
+          ...prevProgram,
+          routines: prevProgram.routines.filter(routine => routine.id !== routineToDelete.id)
+        };
+        console.log('📝 Updated program state:', updatedProgram);
+        return updatedProgram;
+      });
+      
+      // If the deleted routine was selected, clear selection or select another routine
+      if (selectedRoutine?.id === routineToDelete.id) {
+        console.log('🔄 Clearing selected routine as it was deleted');
+        // Use the routine to delete to filter, not the current state
+        setSelectedRoutine(prevSelected => {
+          const remainingRoutines = editedProgram.routines.filter(routine => routine.id !== routineToDelete.id);
+          const newSelection = remainingRoutines.length > 0 ? remainingRoutines[0] : null;
+          console.log('📝 New selected routine:', newSelection?.name || 'None');
+          return newSelection;
+        });
+      }
+      
+      // Refresh both local and parent data
+      console.log('🔄 Calling parent onSave callback...');
+      onSave && onSave();
+      
+      // Also refresh local data as backup
+      console.log('🔄 Refreshing local data as backup...');
+      await refreshProgramData();
+      
+    } catch (error) {
+      console.error('💥 Error deleting routine:', error);
+      Alert.alert('Error', `Failed to delete routine: ${error.message}`);
+    } finally {
+      setLoading(false);
+      setRoutineToDelete(null);
+    }
+  };
+
+  const handleCancelDeleteRoutine = () => {
+    console.log('❌ Cancelled routine deletion');
+    setShowDeleteConfirmation(false);
+    setRoutineToDelete(null);
   };
 
 
@@ -174,6 +330,15 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                           >
                             <Ionicons name="create-outline" size={16} color="#10B981" />
                           </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.deleteButton}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRoutine(routine);
+                            }}
+                          >
+                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                          </TouchableOpacity>
                         </View>
                       </View>
                       <Text style={styles.routineDescription}>
@@ -268,6 +433,45 @@ export default function EditableProgramStructureModal({ visible, program, onClos
           onSuccess={handleExerciseUpdated}
           editingExercise={selectedExercise}
         />
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirmation && (
+          <View style={styles.deleteModalOverlay}>
+            <View style={styles.deleteModalContainer}>
+              <View style={styles.deleteModalHeader}>
+                <Ionicons name="warning" size={24} color="#EF4444" />
+                <Text style={styles.deleteModalTitle}>Delete Routine</Text>
+              </View>
+              
+              <Text style={styles.deleteModalMessage}>
+                Are you sure you want to delete "{routineToDelete?.name}"? 
+                {'\n\n'}
+                This action cannot be undone and will also delete all exercises in this routine.
+              </Text>
+              
+              <View style={styles.deleteModalButtons}>
+                <TouchableOpacity 
+                  style={styles.deleteModalCancelButton}
+                  onPress={handleCancelDeleteRoutine}
+                >
+                  <Text style={styles.deleteModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.deleteModalConfirmButton}
+                  onPress={handleConfirmDeleteRoutine}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.deleteModalConfirmText}>Delete</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -378,6 +582,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  deleteButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
   },
   routineClickableArea: {
     flex: 1,
@@ -530,5 +744,79 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+
+  // Delete Modal Styles
+  deleteModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2000,
+  },
+  deleteModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 24,
+    marginHorizontal: 20,
+    maxWidth: 400,
+    width: '100%',
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+    }),
+  },
+  deleteModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 12,
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  deleteModalCancelText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  deleteModalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteModalConfirmText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
