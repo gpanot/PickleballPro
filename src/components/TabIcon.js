@@ -173,6 +173,33 @@ export default function TabIcon({ name, focused, size = 24, color = '#000' }) {
           </View>
         );
         
+      case 'search':
+        return (
+          <View style={[styles.iconContainer, { width: size, height: size }]}>
+            <View style={[
+              styles.searchIcon,
+              { 
+                backgroundColor: focused ? color : 'transparent',
+                borderColor: color,
+                width: size * 0.6,
+                height: size * 0.6,
+              }
+            ]} />
+            <View style={[
+              styles.searchHandle,
+              { 
+                backgroundColor: color,
+                width: size * 0.15,
+                height: size * 0.25,
+                transform: [{ rotate: '45deg' }],
+                position: 'absolute',
+                right: size * 0.1,
+                bottom: size * 0.1,
+              }
+            ]} />
+          </View>
+        );
+        
       default:
         return (
           <View style={[
@@ -280,6 +307,14 @@ const styles = StyleSheet.create({
   feedbackHeart: {
     borderRadius: 50,
     transform: [{ rotate: '-45deg' }],
+  },
+  // Search icon (magnifying glass)
+  searchIcon: {
+    borderRadius: 50,
+    borderWidth: 2,
+  },
+  searchHandle: {
+    borderRadius: 1,
   },
   // Default fallback
   defaultIcon: {

@@ -8,11 +8,11 @@ import {
   Alert,
   Platform,
   Modal,
-  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
+import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
 import { useLogbook } from '../context/LogbookContext';
 import { supabase } from '../lib/supabase';
 
@@ -25,8 +25,6 @@ export default function RoutineDetailScreen({ navigation, route }) {
   // Quick log modal state
   const [showQuickLogModal, setShowQuickLogModal] = React.useState(false);
   const [selectedExercise, setSelectedExercise] = React.useState(null);
-  const [logResult, setLogResult] = React.useState('');
-  const [logNotes, setLogNotes] = React.useState('');
   
   // Session start modal state
   const [showSessionStartModal, setShowSessionStartModal] = React.useState(false);
@@ -165,77 +163,32 @@ export default function RoutineDetailScreen({ navigation, route }) {
   // Quick log functions
   const handleAddLog = (exercise) => {
     setSelectedExercise(exercise);
-    
-    // Check if there's an existing result for this exercise
-    const existingResult = exerciseResults[exercise.routineExerciseId];
-    setLogResult(existingResult?.result || '');
-    setLogNotes(existingResult?.notes || '');
-    
     setShowQuickLogModal(true);
   };
 
-  const handleSubmitLog = () => {
-    if (!logResult.trim()) {
-      Alert.alert('Missing Information', 'Please enter your result.');
-      return;
-    }
-
-    // Validate numeric input
-    const numericResult = parseInt(logResult);
-    if (isNaN(numericResult) || numericResult < 0 || numericResult > 99) {
-      Alert.alert('Invalid Result', 'Please enter a number between 0 and 99.');
-      return;
-    }
-
-    const entry = {
-      id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-      hours: 0.5, // Default exercise duration
-      feeling: 3, // Default neutral feeling
-      trainingFocus: getExerciseCategory(selectedExercise),
-      notes: `${selectedExercise.name}: ${logResult}${logNotes ? '\n' + logNotes : ''}`,
-      exerciseDetails: {
-        exerciseName: selectedExercise.name,
-        target: selectedExercise.target,
-        result: logResult,
-        routineName: routine.name,
-        programName: program.name
-      },
-      createdAt: new Date().toISOString(),
-    };
-
-    addLogbookEntry(entry);
-    
+  const handleResultSaved = (routineExerciseId, resultData) => {
     // Store the result for this exercise
     setExerciseResults(prev => ({
       ...prev,
-      [selectedExercise.routineExerciseId]: {
-        result: logResult,
-        notes: logNotes,
-        timestamp: new Date().toISOString(),
-        exerciseName: selectedExercise.name || selectedExercise.title,
-        target: selectedExercise.target || selectedExercise.goal
-      }
+      [routineExerciseId]: resultData
     }));
-    
-    setShowQuickLogModal(false);
   };
 
-  const getExerciseCategory = (exercise) => {
-    const exerciseName = exercise.name.toLowerCase();
-    if (exerciseName.includes('dink')) return ['dinks'];
-    if (exerciseName.includes('drive')) return ['drives'];
-    if (exerciseName.includes('serve')) return ['serves'];
-    if (exerciseName.includes('return')) return ['returns'];
-    if (exerciseName.includes('volley') || exerciseName.includes('reset')) return ['volleys'];
-    return ['dinks']; // Default fallback
+  // Get difficulty emoji based on difficulty level
+  const getDifficultyEmoji = (difficulty) => {
+    const difficultyMap = {
+      1: '🤩', // Very Easy
+      2: '😊', // Easy  
+      3: '😐', // Moderate
+      4: '😕', // Hard
+      5: '😓'  // Very Hard
+    };
+    return difficultyMap[difficulty] || '😐';
   };
 
   const closeQuickLogModal = () => {
     setShowQuickLogModal(false);
     setSelectedExercise(null);
-    setLogResult('');
-    setLogNotes('');
   };
 
   // Session timer functions
@@ -507,7 +460,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                           { color: 'white' }
                         ]}>
                           {exerciseResults[exercise.routineExerciseId] 
-                            ? exerciseResults[exercise.routineExerciseId].result 
+                            ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
                             : 'Add Log'}
                         </Text>
                       </TouchableOpacity>
@@ -752,7 +705,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                           { color: 'white' }
                         ]}>
                           {exerciseResults[exercise.routineExerciseId] 
-                            ? exerciseResults[exercise.routineExerciseId].result 
+                            ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
                             : 'Add Log'}
                         </Text>
                       </TouchableOpacity>
@@ -832,92 +785,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
     </Modal>
   );
 
-  const renderQuickLogModal = () => (
-    <Modal
-      visible={showQuickLogModal}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={closeQuickLogModal}
-    >
-      <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity
-            style={styles.modalCloseButton}
-            onPress={closeQuickLogModal}
-          >
-            <WebIcon name="close" size={24} color="#6B7280" />
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>
-            {exerciseResults[selectedExercise?.routineExerciseId] ? 'Edit Log' : 'Log Exercise'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.modalSubmitButton, !logResult.trim() && styles.modalSubmitButtonDisabled]}
-            onPress={handleSubmitLog}
-            disabled={!logResult.trim()}
-          >
-            <Text style={[styles.modalSubmitButtonText, !logResult.trim() && styles.modalSubmitButtonTextDisabled]}>
-              Save
-            </Text>
-          </TouchableOpacity>
-        </View>
-        
-        <ScrollView style={styles.modalContent}>
-          {selectedExercise && (
-            <>
-              <View style={styles.exerciseInfoSection}>
-                <Text style={styles.modalExerciseName}>{selectedExercise.name}</Text>
-                <Text style={styles.modalExerciseDescription}>{selectedExercise.description}</Text>
-              </View>
-              
-              <View style={styles.targetSection}>
-                <Text style={styles.targetLabel}>TARGET</Text>
-                <Text style={styles.targetValue}>{selectedExercise.target}</Text>
-              </View>
-              
-              <View style={styles.resultSection}>
-                <Text style={styles.inputLabel}>Your Result *</Text>
-                <View style={styles.resultInputContainer}>
-                  <TextInput
-                    style={styles.resultInput}
-                    value={logResult}
-                    onChangeText={(text) => {
-                      // Only allow numbers and limit to 2 digits
-                      const numericValue = text.replace(/[^0-9]/g, '');
-                      if (numericValue === '' || (parseInt(numericValue) >= 0 && parseInt(numericValue) <= 99)) {
-                        setLogResult(numericValue);
-                      }
-                    }}
-                    placeholder="0"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    maxLength={2}
-                    autoFocus
-                    textAlign="center"
-                  />
-                  <Text style={styles.resultUnit}>/ target</Text>
-                </View>
-              </View>
-              
-              <View style={styles.inputSection}>
-                <Text style={styles.inputLabel}>Notes (optional)</Text>
-                <TextInput
-                  style={styles.notesInput}
-                  value={logNotes}
-                  onChangeText={setLogNotes}
-                  placeholder="How did it feel? Any observations..."
-                  placeholderTextColor="#9CA3AF"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </>
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
 
   return (
+    <>
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
@@ -951,8 +821,18 @@ export default function RoutineDetailScreen({ navigation, route }) {
       
       {renderSessionControls()}
       {renderSessionStartModal()}
-      {renderQuickLogModal()}
     </View>
+    
+    <AddLogExercise_from_routine
+      visible={showQuickLogModal}
+      onClose={closeQuickLogModal}
+      exercise={selectedExercise}
+      program={program}
+      routine={routine}
+      existingResult={selectedExercise ? exerciseResults[selectedExercise.routineExerciseId] : null}
+      onResultSaved={handleResultSaved}
+    />
+  </>
   );
 }
 
@@ -1268,151 +1148,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  modalCloseButton: {
-    padding: 8,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  modalSubmitButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  modalSubmitButtonDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  modalSubmitButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  modalSubmitButtonTextDisabled: {
-    color: '#6B7280',
-  },
-  modalContent: {
-    flex: 1,
-    padding: 16,
-  },
-  exerciseInfoSection: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  modalExerciseName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  modalExerciseDescription: {
-    fontSize: 15,
-    color: '#6B7280',
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  targetSection: {
-    backgroundColor: '#F0F9FF',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 24,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#3B82F6',
-  },
-  targetLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3B82F6',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  targetValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    textAlign: 'center',
-  },
-  resultSection: {
-    marginBottom: 24,
-  },
-  inputSection: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  resultInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    borderWidth: 2,
-    borderColor: '#10B981',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  resultInput: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    minWidth: 80,
-    textAlign: 'center',
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-  },
-  resultUnit: {
-    fontSize: 18,
-    color: '#6B7280',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  notesInput: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1F2937',
-    minHeight: 80,
-    textAlignVertical: 'top',
   },
   // Session timer styles
   sessionControls: {

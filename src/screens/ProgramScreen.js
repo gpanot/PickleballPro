@@ -10,6 +10,7 @@ import {
   Modal,
   Image,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -19,60 +20,18 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import SkillsScreen from './SkillsScreen';
 import BadgesScreen from './BadgesScreen';
+import PersonalizedProgramCard from '../components/PersonalizedProgramCard';
 
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const [currentView, setCurrentView] = React.useState('programs'); // 'skills', 'programs', or 'badges'
-  const [programs, setPrograms] = React.useState([
-    // Sample program to demonstrate the structure
-    {
-      id: 'sample_1',
-      name: 'Master the Soft Game (4 weeks)',
-      description: 'Focus on developing consistent dinking, drop shots, and net play fundamentals',
-      thumbnail: null, // Will show placeholder
-      routines: [
-        {
-          id: 'routine_1',
-          name: 'Session A - Dinking Focus',
-          description: 'Build consistency and accuracy in dinking exchanges',
-          exercises: [
-            { id: "1.1", name: "Target Dinks", target: "20 in zone", difficulty: 2, description: "Practice dinking to specific target areas", routineExerciseId: 1001 },
-            { id: "1.2", name: "Dink & Move", target: "10 each side", difficulty: 3, description: "Dink while moving laterally", routineExerciseId: 1002 },
-            { id: "s3.1", name: "Skinny Singles", target: "play to 11", difficulty: 3, description: "Practice game situations", routineExerciseId: 1003 }
-          ],
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'routine_2',
-          name: 'Session B - Drop Shot Focus',
-          description: 'Master the critical third shot drop',
-          exercises: [
-            { id: "7.1", name: "3rd Shot Drop", target: "15 in a row", difficulty: 3, description: "Consecutive drops into kitchen", routineExerciseId: 2001 },
-            { id: "7.2", name: "Drop-Advance", target: "10 sequences", difficulty: 4, description: "Drop then advance to net", routineExerciseId: 2002 },
-            { id: "s5.3", name: "Transition Zone Reset", target: "15 resets", difficulty: 3, description: "Reset from transition zone", routineExerciseId: 2003 }
-          ],
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: 'routine_3',
-          name: 'Session C - Net Defense & Speed',
-          description: 'Develop quick reflexes and defensive skills at the net',
-          exercises: [
-            { id: "v1", name: "Block Volleys", target: "10 blocks", difficulty: 3, description: "Defensive volley blocks", routineExerciseId: 3001 },
-            { id: "s3.2", name: "Speed Up & Reset", target: "10 resets", difficulty: 4, description: "Counter speed-ups with resets", routineExerciseId: 3002 },
-            { id: "s6.3", name: "Live Point Pressure", target: "start 9-9, win 3", difficulty: 4, description: "High pressure point situations", routineExerciseId: 3003 }
-          ],
-          createdAt: new Date().toISOString(),
-        }
-      ],
-      createdAt: new Date().toISOString(),
-    }
-  ]);
+  const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
   const [selectedImage, setSelectedImage] = React.useState(null);
   const [isProcessingImage, setIsProcessingImage] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
 
   // Handle new program added from Explore
   React.useEffect(() => {
@@ -243,28 +202,58 @@ export default function ProgramScreen({ navigation, route }) {
     });
   };
 
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    
+    // Simulate refresh delay - in a real app, this would reload data from an API
+    setTimeout(() => {
+      // You can add any refresh logic here, such as:
+      // - Reloading programs from a database
+      // - Updating the PersonalizedProgramCard
+      // - Syncing with cloud storage
+      console.log('Programs refreshed');
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
 
   const renderProgramsContent = () => (
     <View style={styles.customizedContainer}>
+      {/* Always show personalized program at the top */}
+      <PersonalizedProgramCard 
+        navigation={navigation}
+        onProgramLoad={(program) => {
+          console.log('Personalized program loaded:', program?.name);
+        }}
+      />
+      
       {programs.length === 0 ? (
         <View style={styles.emptyCustomList}>
           <Text style={styles.emptyCustomListIcon}>🏆</Text>
-          <Text style={styles.emptyCustomListTitle}>Your Training Programs</Text>
+          <Text style={styles.emptyCustomListTitle}>Your Custom Programs</Text>
           <Text style={styles.emptyCustomListDescription}>
-            Create structured training programs with organized routines and exercises. Build your path to pickleball mastery!
+            Get started by exploring our curated programs in the Library tab, or create your own custom training program with organized routines and exercises.
           </Text>
           <TouchableOpacity
             style={styles.addFirstProgramButton}
             onPress={() => setShowCreateProgramModal(true)}
           >
             <Text style={styles.addIconText}>+</Text>
-            <Text style={styles.addFirstProgramButtonText}>Create Your First Program</Text>
+            <Text style={styles.addFirstProgramButtonText}>Create Custom Program</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <ScrollView 
           style={styles.programsList}
           contentContainerStyle={styles.programsContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#3B82F6"
+              colors={["#3B82F6"]}
+            />
+          }
         >
           <View style={styles.programsHeader}>
             <Text style={styles.programsSubtitle}>Tap to open • Long press to delete</Text>
@@ -382,6 +371,14 @@ export default function ProgramScreen({ navigation, route }) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           contentInsetAdjustmentBehavior="automatic"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#3B82F6"
+              colors={["#3B82F6"]}
+            />
+          }
         >
           {renderProgramsContent()}
           

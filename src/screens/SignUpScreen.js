@@ -81,7 +81,14 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       const { data, error } = await signUp(email, password, userData);
       
       if (error) {
-        Alert.alert('Sign Up Failed', error.message || 'Please try again.');
+        // Check for specific error types
+        if (error.message?.includes('User already registered') || 
+            error.message?.includes('already registered') ||
+            error.message?.includes('already exists')) {
+          Alert.alert('Email Already Exists', 'A user with this email already exists. Please try signing in instead or use a different email address.');
+        } else {
+          Alert.alert('Sign Up Failed', error.message || 'Please try again.');
+        }
         return;
       }
 
@@ -94,7 +101,15 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       }
     } catch (error) {
       console.error('Sign up error:', error);
-      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      
+      // Check for specific error types in catch block as well
+      if (error.message?.includes('User already registered') || 
+          error.message?.includes('already registered') ||
+          error.message?.includes('already exists')) {
+        Alert.alert('Email Already Exists', 'A user with this email already exists. Please try signing in instead or use a different email address.');
+      } else {
+        Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

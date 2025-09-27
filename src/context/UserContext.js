@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { loadPersonalizedProgram } from '../lib/personalizedProgramStorage';
 
 const UserContext = createContext();
 
@@ -62,7 +63,7 @@ export const UserProvider = ({ children }) => {
         intensity: profile?.intensity || user?.intensity || null, // workout intensity preference
         focus_areas: profile?.focus_areas || user?.focus_areas || [],
         coachPreference: profile?.coach_preference || user?.coachPreference || null,
-        personalizedProgram: profile?.personalized_program || user?.personalizedProgram || null,
+        personalizedProgram: null, // Will be loaded separately
         badges: [
           { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
           { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -73,6 +74,19 @@ export const UserProvider = ({ children }) => {
       
       console.log('UserContext: ✅ Syncing user data from AuthContext (preserving local onboarding):', syncedUser);
       setUser(syncedUser);
+      
+      // Load personalized program from local storage
+      loadPersonalizedProgram(authUser.id).then(personalizedProgram => {
+        if (personalizedProgram) {
+          console.log('UserContext: ✅ Loaded personalized program from local storage');
+          setUser(prevUser => ({
+            ...prevUser,
+            personalizedProgram
+          }));
+        }
+      }).catch(error => {
+        console.error('UserContext: Error loading personalized program:', error);
+      });
     } else {
       console.log('UserContext: User not authenticated, keeping onboarding data locally');
       // Don't clear user data during onboarding - just clear auth-specific fields

@@ -20,7 +20,7 @@ import WebCreateExerciseModal from './WebCreateExerciseModal';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function EditableProgramStructureModal({ visible, program, onClose, onSave }) {
-  const [editedProgram, setEditedProgram] = useState(null);
+  const [editedProgram, setEditedProgram] = useState(program);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
   
@@ -73,7 +73,9 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                 target: `${re.custom_target_value || re.exercises.target_value} ${re.exercises.target_unit}`,
                 difficulty: re.exercises.difficulty,
                 description: re.exercises.description,
-                order_index: re.order_index
+                order_index: re.order_index,
+                skill_categories_json: re.exercises.skill_categories_json,
+                tags: re.exercises.tags
               }))
           }))
       };
@@ -106,6 +108,13 @@ export default function EditableProgramStructureModal({ visible, program, onClos
       }
     }
   }, [program]);
+
+  // Refresh program data when modal becomes visible to ensure tags are loaded
+  useEffect(() => {
+    if (visible && program?.id) {
+      refreshProgramData();
+    }
+  }, [visible, program?.id]);
 
   const handleProgramUpdated = async () => {
     // Refresh program data
@@ -381,9 +390,27 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                         <Text style={styles.exerciseOrder}>#{index + 1}</Text>
                         <TouchableOpacity
                           style={styles.editButton}
-                          onPress={() => {
-                            setSelectedExercise(exercise);
-                            setShowExerciseModal(true);
+                          onPress={async () => {
+                            try {
+                              // Fetch complete exercise data from database using the code
+                              const { data, error } = await supabase
+                                .from('exercises')
+                                .select('*')
+                                .eq('code', exercise.id)  // exercise.id is actually the code
+                                .single();
+                              
+                              if (error) throw error;
+                              
+                              if (data) {
+                                setSelectedExercise(data);
+                                setShowExerciseModal(true);
+                              } else {
+                                Alert.alert('Error', 'Could not find exercise data');
+                              }
+                            } catch (error) {
+                              console.error('Error fetching exercise data:', error);
+                              Alert.alert('Error', 'Failed to load exercise data: ' + error.message);
+                            }
                           }}
                         >
                           <Ionicons name="create-outline" size={16} color="#F59E0B" />
@@ -391,6 +418,21 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                       </View>
                     </View>
                     <Text style={styles.exerciseTarget}>{exercise.target}</Text>
+                    
+                    {/* Tags Section */}
+                    {(exercise.skill_categories_json || exercise.tags) && (
+                      <View style={styles.tagsContainer}>
+                        <Text style={styles.tagsLabel}>Tags: </Text>
+                        <View style={styles.tagsRow}>
+                          {(exercise.skill_categories_json || exercise.tags || []).map((tag, tagIndex) => (
+                            <Text key={tagIndex} style={styles.tagText}>
+                              {tag}{tagIndex < (exercise.skill_categories_json || exercise.tags || []).length - 1 ? ' • ' : ''}
+                            </Text>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                    
                     <View style={styles.exerciseFooter}>
                       {exercise.difficulty && (
                         <View style={styles.difficultyBadge}>
@@ -720,6 +762,28 @@ const styles = StyleSheet.create({
   exerciseFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  tagsLabel: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginRight: 4,
+    fontWeight: '500',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  tagText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    lineHeight: 14,
   },
   difficultyBadge: {
     backgroundColor: '#F59E0B',

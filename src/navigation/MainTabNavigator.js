@@ -10,10 +10,10 @@ import FeedbackScreen from '../screens/FeedbackScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Explore' }) {
+export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Library' }) {
   // Get props from route params if passed via initialParams
   const finalOnLogout = onLogout || route?.params?.onLogout;
-  const finalInitialRouteName = initialRouteName || route?.params?.initialRouteName || 'Explore';
+  const finalInitialRouteName = initialRouteName || route?.params?.initialRouteName || 'Library';
   
   console.log('MainTabNavigator rendering! initialRouteName:', finalInitialRouteName);
   console.log('onLogout available:', !!finalOnLogout);
@@ -25,8 +25,8 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Explore') {
-            iconName = 'training';
+          if (route.name === 'Library') {
+            iconName = 'search';
           } else if (route.name === 'Training2') {
             iconName = 'training2';
           } else if (route.name === 'Coach') {
@@ -68,7 +68,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       })}
     >
       <Tab.Screen 
-        name="Explore" 
+        name="Library" 
         component={ExploreTrainingScreen}
       />
       <Tab.Screen 

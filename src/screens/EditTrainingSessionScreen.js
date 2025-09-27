@@ -62,10 +62,11 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
 
   // Session type options
   const sessionTypeOptions = [
+    { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
+    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
+    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
     { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
     { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
-    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
-    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
   ];
 
   // Helper functions
@@ -153,6 +154,89 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
     });
   };
 
+  // Extract exercise logs from notes
+  const extractExerciseLogs = () => {
+    if (!notes) return [];
+    
+    const exerciseResultsMatch = notes.match(/Exercise Results:\n([\s\S]*?)(?:\n\n|$)/);
+    if (!exerciseResultsMatch) return [];
+    
+    const resultsSection = exerciseResultsMatch[1];
+    const lines = resultsSection.split('\n').filter(line => line.trim().startsWith('•'));
+    
+    return lines.map(line => {
+      const cleanLine = line.replace('•', '').trim();
+      const colonIndex = cleanLine.indexOf(':');
+      if (colonIndex === -1) return null;
+      
+      const exerciseName = cleanLine.substring(0, colonIndex).trim();
+      const rest = cleanLine.substring(colonIndex + 1).trim();
+      
+      const targetMatch = rest.match(/^(.*?)\s*\(Target:\s*(.*?)\)(?:\s*-\s*(.*))?$/);
+      if (targetMatch) {
+        return {
+          name: exerciseName,
+          result: targetMatch[1].trim(),
+          target: targetMatch[2].trim(),
+          notes: targetMatch[3] ? targetMatch[3].trim() : ''
+        };
+      } else {
+        const noteMatch = rest.match(/^(.*?)\s*-\s*(.*)$/);
+        if (noteMatch) {
+          return {
+            name: exerciseName,
+            result: noteMatch[1].trim(),
+            target: '',
+            notes: noteMatch[2].trim()
+          };
+        } else {
+          return {
+            name: exerciseName,
+            result: rest,
+            target: '',
+            notes: ''
+          };
+        }
+      }
+    }).filter(Boolean);
+  };
+
+  const renderExerciseLogs = () => {
+    const exerciseLogs = extractExerciseLogs();
+    
+    if (exerciseLogs.length === 0) return null;
+    
+    return (
+      <View style={styles.exerciseLogsSection}>
+        <Text style={styles.exerciseLogsTitle}>Exercise Results from this Session</Text>
+        <Text style={styles.exerciseLogsSubtitle}>
+          These exercises can help you plan future training sessions
+        </Text>
+        
+        <View style={styles.exerciseLogsList}>
+          {exerciseLogs.map((log, index) => (
+            <View key={index} style={styles.exerciseLogCard}>
+              <View style={styles.exerciseLogHeader}>
+                <Text style={styles.exerciseLogName}>{log.name}</Text>
+                <View style={styles.exerciseLogResult}>
+                  <Text style={styles.exerciseLogResultText}>{log.result}</Text>
+                </View>
+              </View>
+              
+              {log.target && (
+                <Text style={styles.exerciseLogTarget}>Target: {log.target}</Text>
+              )}
+              
+              {log.notes && (
+                <Text style={styles.exerciseLogNotes}>{log.notes}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -182,7 +266,12 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
       >
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Session Type</Text>
-            <View style={styles.sessionTypeSelector}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.sessionTypeScrollView}
+            >
+              <View style={styles.sessionTypeSelector}>
               {sessionTypeOptions.map((option) => (
                 <TouchableOpacity
                   key={option.value}
@@ -204,7 +293,8 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
+              </View>
+            </ScrollView>
           </View>
 
         <View style={styles.formRow}>
@@ -348,11 +438,13 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
               onChangeText={setNotes}
               placeholder="What did you work on? Any insights or goals for next time?"
               multiline
-              numberOfLines={4}
               textAlignVertical="top"
               placeholderTextColor="#9CA3AF"
             />
           </View>
+
+          {/* Exercise Logs Section */}
+          {renderExerciseLogs()}
 
 
         <View style={styles.bottomSpacing} />
@@ -432,7 +524,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   notesInput: {
-    height: 100,
+    minHeight: 100,
+    maxHeight: 200,
     textAlignVertical: 'top',
   },
   // Hours input styles
@@ -551,14 +644,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   // Session type selector styles
+  sessionTypeScrollView: {
+    flexGrow: 0,
+    height: 100, // Fixed height to prevent wrapping
+  },
   sessionTypeSelector: {
     flexDirection: 'row',
     gap: 8,
-    flexWrap: 'wrap',
+    paddingHorizontal: 4,
+    alignItems: 'center',
   },
   sessionTypeOption: {
-    flex: 1,
-    minWidth: 70,
+    width: 80,
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: 12,
@@ -578,5 +675,66 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  // Exercise logs styles
+  exerciseLogsSection: {
+    marginBottom: 20,
+  },
+  exerciseLogsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  exerciseLogsSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  exerciseLogsList: {
+    gap: 8,
+  },
+  exerciseLogCard: {
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+    borderRadius: 12,
+    padding: 12,
+  },
+  exerciseLogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  exerciseLogName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0369A1',
+    flex: 1,
+  },
+  exerciseLogResult: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  exerciseLogResultText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  exerciseLogTarget: {
+    fontSize: 12,
+    color: '#0369A1',
+    marginBottom: 4,
+  },
+  exerciseLogNotes: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
 });

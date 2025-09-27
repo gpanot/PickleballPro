@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,43 +6,87 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
 const ExerciseDetailScreen = ({ route, navigation }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentExerciseData, setCurrentExerciseData] = useState(null);
   const insets = useSafeAreaInsets();
   
   // Get exercise data from navigation params or use mock data
-  const rawExercise = route?.params?.exercise || route?.params?.rawExercise;
+  const initialRawExercise = route?.params?.exercise || route?.params?.rawExercise;
   const onExerciseUpdated = route?.params?.onExerciseUpdated;
+  
+  // Use current exercise data if available, otherwise fall back to initial data
+  const rawExercise = currentExerciseData || initialRawExercise;
+
+  // Pull-to-refresh function
+  const onRefresh = useCallback(async () => {
+    if (!rawExercise?.code && !rawExercise?.id) {
+      console.log('No exercise code available for refresh');
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      // Fetch fresh exercise data from database
+      const exerciseCode = rawExercise.code || rawExercise.id;
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('code', exerciseCode)
+        .single();
+
+      if (error) {
+        console.error('Error refreshing exercise data:', error);
+      } else if (data) {
+        console.log('Exercise data refreshed successfully');
+        setCurrentExerciseData(data);
+        
+        // Call the update callback if available
+        if (onExerciseUpdated) {
+          onExerciseUpdated(data);
+        }
+      }
+    } catch (error) {
+      console.error('Error during refresh:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [rawExercise?.code, rawExercise?.id, onExerciseUpdated]);
   
   // Transform picker exercise format to detail screen format
   const exercise = rawExercise ? {
     code: rawExercise.code || rawExercise.id || "1.1",
     title: rawExercise.title || rawExercise.name || "Exercise",
     level: `Difficulty Level ${rawExercise.difficulty || 1}`,
-    goal: rawExercise.description || "Complete the exercise successfully",
-    instructions: `Target: ${rawExercise.target || "Complete the exercise"}
+    goal: rawExercise.goal_text || rawExercise.goal || rawExercise.description || "Complete the exercise successfully",
+    instructions: rawExercise.instructions || `Target: ${rawExercise.target || "Complete the exercise"}
 
 Description:
 ${rawExercise.description || "No additional instructions available"}
 
 Success Criteria:
 ${rawExercise.target || "Complete as instructed"}`,
-    targetType: "count",
-    targetValue: rawExercise.target || "Complete",
+    targetType: rawExercise.target_type || "count",
+    targetValue: rawExercise.target_value || rawExercise.target || "Complete",
     difficulty: rawExercise.difficulty || 1,
     validationMode: "manual",
-    estimatedTime: "10-15 min",
+    estimatedTime: rawExercise.estimated_minutes ? `${rawExercise.estimated_minutes} min` : "10-15 min",
     equipment: ["Balls", "Paddle"],
-    tips: [
-      "Focus on proper form and technique",
-      "Take your time with each repetition", 
-      "Practice consistently for best results"
-    ]
+    tips: (rawExercise.tips_json && Array.isArray(rawExercise.tips_json) && rawExercise.tips_json.length > 0) 
+      ? rawExercise.tips_json.filter(tip => tip && tip.trim())
+      : [
+          "Focus on proper form and technique",
+          "Take your time with each repetition", 
+          "Practice consistently for best results"
+        ]
   } : {
     code: "7.1",
     title: "Drop Consistency",
@@ -102,7 +146,7 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.levelText}>{exercise.level}</Text>
-          <Text style={styles.titleText}>{exercise.code} {exercise.title}</Text>
+          <Text style={styles.titleText}>{exercise.title}</Text>
         </View>
         <View style={styles.difficultyContainer}>
           {getDifficultyStars()}
@@ -188,6 +232,27 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
     </View>
   );
 
+  const renderTags = () => {
+    const tags = rawExercise?.skill_categories_json || rawExercise?.tags || [];
+    
+    if (!tags || tags.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.tagsSection}>
+        <Text style={styles.tagsTitle}>Tags:</Text>
+        <View style={styles.tagsContainer}>
+          {tags.map((tag, index) => (
+            <Text key={index} style={styles.tagText}>
+              {tag}{index < tags.length - 1 ? ' • ' : ''}
+            </Text>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
 
 
   return (
@@ -199,38 +264,24 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#3B82F6"
+            colors={["#3B82F6"]}
+            progressBackgroundColor="white"
+          />
+        }
       >
         <View style={styles.content}>
           {renderGoalCard()}
           {renderVideoSection()}
           {renderInstructions()}
           {renderTips()}
+          {renderTags()}
         </View>
       </ScrollView>
-      
-      {/* Edit button at bottom */}
-      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom }]}>
-        <TouchableOpacity 
-          style={styles.editButton}
-          onPress={() => {
-            console.log('Edit button pressed, navigating to AddExercise with data:', rawExercise);
-            navigation.navigate('AddExercise', { 
-              exercise: rawExercise,
-              isEditing: true,
-              onExerciseUpdated: (updatedExercise) => {
-                console.log('Exercise updated:', updatedExercise);
-                if (onExerciseUpdated) {
-                  onExerciseUpdated(updatedExercise);
-                }
-                navigation.goBack();
-              }
-            });
-          }}
-        >
-          <Ionicons name="create-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.editButtonText}>Edit Exercise</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -420,34 +471,26 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 20,
   },
-  
-  // Bottom button styles
-  bottomButtonContainer: {
-    backgroundColor: 'white',
+  tagsSection: {
+    marginTop: 24,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 8,
   },
-  editButton: {
+  tagsTitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  tagsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
+    flexWrap: 'wrap',
   },
-  editButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+  tagText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    lineHeight: 16,
   },
 });
 

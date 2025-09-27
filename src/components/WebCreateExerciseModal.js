@@ -37,6 +37,10 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
   const [allRoutines, setAllRoutines] = useState([]);
   const [showProgramDropdown, setShowProgramDropdown] = useState(false);
   const [showRoutineDropdown, setShowRoutineDropdown] = useState(false);
+  const [duprRangeMin, setDuprRangeMin] = useState('');
+  const [duprRangeMax, setDuprRangeMax] = useState('');
+  const [showDuprMinDropdown, setShowDuprMinDropdown] = useState(false);
+  const [showDuprMaxDropdown, setShowDuprMaxDropdown] = useState(false);
 
   const isEditing = !!editingExercise;
 
@@ -45,6 +49,40 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     loadPrograms();
     loadRoutines();
   }, [visible]);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (isEditing && editingExercise) {
+      console.log('Populating form for editing:', editingExercise);
+      setExerciseName(editingExercise.title || editingExercise.name || '');
+      setTargetCriteria(editingExercise.goal_text || editingExercise.goal || editingExercise.description || '');
+      setInstructions(editingExercise.instructions || '');
+      
+      // Handle tips - could be in tips_json array or individual fields
+      if (editingExercise.tips_json && Array.isArray(editingExercise.tips_json)) {
+        setTip1(editingExercise.tips_json[0] || '');
+        setTip2(editingExercise.tips_json[1] || '');
+        setTip3(editingExercise.tips_json[2] || '');
+      }
+      
+      setYoutubeUrl(editingExercise.youtube_url || editingExercise.demo_video_url || '');
+      setEstimatedTime(editingExercise.estimated_minutes ? `${editingExercise.estimated_minutes} min` : '10 min');
+      setDifficulty(editingExercise.difficulty || 1);
+      
+      // Handle skill categories
+      if (editingExercise.skill_categories_json && Array.isArray(editingExercise.skill_categories_json)) {
+        setSkillCategories(editingExercise.skill_categories_json);
+      } else if (editingExercise.skill_category) {
+        setSkillCategories(editingExercise.skill_category.split(',').map(cat => cat.trim()));
+      } else if (editingExercise.tags && Array.isArray(editingExercise.tags)) {
+        setSkillCategories(editingExercise.tags);
+      }
+      
+      // Handle DUPR range
+      setDuprRangeMin(editingExercise.dupr_range_min ? editingExercise.dupr_range_min.toString() : '');
+      setDuprRangeMax(editingExercise.dupr_range_max ? editingExercise.dupr_range_max.toString() : '');
+    }
+  }, [isEditing, editingExercise]);
 
   // Filter routines when program changes
   useEffect(() => {
@@ -113,6 +151,15 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     { value: '30 min', label: '30 min' },
   ];
 
+  // Generate DUPR level options (2.0 to 8.0 with 0.5 increments)
+  const duprOptions = [];
+  for (let i = 2.0; i <= 8.0; i += 0.5) {
+    duprOptions.push({
+      value: i.toString(),
+      label: i.toString()
+    });
+  }
+
   // Generate category options from skills data with emojis and organized by category
   const categoryOptions = [
     // Add a General option first
@@ -170,6 +217,10 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     setSelectedRoutine('');
     setShowProgramDropdown(false);
     setShowRoutineDropdown(false);
+    setDuprRangeMin('');
+    setDuprRangeMax('');
+    setShowDuprMinDropdown(false);
+    setShowDuprMaxDropdown(false);
     onClose();
   };
 
@@ -293,33 +344,68 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       return;
     }
 
+    // Validate DUPR range
+    if (duprRangeMin && duprRangeMax) {
+      const minValue = parseFloat(duprRangeMin);
+      const maxValue = parseFloat(duprRangeMax);
+      if (minValue > maxValue) {
+        Alert.alert('Error', 'DUPR minimum value cannot be greater than maximum value');
+        return;
+      }
+    }
+
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('exercises')
-        .insert([{
-          title: exerciseName.trim(),
-          code: exerciseName.trim().toUpperCase().replace(/\s+/g, '_'),
-          description: targetCriteria.trim() || 'Complete the exercise successfully',
-          goal_text: targetCriteria.trim() || 'Complete the exercise successfully',
-          instructions: instructions.trim() || 'Follow the provided guidelines',
-          
-          // Enhanced JSONB fields (will be added by migration)
-          tips_json: [tip1.trim(), tip2.trim(), tip3.trim()].filter(tip => tip),
-          skill_categories_json: skillCategories,
-          estimated_minutes: parseInt(estimatedTime.replace(' min', '')),
-          goal: targetCriteria.trim() || 'Complete the exercise successfully',
-          youtube_url: youtubeUrl.trim() || '',
-          
-          // Existing schema fields
-          demo_video_url: youtubeUrl.trim() || '',
-          target_value: parseInt(targetCriteria.match(/\d+/)?.[0]) || null,
-          skill_category: skillCategories.join(','),
-          difficulty: difficulty,
-          is_published: false,
-          created_by: user.id
-        }])
-        .select();
+      
+      const exerciseData = {
+        title: exerciseName.trim(),
+        description: targetCriteria.trim() || 'Complete the exercise successfully',
+        goal_text: targetCriteria.trim() || 'Complete the exercise successfully',
+        instructions: instructions.trim() || 'Follow the provided guidelines',
+        
+        // Enhanced JSONB fields
+        tips_json: [tip1.trim(), tip2.trim(), tip3.trim()].filter(tip => tip),
+        skill_categories_json: skillCategories,
+        estimated_minutes: parseInt(estimatedTime.replace(' min', '')),
+        goal: targetCriteria.trim() || 'Complete the exercise successfully',
+        youtube_url: youtubeUrl.trim() || '',
+        
+        // DUPR Range fields
+        dupr_range_min: duprRangeMin ? parseFloat(duprRangeMin) : null,
+        dupr_range_max: duprRangeMax ? parseFloat(duprRangeMax) : null,
+        
+        // Existing schema fields
+        demo_video_url: youtubeUrl.trim() || '',
+        target_value: parseInt(targetCriteria.match(/\d+/)?.[0]) || null,
+        skill_category: skillCategories.join(','),
+        difficulty: difficulty,
+      };
+
+      let data, error;
+
+      if (isEditing) {
+        // Update existing exercise
+        const result = await supabase
+          .from('exercises')
+          .update(exerciseData)
+          .eq('id', editingExercise.id)
+          .select();
+        data = result.data;
+        error = result.error;
+      } else {
+        // Create new exercise
+        const result = await supabase
+          .from('exercises')
+          .insert([{
+            ...exerciseData,
+            code: exerciseName.trim().toUpperCase().replace(/\s+/g, '_'),
+            is_published: false,
+            created_by: user.id
+          }])
+          .select();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
@@ -361,17 +447,17 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           );
         } else {
           const selectedRoutineName = routines.find(r => r.id === selectedRoutine)?.name || 'the routine';
-          Alert.alert('Success', `Exercise "${exerciseName}" created and linked to ${selectedRoutineName}!`);
+          Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} and linked to ${selectedRoutineName}!`);
         }
       } else {
-        Alert.alert('Success', `Exercise "${exerciseName}" created successfully!`);
+        Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} successfully!`);
       }
 
       handleClose();
       onSuccess && onSuccess();
     } catch (error) {
-      console.error('Error creating exercise:', error);
-      Alert.alert('Error', 'Failed to create exercise: ' + error.message);
+      console.error(`Error ${isEditing ? 'updating' : 'creating'} exercise:`, error);
+      Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'create'} exercise: ` + error.message);
     } finally {
       setLoading(false);
     }
@@ -392,7 +478,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           >
             <Text style={styles.modalCancelText}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={styles.modalTitle}>Create Exercise</Text>
+          <Text style={styles.modalTitle}>{isEditing ? 'Edit Exercise' : 'Create Exercise'}</Text>
           <TouchableOpacity
             style={[
               styles.modalCreateButton, 
@@ -405,7 +491,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
               styles.modalCreateText, 
               (!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim()) && styles.modalCreateTextDisabled
             ]}>
-              {loading ? 'Creating...' : 'Create'}
+              {loading ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update' : 'Create')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -648,6 +734,123 @@ Complete the target successfully`}
               ))}
             </View>
 
+            <Text style={styles.modalLabel}>DUPR Range (Optional)</Text>
+            <View style={styles.duprRangeContainer}>
+              <View style={styles.duprDropdownContainer}>
+                <Text style={styles.duprLabel}>From</Text>
+                <TouchableOpacity 
+                  style={[styles.dropdown, styles.duprDropdown, !duprRangeMin && styles.dropdownPlaceholder]}
+                  onPress={() => setShowDuprMinDropdown(!showDuprMinDropdown)}
+                >
+                  <Text style={[
+                    styles.dropdownText,
+                    !duprRangeMin && styles.dropdownPlaceholderText
+                  ]}>
+                    {duprRangeMin || 'Min'}
+                  </Text>
+                  <Ionicons 
+                    name={showDuprMinDropdown ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color="#6B7280" 
+                  />
+                </TouchableOpacity>
+                
+                {/* Min DUPR Selection List */}
+                {showDuprMinDropdown && (
+                  <View style={styles.inlineDropdownList}>
+                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                      <TouchableOpacity 
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          setDuprRangeMin('');
+                          setShowDuprMinDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownOptionText}>Not specified</Text>
+                      </TouchableOpacity>
+                      {duprOptions.map((option) => (
+                        <TouchableOpacity
+                          key={`min-${option.value}`}
+                          style={styles.dropdownOption}
+                          onPress={() => {
+                            setDuprRangeMin(option.value);
+                            setShowDuprMinDropdown(false);
+                            // Auto-adjust max if it's lower than min
+                            if (duprRangeMax && parseFloat(duprRangeMax) < parseFloat(option.value)) {
+                              setDuprRangeMax(option.value);
+                            }
+                          }}
+                        >
+                          <Text style={styles.dropdownOptionText}>{option.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.duprRangeSeparator}>–</Text>
+
+              <View style={styles.duprDropdownContainer}>
+                <Text style={styles.duprLabel}>To</Text>
+                <TouchableOpacity 
+                  style={[styles.dropdown, styles.duprDropdown, !duprRangeMax && styles.dropdownPlaceholder]}
+                  onPress={() => setShowDuprMaxDropdown(!showDuprMaxDropdown)}
+                >
+                  <Text style={[
+                    styles.dropdownText,
+                    !duprRangeMax && styles.dropdownPlaceholderText
+                  ]}>
+                    {duprRangeMax || 'Max'}
+                  </Text>
+                  <Ionicons 
+                    name={showDuprMaxDropdown ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color="#6B7280" 
+                  />
+                </TouchableOpacity>
+                
+                {/* Max DUPR Selection List */}
+                {showDuprMaxDropdown && (
+                  <View style={styles.inlineDropdownList}>
+                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                      <TouchableOpacity 
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          setDuprRangeMax('');
+                          setShowDuprMaxDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownOptionText}>Not specified</Text>
+                      </TouchableOpacity>
+                      {duprOptions
+                        .filter(option => !duprRangeMin || parseFloat(option.value) >= parseFloat(duprRangeMin))
+                        .map((option) => (
+                        <TouchableOpacity
+                          key={`max-${option.value}`}
+                          style={styles.dropdownOption}
+                          onPress={() => {
+                            setDuprRangeMax(option.value);
+                            setShowDuprMaxDropdown(false);
+                          }}
+                        >
+                          <Text style={styles.dropdownOptionText}>{option.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {duprRangeMin && duprRangeMax && (
+              <View style={styles.duprRangePreview}>
+                <Text style={styles.duprRangePreviewText}>
+                  DUPR Range: {duprRangeMin}–{duprRangeMax}
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.modalLabel}>Skill Categories (Select one or more)</Text>
             <View style={styles.categoryGrid}>
               {categoryOptions.map((category) => {
@@ -704,6 +907,12 @@ Complete the target successfully`}
                 <Ionicons name="link-outline" size={16} color="#6B7280" />
                 <Text style={styles.infoText}>
                   Optionally link this exercise to a program and routine. The exercise will be automatically added to the routine.
+                </Text>
+              </View>
+              <View style={styles.infoItem}>
+                <Ionicons name="stats-chart-outline" size={16} color="#6B7280" />
+                <Text style={styles.infoText}>
+                  DUPR Range helps specify the skill level range (e.g., 2.0–3.0) that this exercise is most suitable for.
                 </Text>
               </View>
             </View>
@@ -1139,5 +1348,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     marginTop: 2,
+  },
+  // DUPR Range Styles
+  duprRangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 16,
+  },
+  duprDropdownContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  duprLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  duprDropdown: {
+    minWidth: 80,
+    marginBottom: 0,
+  },
+  duprRangeSeparator: {
+    fontSize: 18,
+    color: '#6B7280',
+    marginTop: 24,
+    fontWeight: '500',
+  },
+  duprRangePreview: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  duprRangePreviewText: {
+    fontSize: 14,
+    color: '#1E40AF',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

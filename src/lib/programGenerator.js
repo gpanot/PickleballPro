@@ -283,6 +283,10 @@ const sessionTemplates = [
  * @returns {Object} Complete program with 4 sessions and exercises
  */
 export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, userProfile = {}) {
+  // Handle empty focus areas case - use default fundamental skills
+  const defaultFocusAreas = ['dinks', 'serves', 'returns', 'volleys'];
+  const focusAreas = userFocusAreas && userFocusAreas.length > 0 ? userFocusAreas : defaultFocusAreas;
+  
   // Determine difficulty level based on DUPR rating
   const getDifficultyLevel = (rating) => {
     if (rating < 2.5) return 'beginner';
@@ -316,7 +320,7 @@ export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, us
       };
 
       // Prioritize user focus areas in exercise selection
-      const availableSkills = [...userFocusAreas];
+      const availableSkills = [...focusAreas];
       
       // Add template focus skills if not already in user focus
       template.focus.forEach(skill => {
@@ -330,7 +334,7 @@ export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, us
       let selectedExercises = [];
 
       // First, add exercises from user's top focus areas
-      userFocusAreas.slice(0, 2).forEach(skillId => {
+      focusAreas.slice(0, 2).forEach(skillId => {
         const exercises = getExercisesForSkill(skillId, 1);
         if (exercises.length > 0) {
           selectedExercises.push(...exercises);
@@ -349,7 +353,7 @@ export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, us
 
       // If still need more exercises, add from remaining focus areas
       if (selectedExercises.length < exerciseCount) {
-        userFocusAreas.slice(2).forEach(skillId => {
+        focusAreas.slice(2).forEach(skillId => {
           if (selectedExercises.length < exerciseCount) {
             const exercises = getExercisesForSkill(skillId, 1);
             if (exercises.length > 0 && !selectedExercises.find(ex => ex.skillCategory === skillId)) {
@@ -375,18 +379,20 @@ export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, us
   const program = {
     id: `personal_program_${Date.now()}`,
     name: `${userProfile.name || 'Your'} Personal Training Program`,
-    description: `Customized 4-session program focusing on: ${userFocusAreas.map(skill => 
-      skillsData.skillCategories.technical?.skills?.find(s => s.id === skill)?.name ||
-      skillsData.skillCategories.movement?.skills?.find(s => s.id === skill)?.name ||
-      skillsData.skillCategories.strategic?.skills?.find(s => s.id === skill)?.name ||
-      skillsData.skillCategories.physical?.skills?.find(s => s.id === skill)?.name ||
-      skill
-    ).join(', ')}`,
+    description: userFocusAreas && userFocusAreas.length > 0 
+      ? `Customized 4-session program focusing on: ${focusAreas.map(skill => 
+          skillsData.skillCategories.technical?.skills?.find(s => s.id === skill)?.name ||
+          skillsData.skillCategories.movement?.skills?.find(s => s.id === skill)?.name ||
+          skillsData.skillCategories.strategic?.skills?.find(s => s.id === skill)?.name ||
+          skillsData.skillCategories.physical?.skills?.find(s => s.id === skill)?.name ||
+          skill
+        ).join(', ')}`
+      : `Customized 4-session program covering fundamental pickleball skills: ${focusAreas.join(', ')}`,
     category: 'Personal Training',
     tier: difficultyLevel.charAt(0).toUpperCase() + difficultyLevel.slice(1),
     difficulty_level: difficultyLevel === 'beginner' ? 2 : difficultyLevel === 'intermediate' ? 3 : 4,
     estimated_duration_weeks: 2,
-    focus_areas: userFocusAreas,
+    focus_areas: focusAreas,
     dupr_rating: duprRating,
     routines: generateSessions(),
     createdAt: new Date().toISOString(),

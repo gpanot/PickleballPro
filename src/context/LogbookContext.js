@@ -117,6 +117,50 @@ export const LogbookProvider = ({ children }) => {
     const sortedByDate = [...logbookEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
     const firstSessionDate = sortedByDate.length > 0 ? sortedByDate[0].date : new Date().toISOString().split('T')[0];
 
+    // Calculate strong skills (most frequent in trainingFocus)
+    const skillCounts = {};
+    logbookEntries.forEach(entry => {
+      // Handle both old single focus and new multiple focus formats
+      const entryFocuses = Array.isArray(entry.trainingFocus) 
+        ? entry.trainingFocus 
+        : [entry.trainingFocus].filter(Boolean);
+      
+      entryFocuses.forEach(skill => {
+        if (skill) {
+          skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+        }
+      });
+    });
+
+    // Calculate weak skills (most frequent in difficulty)
+    const weaknessCounts = {};
+    logbookEntries.forEach(entry => {
+      if (entry.difficulty) {
+        // Handle both old single difficulty and new multiple difficulty formats
+        const entryDifficulties = Array.isArray(entry.difficulty) 
+          ? entry.difficulty 
+          : [entry.difficulty].filter(Boolean);
+        
+        entryDifficulties.forEach(skill => {
+          if (skill) {
+            weaknessCounts[skill] = (weaknessCounts[skill] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    // Get top 3 strong skills
+    const topStrongSkills = Object.entries(skillCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([skill, count]) => ({ skill, count }));
+
+    // Get top 3 weak skills
+    const topWeakSkills = Object.entries(weaknessCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 3)
+      .map(([skill, count]) => ({ skill, count }));
+
     return {
       totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal place
       thisWeekHours: Math.round(thisWeekHours * 10) / 10,
@@ -126,6 +170,8 @@ export const LogbookProvider = ({ children }) => {
       weeklyAverageFeeling: Math.round(weeklyAverageFeeling * 10) / 10,
       firstSessionDate,
       totalSessions: logbookEntries.length,
+      topStrongSkills,
+      topWeakSkills,
     };
   };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
@@ -21,6 +22,9 @@ export default function LogbookScreen({ navigation }) {
   const { user: authUser } = useAuth();
   const { logbookEntries, isLoading, deleteLogbookEntry, getLogbookSummary } = useLogbook();
   const insets = useSafeAreaInsets();
+
+  // State for collapsible summary
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
 
   // Feeling options
   const feelingOptions = [
@@ -49,10 +53,11 @@ export default function LogbookScreen({ navigation }) {
 
   // Session type options
   const sessionTypeOptions = [
+    { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
+    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
+    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
     { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
     { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
-    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
-    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
   ];
 
 
@@ -120,48 +125,90 @@ export default function LogbookScreen({ navigation }) {
 
   const renderSummary = () => (
     <View style={styles.summaryContainer}>
-      <Text style={styles.summaryTitle}>Training Summary</Text>
+      <TouchableOpacity 
+        style={styles.summaryHeader}
+        onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.summaryTitle}>Training Summary</Text>
+        <Ionicons 
+          name={isSummaryExpanded ? "chevron-up" : "chevron-down"} 
+          size={20} 
+          color="#6B7280" 
+        />
+      </TouchableOpacity>
       
-      <View style={styles.summaryCards}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{summary.totalHours}h</Text>
-          <Text style={styles.summaryLabel}>Total Hours</Text>
-          <Text style={styles.summarySubtext}>
-            Since {formatDate(summary.firstSessionDate)}
-          </Text>
-        </View>
-        
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{summary.thisWeekHours}h</Text>
-          <Text style={styles.summaryLabel}>This Week</Text>
-          <Text style={styles.summarySubtext}>
-            {summary.weekSessions} session{summary.weekSessions !== 1 ? 's' : ''}
-          </Text>
-        </View>
-        
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>{summary.thisMonthHours}h</Text>
-          <Text style={styles.summaryLabel}>This Month</Text>
-          <Text style={styles.summarySubtext}>
-            {summary.monthSessions} session{summary.monthSessions !== 1 ? 's' : ''}
-          </Text>
-        </View>
-      </View>
-
-      {summary.weeklyAverageFeeling > 0 && (
-        <View style={styles.weeklyFeelingCard}>
-          <View style={styles.weeklyFeelingHeader}>
-            <Text style={styles.weeklyFeelingTitle}>Weekly Progress Feeling</Text>
-            <View style={styles.feelingDisplay}>
-              <Text style={styles.feelingEmoji}>
-                {getFeelingData(Math.round(summary.weeklyAverageFeeling)).emoji}
-              </Text>
-              <Text style={styles.feelingLabel}>
-                {getFeelingData(Math.round(summary.weeklyAverageFeeling)).label}
-              </Text>
-            </View>
+      {isSummaryExpanded && (
+        <>
+          {/* Total Hours Card */}
+          <View style={styles.totalHoursCard}>
+            <Text style={styles.totalHoursValue}>{summary.totalHours}h</Text>
+            <Text style={styles.totalHoursLabel}>Total Training Hours</Text>
+            <Text style={styles.totalHoursSubtext}>
+              {summary.totalSessions} sessions since {formatDate(summary.firstSessionDate)}
+            </Text>
           </View>
-        </View>
+
+          {/* Skills Overview */}
+          <View style={styles.skillsContainer}>
+            {/* Strong Skills - Left Column */}
+            {summary.topStrongSkills && summary.topStrongSkills.length > 0 && (
+              <View style={styles.skillsSection}>
+                <Text style={styles.skillsSectionTitle}>💪 Your Strong Skills</Text>
+                <View style={styles.skillsList}>
+                  {summary.topStrongSkills.map((item, index) => {
+                    const skillData = getTrainingFocusData(item.skill);
+                    return (
+                      <View key={index} style={styles.skillItem}>
+                        <Text style={[styles.skillName, { color: skillData.color }]}>
+                          {skillData.label}
+                        </Text>
+                        <Text style={styles.skillCount}>{item.count}x</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Weak Skills - Right Column */}
+            {summary.topWeakSkills && summary.topWeakSkills.length > 0 && (
+              <View style={styles.skillsSection}>
+                <Text style={styles.skillsSectionTitle}>🎯 Areas to Improve</Text>
+                <View style={styles.skillsList}>
+                  {summary.topWeakSkills.map((item, index) => {
+                    const skillData = getTrainingFocusData(item.skill);
+                    return (
+                      <View key={index} style={styles.skillItem}>
+                        <Text style={[styles.skillName, { color: skillData.color }]}>
+                          {skillData.label}
+                        </Text>
+                        <Text style={styles.skillCount}>{item.count}x</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Weekly Feeling Progress */}
+          {summary.weeklyAverageFeeling > 0 && (
+            <View style={styles.weeklyFeelingCard}>
+              <View style={styles.weeklyFeelingHeader}>
+                <Text style={styles.weeklyFeelingTitle}>📈 Weekly Progress Feeling</Text>
+                <View style={styles.feelingDisplay}>
+                  <Text style={styles.feelingEmoji}>
+                    {getFeelingData(Math.round(summary.weeklyAverageFeeling)).emoji}
+                  </Text>
+                  <Text style={styles.feelingLabel}>
+                    {getFeelingData(Math.round(summary.weeklyAverageFeeling)).label}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -396,45 +443,95 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 4,
+  },
   summaryTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 16,
   },
-  summaryCards: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#10B981',
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  summarySubtext: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    textAlign: 'center',
-  },
-  weeklyFeelingCard: {
+  // Total Hours Card
+  totalHoursCard: {
     backgroundColor: '#F0F9FF',
     borderRadius: 12,
     padding: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+  },
+  totalHoursValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#0369A1',
+    marginBottom: 2,
+  },
+  totalHoursLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0369A1',
+    marginBottom: 2,
+  },
+  totalHoursSubtext: {
+    fontSize: 11,
+    color: '#0891B2',
+    textAlign: 'center',
+  },
+  // Skills Sections
+  skillsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  skillsSection: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  skillsSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  skillsList: {
+    gap: 4,
+  },
+  skillItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 6,
+  },
+  skillName: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  skillCount: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  weeklyFeelingCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    padding: 8,
     borderWidth: 1,
     borderColor: '#E0F2FE',
   },
@@ -444,7 +541,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weeklyFeelingTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#0369A1',
   },
@@ -454,10 +551,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   feelingEmoji: {
-    fontSize: 18,
+    fontSize: 16,
   },
   feelingLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#0369A1',
   },

@@ -155,12 +155,12 @@ export default function OnboardingNavigator({ onComplete }) {
           <ProgramLoadingScreen 
             {...props} 
             onComplete={() => {
-              // Complete onboarding with all collected data and navigate to Explore
+              // Complete onboarding with all collected data and navigate to Library
               const allData = props.route.params?.previousData || {};
-              // Set navigateTo to Explore for this specific flow
+              // Set navigateTo to Library for this specific flow
               onComplete({
                 ...allData,
-                navigateTo: 'Explore'
+                navigateTo: 'Library'
               });
             }} 
           />

@@ -24,6 +24,18 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
   const prefillData = route?.params?.prefillData;
   const isTrainingSession = prefillData?.sessionType === 'training';
   
+  // Get difficulty emoji based on difficulty level
+  function getDifficultyEmoji(difficulty) {
+    const difficultyMap = {
+      1: '🤩', // Very Easy
+      2: '😊', // Easy  
+      3: '😐', // Moderate
+      4: '😕', // Hard
+      5: '😓'  // Very Hard
+    };
+    return difficultyMap[difficulty] || '😐';
+  }
+  
   // Form state
   const [hours, setHours] = useState(prefillData?.hours || 1.0); // Default to 1 hour
   const [date, setDate] = useState(new Date());
@@ -47,7 +59,8 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
       data.exerciseLogs.forEach((log, index) => {
         console.log(`Exercise log ${index}:`, JSON.stringify(log, null, 2)); // Debug logging
         const exerciseName = log.exerciseName || log.name || log.title || `Exercise ${index + 1}`;
-        initialNotes += `• ${exerciseName}: ${log.result}`;
+        const difficultyEmoji = log.difficulty ? ` ${getDifficultyEmoji(log.difficulty)}` : '';
+        initialNotes += `• ${exerciseName}: ${log.result}${difficultyEmoji}`;
         if (log.target) {
           initialNotes += ` (Target: ${log.target})`;
         }
@@ -89,10 +102,10 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
   // Session type options
   const sessionTypeOptions = [
     { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
+    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
+    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
     { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
     { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
-    { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
-    { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
   ];
 
   // Helper functions

@@ -30,6 +30,7 @@ import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CreateCoachProfileScreen from './src/screens/CreateCoachProfileScreen';
+import SplashScreen from './src/screens/SplashScreen';
 import AdminRoute from './src/components/AdminRoute';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
@@ -39,6 +40,7 @@ const Stack = createStackNavigator();
 
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
+  const [showSplash, setShowSplash] = useState(true);
   const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
@@ -106,11 +108,22 @@ function AppContent() {
     }
   };
 
+  const handleSplashComplete = () => {
+    console.log('Splash screen completed!');
+    setShowSplash(false);
+  };
+
   console.log('App render - hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasSetName:', hasSetName, 'hasCompletedOnboarding:', hasCompletedOnboarding);
   
   // Debug navigation logic
   console.log('🔐 Authentication status - isAuthenticated:', isAuthenticated, 'authLoading:', authLoading);
   
+  // Show splash screen first
+  if (showSplash) {
+    console.log('🎬 Showing splash screen');
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
   // Don't render anything while auth is loading
   if (authLoading) {
     console.log('⏳ Auth loading - showing loading state');

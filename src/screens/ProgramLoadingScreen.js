@@ -9,6 +9,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../context/UserContext';
 import { generatePersonalizedProgram, canGenerateProgram } from '../lib/programGenerator';
+import { savePersonalizedProgram } from '../lib/personalizedProgramStorage';
 
 export default function ProgramLoadingScreen({ onComplete, route }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -92,7 +93,7 @@ export default function ProgramLoadingScreen({ onComplete, route }) {
 
   // Generate personalized program based on onboarding data
   useEffect(() => {
-    const generateProgram = () => {
+    const generateProgram = async () => {
       try {
         // Get onboarding data from route params
         const onboardingData = route?.params?.previousData || {};
@@ -101,30 +102,56 @@ export default function ProgramLoadingScreen({ onComplete, route }) {
         console.log('Generating program with data:', {
           focusAreas,
           userRating: user?.duprRating || 3.0,
-          userName: user?.name || onboardingData.name
+          userName: user?.name || onboardingData.name,
+          userId: user?.id
         });
 
-        // Check if user has completed onboarding (would be set after this screen)
-        if (focusAreas.length > 0) {
-          const program = generatePersonalizedProgram(
-            focusAreas,
-            user?.duprRating || 3.0,
-            {
-              name: user?.name || onboardingData.name || 'Your',
-              tier: user?.tier || 'Intermediate'
-            }
-          );
-          
-          console.log('Generated personalized program:', program);
-          setGeneratedProgram(program);
-          
-          // Store program in user context
-          storePersonalizedProgram(program);
-          
-          // This could be saved to Supabase when backend is ready
+        // Always generate a program, even if focus areas are empty (placeholder case)
+        const program = generatePersonalizedProgram(
+          focusAreas,
+          user?.duprRating || 3.0,
+          {
+            name: user?.name || onboardingData.name || 'Your',
+            tier: user?.tier || 'Intermediate'
+          }
+        );
+        
+        console.log('Generated personalized program:', program);
+        setGeneratedProgram(program);
+        
+        // Store program in user context (for immediate access)
+        storePersonalizedProgram(program);
+        
+        // Save program to local storage for persistence
+        if (user?.id) {
+          const saved = await savePersonalizedProgram(program, user.id);
+          if (saved) {
+            console.log('✅ Personalized program saved to local storage');
+          } else {
+            console.log('❌ Failed to save personalized program to local storage');
+          }
+        } else {
+          console.log('⚠️ No user ID available, program not saved to local storage');
         }
       } catch (error) {
         console.error('Error generating personalized program:', error);
+        
+        // Generate a minimal fallback program for empty skills case
+        const fallbackProgram = generatePersonalizedProgram(
+          [], // Empty focus areas
+          user?.duprRating || 3.0,
+          {
+            name: user?.name || 'Your',
+            tier: 'Intermediate'
+          }
+        );
+        
+        setGeneratedProgram(fallbackProgram);
+        storePersonalizedProgram(fallbackProgram);
+        
+        if (user?.id) {
+          await savePersonalizedProgram(fallbackProgram, user.id);
+        }
       }
     };
 
