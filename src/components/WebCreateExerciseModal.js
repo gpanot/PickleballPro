@@ -21,7 +21,8 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
   const [loading, setLoading] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const [exerciseName, setExerciseName] = useState('');
-  const [targetCriteria, setTargetCriteria] = useState('');
+  const [goal, setGoal] = useState('');
+  const [targetValue, setTargetValue] = useState('');
   const [instructions, setInstructions] = useState('');
   const [tip1, setTip1] = useState('');
   const [tip2, setTip2] = useState('');
@@ -55,7 +56,8 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     if (isEditing && editingExercise) {
       console.log('Populating form for editing:', editingExercise);
       setExerciseName(editingExercise.title || editingExercise.name || '');
-      setTargetCriteria(editingExercise.goal_text || editingExercise.goal || editingExercise.description || '');
+      setGoal(editingExercise.goal_text || editingExercise.goal || editingExercise.description || '');
+      setTargetValue(editingExercise.target_value ? editingExercise.target_value.toString() : '');
       setInstructions(editingExercise.instructions || '');
       
       // Handle tips - could be in tips_json array or individual fields
@@ -204,7 +206,8 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
 
   const handleClose = () => {
     setExerciseName('');
-    setTargetCriteria('');
+    setGoal('');
+    setTargetValue('');
     setInstructions('');
     setTip1('');
     setTip2('');
@@ -241,17 +244,17 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     code: exerciseName ? exerciseName.trim().toUpperCase().replace(/\s+/g, '_').substring(0, 10) : "EXERCISE",
     title: exerciseName || "Exercise Name",
     level: `Difficulty Level ${difficulty}`,
-    goal: targetCriteria || "Enter the target/success criteria for this exercise",
+    goal: goal || "Enter the goal/success criteria for this exercise",
     instructions: instructions || "Enter detailed step-by-step instructions here",
     targetType: "count",
-    targetValue: targetCriteria || "Complete",
+    targetValue: targetValue || "Enter target number",
     difficulty: difficulty,
     validationMode: "manual",
     estimatedTime: estimatedTime,
     tips: [tip1, tip2, tip3].filter(tip => tip.trim()).length > 0 
       ? [tip1, tip2, tip3].filter(tip => tip.trim()) 
       : ["Enter helpful tips for this exercise"]
-  }), [exerciseName, targetCriteria, instructions, difficulty, estimatedTime, tip1, tip2, tip3]);
+  }), [exerciseName, goal, targetValue, instructions, difficulty, estimatedTime, tip1, tip2, tip3]);
 
   const getDifficultyStars = (diffLevel) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -288,7 +291,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           <View style={styles.previewGoalContent}>
             <Text style={styles.previewGoalIcon}>🎯</Text>
             <View style={styles.previewGoalTextContainer}>
-              <Text style={styles.previewGoalTitle}>Target/Success Criteria</Text>
+              <Text style={styles.previewGoalTitle}>Goal</Text>
               <Text style={styles.previewGoalDescription}>{previewExercise.goal}</Text>
             </View>
           </View>
@@ -334,14 +337,23 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       return;
     }
 
-    if (!targetCriteria.trim()) {
-      Alert.alert('Error', 'Please enter the target/success criteria');
+    if (!goal.trim()) {
+      Alert.alert('Error', 'Please enter the goal/success criteria');
       return;
     }
 
     if (!instructions.trim()) {
       Alert.alert('Error', 'Please enter the exercise instructions');
       return;
+    }
+
+    // Validate target value if provided
+    if (targetValue.trim()) {
+      const targetNum = parseInt(targetValue.trim());
+      if (isNaN(targetNum) || targetNum < 1 || targetNum > 999) {
+        Alert.alert('Error', 'Target must be a number between 1 and 999');
+        return;
+      }
     }
 
     // Validate DUPR range
@@ -359,15 +371,15 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       
       const exerciseData = {
         title: exerciseName.trim(),
-        description: targetCriteria.trim() || 'Complete the exercise successfully',
-        goal_text: targetCriteria.trim() || 'Complete the exercise successfully',
+        description: goal.trim() || 'Complete the exercise successfully',
+        goal_text: goal.trim() || 'Complete the exercise successfully',
         instructions: instructions.trim() || 'Follow the provided guidelines',
         
         // Enhanced JSONB fields
         tips_json: [tip1.trim(), tip2.trim(), tip3.trim()].filter(tip => tip),
         skill_categories_json: skillCategories,
         estimated_minutes: parseInt(estimatedTime.replace(' min', '')),
-        goal: targetCriteria.trim() || 'Complete the exercise successfully',
+        goal: goal.trim() || 'Complete the exercise successfully',
         youtube_url: youtubeUrl.trim() || '',
         
         // DUPR Range fields
@@ -376,7 +388,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
         
         // Existing schema fields
         demo_video_url: youtubeUrl.trim() || '',
-        target_value: parseInt(targetCriteria.match(/\d+/)?.[0]) || null,
+        target_value: targetValue.trim() ? parseInt(targetValue.trim()) : null,
         skill_category: skillCategories.join(','),
         difficulty: difficulty,
       };
@@ -482,14 +494,14 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           <TouchableOpacity
             style={[
               styles.modalCreateButton, 
-              (!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim()) && styles.modalCreateButtonDisabled
+              (!exerciseName.trim() || !goal.trim() || !instructions.trim()) && styles.modalCreateButtonDisabled
             ]}
             onPress={handleCreateExercise}
-            disabled={!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim() || loading}
+            disabled={!exerciseName.trim() || !goal.trim() || !instructions.trim() || loading}
           >
             <Text style={[
               styles.modalCreateText, 
-              (!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim()) && styles.modalCreateTextDisabled
+              (!exerciseName.trim() || !goal.trim() || !instructions.trim()) && styles.modalCreateTextDisabled
             ]}>
               {loading ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update' : 'Create')}
             </Text>
@@ -616,16 +628,33 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
               </>
             )}
 
-            <Text style={styles.modalLabel}>Target/Success Criteria *</Text>
+            <Text style={styles.modalLabel}>Goal *</Text>
             <TextInput
               style={[styles.modalInput, styles.modalTextArea]}
-              value={targetCriteria}
-              onChangeText={setTargetCriteria}
-              placeholder="What is the target/success criteria? e.g., Land 6 out of 10 drops in the NVZ, Complete 20 consecutive dinks"
+              value={goal}
+              onChangeText={setGoal}
+              placeholder="What is the goal/success criteria? e.g., Land 6 out of 10 drops in the NVZ, Complete 20 consecutive dinks"
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+            />
+
+            <Text style={styles.modalLabel}>Target</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={targetValue}
+              onChangeText={(text) => {
+                // Only allow numbers and limit to 999
+                const numericValue = text.replace(/[^0-9]/g, '');
+                if (numericValue === '' || (parseInt(numericValue) <= 999)) {
+                  setTargetValue(numericValue);
+                }
+              }}
+              placeholder="Enter target number (1-999)"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="numeric"
+              maxLength={3}
             />
 
             <Text style={styles.modalLabel}>Instructions *</Text>

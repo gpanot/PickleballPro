@@ -137,6 +137,14 @@ export default function ProgramStructureModal({ visible, program, onClose }) {
                                     <Ionicons name="target-outline" size={12} color="#6B7280" />
                                     <Text style={styles.exerciseTargetText}>{exercise.target}</Text>
                                   </View>
+                                  {exercise.dupr_range_min && exercise.dupr_range_max && (
+                                    <View style={styles.duprRangeContainer}>
+                                      <Ionicons name="stats-chart-outline" size={12} color="#1E40AF" />
+                                      <Text style={styles.duprRangeText}>
+                                        {exercise.dupr_range_min}–{exercise.dupr_range_max}
+                                      </Text>
+                                    </View>
+                                  )}
                                   {exercise.difficulty && (
                                     <View style={styles.difficultyContainer}>
                                       <Text style={styles.difficultyText}>{exercise.difficulty}/5</Text>
@@ -394,6 +402,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: 'white',
+  },
+  duprRangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  duprRangeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#1E40AF',
+    marginLeft: 4,
   },
 
   // Empty States

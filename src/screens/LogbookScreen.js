@@ -292,7 +292,7 @@ export default function LogbookScreen({ navigation }) {
                   {/* What went wrong display */}
                   {entry.difficulty && (
                     <View style={styles.entryDifficultyContainer}>
-                      <Text style={styles.entryDifficultyTitle}>What went wrong:</Text>
+                      <Text style={styles.entryDifficultyTitle}>What was difficult:</Text>
                       <View style={styles.entryDifficultyTags}>
                         {(Array.isArray(entry.difficulty) ? entry.difficulty : [entry.difficulty]).map((difficulty, index) => {
                           const difficultyData = getTrainingFocusData(difficulty);

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { loadPersonalizedProgram } from '../lib/personalizedProgramStorage';
 
 const UserContext = createContext();
 
@@ -75,18 +74,7 @@ export const UserProvider = ({ children }) => {
       console.log('UserContext: ✅ Syncing user data from AuthContext (preserving local onboarding):', syncedUser);
       setUser(syncedUser);
       
-      // Load personalized program from local storage
-      loadPersonalizedProgram(authUser.id).then(personalizedProgram => {
-        if (personalizedProgram) {
-          console.log('UserContext: ✅ Loaded personalized program from local storage');
-          setUser(prevUser => ({
-            ...prevUser,
-            personalizedProgram
-          }));
-        }
-      }).catch(error => {
-        console.error('UserContext: Error loading personalized program:', error);
-      });
+      // Note: Personalized program loading from local storage removed - programs are now managed in context only
     } else {
       console.log('UserContext: User not authenticated, keeping onboarding data locally');
       // Don't clear user data during onboarding - just clear auth-specific fields
@@ -180,6 +168,16 @@ export const UserProvider = ({ children }) => {
     setHasSelectedGender(true);
   };
 
+  const resetGenderSelection = () => {
+    console.log('UserContext: Resetting gender selection');
+    setHasSelectedGender(false);
+    // Also clear the gender data
+    setUser(prevUser => ({
+      ...prevUser,
+      gender: null
+    }));
+  };
+
   const completeOnboarding = () => {
     setHasCompletedOnboarding(true);
   };
@@ -238,6 +236,7 @@ export const UserProvider = ({ children }) => {
     completeIntro,
     goBackToIntro,
     completeGenderSelection,
+    resetGenderSelection,
     completeNameSelection,
     completeOnboarding,
     resetAllOnboarding,

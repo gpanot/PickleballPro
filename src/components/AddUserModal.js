@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import skillsData from '../data/Commun_skills_tags.json';
 
 export default function AddUserModal({ visible, onClose, onSuccess, user = null }) {
   const [loading, setLoading] = useState(false);
@@ -24,7 +25,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
     timeCommitment: '',
     duprRating: '',
     ratingType: 'self',
-    isActive: true
+    isActive: true,
+    focusAreas: []
   });
 
   // Initialize form data when user prop changes
@@ -38,7 +40,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
         timeCommitment: user.time_commitment || '',
         duprRating: user.dupr_rating ? user.dupr_rating.toString() : '',
         ratingType: user.rating_type || 'self',
-        isActive: user.is_active !== false
+        isActive: user.is_active !== false,
+        focusAreas: user.focus_areas || []
       });
     } else {
       resetForm();
@@ -54,7 +57,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
       timeCommitment: '',
       duprRating: '',
       ratingType: 'self',
-      isActive: true
+      isActive: true,
+      focusAreas: []
     });
   };
 
@@ -93,6 +97,7 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
         dupr_rating: formData.duprRating ? parseFloat(formData.duprRating) : null,
         rating_type: formData.ratingType,
         is_active: formData.isActive,
+        focus_areas: formData.focusAreas,
         updated_at: new Date().toISOString()
       };
 
@@ -141,18 +146,16 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
         throw error;
       }
 
+      // Close modal and refresh data immediately
+      handleClose();
+      onSuccess();
+      
+      // Show success message after modal closes
       const successMessage = user 
         ? `User "${formData.name}" updated successfully!`
         : `User "${formData.name}" created successfully! ${!user ? 'They will need to check their email to verify their account and set a new password.' : ''}`;
 
-      Alert.alert(
-        'Success', 
-        successMessage,
-        [{ text: 'OK', onPress: () => {
-          handleClose();
-          onSuccess();
-        }}]
-      );
+      Alert.alert('Success', successMessage);
 
     } catch (error) {
       console.error(`Error ${user ? 'updating' : 'creating'} user:`, error);
@@ -304,6 +307,92 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* Skills & Focus Areas */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Skills & Focus Areas</Text>
+              <Text style={styles.sectionDescription}>
+                Select the skills this user wants to focus on improving
+              </Text>
+              
+              {Object.values(skillsData.skillCategories).map((category) => (
+                <View key={category.name} style={styles.skillCategory}>
+                  <Text style={styles.skillCategoryTitle}>{category.name}</Text>
+                  <Text style={styles.skillCategoryDescription}>{category.description}</Text>
+                  
+                  <View style={styles.skillsGrid}>
+                    {category.skills.map((skill) => {
+                      const isSelected = formData.focusAreas.includes(skill.id);
+                      return (
+                        <TouchableOpacity
+                          key={skill.id}
+                          style={[
+                            styles.skillButton, 
+                            isSelected && [styles.skillButtonSelected, { borderColor: skill.color }]
+                          ]}
+                          onPress={() => {
+                            if (isSelected) {
+                              setFormData({
+                                ...formData,
+                                focusAreas: formData.focusAreas.filter(id => id !== skill.id)
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                focusAreas: [...formData.focusAreas, skill.id]
+                              });
+                            }
+                          }}
+                        >
+                          <Text style={styles.skillEmoji}>{skill.emoji}</Text>
+                          <Text style={[
+                            styles.skillButtonText, 
+                            isSelected && [styles.skillButtonTextSelected, { color: skill.color }]
+                          ]}>
+                            {skill.name}
+                          </Text>
+                          {isSelected && (
+                            <View style={styles.skillSelectedIndicator}>
+                              <Ionicons name="checkmark" size={12} color={skill.color} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              
+              {formData.focusAreas.length > 0 && (
+                <View style={styles.selectedSkillsPreview}>
+                  <Text style={styles.selectedSkillsTitle}>
+                    Selected Skills ({formData.focusAreas.length})
+                  </Text>
+                  <View style={styles.selectedSkillsContainer}>
+                    {formData.focusAreas.map((skillId) => {
+                      // Find skill from all categories
+                      const allSkills = Object.values(skillsData.skillCategories)
+                        .flatMap(cat => cat.skills);
+                      const skill = allSkills.find(s => s.id === skillId);
+                      
+                      if (!skill) return null;
+                      
+                      return (
+                        <View 
+                          key={skill.id} 
+                          style={[styles.selectedSkillTag, { backgroundColor: skill.color + '20' }]}
+                        >
+                          <Text style={styles.selectedSkillEmoji}>{skill.emoji}</Text>
+                          <Text style={[styles.selectedSkillText, { color: skill.color }]}>
+                            {skill.name}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* Account Status */}
@@ -518,5 +607,109 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#3B82F6',
     lineHeight: 20,
+  },
+  
+  // Skills & Focus Areas Styles
+  sectionDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  skillCategory: {
+    marginBottom: 24,
+  },
+  skillCategoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  skillCategoryDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  skillsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+    position: 'relative',
+  },
+  skillButtonSelected: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 2,
+  },
+  skillEmoji: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  skillButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  skillButtonTextSelected: {
+    fontWeight: '600',
+  },
+  skillSelectedIndicator: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  selectedSkillsPreview: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  selectedSkillsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  selectedSkillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  selectedSkillTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  selectedSkillEmoji: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  selectedSkillText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

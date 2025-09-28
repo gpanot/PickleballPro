@@ -20,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import SkillsScreen from './SkillsScreen';
 import BadgesScreen from './BadgesScreen';
-import PersonalizedProgramCard from '../components/PersonalizedProgramCard';
+import { generateAIProgram, validateUserForAIGeneration, saveAIProgram } from '../lib/aiProgramGenerator';
 
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
@@ -32,6 +32,7 @@ export default function ProgramScreen({ navigation, route }) {
   const [selectedImage, setSelectedImage] = React.useState(null);
   const [isProcessingImage, setIsProcessingImage] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
 
   // Handle new program added from Explore
   React.useEffect(() => {
@@ -91,6 +92,56 @@ export default function ProgramScreen({ navigation, route }) {
   };
 
   // Program management functions
+  // AI Program Generation function
+  const generateAIProgramHandler = async () => {
+    // Validate user can generate AI program
+    const validation = validateUserForAIGeneration(user);
+    if (!validation.isValid) {
+      Alert.alert('Cannot Generate AI Program', validation.message);
+      return;
+    }
+
+    setIsGeneratingAI(true);
+
+    try {
+      console.log('🤖 Starting AI program generation...');
+      
+      // Generate the AI program
+      const aiProgram = await generateAIProgram(user);
+      
+      // Save to local programs list
+      saveAIProgram(aiProgram, setPrograms);
+      
+      Alert.alert(
+        'AI Program Created! 🤖',
+        `"${aiProgram.name}" has been created with ${aiProgram.routines.length} routines tailored to your DUPR ${user.duprRating} level and focus areas.`,
+        [
+
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('AI Program Generation Error:', error);
+      
+      let title = 'Generation Failed';
+      let message = error.message || 'Unable to generate AI program. Please check your internet connection and try again.';
+      
+      // Provide more specific guidance for database-related errors
+      if (error.message && error.message.includes('No exercises found')) {
+        title = 'No Matching Exercises Found';
+        message = `We couldn't find exercises in our database that match your DUPR ${user.duprRating} level and focus areas (${user.focus_areas?.join(', ') || 'none selected'}).\n\nThis could be because:\n• Your DUPR level needs exercises to be added to our database\n• Your focus areas need more exercise content\n\nPlease contact support or try updating your focus areas in settings.`;
+      }
+      
+      Alert.alert(title, message);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const createProgram = async () => {
     if (!newProgramName.trim()) {
       Alert.alert('Error', 'Please enter a program name');
@@ -217,29 +268,33 @@ export default function ProgramScreen({ navigation, route }) {
   }, []);
 
 
+  // Check if user already has an AI-generated program
+  const hasAIProgram = programs.some(program => program.is_ai_generated);
+
   const renderProgramsContent = () => (
     <View style={styles.customizedContainer}>
-      {/* Always show personalized program at the top */}
-      <PersonalizedProgramCard 
-        navigation={navigation}
-        onProgramLoad={(program) => {
-          console.log('Personalized program loaded:', program?.name);
-        }}
-      />
-      
       {programs.length === 0 ? (
         <View style={styles.emptyCustomList}>
-          <Text style={styles.emptyCustomListIcon}>🏆</Text>
-          <Text style={styles.emptyCustomListTitle}>Your Custom Programs</Text>
+          <Text style={styles.emptyCustomListIcon}>✨</Text>
+          <Text style={styles.emptyCustomListTitle}>Get Started with AI</Text>
           <Text style={styles.emptyCustomListDescription}>
-            Get started by exploring our curated programs in the Library tab, or create your own custom training program with organized routines and exercises.
+            Let our AI create a personalized training program based on your DUPR rating and focus areas. Get started in seconds!
           </Text>
           <TouchableOpacity
-            style={styles.addFirstProgramButton}
+            style={styles.aiGenerateButtonLarge}
+            onPress={generateAIProgramHandler}
+            disabled={isGeneratingAI}
+          >
+            <Text style={styles.aiGenerateButtonLargeText}>
+              {isGeneratingAI ? 'Creating Your Program...' : 'Generate Your AI Program'}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.addFirstProgramButtonSecondary}
             onPress={() => setShowCreateProgramModal(true)}
           >
-            <Text style={styles.addIconText}>+</Text>
-            <Text style={styles.addFirstProgramButtonText}>Create Custom Program</Text>
+            <Text style={styles.addFirstProgramButtonSecondaryText}>Or create custom program</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -308,6 +363,19 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
           ))}
 
+          {!hasAIProgram && (
+            <TouchableOpacity
+              style={styles.aiGenerateButton}
+              onPress={generateAIProgramHandler}
+              disabled={isGeneratingAI}
+            >
+              <Text style={styles.aiGenerateButtonIcon}>🤖</Text>
+              <Text style={styles.aiGenerateButtonText}>
+                {isGeneratingAI ? 'Generating...' : 'Generate Your AI Program'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.addMoreProgramsButton}
             onPress={() => setShowCreateProgramModal(true)}
@@ -344,7 +412,7 @@ export default function ProgramScreen({ navigation, route }) {
               onPress={() => setCurrentView('skills')}
             >
               <Text style={[styles.tabText, currentView === 'skills' && styles.activeTabText]}>
-                DUPR
+                DUPR 2{'->'} 3
               </Text>
               {currentView === 'skills' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
@@ -529,6 +597,46 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 32,
   },
+  aiGenerateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 12,
+  },
+  aiGenerateButtonIcon: {
+    fontSize: 18,
+    color: 'white',
+  },
+  aiGenerateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  aiGenerateButtonLarge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6366F1',
+    paddingHorizontal: 32,
+    paddingVertical: 18,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  aiGenerateButtonLargeText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: 'white',
+    textAlign: 'center',
+  },
   addFirstProgramButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -543,6 +651,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  addFirstProgramButtonSecondary: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  addFirstProgramButtonSecondaryText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
   },
   programsList: {
     flex: 1,

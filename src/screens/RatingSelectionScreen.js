@@ -11,10 +11,11 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 
-export default function RatingSelectionScreen({ onComplete }) {
+export default function RatingSelectionScreen({ navigation, onComplete, onGoBack }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [ratingInput, setRatingInput] = useState('');
   const { updateUserRating } = useUser();
@@ -88,6 +89,22 @@ export default function RatingSelectionScreen({ onComplete }) {
         {/* Progress Status Bar */}
         <View style={styles.statusBar}>
           <View style={styles.progressContainer}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => {
+                if (onGoBack) {
+                  onGoBack();
+                } else if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              }}
+            >
+              <Ionicons 
+                name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
+                size={24} 
+                color="#007AFF" 
+              />
+            </TouchableOpacity>
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: '25%' }]} />
             </View>
@@ -330,7 +347,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   statusBar: {
-    paddingHorizontal: 30,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
@@ -339,6 +356,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 16,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   progressBar: {
     flex: 1,

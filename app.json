@@ -16,7 +16,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.picklepro.mobile",
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "config": {
+        "googleMapsApiKey": "AIzaSyAMNdMtfFdyekAB1VwDORs9Fesl41JUajg"
+      }
     },
     "android": {
       "backgroundColor": "#000000",
@@ -27,7 +30,12 @@
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#000000"
       },
-      "permissions": []
+      "permissions": [],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAMNdMtfFdyekAB1VwDORs9Fesl41JUajg"
+        }
+      }
     },
     "web": {
       "bundler": "metro"

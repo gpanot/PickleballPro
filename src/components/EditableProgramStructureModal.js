@@ -75,7 +75,9 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                 description: re.exercises.description,
                 order_index: re.order_index,
                 skill_categories_json: re.exercises.skill_categories_json,
-                tags: re.exercises.tags
+                tags: re.exercises.tags,
+                dupr_range_min: re.exercises.dupr_range_min,
+                dupr_range_max: re.exercises.dupr_range_max
               }))
           }))
       };
@@ -392,12 +394,31 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                           style={styles.editButton}
                           onPress={async () => {
                             try {
-                              // Fetch complete exercise data from database using the code
-                              const { data, error } = await supabase
+
+                              // Fetch complete exercise data from database using the code or id
+                              let data, error;
+                              
+                              // First try to find by code (for older exercises with code field)
+                              const { data: dataByCode, error: errorByCode } = await supabase
                                 .from('exercises')
                                 .select('*')
-                                .eq('code', exercise.id)  // exercise.id is actually the code
+                                .eq('code', exercise.id)
                                 .single();
+                              
+                              if (!errorByCode && dataByCode) {
+                                data = dataByCode;
+                                error = errorByCode;
+                              } else {
+                                // If not found by code, try to find by UUID (for database exercises)
+                                const { data: dataById, error: errorById } = await supabase
+                                  .from('exercises')
+                                  .select('*')
+                                  .eq('id', exercise.id)
+                                  .single();
+                                
+                                data = dataById;
+                                error = errorById;
+                              }
                               
                               if (error) throw error;
                               
@@ -429,6 +450,18 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                               {tag}{tagIndex < (exercise.skill_categories_json || exercise.tags || []).length - 1 ? ' • ' : ''}
                             </Text>
                           ))}
+                        </View>
+                      </View>
+                    )}
+                    
+                    {/* DUPR Range Section */}
+                    {exercise.dupr_range_min && exercise.dupr_range_max && (
+                      <View style={styles.duprRangeContainer}>
+                        <Text style={styles.duprRangeLabel}>DUPR Range: </Text>
+                        <View style={styles.duprRangeBadge}>
+                          <Text style={styles.duprRangeText}>
+                            {exercise.dupr_range_min}–{exercise.dupr_range_max}
+                          </Text>
                         </View>
                       </View>
                     )}
@@ -795,6 +828,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+
+  // DUPR Range Styles
+  duprRangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  duprRangeLabel: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginRight: 6,
+    fontWeight: '500',
+  },
+  duprRangeBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  duprRangeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E40AF',
   },
 
   // Empty States

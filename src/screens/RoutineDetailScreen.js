@@ -22,6 +22,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
   const [routine, setRoutine] = React.useState(initialRoutine);
   const { addLogbookEntry } = useLogbook();
   
+  // Debouncing state to prevent multiple rapid taps
+  const [isNavigating, setIsNavigating] = React.useState(false);
+  
   // Quick log modal state
   const [showQuickLogModal, setShowQuickLogModal] = React.useState(false);
   const [selectedExercise, setSelectedExercise] = React.useState(null);
@@ -160,11 +163,89 @@ export default function RoutineDetailScreen({ navigation, route }) {
     });
   };
 
+  // Optimized navigation function using preloaded data (no API calls!)
+  const handleNavigateToExercise = React.useCallback((exercise) => {
+    if (isNavigating) return; // Prevent multiple navigation calls
+    
+    setIsNavigating(true);
+    
+    try {
+      // Use preloaded complete exercise data if available
+      if (exercise.completeExerciseData) {
+        console.log('🚀 Using preloaded exercise data - no API call needed!');
+        navigation.navigate('ExerciseDetail', {
+          exercise: exercise.completeExerciseData,
+          rawExercise: exercise.completeExerciseData
+        });
+      } else {
+        // Fallback for exercises without preloaded data (AI-generated, etc.)
+        console.log('⚠️ No preloaded data, using fallback exercise structure');
+        const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
+        const exerciseName = exercise.name || exercise.title || 'Exercise';
+        const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+        
+        navigation.navigate('ExerciseDetail', {
+          exercise: {
+            code: exercise.id,
+            title: exerciseName,
+            level: `${program.name} - ${routine.name}`,
+            goal: exerciseDescription,
+            instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
+            targetType: exercise.targetType || "count",
+            targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
+            difficulty: exercise.difficulty,
+            validationMode: "manual",
+            estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
+            equipment: ["Balls", "Partner/Coach"],
+            tips: [
+              "Focus on technique over power",
+              "Take your time with each attempt",
+              "Reset between attempts"
+            ],
+            previousAttempts: []
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error navigating to exercise:', error);
+      // Fallback to simplified exercise data
+      const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
+      const exerciseName = exercise.name || exercise.title || 'Exercise';
+      const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+      
+      navigation.navigate('ExerciseDetail', {
+        exercise: {
+          code: exercise.id,
+          title: exerciseName,
+          level: `${program.name} - ${routine.name}`,
+          goal: exerciseDescription,
+          instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
+          targetType: exercise.targetType || "count",
+          targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
+          difficulty: exercise.difficulty,
+          validationMode: "manual",
+          estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
+          equipment: ["Balls", "Partner/Coach"],
+          tips: [
+            "Focus on technique over power",
+            "Take your time with each attempt",
+            "Reset between attempts"
+          ],
+          previousAttempts: []
+        }
+      });
+    } finally {
+      // Reset navigation state immediately since no async operations
+      setIsNavigating(false);
+    }
+  }, [isNavigating, navigation, program.name, routine.name]);
+
   // Quick log functions
-  const handleAddLog = (exercise) => {
+  const handleAddLog = React.useCallback((exercise) => {
+    if (isNavigating) return; // Prevent action if already navigating
     setSelectedExercise(exercise);
     setShowQuickLogModal(true);
-  };
+  }, [isNavigating]);
 
   const handleResultSaved = (routineExerciseId, resultData) => {
     // Store the result for this exercise
@@ -347,82 +428,12 @@ export default function RoutineDetailScreen({ navigation, route }) {
               )}
               
               <TouchableOpacity
-                style={styles.exerciseContent}
-                onPress={async () => {
-                  try {
-                    // Fetch complete exercise data from database using the exercise code
-                    const { data, error } = await supabase
-                      .from('exercises')
-                      .select('*')
-                      .eq('code', exercise.id)  // exercise.id is actually the code
-                      .single();
-                    
-                    if (error) throw error;
-                    
-                    if (data) {
-                      // Navigate with complete database exercise data
-                      navigation.navigate('ExerciseDetail', {
-                        exercise: data,
-                        rawExercise: data
-                      });
-                    } else {
-                      // Fallback to simplified exercise if database fetch fails
-                      const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
-                      const exerciseName = exercise.name || exercise.title || 'Exercise';
-                      const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
-                      
-                      navigation.navigate('ExerciseDetail', {
-                        exercise: {
-                          code: exercise.id,
-                          title: exerciseName,
-                          level: `${program.name} - ${routine.name}`,
-                          goal: exerciseDescription,
-                          instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
-                          targetType: exercise.targetType || "count",
-                          targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
-                          difficulty: exercise.difficulty,
-                          validationMode: "manual",
-                          estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
-                          equipment: ["Balls", "Partner/Coach"],
-                          tips: [
-                            "Focus on technique over power",
-                            "Take your time with each attempt",
-                            "Reset between attempts"
-                          ],
-                          previousAttempts: []
-                        }
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Error fetching exercise data:', error);
-                    // Fallback to simplified exercise data
-                    const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
-                    const exerciseName = exercise.name || exercise.title || 'Exercise';
-                    const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
-                    
-                    navigation.navigate('ExerciseDetail', {
-                      exercise: {
-                        code: exercise.id,
-                        title: exerciseName,
-                        level: `${program.name} - ${routine.name}`,
-                        goal: exerciseDescription,
-                        instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
-                        targetType: exercise.targetType || "count",
-                        targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
-                        difficulty: exercise.difficulty,
-                        validationMode: "manual",
-                        estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
-                        equipment: ["Balls", "Partner/Coach"],
-                        tips: [
-                          "Focus on technique over power",
-                          "Take your time with each attempt",
-                          "Reset between attempts"
-                        ],
-                        previousAttempts: []
-                      }
-                    });
-                  }
-                }}
+                style={[
+                  styles.exerciseContent,
+                  isNavigating && { opacity: 0.6 } // Visual feedback when navigating
+                ]}
+                onPress={() => handleNavigateToExercise(exercise)}
+                disabled={isNavigating} // Disable tap when already navigating
                 onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
@@ -592,82 +603,12 @@ export default function RoutineDetailScreen({ navigation, route }) {
               )}
               
               <TouchableOpacity
-                style={styles.exerciseContent}
-                onPress={async () => {
-                  try {
-                    // Fetch complete exercise data from database using the exercise code
-                    const { data, error } = await supabase
-                      .from('exercises')
-                      .select('*')
-                      .eq('code', exercise.id)  // exercise.id is actually the code
-                      .single();
-                    
-                    if (error) throw error;
-                    
-                    if (data) {
-                      // Navigate with complete database exercise data
-                      navigation.navigate('ExerciseDetail', {
-                        exercise: data,
-                        rawExercise: data
-                      });
-                    } else {
-                      // Fallback to simplified exercise if database fetch fails
-                      const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
-                      const exerciseName = exercise.name || exercise.title || 'Exercise';
-                      const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
-                      
-                      navigation.navigate('ExerciseDetail', {
-                        exercise: {
-                          code: exercise.id,
-                          title: exerciseName,
-                          level: `${program.name} - ${routine.name}`,
-                          goal: exerciseDescription,
-                          instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
-                          targetType: exercise.targetType || "count",
-                          targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
-                          difficulty: exercise.difficulty,
-                          validationMode: "manual",
-                          estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
-                          equipment: ["Balls", "Partner/Coach"],
-                          tips: [
-                            "Focus on technique over power",
-                            "Take your time with each attempt",
-                            "Reset between attempts"
-                          ],
-                          previousAttempts: []
-                        }
-                      });
-                    }
-                  } catch (error) {
-                    console.error('Error fetching exercise data:', error);
-                    // Fallback to simplified exercise data
-                    const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
-                    const exerciseName = exercise.name || exercise.title || 'Exercise';
-                    const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
-                    
-                    navigation.navigate('ExerciseDetail', {
-                      exercise: {
-                        code: exercise.id,
-                        title: exerciseName,
-                        level: `${program.name} - ${routine.name}`,
-                        goal: exerciseDescription,
-                        instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
-                        targetType: exercise.targetType || "count",
-                        targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
-                        difficulty: exercise.difficulty,
-                        validationMode: "manual",
-                        estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
-                        equipment: ["Balls", "Partner/Coach"],
-                        tips: [
-                          "Focus on technique over power",
-                          "Take your time with each attempt",
-                          "Reset between attempts"
-                        ],
-                        previousAttempts: []
-                      }
-                    });
-                  }
-                }}
+                style={[
+                  styles.exerciseContent,
+                  isNavigating && { opacity: 0.6 } // Visual feedback when navigating
+                ]}
+                onPress={() => handleNavigateToExercise(exercise)}
+                disabled={isNavigating} // Disable tap when already navigating
                 onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>

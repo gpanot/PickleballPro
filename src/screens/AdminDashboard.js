@@ -99,9 +99,13 @@ export default function AdminDashboard({ navigation }) {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [selectedCoach, setSelectedCoach] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedExercise, setSelectedExercise] = useState(null);
   const [modalType, setModalType] = useState(''); // 'program', 'routine', 'exercise'
   const [hasUnsavedCategoryChanges, setHasUnsavedCategoryChanges] = useState(false);
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
+  const [showEditExerciseModal, setShowEditExerciseModal] = useState(false);
+  const [exerciseToDelete, setExerciseToDelete] = useState(null);
+  const [showDeleteExerciseConfirmation, setShowDeleteExerciseConfirmation] = useState(false);
   
 
   // Web responsiveness
@@ -1418,7 +1422,9 @@ export default function AdminDashboard({ navigation }) {
       exercise.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       exercise.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       exercise.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exercise.skill_category?.toLowerCase().includes(searchQuery.toLowerCase())
+      exercise.skill_category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (exercise.dupr_range_min && exercise.dupr_range_max && 
+       `${exercise.dupr_range_min}–${exercise.dupr_range_max}`.includes(searchQuery))
     );
 
     return (
@@ -1440,6 +1446,7 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Description</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Difficulty</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Categories</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Range</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Type</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
@@ -1521,6 +1528,19 @@ export default function AdminDashboard({ navigation }) {
                     </View>
                   </View>
 
+                  {/* DUPR Range */}
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    {exercise.dupr_range_min && exercise.dupr_range_max ? (
+                      <View style={styles.duprRangeBadge}>
+                        <Text style={styles.duprRangeText}>
+                          {exercise.dupr_range_min}–{exercise.dupr_range_max}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.noDuprRangeText}>—</Text>
+                    )}
+                  </View>
+
                   {/* Type */}
                   <View style={[styles.modernTableCell, { flex: 1 }]}>
                     <View style={[styles.exerciseTypeBadge, 
@@ -1556,12 +1576,38 @@ export default function AdminDashboard({ navigation }) {
                       <TouchableOpacity style={styles.modernActionButton}>
                         <Ionicons name="eye-outline" size={16} color="#6B7280" />
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.modernActionButton}>
+                      <TouchableOpacity 
+                        style={styles.modernActionButton}
+                        onPress={() => handleEditExercise(exercise)}
+                      >
                         <Ionicons name="create-outline" size={16} color="#6B7280" />
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.modernActionButton}>
-                        <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
-                      </TouchableOpacity>
+                      <View style={styles.dropdownContainer}>
+                        <TouchableOpacity 
+                          style={styles.modernActionButton}
+                          onPress={() => {
+                            const newDropdown = activeDropdown === exercise.id ? null : exercise.id;
+                            console.log('⋯ Three dots clicked for exercise:', exercise.title, 'Setting dropdown to:', newDropdown);
+                            setActiveDropdown(newDropdown);
+                          }}
+                        >
+                          <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
+                        </TouchableOpacity>
+                        {activeDropdown === exercise.id && (
+                          <View style={styles.dropdownMenu}>
+                            <TouchableOpacity 
+                              style={styles.dropdownItem}
+                              onPress={() => {
+                                console.log('🗑️ Delete button clicked for exercise:', exercise.title, exercise.id);
+                                handleDeleteExercise(exercise);
+                              }}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                              <Text style={styles.dropdownItemTextDelete}>Delete</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -2506,6 +2552,95 @@ export default function AdminDashboard({ navigation }) {
     setShowAddUserModal(true);
   };
 
+  const handleEditExercise = (exercise) => {
+    setSelectedExercise(exercise);
+    setShowEditExerciseModal(true);
+  };
+
+  const handleDeleteExercise = (exercise) => {
+    console.log('🗑️ Delete exercise clicked:', exercise.title, exercise.id);
+    setExerciseToDelete(exercise);
+    setShowDeleteExerciseConfirmation(true);
+    setActiveDropdown(null);
+  };
+
+  const handleConfirmDeleteExercise = async () => {
+    if (!exerciseToDelete) return;
+    
+    console.log('✅ User confirmed exercise delete - starting deletion process');
+    
+    try {
+      console.log('🔄 Setting loading to true');
+      setLoading(true);
+      setShowDeleteExerciseConfirmation(false);
+      
+      console.log('🎯 Exercise details:', {
+        id: exerciseToDelete.id,
+        title: exerciseToDelete.title,
+        type: typeof exerciseToDelete.id
+      });
+      
+      console.log('👤 Current user check:', user?.id);
+      
+      // Check user admin status first
+      console.log('🔍 Checking user admin status...');
+      const { data: userProfile, error: userError } = await supabase
+        .from('users')
+        .select('is_admin, id, email')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('👥 User profile check result:', { userProfile, userError });
+      
+      if (userError) {
+        console.error('❌ Error checking user profile:', userError);
+        throw new Error(`User profile check failed: ${userError.message}`);
+      }
+      
+      if (!userProfile?.is_admin) {
+        console.error('❌ User is not admin:', userProfile);
+        throw new Error('You do not have admin privileges');
+      }
+      
+      console.log('✅ User is admin, proceeding with deletion');
+      
+      // Delete the exercise directly from the exercises table
+      console.log('🚀 Deleting exercise from database...');
+      const { error: deleteError } = await supabase
+        .from('exercises')
+        .delete()
+        .eq('id', exerciseToDelete.id);
+
+      console.log('📥 Delete result:', { deleteError });
+
+      if (deleteError) {
+        console.error('❌ Delete error:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('🎉 Delete successful');
+      Alert.alert('Success', `Exercise "${exerciseToDelete.title}" has been deleted successfully.`);
+      
+      console.log('🔄 Refreshing exercises list...');
+      fetchExercises();
+      
+    } catch (error) {
+      console.error('💥 Error in delete process:', error);
+      console.error('💥 Error stack:', error.stack);
+      Alert.alert('Error', `Failed to delete exercise: ${error.message}`);
+    } finally {
+      console.log('🏁 Cleaning up - setting loading false and resetting states');
+      setLoading(false);
+      setExerciseToDelete(null);
+    }
+  };
+
+  const handleCancelDeleteExercise = () => {
+    console.log('❌ User cancelled exercise delete');
+    setShowDeleteExerciseConfirmation(false);
+    setExerciseToDelete(null);
+  };
+
   const handleCoachCreated = () => {
     // Refresh coaches list when a new coach is created
     if (activeTab === 'coaches') {
@@ -3085,7 +3220,22 @@ export default function AdminDashboard({ navigation }) {
         onSave={handleProgramSaved}
       />
 
-      {/* Delete Confirmation Modal */}
+      {/* Edit Exercise Modal */}
+      <WebCreateExerciseModal
+        visible={showEditExerciseModal}
+        onClose={() => {
+          setShowEditExerciseModal(false);
+          setSelectedExercise(null);
+        }}
+        onSuccess={() => {
+          fetchExercises();
+          setShowEditExerciseModal(false);
+          setSelectedExercise(null);
+        }}
+        editingExercise={selectedExercise}
+      />
+
+      {/* Delete Program Confirmation Modal */}
       {showDeleteConfirmation && (
         <View style={styles.deleteModalOverlay}>
           <View style={styles.deleteModalContainer}>
@@ -3111,6 +3261,45 @@ export default function AdminDashboard({ navigation }) {
               <TouchableOpacity 
                 style={styles.deleteModalConfirmButton}
                 onPress={handleConfirmDelete}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.deleteModalConfirmText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Delete Exercise Confirmation Modal */}
+      {showDeleteExerciseConfirmation && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={24} color="#EF4444" />
+              <Text style={styles.deleteModalTitle}>Delete Exercise</Text>
+            </View>
+            
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete "{exerciseToDelete?.title}"? 
+              {'\n\n'}
+              This action cannot be undone and will remove the exercise from any routines that use it.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity 
+                style={styles.deleteModalCancelButton}
+                onPress={handleCancelDeleteExercise}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.deleteModalConfirmButton}
+                onPress={handleConfirmDeleteExercise}
                 disabled={loading}
               >
                 {loading ? (
@@ -4725,6 +4914,27 @@ const styles = StyleSheet.create({
   },
   defaultText: {
     color: '#6B7280',
+  },
+
+  // DUPR Range Styles
+  duprRangeBadge: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  duprRangeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E40AF',
+  },
+  noDuprRangeText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
   },
 
   // Dashboard Styles

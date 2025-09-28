@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Platform } from 'react-native';
 
 // Filter out Grammarly console errors during development
 if (__DEV__) {
@@ -26,6 +27,7 @@ import ExerciseDetailScreen from './src/screens/ExerciseDetailScreen';
 import ExercisePickerScreen from './src/screens/ExercisePickerScreen';
 import AddTrainingSessionScreen from './src/screens/AddTrainingSessionScreen';
 import EditTrainingSessionScreen from './src/screens/EditTrainingSessionScreen';
+import AddExerciseScreen from './src/screens/AddExerciseScreen';
 import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -41,7 +43,7 @@ const Stack = createStackNavigator();
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
   const [showSplash, setShowSplash] = useState(true);
-  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
+  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
   const handleIntroComplete = () => {
@@ -83,8 +85,19 @@ function AppContent() {
     completeGenderSelection();
   };
 
+  const handleGenderGoBack = () => {
+    console.log('Going back to intro from gender selection');
+    goBackToIntro();
+  };
+
   const handleRatingComplete = () => {
     console.log('Rating selection completed!');
+  };
+
+  const handleRatingGoBack = () => {
+    console.log('Going back from rating selection to gender selection');
+    // Reset gender selection to go back to that step
+    resetGenderSelection();
   };
 
   const handleNameComplete = (data) => {
@@ -162,6 +175,7 @@ function AppContent() {
             </Stack.Screen>
             <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
             <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
+            <Stack.Screen name="AddExercise" component={AddExerciseScreen} />
             <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
             <Stack.Screen name="EditTrainingSession" component={EditTrainingSessionScreen} />
             <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
@@ -176,11 +190,11 @@ function AppContent() {
               component={AdminRoute}
               options={{ headerShown: false }}
             />
-            <Stack.Screen 
-              name="CreateCoachProfile" 
-              component={CreateCoachProfileScreen}
-              options={{ headerShown: false }}
-            />
+                <Stack.Screen 
+                  name="CreateCoachProfile" 
+                  component={CreateCoachProfileScreen}
+                  options={{ headerShown: false }}
+                />
           </>
         ) : (
           // ONBOARDING FLOW - Only for non-authenticated users
@@ -197,7 +211,7 @@ function AppContent() {
             ) : !hasSelectedGender ? (
               <>
                 <Stack.Screen name="GenderSelection">
-                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} />}
+                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} onGoBack={handleGenderGoBack} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -206,7 +220,7 @@ function AppContent() {
             ) : !hasSetRating ? (
               <>
                 <Stack.Screen name="RatingSelection">
-                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} />}
+                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} onGoBack={handleRatingGoBack} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}

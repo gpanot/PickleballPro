@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  Modal,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,12 +29,58 @@ export default function CreateCoachProfileScreen({ navigation }) {
     duprRating: '',
     hourlyRate: '',
     location: '',
+    latitude: null,
+    longitude: null,
     phone: '',
     specialties: [],
     isVerified: false,
     isActive: true,
     isAcceptingStudents: false // Default to not published
   });
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [tempCoordinates, setTempCoordinates] = useState({
+    latitude: 10.7786, // Default to Ho Chi Minh City
+    longitude: 106.7131,
+  });
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 10.7786,
+    longitude: 106.7131,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  });
+  const [previewLocation, setPreviewLocation] = useState('');
+  const [geocodingLoading, setGeocodingLoading] = useState(false);
+
+  // Add debug useEffect
+  useEffect(() => {
+    console.log('Component mounted');
+    console.log('Platform:', Platform.OS);
+    console.log('Initial map region:', mapRegion);
+  }, []);
+
+  // Auto-reverse geocode when coordinates change (with debounce)
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      if (tempCoordinates.latitude && tempCoordinates.longitude && 
+          (tempCoordinates.latitude !== 10.7786 || tempCoordinates.longitude !== 106.7131)) {
+        try {
+          setGeocodingLoading(true);
+          const locationString = await reverseGeocode(tempCoordinates.latitude, tempCoordinates.longitude);
+          setPreviewLocation(locationString || '');
+        } catch (error) {
+          console.error('Auto-reverse geocoding failed:', error);
+          setPreviewLocation('');
+        } finally {
+          setGeocodingLoading(false);
+        }
+      } else {
+        setPreviewLocation('');
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [tempCoordinates.latitude, tempCoordinates.longitude]);
 
   const handleSaveCoach = async () => {
     if (!formData.name || !formData.email) {
@@ -70,6 +118,8 @@ export default function CreateCoachProfileScreen({ navigation }) {
         dupr_rating: formData.duprRating ? parseFloat(formData.duprRating) : null,
         hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate) * 100 : null, // Convert to cents
         location: formData.location || '',
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         phone: formData.phone || '',
         specialties: formData.specialties || [],
         is_verified: false, // New coach profiles start as unverified
@@ -109,6 +159,563 @@ export default function CreateCoachProfileScreen({ navigation }) {
     }
   };
 
+  const handleMapPress = (event) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    console.log('Map pressed at:', latitude, longitude);
+    console.log('Event details:', JSON.stringify(event.nativeEvent, null, 2));
+    setTempCoordinates({ latitude, longitude });
+  };
+
+  const reverseGeocode = async (latitude, longitude) => {
+    try {
+      console.log('Starting reverse geocoding for:', latitude, longitude);
+      
+      // Try multiple geocoding services for better reliability
+      const geocodingServices = [
+        // Service 1: OpenStreetMap Nominatim
+        {
+          name: 'Nominatim',
+          url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`,
+          parser: (data) => {
+            if (data && data.address) {
+              const address = data.address;
+              const locationComponents = [];
+              
+              if (address.city) {
+                locationComponents.push(address.city);
+              } else if (address.town) {
+                locationComponents.push(address.town);
+              } else if (address.village) {
+                locationComponents.push(address.village);
+              } else if (address.county) {
+                locationComponents.push(address.county);
+              }
+              
+              if (address.state) {
+                locationComponents.push(address.state);
+              } else if (address.province) {
+                locationComponents.push(address.province);
+              }
+              
+              if (address.country) {
+                locationComponents.push(address.country);
+              }
+              
+              return locationComponents.join(', ');
+            }
+            return null;
+          }
+        },
+        // Service 2: BigDataCloud (free tier, good for mobile)
+        {
+          name: 'BigDataCloud',
+          url: `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+          parser: (data) => {
+            if (data) {
+              const locationComponents = [];
+              
+              if (data.city) {
+                locationComponents.push(data.city);
+              } else if (data.locality) {
+                locationComponents.push(data.locality);
+              }
+              
+              if (data.principalSubdivision) {
+                locationComponents.push(data.principalSubdivision);
+              }
+              
+              if (data.countryName) {
+                locationComponents.push(data.countryName);
+              }
+              
+              return locationComponents.join(', ');
+            }
+            return null;
+          }
+        },
+        // Service 3: Alternative Nominatim endpoint
+        {
+          name: 'Nominatim-Alt',
+          url: `https://geocode.maps.co/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+          parser: (data) => {
+            if (data && data.address) {
+              const address = data.address;
+              const locationComponents = [];
+              
+              if (address.city || address.town || address.village) {
+                locationComponents.push(address.city || address.town || address.village);
+              }
+              
+              if (address.state) {
+                locationComponents.push(address.state);
+              }
+              
+              if (address.country) {
+                locationComponents.push(address.country);
+              }
+              
+              return locationComponents.join(', ');
+            }
+            return null;
+          }
+        }
+      ];
+      
+      // Try each service until one succeeds
+      for (const service of geocodingServices) {
+        try {
+          console.log(`Trying ${service.name} geocoding service...`);
+          
+          const response = await fetch(service.url, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'PickleballHero/1.0'
+            }
+          });
+          
+          if (!response.ok) {
+            console.log(`${service.name} service returned ${response.status}`);
+            continue;
+          }
+          
+          const data = await response.json();
+          console.log(`${service.name} response:`, data);
+          
+          const locationString = service.parser(data);
+          if (locationString) {
+            console.log(`Successfully geocoded with ${service.name}:`, locationString);
+            return locationString;
+          }
+        } catch (serviceError) {
+          console.log(`${service.name} service failed:`, serviceError.message);
+          continue;
+        }
+      }
+      
+      console.log('All geocoding services failed');
+      return null;
+      
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      return null;
+    }
+  };
+
+  const handleConfirmLocation = async () => {
+    try {
+      console.log('Confirming location:', tempCoordinates);
+      setLocationLoading(true);
+      
+      // Perform reverse geocoding to get address
+      const locationString = await reverseGeocode(tempCoordinates.latitude, tempCoordinates.longitude);
+      
+      // Update form data with coordinates and location string
+      setFormData({
+        ...formData,
+        latitude: tempCoordinates.latitude,
+        longitude: tempCoordinates.longitude,
+        location: locationString || formData.location, // Keep existing if geocoding fails
+      });
+      
+      setShowMapPicker(false);
+      
+      if (locationString) {
+        Alert.alert(
+          'Location Saved',
+          `Coordinates and location "${locationString}" saved successfully!`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Location Saved',
+          'Coordinates saved successfully! The automatic location detection didn\'t work, but you can manually enter the city name in the location field.',
+          [
+            { text: 'OK' },
+            { 
+              text: 'Help', 
+              onPress: () => Alert.alert(
+                'Finding Your Location',
+                'To find your city name:\n\n1. Open Google Maps\n2. Search for your coordinates\n3. Copy the city and state name\n4. Paste it in the location field',
+                [{ text: 'Got it' }]
+              )
+            }
+          ]
+        );
+      }
+      
+    } catch (error) {
+      console.error('Error saving location:', error);
+      Alert.alert('Error', 'Failed to save location. Please try again.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const getCurrentLocation = async () => {
+    try {
+      setLocationLoading(true);
+      
+      if (Platform.OS === 'web') {
+        // Web platform - use browser geolocation API
+        return new Promise((resolve) => {
+          if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                console.log('Got current location (web):', position.coords.latitude, position.coords.longitude);
+                resolve({
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                });
+              },
+              (error) => {
+                console.error('Web geolocation error:', error);
+                Alert.alert(
+                  'Location Error',
+                  'Unable to get your current location. You can manually select a location on the map.',
+                  [{ text: 'OK' }]
+                );
+                resolve(null);
+              },
+              { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+            );
+          } else {
+            console.log('Geolocation not supported on web');
+            Alert.alert(
+              'Location Not Supported',
+              'Location services are not available. You can manually select a location.',
+              [{ text: 'OK' }]
+            );
+            resolve(null);
+          }
+        });
+      } else {
+        // Mobile platforms (iOS/Android) - use Expo Location
+        try {
+          // Dynamically import expo-location only on mobile
+          const Location = require('expo-location');
+          
+          // Request permissions
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert(
+              'Location Permission Required',
+              'Please enable location permissions to use this feature. You can still manually select a location.',
+              [{ text: 'OK' }]
+            );
+            return null;
+          }
+
+          // Get current position
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          
+          console.log('Got current location (mobile):', location.coords.latitude, location.coords.longitude);
+          
+          return {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+        } catch (error) {
+          console.error('Mobile location error:', error);
+          Alert.alert(
+            'Location Error',
+            'Unable to get your current location. You can manually select a location.',
+            [{ text: 'OK' }]
+          );
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert(
+        'Location Error',
+        'Unable to get your current location. You can manually select a location.',
+        [{ text: 'OK' }]
+      );
+      return null;
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const handleOpenMapPicker = async () => {
+    console.log('Opening map picker...');
+    
+    try {
+      let targetLocation;
+      
+      // If coordinates already exist, use them
+      if (formData.latitude && formData.longitude) {
+        console.log('Using existing coordinates:', formData.latitude, formData.longitude);
+        targetLocation = {
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+        };
+      } else {
+        // Try to get current location first
+        const currentLocation = await getCurrentLocation();
+        if (currentLocation) {
+          console.log('Using current location:', currentLocation);
+          targetLocation = currentLocation;
+        } else {
+          // Fall back to Ho Chi Minh City (since you're there)
+          console.log('Using Ho Chi Minh City as default');
+          targetLocation = {
+            latitude: 10.7786,
+            longitude: 106.7131,
+          };
+        }
+      }
+      
+      // Set both temp coordinates and map region
+      setTempCoordinates(targetLocation);
+      setMapRegion({
+        ...targetLocation,
+        latitudeDelta: 0.01, // Closer zoom
+        longitudeDelta: 0.01,
+      });
+      
+      // Show the map picker
+      setShowMapPicker(true);
+      
+    } catch (error) {
+      console.error('Error opening map picker:', error);
+      Alert.alert('Error', 'Failed to open map picker. Please try again.');
+    }
+  };
+
+  const renderMapPicker = () => (
+    <Modal
+      visible={showMapPicker}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <View style={styles.mapPickerContainer}>
+        <View style={styles.mapPickerHeader}>
+          <TouchableOpacity
+            style={styles.mapPickerCancelButton}
+            onPress={() => setShowMapPicker(false)}
+          >
+            <Text style={styles.mapPickerCancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={styles.mapPickerTitle}>Select Location</Text>
+          <TouchableOpacity
+            style={styles.mapPickerConfirmButton}
+            onPress={handleConfirmLocation}
+          >
+            <Text style={styles.mapPickerConfirmText}>Confirm</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Debug Info - Remove in production */}
+        <View style={styles.debugInfo}>
+          <Text style={styles.debugText}>
+            Map Region: {mapRegion.latitude.toFixed(4)}, {mapRegion.longitude.toFixed(4)}
+          </Text>
+          <Text style={styles.debugText}>
+            Temp Coords: {tempCoordinates.latitude.toFixed(4)}, {tempCoordinates.longitude.toFixed(4)}
+          </Text>
+        </View>
+        
+        <View style={styles.mapContainer}>
+          {Platform.OS === 'web' ? (
+            <View style={styles.webMapContainer}>
+              <iframe
+                key={`${tempCoordinates.latitude}-${tempCoordinates.longitude}`}
+                src={`https://maps.google.com/maps?q=${tempCoordinates.latitude},${tempCoordinates.longitude}&hl=en&z=15&output=embed`}
+                style={{
+                  width: '100%',
+                  height: '350px',
+                  border: 'none',
+                  borderRadius: '8px',
+                }}
+                title="Location Map"
+                loading="lazy"
+              />
+              <View style={styles.mapOverlay}>
+                <TouchableOpacity
+                  style={styles.openInGoogleMapsButton}
+                  onPress={() => {
+                    const url = `https://maps.google.com/?q=${tempCoordinates.latitude},${tempCoordinates.longitude}`;
+                    if (typeof window !== 'undefined') {
+                      window.open(url, '_blank');
+                    }
+                  }}
+                >
+                  <Ionicons name="open-outline" size={16} color="#059669" />
+                  <Text style={styles.openInGoogleMapsText}>Open in Google Maps</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.mobileMapContainer}>
+              <View style={styles.mobileMapHeader}>
+                <Ionicons name="map" size={24} color="#059669" />
+                <Text style={styles.mobileMapTitle}>Location Preview</Text>
+              </View>
+              <View style={styles.mobileMapContent}>
+                <View style={styles.coordinateDisplay}>
+                  <Text style={styles.coordinateDisplayLabel}>Selected Coordinates:</Text>
+                  <Text style={styles.coordinateDisplayValue}>
+                    {tempCoordinates.latitude.toFixed(6)}, {tempCoordinates.longitude.toFixed(6)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.openMapsAppButton}
+                  onPress={async () => {
+                    try {
+                      const lat = tempCoordinates.latitude;
+                      const lng = tempCoordinates.longitude;
+                      
+                      let url;
+                      if (Platform.OS === 'ios') {
+                        // Try Apple Maps first, fallback to Google Maps
+                        url = `maps://maps.apple.com/?q=${lat},${lng}`;
+                      } else if (Platform.OS === 'android') {
+                        // Android - use geo intent
+                        url = `geo:${lat},${lng}?q=${lat},${lng}`;
+                      } else {
+                        // Web fallback
+                        url = `https://maps.google.com/?q=${lat},${lng}`;
+                        if (typeof window !== 'undefined') {
+                          window.open(url, '_blank');
+                          return;
+                        }
+                      }
+                      
+                      // For mobile platforms, try to open the native app
+                      if (Platform.OS !== 'web') {
+                        const supported = await Linking.canOpenURL(url);
+                        if (supported) {
+                          await Linking.openURL(url);
+                        } else {
+                          // Fallback to Google Maps web
+                          const fallbackUrl = `https://maps.google.com/?q=${lat},${lng}`;
+                          await Linking.openURL(fallbackUrl);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Error opening maps:', error);
+                      Alert.alert('Error', 'Unable to open maps application.');
+                    }
+                  }}
+                >
+                  <Ionicons name="navigate" size={20} color="#059669" />
+                  <Text style={styles.openMapsAppText}>View in Maps App</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.coordinateInputsSection}>
+            <Text style={styles.coordinateInputsTitle}>
+              📍 Set Location Coordinates
+            </Text>
+            <View style={styles.webCoordinateInputs}>
+              <View style={styles.coordinateInputContainer}>
+                <Text style={styles.coordinateLabel}>Latitude</Text>
+                <TextInput
+                  style={styles.coordinateInput}
+                  placeholder="10.7786"
+                  value={tempCoordinates.latitude.toString()}
+                  onChangeText={(text) => {
+                    const lat = parseFloat(text) || 0;
+                    setTempCoordinates({...tempCoordinates, latitude: lat});
+                  }}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={styles.coordinateInputContainer}>
+                <Text style={styles.coordinateLabel}>Longitude</Text>
+                <TextInput
+                  style={styles.coordinateInput}
+                  placeholder="106.7131"
+                  value={tempCoordinates.longitude.toString()}
+                  onChangeText={(text) => {
+                    const lng = parseFloat(text) || 0;
+                    setTempCoordinates({...tempCoordinates, longitude: lng});
+                  }}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            
+            {previewLocation ? (
+              <View style={styles.locationPreview}>
+                <View style={styles.locationPreviewHeader}>
+                  {geocodingLoading ? (
+                    <ActivityIndicator size="small" color="#059669" />
+                  ) : (
+                    <Ionicons name="location" size={16} color="#059669" />
+                  )}
+                  <Text style={styles.locationPreviewTitle}>
+                    {geocodingLoading ? 'Finding location...' : 'Detected Location:'}
+                  </Text>
+                </View>
+                {!geocodingLoading && (
+                  <Text style={styles.locationPreviewText}>{previewLocation}</Text>
+                )}
+              </View>
+            ) : null}
+            
+            <View style={styles.coordinateHelper}>
+              <Text style={styles.coordinateHelperText}>
+                💡 Adjust the coordinates above to see the map and location update in real-time. You can also click "Open in Google Maps" to find your exact location.
+              </Text>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.mapPickerFooter}>
+          <TouchableOpacity
+            style={styles.useMyLocationButton}
+            onPress={async () => {
+              const currentLocation = await getCurrentLocation();
+              if (currentLocation) {
+                setTempCoordinates(currentLocation);
+                setMapRegion({
+                  ...currentLocation,
+                  latitudeDelta: 0.01, // Smaller delta for more zoom
+                  longitudeDelta: 0.01,
+                });
+                
+                // Auto-reverse geocode when location is obtained
+                try {
+                  const locationString = await reverseGeocode(currentLocation.latitude, currentLocation.longitude);
+                  if (locationString) {
+                    console.log('Auto-populated location from GPS:', locationString);
+                    // Show a preview of what location will be set
+                    Alert.alert(
+                      'Location Detected',
+                      `Found location: "${locationString}". This will be saved when you confirm.`,
+                      [{ text: 'OK' }]
+                    );
+                  }
+                } catch (error) {
+                  console.error('Auto-reverse geocoding failed:', error);
+                }
+              }
+            }}
+            disabled={locationLoading}
+          >
+            {locationLoading ? (
+              <ActivityIndicator size="small" color="#059669" />
+            ) : (
+              <Ionicons name="locate" size={20} color="#059669" />
+            )}
+            <Text style={styles.useMyLocationText}>
+              {locationLoading ? 'Getting Location...' : 'Use My Location'}
+            </Text>
+          </TouchableOpacity>
+          <Text style={styles.mapPickerInstructionsText}>
+            Tap on the map to select your coaching location or drag the marker
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const renderHeader = () => (
     <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
       <TouchableOpacity 
@@ -135,6 +742,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
   return (
     <View style={styles.container}>
       {renderHeader()}
+      {renderMapPicker()}
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
@@ -235,6 +843,30 @@ export default function CreateCoachProfileScreen({ navigation }) {
                 onChangeText={(text) => setFormData({...formData, location: text})}
                 placeholderTextColor="#9CA3AF"
               />
+              <TouchableOpacity
+                style={styles.mapPickerButton}
+                onPress={handleOpenMapPicker}
+                disabled={locationLoading}
+              >
+                {locationLoading ? (
+                  <ActivityIndicator size="small" color="#059669" />
+                ) : (
+                  <Ionicons name="location-outline" size={20} color="#059669" />
+                )}
+                <Text style={styles.mapPickerButtonText}>
+                  {locationLoading 
+                    ? 'Getting Location...' 
+                    : formData.latitude && formData.longitude 
+                      ? 'Update Map Location' 
+                      : 'Set Map Location'
+                  }
+                </Text>
+              </TouchableOpacity>
+              {formData.latitude && formData.longitude && (
+                <Text style={styles.coordinatesText}>
+                  📍 {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                </Text>
+              )}
             </View>
 
             <View style={styles.formField}>
@@ -506,5 +1138,308 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#065F46',
     lineHeight: 18,
+  },
+  mapPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#059669',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  mapPickerButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 8,
+  },
+  coordinatesText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  mapPickerContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  mapPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  mapPickerCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mapPickerCancelText: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  mapPickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  mapPickerConfirmButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mapPickerConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  map: {
+    flex: 1,
+  },
+  mapContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  webMapContainer: {
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+  },
+  mapOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1000,
+  },
+  openInGoogleMapsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#059669',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  openInGoogleMapsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 4,
+  },
+  mobileMapContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  mobileMapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  mobileMapTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 8,
+  },
+  mobileMapContent: {
+    padding: 16,
+  },
+  coordinateDisplay: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  coordinateDisplayLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  coordinateDisplayValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#059669',
+    fontFamily: 'monospace',
+  },
+  openMapsAppButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#059669',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  openMapsAppText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 8,
+  },
+  coordinateInputsSection: {
+    backgroundColor: '#F9FAFB',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  coordinateInputsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  mapPickerFooter: {
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  useMyLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#059669',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  useMyLocationText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 8,
+  },
+  mapPickerInstructionsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  debugInfo: {
+    backgroundColor: '#FEF3C7',
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F59E0B',
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#92400E',
+    fontFamily: 'monospace',
+  },
+  webMapPlaceholder: {
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  webMapText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  webMapSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  webCoordinateInputs: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 16,
+  },
+  coordinateInputContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  coordinateLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  coordinateInput: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1F2937',
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    textAlign: 'center',
+  },
+  coordinateHelper: {
+    marginTop: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#EBF8FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  coordinateHelperText: {
+    fontSize: 13,
+    color: '#1E40AF',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  locationPreview: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#059669',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  locationPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  locationPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 6,
+  },
+  locationPreviewText: {
+    fontSize: 14,
+    color: '#065F46',
+    fontWeight: '500',
+    marginLeft: 22,
   },
 });

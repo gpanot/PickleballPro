@@ -15,6 +15,9 @@ export const transformExerciseData = (exercise) => {
   return {
     ...exercise,
     
+    // Name: Ensure name field exists for logging compatibility
+    name: exercise.name || exercise.title,
+    
     // Tips: Use JSONB if available, fallback to legacy string format
     tips: exercise.tips_json 
       ? Array.isArray(exercise.tips_json) 
@@ -32,6 +35,14 @@ export const transformExerciseData = (exercise) => {
       : exercise.skill_category
         ? exercise.skill_category.split(',').filter(cat => cat.trim())
         : [],
+    
+    // Target: Create target string from target_value and target_unit for logging compatibility
+    target: exercise.target_value && exercise.target_unit 
+      ? `${exercise.target_value} ${exercise.target_unit}`
+      : exercise.target || `${exercise.target_value || 10} attempts`,
+    
+    // TargetValue: Ensure targetValue field exists for LogResultComponent compatibility
+    targetValue: exercise.targetValue || (exercise.target_value ? `${exercise.target_value}/10` : '10/10'),
     
     // Estimated Time: Use minutes if available, fallback to legacy text format
     estimatedTime: exercise.estimated_minutes 

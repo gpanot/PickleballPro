@@ -9,7 +9,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../context/UserContext';
 import { generatePersonalizedProgram, canGenerateProgram } from '../lib/programGenerator';
-import { savePersonalizedProgram } from '../lib/personalizedProgramStorage';
 
 export default function ProgramLoadingScreen({ onComplete, route }) {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
@@ -122,17 +121,7 @@ export default function ProgramLoadingScreen({ onComplete, route }) {
         // Store program in user context (for immediate access)
         storePersonalizedProgram(program);
         
-        // Save program to local storage for persistence
-        if (user?.id) {
-          const saved = await savePersonalizedProgram(program, user.id);
-          if (saved) {
-            console.log('✅ Personalized program saved to local storage');
-          } else {
-            console.log('❌ Failed to save personalized program to local storage');
-          }
-        } else {
-          console.log('⚠️ No user ID available, program not saved to local storage');
-        }
+        // Note: Local storage functionality removed - programs are now stored in context only
       } catch (error) {
         console.error('Error generating personalized program:', error);
         
@@ -149,9 +138,7 @@ export default function ProgramLoadingScreen({ onComplete, route }) {
         setGeneratedProgram(fallbackProgram);
         storePersonalizedProgram(fallbackProgram);
         
-        if (user?.id) {
-          await savePersonalizedProgram(fallbackProgram, user.id);
-        }
+        // Note: Local storage functionality removed - programs are now stored in context only
       }
     };
 

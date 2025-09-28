@@ -6,13 +6,15 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import ModernIcon from '../components/ModernIcon';
 
 const { width } = Dimensions.get('window');
 
-export default function GenderSelectionScreen({ onComplete }) {
+export default function GenderSelectionScreen({ navigation, onComplete, onGoBack }) {
   const [selectedGender, setSelectedGender] = useState(null);
   const insets = useSafeAreaInsets();
 
@@ -77,6 +79,22 @@ export default function GenderSelectionScreen({ onComplete }) {
       {/* Status Bar */}
       <View style={styles.statusBar}>
         <View style={styles.progressContainer}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => {
+              if (onGoBack) {
+                onGoBack();
+              } else if (navigation.canGoBack()) {
+                navigation.goBack();
+              }
+            }}
+          >
+            <Ionicons 
+              name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
+              size={24} 
+              color="#007AFF" 
+            />
+          </TouchableOpacity>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: '12.5%' }]} />
           </View>
@@ -225,7 +243,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   statusBar: {
-    paddingHorizontal: 30,
+    paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
@@ -235,6 +253,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 16,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   progressBar: {
     flex: 1,

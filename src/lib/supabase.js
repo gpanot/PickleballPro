@@ -276,15 +276,7 @@ export const getPrograms = async () => {
             order_index,
             custom_target_value,
             is_optional,
-            exercises (
-              id,
-              code,
-              title,
-              description,
-              difficulty,
-              target_value,
-              target_unit
-            )
+            exercises (*)
           )
         )
       `)
@@ -538,12 +530,45 @@ export const transformProgramData = (programs) => {
                     return null;
                   }
                   return {
+                    // Basic fields for routine display
                     id: re.exercises.code,
                     name: re.exercises.title,
                     target: `${re.custom_target_value || re.exercises.target_value || 0} ${re.exercises.target_unit || ''}`,
                     difficulty: re.exercises.difficulty,
                     description: re.exercises.description,
-                    routineExerciseId: re.exercises.id
+                    routineExerciseId: re.exercises.id,
+                    dupr_range_min: re.exercises.dupr_range_min,
+                    dupr_range_max: re.exercises.dupr_range_max,
+                    
+                    // Complete exercise data for ExerciseDetail screen (preloaded)
+                    completeExerciseData: {
+                      ...re.exercises, // All database fields
+                      // Apply transformations for compatibility
+                      name: re.exercises.name || re.exercises.title,
+                      target: re.exercises.target_value && re.exercises.target_unit 
+                        ? `${re.exercises.target_value} ${re.exercises.target_unit}`
+                        : re.exercises.target || `${re.exercises.target_value || 10} attempts`,
+                      targetValue: re.exercises.targetValue || (re.exercises.target_value ? `${re.exercises.target_value}/10` : '10/10'),
+                      tips: re.exercises.tips_json 
+                        ? Array.isArray(re.exercises.tips_json) 
+                          ? re.exercises.tips_json 
+                          : []
+                        : re.exercises.tips 
+                          ? re.exercises.tips.split('\n').filter(tip => tip.trim())
+                          : [],
+                      skillCategories: re.exercises.skill_categories_json
+                        ? Array.isArray(re.exercises.skill_categories_json)
+                          ? re.exercises.skill_categories_json
+                          : []
+                        : re.exercises.skill_category
+                          ? re.exercises.skill_category.split(',').filter(cat => cat.trim())
+                          : [],
+                      estimatedTime: re.exercises.estimated_minutes 
+                        ? `${re.exercises.estimated_minutes} min`
+                        : re.exercises.estimated_time || '10 min',
+                      estimatedMinutes: re.exercises.estimated_minutes || 
+                        (re.exercises.estimated_time ? parseInt(re.exercises.estimated_time.replace(' min', '')) : 10)
+                    }
                   };
                 })
                 .filter(Boolean) // Remove null entries

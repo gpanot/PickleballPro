@@ -35,13 +35,33 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
     setRefreshing(true);
     try {
-      // Fetch fresh exercise data from database
       const exerciseCode = rawExercise.code || rawExercise.id;
-      const { data, error } = await supabase
+      
+
+      // Fetch fresh exercise data from database
+      let data, error;
+      
+      // First try to find by code (for older exercises with code field)
+      const { data: dataByCode, error: errorByCode } = await supabase
         .from('exercises')
         .select('*')
         .eq('code', exerciseCode)
         .single();
+      
+      if (!errorByCode && dataByCode) {
+        data = dataByCode;
+        error = errorByCode;
+      } else {
+        // If not found by code, try to find by UUID (for database exercises)
+        const { data: dataById, error: errorById } = await supabase
+          .from('exercises')
+          .select('*')
+          .eq('id', exerciseCode)
+          .single();
+        
+        data = dataById;
+        error = errorById;
+      }
 
       if (error) {
         console.error('Error refreshing exercise data:', error);

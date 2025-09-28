@@ -888,7 +888,7 @@ export default function BadgesScreen({ navigation }) {
           style={styles.resetButton}
           onPress={clearAllProgress}
         >
-          <Text style={styles.resetButtonText}>🔄 Reset All Progress (Debug)</Text>
+          <Text style={styles.resetButtonText}>🔄 Reset All Progress</Text>
         </TouchableOpacity>
       </View>
 

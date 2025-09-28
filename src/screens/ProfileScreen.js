@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,10 +32,12 @@ const recentActivity = [
 
 
 export default function ProfileScreen({ onLogout, navigation }) {
-  const { user, resetAllOnboarding } = useUser();
+  const { user, resetAllOnboarding, setUser } = useUser();
   const { user: authUser, isAuthenticated, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showDuprModal, setShowDuprModal] = useState(false);
+  const [duprInput, setDuprInput] = useState('');
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
@@ -126,6 +130,37 @@ export default function ProfileScreen({ onLogout, navigation }) {
     }
   };
 
+  const handleDuprEdit = () => {
+    setDuprInput((user.duprRating || 2.000).toFixed(3));
+    setShowDuprModal(true);
+  };
+
+  const validateDuprFormat = (value) => {
+    // DUPR format: x.xxx (one digit before decimal, three after)
+    const duprPattern = /^\d\.\d{3}$/;
+    return duprPattern.test(value);
+  };
+
+  const saveDuprRating = () => {
+    if (!validateDuprFormat(duprInput)) {
+      Alert.alert('Invalid Format', 'DUPR rating must be in format x.xxx (e.g., 3.500)');
+      return;
+    }
+
+    const newRating = parseFloat(duprInput);
+    if (newRating < 1.000 || newRating > 8.000) {
+      Alert.alert('Invalid Range', 'DUPR rating must be between 1.000 and 8.000');
+      return;
+    }
+
+    setUser(prevUser => ({
+      ...prevUser,
+      duprRating: newRating
+    }));
+    setShowDuprModal(false);
+    Alert.alert('Success', 'DUPR rating updated successfully!');
+  };
+
   const renderTopBar = () => (
     <View style={styles.topBar}>
       <TouchableOpacity 
@@ -160,14 +195,17 @@ export default function ProfileScreen({ onLogout, navigation }) {
             </View>
           </View>
           
-          <View style={styles.duprSection}>
+          <TouchableOpacity style={styles.duprSection} onPress={handleDuprEdit}>
             <Text style={styles.duprLabel}>DUPR Rating</Text>
-            <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
+            <View style={styles.duprRatingContainer}>
+              <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
+              <ModernIcon name="edit" size={16} color="#6B7280" />
+            </View>
             <TouchableOpacity style={styles.syncButton} onPress={handleSyncDUPR}>
               <ModernIcon name="sync" size={14} color="#6366F1" />
               <Text style={styles.syncText}>Sync DUPR</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -296,6 +334,49 @@ export default function ProfileScreen({ onLogout, navigation }) {
     </View>
   );
 
+  const renderDuprEditModal = () => (
+    <Modal
+      visible={showDuprModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowDuprModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Edit DUPR Rating</Text>
+          <Text style={styles.modalSubtitle}>Enter your rating in format x.xxx</Text>
+          
+          <TextInput
+            style={styles.duprInput}
+            value={duprInput}
+            onChangeText={setDuprInput}
+            placeholder="3.500"
+            keyboardType="numeric"
+            maxLength={5}
+            autoFocus={true}
+            selectTextOnFocus={true}
+          />
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={() => setShowDuprModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.saveButton]} 
+              onPress={saveDuprRating}
+            >
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
@@ -313,6 +394,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
         
         <View style={styles.bottomSpacing} />
       </ScrollView>
+      
+      {renderDuprEditModal()}
     </View>
   );
 }
@@ -432,11 +515,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 4,
   },
+  duprRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
   duprRating: {
     fontSize: 28,
     fontWeight: '800',
     color: '#1F2937',
-    marginBottom: 8,
   },
   syncButton: {
     flexDirection: 'row',
@@ -565,5 +653,83 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 24,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  duprInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  saveButton: {
+    backgroundColor: '#6366F1',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });

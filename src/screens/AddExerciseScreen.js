@@ -29,7 +29,8 @@ export default function AddExerciseScreen({ navigation, route }) {
   
   // Form states
   const [exerciseName, setExerciseName] = useState('');
-  const [targetCriteria, setTargetCriteria] = useState('');
+  const [goal, setGoal] = useState('');
+  const [targetValue, setTargetValue] = useState('');
   const [instructions, setInstructions] = useState('');
   const [tip1, setTip1] = useState('');
   const [tip2, setTip2] = useState('');
@@ -47,7 +48,8 @@ export default function AddExerciseScreen({ navigation, route }) {
     if (isEditing && exercise) {
       console.log('Populating form for editing:', exercise);
       setExerciseName(exercise.title || exercise.name || '');
-      setTargetCriteria(exercise.goal || exercise.goal_text || exercise.description || '');
+      setGoal(exercise.goal || exercise.goal_text || exercise.description || '');
+      setTargetValue(exercise.target_value ? exercise.target_value.toString() : '');
       setInstructions(exercise.instructions || '');
       
       // Handle tips - could be in tips_json array or individual fields
@@ -201,9 +203,18 @@ export default function AddExerciseScreen({ navigation, route }) {
       return;
     }
 
-    if (!targetCriteria.trim()) {
-      Alert.alert('Error', 'Please enter the target/success criteria');
+    if (!goal.trim()) {
+      Alert.alert('Error', 'Please enter the goal/success criteria');
       return;
+    }
+
+    // Validate target value if provided
+    if (targetValue.trim()) {
+      const targetNum = parseInt(targetValue.trim());
+      if (isNaN(targetNum) || targetNum < 1 || targetNum > 999) {
+        Alert.alert('Error', 'Target must be a number between 1 and 999');
+        return;
+      }
     }
 
     if (!instructions.trim()) {
@@ -224,20 +235,20 @@ export default function AddExerciseScreen({ navigation, route }) {
       const exerciseData = {
         title: cleanExerciseName,
         code: cleanCode,
-        description: targetCriteria.trim() || 'Complete the exercise successfully',
-        goal_text: targetCriteria.trim() || 'Complete the exercise successfully',
+        description: goal.trim() || 'Complete the exercise successfully',
+        goal_text: goal.trim() || 'Complete the exercise successfully',
         instructions: instructions.trim() || 'Follow the provided guidelines',
         
         // Enhanced JSONB fields
         tips_json: [tip1.trim(), tip2.trim(), tip3.trim()].filter(tip => tip),
         skill_categories_json: skillCategories,
         estimated_minutes: parseInt(estimatedTime.replace(' min', '')),
-        goal: targetCriteria.trim() || 'Complete the exercise successfully',
+        goal: goal.trim() || 'Complete the exercise successfully',
         youtube_url: youtubeUrl.trim() || '',
         
         // Existing schema fields
         demo_video_url: youtubeUrl.trim() || '',
-        target_value: parseInt(targetCriteria.match(/\d+/)?.[0]) || null,
+        target_value: targetValue.trim() ? parseInt(targetValue.trim()) : null,
         skill_category: skillCategories.join(','),
         difficulty: difficulty,
         is_published: false, // User-created exercises start as drafts
@@ -327,14 +338,14 @@ export default function AddExerciseScreen({ navigation, route }) {
         <TouchableOpacity
           style={[
             styles.saveButton,
-            (!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim()) && styles.saveButtonDisabled
+            (!exerciseName.trim() || !goal.trim() || !instructions.trim()) && styles.saveButtonDisabled
           ]}
           onPress={handleSave}
-          disabled={!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim() || loading}
+          disabled={!exerciseName.trim() || !goal.trim() || !instructions.trim() || loading}
         >
           <Text style={[
             styles.saveButtonText,
-            (!exerciseName.trim() || !targetCriteria.trim() || !instructions.trim()) && styles.saveButtonTextDisabled
+            (!exerciseName.trim() || !goal.trim() || !instructions.trim()) && styles.saveButtonTextDisabled
           ]}>
             {loading ? 'Saving...' : 'Save'}
           </Text>
@@ -356,16 +367,33 @@ export default function AddExerciseScreen({ navigation, route }) {
             placeholderTextColor="#9CA3AF"
           />
 
-          <Text style={styles.label}>Target/Success Criteria *</Text>
+          <Text style={styles.label}>Goal *</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            value={targetCriteria}
-            onChangeText={setTargetCriteria}
-            placeholder="What is the target/success criteria? e.g., Land 6 out of 10 drops in the NVZ, Complete 20 consecutive dinks"
+            value={goal}
+            onChangeText={setGoal}
+            placeholder="What is the goal/success criteria? e.g., Land 6 out of 10 drops in the NVZ, Complete 20 consecutive dinks"
             placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+          />
+
+          <Text style={styles.label}>Target</Text>
+          <TextInput
+            style={styles.input}
+            value={targetValue}
+            onChangeText={(text) => {
+              // Only allow numbers and limit to 999
+              const numericValue = text.replace(/[^0-9]/g, '');
+              if (numericValue === '' || (parseInt(numericValue) <= 999)) {
+                setTargetValue(numericValue);
+              }
+            }}
+            placeholder="Enter target number (1-999)"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="numeric"
+            maxLength={3}
           />
 
           <Text style={styles.label}>Instructions *</Text>
