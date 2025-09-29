@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -134,12 +135,16 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
   };
 
   const handleSubmit = () => {
+    console.log('🔄 [AddTrainingSession] handleSubmit called - Save Training Session button pressed');
+    
     if (!hours || !date) {
+      console.log('❌ [AddTrainingSession] Validation failed - Missing hours or date');
       Alert.alert('Missing Information', 'Please fill in the hours and date fields.');
       return;
     }
 
     if (hours < 0.5 || hours > 5) {
+      console.log('❌ [AddTrainingSession] Validation failed - Invalid hours:', hours);
       Alert.alert('Invalid Hours', 'Hours must be between 0.5 and 5.');
       return;
     }
@@ -156,8 +161,20 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
       createdAt: new Date().toISOString(),
     };
 
+    console.log('📋 [AddTrainingSession] Creating logbook entry:', {
+      id: entry.id,
+      date: entry.date,
+      hours: entry.hours,
+      feeling: entry.feeling,
+      trainingFocus: entry.trainingFocus,
+      sessionType: entry.sessionType,
+      notesLength: entry.notes.length
+    });
+
+    console.log('💾 [AddTrainingSession] Calling addLogbookEntry...');
     addLogbookEntry(entry);
     
+    console.log('✅ [AddTrainingSession] addLogbookEntry called, navigating to confirmation...');
     // Navigate to the new confirmation screen instead of showing alerts
     navigation.navigate('LogConfirmation', { 
       entry: entry,
@@ -190,7 +207,11 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={0}
+    >
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -212,6 +233,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Notes section - moved to top for training sessions */}
         {isTrainingSession && (
@@ -426,7 +448,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -645,7 +667,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bottomSpacing: {
-    height: 40,
+    height: 100, // Increased to provide more space when keyboard is active
   },
   // Save button styles
   saveButton: {

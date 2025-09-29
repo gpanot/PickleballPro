@@ -9,15 +9,18 @@ import {
   Platform,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
-import { checkAdminAccess } from '../lib/supabase';
+import { checkAdminAccess, supabase } from '../lib/supabase';
 
 import { tiers, levels } from '../data/mockData';
 
@@ -38,12 +41,47 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showDuprModal, setShowDuprModal] = useState(false);
   const [duprInput, setDuprInput] = useState('');
+  const [avatarImage, setAvatarImage] = useState(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
       checkAdmin();
+      loadUserAvatar();
     }
   }, [isAuthenticated, authUser]);
+
+  const loadUserAvatar = async () => {
+    try {
+      if (!authUser?.id) return;
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('avatar_url')
+        .eq('id', authUser.id)
+        .single();
+
+      if (error) {
+        // Check if error is due to missing column
+        if (error.code === '42703' && error.message.includes('avatar_url')) {
+          console.log('Avatar column not yet added to database. Please run the migration: add_avatar_url_migration.sql');
+          return;
+        }
+        console.error('Error loading avatar:', error);
+        return;
+      }
+
+      if (data?.avatar_url) {
+        setAvatarImage(data.avatar_url);
+        setUser(prevUser => ({
+          ...prevUser,
+          avatarUrl: data.avatar_url
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading user avatar:', error);
+    }
+  };
 
   const checkAdmin = async () => {
     try {
@@ -161,6 +199,157 @@ export default function ProfileScreen({ onLogout, navigation }) {
     Alert.alert('Success', 'DUPR rating updated successfully!');
   };
 
+  const handleAvatarPress = () => {
+    if (Platform.OS === 'web') {
+      pickAvatarImage();
+    } else {
+      Alert.alert(
+        'Update Profile Picture',
+        'Choose a new profile picture',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Choose Photo', onPress: pickAvatarImage }
+        ]
+      );
+    }
+  };
+
+  const pickAvatarImage = async () => {
+    try {
+      setIsUploadingAvatar(true);
+      
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to update your profile picture.');
+        setIsUploadingAvatar(false);
+        return;
+      }
+
+      // Launch image picker without cropping
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false, // No built-in cropping
+        quality: 1.0, // High quality for custom cropping
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        
+        // Navigate to custom crop screen
+        navigation.navigate('CropAvatar', {
+          imageUri: asset.uri,
+          onCropComplete: async (croppedUri) => {
+            try {
+              // Upload the cropped image to Supabase
+              await uploadAvatarToSupabase(croppedUri);
+            } catch (error) {
+              console.error('Error uploading cropped image:', error);
+              Alert.alert('Error', 'Failed to upload the cropped image.');
+            }
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to open image picker.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const uploadAvatarToSupabase = async (imageUri) => {
+    try {
+      if (!authUser?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Generate a unique filename with user folder structure
+      const fileExtension = 'jpg';
+      const fileName = `${authUser.id}/avatar_${Date.now()}.${fileExtension}`;
+      
+      console.log('Upload details:', {
+        userId: authUser.id,
+        fileName,
+        bucketName: 'avatars',
+        folderName: authUser.id
+      });
+      
+      // Read file as array buffer (works for both web and React Native)
+      const response = await fetch(imageUri);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      console.log('File size:', arrayBuffer.byteLength, 'bytes');
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, arrayBuffer, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        
+        // Provide specific error messages for common issues
+        if (error.message.includes('row-level security policy')) {
+          Alert.alert(
+            'Storage Setup Required',
+            'The avatar storage bucket needs to be set up. Please:\n\n1. Create an "avatars" bucket in Supabase Storage (make it PUBLIC)\n2. Run the storage policies SQL script\n\nSee AVATAR_SETUP_GUIDE.md for detailed instructions.'
+          );
+          return;
+        }
+        
+        if (error.message.includes('bucket') && error.message.includes('not found')) {
+          Alert.alert(
+            'Storage Bucket Missing',
+            'Please create an "avatars" bucket in your Supabase Storage dashboard and make it public.'
+          );
+          return;
+        }
+        
+        throw error;
+      }
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update user profile with avatar URL
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', authUser.id);
+
+      if (updateError) {
+        // Check if error is due to missing column
+        if (updateError.code === '42703' && updateError.message.includes('avatar_url')) {
+          Alert.alert(
+            'Database Update Needed', 
+            'The avatar feature requires a database update. Please contact your administrator to run the avatar migration.'
+          );
+          return;
+        }
+        throw updateError;
+      }
+
+      // Update local state
+      setAvatarImage(publicUrl);
+      setUser(prevUser => ({
+        ...prevUser,
+        avatarUrl: publicUrl
+      }));
+
+      Alert.alert('Success', 'Profile picture updated successfully!');
+      
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
+    }
+  };
+
   const renderTopBar = () => (
     <View style={styles.topBar}>
       <TouchableOpacity 
@@ -184,11 +373,38 @@ export default function ProfileScreen({ onLogout, navigation }) {
       <View style={styles.profileCard}>
         <View style={styles.profileContent}>
           <View style={styles.profileInfo}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>
-                {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
-              </Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.avatarContainer}
+              onPress={handleAvatarPress}
+              disabled={isUploadingAvatar}
+              activeOpacity={0.8}
+            >
+              {(user.avatarUrl || avatarImage) ? (
+                <>
+                  <Image 
+                    source={{ uri: user.avatarUrl || avatarImage }} 
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                  {isUploadingAvatar && (
+                    <View style={styles.avatarOverlay}>
+                      <Text style={styles.uploadingText}>Uploading...</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.avatarText}>
+                    {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                  </Text>
+                  {isUploadingAvatar && (
+                    <View style={styles.avatarOverlay}>
+                      <Text style={styles.uploadingText}>Uploading...</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </TouchableOpacity>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{user.name || 'User'}</Text>
               <Text style={styles.userEmail}>{authUser?.email || user.email || ''}</Text>
@@ -477,6 +693,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 32,
+  },
+  uploadingText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '600',
   },
   avatarText: {
     fontSize: 24,

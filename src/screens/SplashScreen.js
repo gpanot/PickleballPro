@@ -24,12 +24,12 @@ export default function SplashScreen({ onComplete }) {
     // Start all animations
     startAnimations();
 
-    // Complete splash after 4 seconds
+    // Complete splash after 3 seconds
     const timer = setTimeout(() => {
       if (onComplete) {
         onComplete();
       }
-    }, 4000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, []);

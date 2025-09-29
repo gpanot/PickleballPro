@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { 
+  createLogbookEntry, 
+  getLogbookEntries, 
+  updateLogbookEntry as updateSupabaseLogbookEntry, 
+  deleteLogbookEntry as deleteSupabaseLogbookEntry 
+} from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 const LogbookContext = createContext();
 
@@ -16,21 +23,81 @@ const STORAGE_KEY = '@logbook_entries';
 export const LogbookProvider = ({ children }) => {
   const [logbookEntries, setLogbookEntries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth(); // Get current authenticated user
 
-  // Load entries from AsyncStorage on mount
+  // Load entries from Supabase on mount (with AsyncStorage fallback)
   useEffect(() => {
     loadLogbookEntries();
   }, []);
 
   const loadLogbookEntries = async () => {
     try {
-      const storedEntries = await AsyncStorage.getItem(STORAGE_KEY);
-      if (storedEntries) {
-        const parsedEntries = JSON.parse(storedEntries);
-        setLogbookEntries(parsedEntries);
+      // First try to load from Supabase
+      const { data: supabaseEntries, error } = await getLogbookEntries();
+      
+      if (supabaseEntries && !error) {
+        // Transform Supabase data to match local format
+        const transformedEntries = supabaseEntries.map(entry => {
+          // Parse JSON strings back to arrays for training_focus
+          let trainingFocus = entry.training_focus;
+          if (typeof trainingFocus === 'string') {
+            try {
+              trainingFocus = JSON.parse(trainingFocus);
+            } catch (e) {
+              console.warn('Failed to parse training_focus JSON:', trainingFocus);
+              trainingFocus = [trainingFocus]; // Fallback to single item array
+            }
+          }
+          
+          // Parse JSON strings back to arrays for difficulty
+          let difficulty = entry.difficulty;
+          if (typeof difficulty === 'string') {
+            try {
+              difficulty = JSON.parse(difficulty);
+            } catch (e) {
+              console.warn('Failed to parse difficulty JSON:', difficulty);
+              difficulty = [difficulty]; // Fallback to single item array
+            }
+          }
+          
+          return {
+            id: entry.id,
+            date: entry.date,
+            hours: entry.hours,
+            sessionType: entry.session_type,
+            trainingFocus: trainingFocus,
+            difficulty: difficulty,
+            feeling: entry.feeling,
+            notes: entry.notes,
+            location: entry.location,
+            createdAt: entry.created_at
+          };
+        });
+        
+        setLogbookEntries(transformedEntries);
+        // Also save to local storage as backup
+        await saveLogbookEntries(transformedEntries);
+      } else {
+        // Fallback to local storage if Supabase fails
+        console.log('Supabase failed, loading from local storage:', error);
+        const storedEntries = await AsyncStorage.getItem(STORAGE_KEY);
+        if (storedEntries) {
+          const parsedEntries = JSON.parse(storedEntries);
+          setLogbookEntries(parsedEntries);
+        }
       }
     } catch (error) {
       console.error('Error loading logbook entries:', error);
+      // Try local storage as final fallback
+      try {
+        const storedEntries = await AsyncStorage.getItem(STORAGE_KEY);
+        if (storedEntries) {
+          const parsedEntries = JSON.parse(storedEntries);
+          setLogbookEntries(parsedEntries);
+        }
+      } catch (localError) {
+        console.error('Error loading from local storage:', localError);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -48,23 +115,221 @@ export const LogbookProvider = ({ children }) => {
   const sortedEntries = [...logbookEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const addLogbookEntry = async (entry) => {
-    const newEntries = [entry, ...logbookEntries];
-    setLogbookEntries(newEntries);
-    await saveLogbookEntries(newEntries);
+    console.log('🎯 [LogbookContext] addLogbookEntry called with entry:', entry);
+    
+    try {
+      // Transform entry to match Supabase format
+      const supabaseEntry = {
+        date: entry.date,
+        hours: entry.hours,
+        sessionType: entry.sessionType,
+        trainingFocus: entry.trainingFocus,
+        difficulty: entry.difficulty,
+        feeling: entry.feeling,
+        notes: entry.notes,
+        location: entry.location
+      };
+
+      console.log('🔄 [LogbookContext] Transformed entry for Supabase:', supabaseEntry);
+      console.log('👤 [LogbookContext] Current user:', user);
+      console.log('📤 [LogbookContext] Attempting to save to Supabase database...');
+
+      // Try to save to Supabase first - pass user ID
+      const userId = user?.id || null;
+      console.log('🆔 [LogbookContext] Using user ID:', userId);
+      const { data: savedEntry, error } = await createLogbookEntry(supabaseEntry, userId);
+      
+      console.log('📥 [LogbookContext] Supabase response:', { savedEntry, error });
+      
+      if (savedEntry && !error) {
+        console.log('✅ [LogbookContext] Successfully saved to Supabase!');
+        console.log('🔄 [LogbookContext] Transforming Supabase response back to local format...');
+        
+        // Transform back to local format
+        let trainingFocus = savedEntry.training_focus;
+        if (typeof trainingFocus === 'string') {
+          try {
+            trainingFocus = JSON.parse(trainingFocus);
+          } catch (e) {
+            console.warn('Failed to parse training_focus JSON:', trainingFocus);
+            trainingFocus = [trainingFocus];
+          }
+        }
+        
+        let difficulty = savedEntry.difficulty;
+        if (typeof difficulty === 'string') {
+          try {
+            difficulty = JSON.parse(difficulty);
+          } catch (e) {
+            console.warn('Failed to parse difficulty JSON:', difficulty);
+            difficulty = [difficulty];
+          }
+        }
+        
+        const transformedEntry = {
+          id: savedEntry.id,
+          date: savedEntry.date,
+          hours: savedEntry.hours,
+          sessionType: savedEntry.session_type,
+          trainingFocus: trainingFocus,
+          difficulty: difficulty,
+          feeling: savedEntry.feeling,
+          notes: savedEntry.notes,
+          location: savedEntry.location,
+          createdAt: savedEntry.created_at
+        };
+        
+        console.log('📋 [LogbookContext] Transformed entry:', transformedEntry);
+        console.log('💾 [LogbookContext] Updating local state and AsyncStorage...');
+        
+        const newEntries = [transformedEntry, ...logbookEntries];
+        setLogbookEntries(newEntries);
+        await saveLogbookEntries(newEntries);
+        
+        console.log('✅ [LogbookContext] Entry successfully saved to both Supabase and local storage!');
+      } else {
+        // Fallback to local-only save
+        console.log('❌ [LogbookContext] Supabase save failed, saving locally only:', error);
+        const entryWithId = { ...entry, id: Date.now().toString() };
+        const newEntries = [entryWithId, ...logbookEntries];
+        setLogbookEntries(newEntries);
+        await saveLogbookEntries(newEntries);
+        console.log('💾 [LogbookContext] Saved to local storage only');
+      }
+    } catch (error) {
+      console.error('❌ [LogbookContext] Error adding logbook entry:', error);
+      console.log('🔄 [LogbookContext] Falling back to local-only save...');
+      // Fallback to local-only save
+      const entryWithId = { ...entry, id: Date.now().toString() };
+      const newEntries = [entryWithId, ...logbookEntries];
+      setLogbookEntries(newEntries);
+      await saveLogbookEntries(newEntries);
+      console.log('💾 [LogbookContext] Saved to local storage only (error fallback)');
+    }
   };
 
   const updateLogbookEntry = async (id, updatedEntry) => {
-    const newEntries = logbookEntries.map(entry => 
-      entry.id === id ? { ...entry, ...updatedEntry } : entry
-    );
-    setLogbookEntries(newEntries);
-    await saveLogbookEntries(newEntries);
+    console.log('🎯 [LogbookContext] updateLogbookEntry called with ID:', id, 'and updatedEntry:', updatedEntry);
+    
+    try {
+      // Transform entry to match Supabase format
+      const supabaseEntry = {
+        date: updatedEntry.date,
+        hours: updatedEntry.hours,
+        sessionType: updatedEntry.sessionType,
+        trainingFocus: updatedEntry.trainingFocus,
+        difficulty: updatedEntry.difficulty,
+        feeling: updatedEntry.feeling,
+        notes: updatedEntry.notes,
+        location: updatedEntry.location
+      };
+
+      console.log('🔄 [LogbookContext] Transformed update for Supabase:', supabaseEntry);
+      console.log('👤 [LogbookContext] Current user:', user);
+      console.log('📤 [LogbookContext] Attempting to update in Supabase database...');
+
+      // Try to update in Supabase first - pass user ID
+      const userId = user?.id || null;
+      console.log('🆔 [LogbookContext] Using user ID for update:', userId);
+      const { data: updatedSupabaseEntry, error } = await updateSupabaseLogbookEntry(id, supabaseEntry, userId);
+      
+      console.log('📥 [LogbookContext] Supabase update response:', { updatedSupabaseEntry, error });
+      
+      if (updatedSupabaseEntry && !error) {
+        console.log('✅ [LogbookContext] Successfully updated in Supabase!');
+        console.log('🔄 [LogbookContext] Transforming Supabase response back to local format...');
+        
+        // Transform back to local format
+        let trainingFocus = updatedSupabaseEntry.training_focus;
+        if (typeof trainingFocus === 'string') {
+          try {
+            trainingFocus = JSON.parse(trainingFocus);
+          } catch (e) {
+            console.warn('Failed to parse training_focus JSON:', trainingFocus);
+            trainingFocus = [trainingFocus];
+          }
+        }
+        
+        let difficulty = updatedSupabaseEntry.difficulty;
+        if (typeof difficulty === 'string') {
+          try {
+            difficulty = JSON.parse(difficulty);
+          } catch (e) {
+            console.warn('Failed to parse difficulty JSON:', difficulty);
+            difficulty = [difficulty];
+          }
+        }
+        
+        const transformedEntry = {
+          id: updatedSupabaseEntry.id,
+          date: updatedSupabaseEntry.date,
+          hours: updatedSupabaseEntry.hours,
+          sessionType: updatedSupabaseEntry.session_type,
+          trainingFocus: trainingFocus,
+          difficulty: difficulty,
+          feeling: updatedSupabaseEntry.feeling,
+          notes: updatedSupabaseEntry.notes,
+          location: updatedSupabaseEntry.location,
+          createdAt: updatedSupabaseEntry.created_at
+        };
+        
+        console.log('📋 [LogbookContext] Transformed updated entry:', transformedEntry);
+        console.log('💾 [LogbookContext] Updating local state and AsyncStorage...');
+        
+        const newEntries = logbookEntries.map(entry => 
+          entry.id === id ? transformedEntry : entry
+        );
+        setLogbookEntries(newEntries);
+        await saveLogbookEntries(newEntries);
+        
+        console.log('✅ [LogbookContext] Entry successfully updated in both Supabase and local storage!');
+      } else {
+        // Fallback to local-only update
+        console.log('❌ [LogbookContext] Supabase update failed, updating locally only:', error);
+        const newEntries = logbookEntries.map(entry => 
+          entry.id === id ? { ...entry, ...updatedEntry } : entry
+        );
+        setLogbookEntries(newEntries);
+        await saveLogbookEntries(newEntries);
+        console.log('💾 [LogbookContext] Updated in local storage only');
+      }
+    } catch (error) {
+      console.error('❌ [LogbookContext] Error updating logbook entry:', error);
+      console.log('🔄 [LogbookContext] Falling back to local-only update...');
+      // Fallback to local-only update
+      const newEntries = logbookEntries.map(entry => 
+        entry.id === id ? { ...entry, ...updatedEntry } : entry
+      );
+      setLogbookEntries(newEntries);
+      await saveLogbookEntries(newEntries);
+      console.log('💾 [LogbookContext] Updated in local storage only (error fallback)');
+    }
   };
 
   const deleteLogbookEntry = async (id) => {
-    const newEntries = logbookEntries.filter(entry => entry.id !== id);
-    setLogbookEntries(newEntries);
-    await saveLogbookEntries(newEntries);
+    try {
+      // Try to delete from Supabase first
+      const { error } = await deleteSupabaseLogbookEntry(id);
+      
+      if (!error) {
+        // If Supabase delete succeeded, update local state
+        const newEntries = logbookEntries.filter(entry => entry.id !== id);
+        setLogbookEntries(newEntries);
+        await saveLogbookEntries(newEntries);
+      } else {
+        // Fallback to local-only delete
+        console.log('Supabase delete failed, deleting locally only:', error);
+        const newEntries = logbookEntries.filter(entry => entry.id !== id);
+        setLogbookEntries(newEntries);
+        await saveLogbookEntries(newEntries);
+      }
+    } catch (error) {
+      console.error('Error deleting logbook entry:', error);
+      // Fallback to local-only delete
+      const newEntries = logbookEntries.filter(entry => entry.id !== id);
+      setLogbookEntries(newEntries);
+      await saveLogbookEntries(newEntries);
+    }
   };
 
   // Helper functions for date calculations

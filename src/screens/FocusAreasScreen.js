@@ -52,7 +52,6 @@ export default function FocusAreasScreen({ onComplete }) {
   const handleContinue = async () => {
     if (selectedFocus.length > 0) {
       // Save focus areas data to UserContext
-      console.log('FocusAreasScreen: Saving focus areas to UserContext:', selectedFocus);
       await updateOnboardingData({ focus_areas: selectedFocus });
       
       onComplete({ focus_areas: selectedFocus });

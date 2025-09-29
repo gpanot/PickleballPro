@@ -30,6 +30,7 @@ export const UserProvider = ({ children }) => {
     focus_areas: [],
     coachPreference: null,
     personalizedProgram: null,
+    avatarUrl: null, // Profile picture URL
     badges: [
       { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
       { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -40,9 +41,6 @@ export const UserProvider = ({ children }) => {
   
   // Sync UserContext with AuthContext when authentication state changes
   useEffect(() => {
-    console.log('UserContext: Auth state changed - isAuthenticated:', isAuthenticated);
-    console.log('UserContext: AuthUser:', authUser?.email, 'Profile:', !!profile);
-    
     if (isAuthenticated && authUser) {
       // Create user object from authenticated user and profile data
       // Preserve any local onboarding data that might not be in profile yet
@@ -63,6 +61,7 @@ export const UserProvider = ({ children }) => {
         focus_areas: profile?.focus_areas || user?.focus_areas || [],
         coachPreference: profile?.coach_preference || user?.coachPreference || null,
         personalizedProgram: null, // Will be loaded separately
+        avatarUrl: profile?.avatar_url || user?.avatarUrl || null,
         badges: [
           { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
           { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -71,12 +70,10 @@ export const UserProvider = ({ children }) => {
         ],
       };
       
-      console.log('UserContext: ✅ Syncing user data from AuthContext (preserving local onboarding):', syncedUser);
       setUser(syncedUser);
       
       // Note: Personalized program loading from local storage removed - programs are now managed in context only
     } else {
-      console.log('UserContext: User not authenticated, keeping onboarding data locally');
       // Don't clear user data during onboarding - just clear auth-specific fields
       if (user?.id) {
         setUser(prevUser => ({
@@ -107,8 +104,6 @@ export const UserProvider = ({ children }) => {
   };
 
   const updateOnboardingData = async (data) => {
-    console.log('UserContext: updateOnboardingData called with:', data);
-    
     // Update local state
     setUser(prevUser => ({
       ...prevUser,
@@ -118,18 +113,13 @@ export const UserProvider = ({ children }) => {
     // Only save to database if user is authenticated
     if (isAuthenticated && authUser && updateProfile) {
       try {
-        console.log('UserContext: User is authenticated - saving onboarding data to database:', data);
         const result = await updateProfile(data);
         if (result.error) {
           console.error('UserContext: Error saving onboarding data to database:', result.error);
-        } else {
-          console.log('UserContext: ✅ Onboarding data saved successfully to database');
         }
       } catch (error) {
         console.error('UserContext: Error saving onboarding data to database:', error);
       }
-    } else {
-      console.log('UserContext: User not authenticated - storing onboarding data locally only');
     }
   };
 

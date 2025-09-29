@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Filter out Grammarly console errors during development
 if (__DEV__) {
@@ -33,6 +34,7 @@ import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CreateCoachProfileScreen from './src/screens/CreateCoachProfileScreen';
+import CropAvatar from './src/components/CropAvatar';
 import SplashScreen from './src/screens/SplashScreen';
 import AdminRoute from './src/components/AdminRoute';
 import { UserProvider, useUser } from './src/context/UserContext';
@@ -44,8 +46,22 @@ const Stack = createStackNavigator();
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
   const [showSplash, setShowSplash] = useState(true);
+  const [authTimeout, setAuthTimeout] = useState(false);
   const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading } = useAuth();
+
+  // Add a timeout fallback for auth loading
+  useEffect(() => {
+    if (!showSplash && authLoading) {
+      console.log('⏰ Starting auth timeout fallback (6 seconds)');
+      const timer = setTimeout(() => {
+        console.log('⏰ Auth loading timeout reached - proceeding without auth');
+        setAuthTimeout(true);
+      }, 6000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showSplash, authLoading]);
 
   const handleIntroComplete = () => {
     console.log('Intro completed!');
@@ -138,9 +154,9 @@ function AppContent() {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  // Don't render anything while auth is loading
-  if (authLoading) {
-    console.log('⏳ Auth loading - showing loading state');
+  // Don't render anything while auth is loading, but add a timeout fallback
+  if (authLoading && !showSplash && !authTimeout) {
+    console.log('⏳ Auth loading after splash - showing loading state');
     return null; // Or return a loading component
   }
   
@@ -195,6 +211,11 @@ function AppContent() {
                 <Stack.Screen 
                   name="CreateCoachProfile" 
                   component={CreateCoachProfileScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="CropAvatar" 
+                  component={CropAvatar}
                   options={{ headerShown: false }}
                 />
           </>
@@ -284,14 +305,16 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <UserProvider>
-          <LogbookProvider>
-            <AppContent />
-          </LogbookProvider>
-        </UserProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <UserProvider>
+            <LogbookProvider>
+              <AppContent />
+            </LogbookProvider>
+          </UserProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

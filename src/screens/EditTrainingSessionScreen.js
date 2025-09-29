@@ -95,12 +95,17 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
   };
 
   const handleSubmit = () => {
+    console.log('🔄 [EditTrainingSession] handleSubmit called - SAVE button pressed');
+    console.log('📝 [EditTrainingSession] Editing entry ID:', entry.id);
+    
     if (!hours || !date) {
+      console.log('❌ [EditTrainingSession] Validation failed - Missing hours or date');
       Alert.alert('Missing Information', 'Please fill in the hours and date fields.');
       return;
     }
 
     if (hours < 0.5 || hours > 5) {
+      console.log('❌ [EditTrainingSession] Validation failed - Invalid hours:', hours);
       Alert.alert('Invalid Hours', 'Hours must be between 0.5 and 5.');
       return;
     }
@@ -116,8 +121,20 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
       updatedAt: new Date().toISOString(),
     };
 
+    console.log('📋 [EditTrainingSession] Updating logbook entry:', {
+      entryId: entry.id,
+      date: updatedEntry.date,
+      hours: updatedEntry.hours,
+      feeling: updatedEntry.feeling,
+      trainingFocus: updatedEntry.trainingFocus,
+      sessionType: updatedEntry.sessionType,
+      notesLength: updatedEntry.notes.length
+    });
+
+    console.log('💾 [EditTrainingSession] Calling updateLogbookEntry...');
     updateLogbookEntry(entry.id, updatedEntry);
     
+    console.log('✅ [EditTrainingSession] updateLogbookEntry called, showing success alert...');
     Alert.alert(
       'Success', 
       'Training session updated successfully!',

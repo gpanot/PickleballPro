@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -26,13 +27,14 @@ export default function CoachScreen() {
   const [coaches, setCoaches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Location state
   const [userLocation, setUserLocation] = useState(null);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   
-  const specialtyFilters = ['Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
+  const specialtyFilters = ['Verified', 'Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
 
   // Request location permission and get user location on component mount
@@ -100,9 +102,14 @@ export default function CoachScreen() {
     }
   };
 
-  const fetchCoaches = async () => {
+  const fetchCoaches = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
       const { data, error } = await getCoaches();
       
       if (error) {
@@ -119,8 +126,16 @@ export default function CoachScreen() {
       // Fallback to empty array if API fails
       setCoaches([]);
     } finally {
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
+  };
+
+  const onRefresh = () => {
+    fetchCoaches(true);
   };
 
   // Calculate distance between two coordinates using Haversine formula
@@ -153,7 +168,12 @@ export default function CoachScreen() {
                            coach.bio.toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesFilters = selectedFilters.length === 0 || 
-                            selectedFilters.some(filter => coach.specialties.includes(filter));
+                            selectedFilters.some(filter => {
+                              if (filter === 'Verified') {
+                                return coach.verified;
+                              }
+                              return coach.specialties.includes(filter);
+                            });
       
       return matchesSearch && matchesFilters;
     })
@@ -317,12 +337,22 @@ export default function CoachScreen() {
             ]}
             onPress={() => toggleFilter(filter)}
           >
-            <Text style={[
-              styles.filterChipText,
-              selectedFilters.includes(filter) && styles.filterChipTextActive
-            ]}>
-              {filter}
-            </Text>
+            <View style={styles.filterChipContent}>
+              {filter === 'Verified' && (
+                <WebIcon 
+                  name="checkmark-circle" 
+                  size={14} 
+                  color={selectedFilters.includes(filter) ? 'white' : '#10B981'} 
+                  style={styles.filterIcon}
+                />
+              )}
+              <Text style={[
+                styles.filterChipText,
+                selectedFilters.includes(filter) && styles.filterChipTextActive
+              ]}>
+                {filter}
+              </Text>
+            </View>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -452,6 +482,14 @@ export default function CoachScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           contentInsetAdjustmentBehavior="automatic"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#3B82F6']}
+              tintColor="#3B82F6"
+            />
+          }
         >
           <View style={styles.resultsContainer}>
             <Text style={styles.resultsText}>
@@ -569,6 +607,13 @@ const styles = StyleSheet.create({
   filterChipActive: {
     backgroundColor: '#4F46E5',
     borderColor: '#4F46E5',
+  },
+  filterChipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterIcon: {
+    marginRight: 4,
   },
   filterChipText: {
     fontSize: 14,

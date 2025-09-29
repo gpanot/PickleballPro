@@ -390,16 +390,22 @@ export const logExerciseCompletion = async (exerciseCode, resultData) => {
 };
 
 // 5. Logbook operations
-export const createLogbookEntry = async (entryData) => {
+export const createLogbookEntry = async (entryData, userId = null) => {
   try {
+    console.log('🏓 [SUPABASE] Creating logbook entry:', {
+      userId: userId,
+      entryData: entryData
+    });
+    
     const { data, error } = await supabase
       .from('logbook_entries')
       .insert({
-        // user_id: userId, // TODO: Add when auth is implemented
+        user_id: userId,
         date: entryData.date,
         hours: entryData.hours,
         session_type: entryData.sessionType,
         training_focus: entryData.trainingFocus,
+        difficulty: entryData.difficulty,
         feeling: entryData.feeling,
         notes: entryData.notes,
         location: entryData.location
@@ -407,11 +413,15 @@ export const createLogbookEntry = async (entryData) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('🏓 [SUPABASE] Error creating logbook entry:', error);
+      throw error;
+    }
     
+    console.log('🏓 [SUPABASE] ✅ Logbook entry created successfully:', data);
     return { data, error: null };
   } catch (error) {
-    console.error('Error creating logbook entry:', error);
+    console.error('🏓 [SUPABASE] ❌ Failed to create logbook entry:', error);
     return { data: null, error };
   }
 };
@@ -429,6 +439,79 @@ export const getLogbookEntries = async () => {
     return { data, error: null };
   } catch (error) {
     console.error('Error fetching logbook entries:', error);
+    return { data: null, error };
+  }
+};
+
+export const getLogbookEntriesByUserId = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('logbook_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error fetching user logbook entries:', error);
+    return { data: null, error };
+  }
+};
+
+export const updateLogbookEntry = async (id, entryData, userId = null) => {
+  try {
+    console.log('🏓 [SUPABASE] Updating logbook entry:', {
+      id: id,
+      userId: userId,
+      entryData: entryData
+    });
+    
+    const { data, error } = await supabase
+      .from('logbook_entries')
+      .update({
+        user_id: userId,
+        date: entryData.date,
+        hours: entryData.hours,
+        session_type: entryData.sessionType,
+        training_focus: entryData.trainingFocus,
+        difficulty: entryData.difficulty,
+        feeling: entryData.feeling,
+        notes: entryData.notes,
+        location: entryData.location
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('🏓 [SUPABASE] Error updating logbook entry:', error);
+      throw error;
+    }
+    
+    console.log('🏓 [SUPABASE] ✅ Logbook entry updated successfully:', data);
+    return { data, error: null };
+  } catch (error) {
+    console.error('🏓 [SUPABASE] ❌ Failed to update logbook entry:', error);
+    return { data: null, error };
+  }
+};
+
+export const deleteLogbookEntry = async (id) => {
+  try {
+    const { data, error } = await supabase
+      .from('logbook_entries')
+      .delete()
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error deleting logbook entry:', error);
     return { data: null, error };
   }
 };

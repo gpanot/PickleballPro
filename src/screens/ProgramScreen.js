@@ -21,6 +21,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import SkillsScreen from './SkillsScreen';
 import BadgesScreen from './BadgesScreen';
 import { generateAIProgram, validateUserForAIGeneration, saveAIProgram } from '../lib/aiProgramGenerator';
+import { supabase } from '../lib/supabase';
 
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
@@ -95,9 +96,45 @@ export default function ProgramScreen({ navigation, route }) {
   // AI Program Generation function
   const generateAIProgramHandler = async () => {
     // Validate user can generate AI program
-    const validation = validateUserForAIGeneration(user);
+    let validation = validateUserForAIGeneration(user);
+    
+    // If validation fails due to focus areas, try refreshing the profile data
+    if (!validation.isValid && validation.message.includes('Focus areas required')) {
+      // Force refresh profile from database
+      try {
+        if (user?.id) {
+          const { data: freshProfile } = await supabase
+            .from('users')
+            .select('focus_areas')
+            .eq('id', user.id)
+            .single();
+          
+          if (freshProfile?.focus_areas && Array.isArray(freshProfile.focus_areas) && freshProfile.focus_areas.length > 0) {
+            // Update the user context with fresh data
+            setUser(prevUser => ({
+              ...prevUser,
+              focus_areas: freshProfile.focus_areas
+            }));
+            // Wait a moment for state to update
+            await new Promise(resolve => setTimeout(resolve, 100));
+            validation = validateUserForAIGeneration({ ...user, focus_areas: freshProfile.focus_areas });
+          }
+        }
+      } catch (error) {
+        console.error('Error refreshing profile data:', error);
+      }
+    }
+    
     if (!validation.isValid) {
-      Alert.alert('Cannot Generate AI Program', validation.message);
+      // Provide more helpful error message for focus areas issue
+      if (validation.message.includes('Focus areas required')) {
+        Alert.alert(
+          'Cannot Generate AI Program', 
+          'Focus areas are required to generate your personalized program. Please go back to the onboarding flow and select your focus areas again.\n\nTip: Try selecting fewer focus areas (3-5) if you selected many.'
+        );
+      } else {
+        Alert.alert('Cannot Generate AI Program', validation.message);
+      }
       return;
     }
 
@@ -184,13 +221,13 @@ export default function ProgramScreen({ navigation, route }) {
       // Request permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Sorry, we need camera roll permissions to add program thumbnails.');
+        Alert.alert('Permission needed', 'Sorry, we need photo library permissions to add program thumbnails.');
         return;
       }
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1], // Square aspect ratio
         quality: 0.8,
@@ -523,7 +560,6 @@ export default function ProgramScreen({ navigation, route }) {
                     onPress={pickImage}
                     disabled={isProcessingImage}
                   >
-                    <Text style={styles.uploadImageIcon}>📷</Text>
                     <Text style={styles.uploadImageText}>
                       {isProcessingImage ? 'Processing...' : 'Add Thumbnail'}
                     </Text>

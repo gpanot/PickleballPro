@@ -23,6 +23,7 @@ import WebCreateRoutineModal from '../components/WebCreateRoutineModal';
 import WebCreateExerciseModal from '../components/WebCreateExerciseModal';
 import ProgramStructureModal from '../components/ProgramStructureModal';
 import EditableProgramStructureModal from '../components/EditableProgramStructureModal';
+import WebUserLogbookModal from '../components/WebUserLogbookModal';
 import skillsData from '../data/Commun_skills_tags.json';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -106,6 +107,8 @@ export default function AdminDashboard({ navigation }) {
   const [showEditExerciseModal, setShowEditExerciseModal] = useState(false);
   const [exerciseToDelete, setExerciseToDelete] = useState(null);
   const [showDeleteExerciseConfirmation, setShowDeleteExerciseConfirmation] = useState(false);
+  const [showUserLogbookModal, setShowUserLogbookModal] = useState(false);
+  const [selectedUserForLogbook, setSelectedUserForLogbook] = useState(null);
   
 
   // Web responsiveness
@@ -2334,12 +2337,42 @@ export default function AdminDashboard({ navigation }) {
             <TouchableOpacity style={styles.modernActionButton}>
               <Ionicons name="mail-outline" size={16} color="#6B7280" />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.modernActionButton}
-              onPress={() => handleDeleteUser(user.id, user.name || user.email)}
-            >
-              <Ionicons name="trash-outline" size={16} color="#EF4444" />
-            </TouchableOpacity>
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity 
+                style={styles.modernActionButton}
+                onPress={() => {
+                  const newDropdown = activeDropdown === `user_${user.id}` ? null : `user_${user.id}`;
+                  console.log('⋯ Three dots clicked for user:', user.name, 'Setting dropdown to:', newDropdown);
+                  setActiveDropdown(newDropdown);
+                }}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
+              </TouchableOpacity>
+              {activeDropdown === `user_${user.id}` && (
+                <View style={styles.dropdownMenu}>
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      console.log('📋 User logbook clicked for user:', user.name, user.id);
+                      handleViewUserLogbook(user);
+                    }}
+                  >
+                    <Ionicons name="book-outline" size={16} color="#3B82F6" />
+                    <Text style={styles.dropdownItemText}>User logbook</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      console.log('🗑️ Delete button clicked for user:', user.name, user.id);
+                      handleDeleteUser(user.id, user.name || user.email);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    <Text style={styles.dropdownItemTextDelete}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -2550,6 +2583,12 @@ export default function AdminDashboard({ navigation }) {
   const handleEditUser = (user) => {
     setSelectedUser(user);
     setShowAddUserModal(true);
+  };
+
+  const handleViewUserLogbook = (user) => {
+    setSelectedUserForLogbook(user);
+    setShowUserLogbookModal(true);
+    setActiveDropdown(null);
   };
 
   const handleEditExercise = (exercise) => {
@@ -3233,6 +3272,16 @@ export default function AdminDashboard({ navigation }) {
           setSelectedExercise(null);
         }}
         editingExercise={selectedExercise}
+      />
+
+      {/* User Logbook Modal */}
+      <WebUserLogbookModal
+        visible={showUserLogbookModal}
+        user={selectedUserForLogbook}
+        onClose={() => {
+          setShowUserLogbookModal(false);
+          setSelectedUserForLogbook(null);
+        }}
       />
 
       {/* Delete Program Confirmation Modal */}
@@ -4347,6 +4396,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#F9FAFB',
       },
     }),
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontWeight: '500',
+    marginLeft: 8,
   },
   dropdownItemTextDelete: {
     fontSize: 14,

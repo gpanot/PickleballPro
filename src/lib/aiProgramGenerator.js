@@ -48,7 +48,22 @@ export async function generateAIProgram(user) {
       throw new Error('User must have DUPR rating and focus areas selected');
     }
 
-    const { duprRating, focus_areas: focusAreas, name, tier } = user;
+    // Filter and validate focus areas
+    const validFocusAreas = user.focus_areas.filter(area => area && typeof area === 'string' && area.trim().length > 0);
+    if (validFocusAreas.length === 0) {
+      throw new Error('No valid focus areas found. Please complete your skill preferences again.');
+    }
+
+    // Limit focus areas to prevent database query issues (max 6 skills for optimal performance)
+    const focusAreas = validFocusAreas.length > 6 ? validFocusAreas.slice(0, 6) : validFocusAreas;
+    
+    if (validFocusAreas.length > 6) {
+      console.log('🤖 Limiting focus areas from', validFocusAreas.length, 'to 6 for optimal matching');
+    }
+
+    const { duprRating, name, tier } = user;
+    
+    console.log('🤖 Using validated focus areas:', focusAreas);
 
     // Step 1: Fetch matching exercises from database
     console.log('🤖 Fetching exercises from database...');
@@ -457,6 +472,22 @@ export function validateUserForAIGeneration(user) {
     return {
       isValid: false,
       message: 'Focus areas required. Please complete your skill preferences in onboarding.'
+    };
+  }
+
+  // Additional validation: check if focus_areas is a valid array with valid strings
+  if (!Array.isArray(user.focus_areas)) {
+    return {
+      isValid: false,
+      message: 'Invalid focus areas format. Please complete your skill preferences again.'
+    };
+  }
+
+  const validFocusAreas = user.focus_areas.filter(area => area && typeof area === 'string' && area.trim().length > 0);
+  if (validFocusAreas.length === 0) {
+    return {
+      isValid: false,
+      message: 'No valid focus areas found. Please complete your skill preferences again.'
     };
   }
 
