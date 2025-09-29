@@ -651,6 +651,12 @@ export const transformCoachData = (coaches) => {
     latitude: coach.latitude,
     longitude: coach.longitude,
     verified: coach.is_verified,
-    image: coach.avatar_url
+    image: coach.avatar_url,
+    phone: coach.phone,
+    messagingPreferences: coach.messaging_preferences || {
+      whatsapp: false,
+      imessage: false,
+      zalo: false
+    }
   }));
 };

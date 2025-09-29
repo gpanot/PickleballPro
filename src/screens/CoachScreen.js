@@ -9,9 +9,14 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Image,
+  Linking,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
 import { getCoaches, transformCoachData } from '../lib/supabase';
@@ -33,6 +38,10 @@ export default function CoachScreen() {
   const [userLocation, setUserLocation] = useState(null);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  
+  // Messaging state
+  const [selectedCoach, setSelectedCoach] = useState(null);
+  const [showMessagingModal, setShowMessagingModal] = useState(false);
   
   const specialtyFilters = ['Verified', 'Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
@@ -240,16 +249,190 @@ export default function CoachScreen() {
     setIsSearchExpanded(false);
   };
 
+  // Messaging options configuration
+  const messagingOptions = {
+    whatsapp: {
+      id: 'whatsapp',
+      name: 'WhatsApp',
+      iconType: 'image',
+      iconSource: require('../../assets/images/whatsapp_icon.png'),
+      color: '#25D366',
+      description: 'Message via WhatsApp'
+    },
+    imessage: {
+      id: 'imessage',
+      name: 'iMessage',
+      iconType: 'emoji',
+      icon: '💬',
+      color: '#007AFF',
+      description: 'Message via iMessage (iOS only)'
+    },
+    zalo: {
+      id: 'zalo',
+      name: 'Zalo',
+      iconType: 'image',
+      iconSource: require('../../assets/images/zalo_icon.jpg'),
+      color: '#0068FF',
+      description: 'Message via Zalo'
+    }
+  };
+
   const handleContactCoach = (coach) => {
+    setSelectedCoach(coach);
+    
     Alert.alert(
       'Contact Coach',
-      `Would you like to contact ${coach.name}?`,
+      `How would you like to contact ${coach.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Message', onPress: () => Alert.alert('Feature Coming Soon', 'Messaging feature will be available in the next update.') },
-        { text: 'Call', onPress: () => Alert.alert('Feature Coming Soon', 'Calling feature will be available in the next update.') },
+        { 
+          text: 'Message', 
+          onPress: () => {
+            if (coach.phone && coach.messagingPreferences) {
+              setShowMessagingModal(true);
+            } else {
+              handleFallbackSMS(coach);
+            }
+          }
+        },
+        { text: 'Call', onPress: () => handleCall(coach) },
       ]
     );
+  };
+
+  const handleCall = (coach) => {
+    if (coach.phone) {
+      const phoneUrl = `tel:${coach.phone.replace(/[^0-9+]/g, '')}`;
+      Linking.canOpenURL(phoneUrl)
+        .then((supported) => {
+          if (supported) {
+            Linking.openURL(phoneUrl);
+          } else {
+            Alert.alert('Error', 'Unable to make phone calls on this device.');
+          }
+        })
+        .catch((error) => {
+          console.error('Error opening phone app:', error);
+          Alert.alert('Error', 'Failed to open phone app.');
+        });
+    } else {
+      Alert.alert('No Phone Number', 'This coach has not provided a phone number.');
+    }
+  };
+
+  const handleMessagingOption = (option, coach) => {
+    const phoneNumber = coach.phone?.replace(/[^0-9+]/g, '') || '';
+    
+    switch (option.id) {
+      case 'whatsapp':
+        handleWhatsApp(phoneNumber, coach.name);
+        break;
+      case 'imessage':
+        handleiMessage(phoneNumber, coach.name);
+        break;
+      case 'zalo':
+        handleZalo(phoneNumber, coach.name);
+        break;
+      default:
+        handleFallbackSMS(coach);
+    }
+    
+    setShowMessagingModal(false);
+  };
+
+  const handleWhatsApp = (phoneNumber, coachName) => {
+    const message = encodeURIComponent(`Hi ${coachName}, I found your profile on PicklePro and I'm interested in pickleball coaching. Are you available?`);
+    const whatsappUrl = `whatsapp://send?phone=${phoneNumber}&text=${message}`;
+    const webWhatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
+    
+    Linking.canOpenURL(whatsappUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(whatsappUrl);
+        } else {
+          // Fallback to web WhatsApp
+          Linking.openURL(webWhatsappUrl);
+        }
+      })
+      .catch(() => {
+        // Final fallback to SMS
+        handleFallbackSMS({ phone: phoneNumber, name: coachName });
+      });
+  };
+
+  const handleiMessage = (phoneNumber, coachName) => {
+    if (Platform.OS === 'ios') {
+      const message = encodeURIComponent(`Hi ${coachName}, I found your profile on PicklePro and I'm interested in pickleball coaching. Are you available?`);
+      const imessageUrl = `sms:${phoneNumber}&body=${message}`;
+      
+      Linking.openURL(imessageUrl)
+        .catch(() => {
+          handleFallbackSMS({ phone: phoneNumber, name: coachName });
+        });
+    } else {
+      Alert.alert(
+        'iMessage Not Available',
+        'iMessage is only available on iOS devices. Would you like to send an SMS instead?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Send SMS', onPress: () => handleFallbackSMS({ phone: phoneNumber, name: coachName }) }
+        ]
+      );
+    }
+  };
+
+  const handleZalo = (phoneNumber, coachName) => {
+    // Zalo deep linking (if available)
+    const zaloUrl = `zalo://conversation?phone=${phoneNumber}`;
+    
+    Linking.canOpenURL(zaloUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(zaloUrl);
+        } else {
+          Alert.alert(
+            'Zalo Not Installed',
+            'Zalo app is not installed on your device. Would you like to send an SMS instead?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Install Zalo', onPress: () => {
+                const storeUrl = Platform.OS === 'ios' 
+                  ? 'https://apps.apple.com/app/zalo/id579523206'
+                  : 'https://play.google.com/store/apps/details?id=com.zing.zalo';
+                Linking.openURL(storeUrl);
+              }},
+              { text: 'Send SMS', onPress: () => handleFallbackSMS({ phone: phoneNumber, name: coachName }) }
+            ]
+          );
+        }
+      })
+      .catch(() => {
+        handleFallbackSMS({ phone: phoneNumber, name: coachName });
+      });
+  };
+
+  const handleFallbackSMS = (coach) => {
+    const phoneNumber = coach.phone?.replace(/[^0-9+]/g, '') || '';
+    if (phoneNumber) {
+      const message = encodeURIComponent(`Hi ${coach.name}, I found your profile on PicklePro and I'm interested in pickleball coaching. Are you available?`);
+      const smsUrl = `sms:${phoneNumber}${Platform.OS === 'ios' ? '&' : '?'}body=${message}`;
+      
+      Linking.openURL(smsUrl)
+        .catch((error) => {
+          console.error('Error opening SMS app:', error);
+          Alert.alert('Error', 'Unable to open messaging app. Please contact the coach directly.');
+        });
+    } else {
+      Alert.alert('No Phone Number', 'This coach has not provided a phone number.');
+    }
+  };
+
+  const getAvailableMessagingOptions = (coach) => {
+    if (!coach.messagingPreferences) return [];
+    
+    return Object.entries(messagingOptions)
+      .filter(([key, option]) => coach.messagingPreferences[key] === true)
+      .map(([key, option]) => option);
   };
 
   const renderSortOptions = () => (
@@ -360,12 +543,24 @@ export default function CoachScreen() {
   );
 
   const renderCoachCard = (coach) => (
-    <View key={coach.id} style={styles.coachCard}>
-      <View style={styles.coachHeader}>
-        <View style={styles.coachAvatar}>
-          <Text style={styles.coachAvatarText}>
-            {coach.name.split(' ').map(n => n[0]).join('')}
-          </Text>
+      <View key={coach.id} style={styles.coachCard}>
+        <View style={styles.coachHeader}>
+          <View style={styles.coachAvatar}>
+            {coach.image ? (
+            <Image 
+              source={{ uri: coach.image }} 
+              style={styles.coachAvatarImage}
+              resizeMode="cover"
+              onError={(error) => {
+                console.log('Failed to load coach avatar:', coach.image, error);
+              }}
+              defaultSource={require('../../assets/images/icon.png')} // Fallback image
+            />
+          ) : (
+            <Text style={styles.coachAvatarText}>
+              {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+            </Text>
+          )}
         </View>
         
         <View style={styles.coachInfo}>
@@ -443,8 +638,100 @@ export default function CoachScreen() {
     </View>
   );
 
+  const renderMessagingModal = () => {
+    if (!selectedCoach) return null;
+    
+    const availableOptions = getAvailableMessagingOptions(selectedCoach);
+    
+    return (
+      <Modal
+        visible={showMessagingModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        transparent
+      >
+        <View style={styles.messagingModalOverlay}>
+          <View style={styles.messagingModalContainer}>
+            <View style={styles.messagingModalHeader}>
+              <Text style={styles.messagingModalTitle}>
+                Message {selectedCoach.name}
+              </Text>
+              <TouchableOpacity
+                style={styles.messagingModalCloseButton}
+                onPress={() => setShowMessagingModal(false)}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.messagingOptionsContainer}>
+              {availableOptions.length > 0 ? (
+                <>
+                  <Text style={styles.messagingOptionsDescription}>
+                    Choose your preferred messaging platform:
+                  </Text>
+                  {availableOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={styles.messagingOptionCard}
+                      onPress={() => handleMessagingOption(option, selectedCoach)}
+                    >
+                      <View style={styles.messagingOptionContent}>
+                        {option.iconType === 'image' ? (
+                          <Image 
+                            source={option.iconSource} 
+                            style={[
+                              styles.messagingOptionIconImage,
+                              option.id === 'whatsapp' && styles.whatsappIconRounded
+                            ]} 
+                          />
+                        ) : (
+                          <Text style={styles.messagingOptionIcon}>{option.icon}</Text>
+                        )}
+                        <View style={styles.messagingOptionTextContainer}>
+                          <Text style={styles.messagingOptionName}>{option.name}</Text>
+                          <Text style={styles.messagingOptionDescription}>{option.description}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              ) : (
+                <View style={styles.noMessagingOptions}>
+                  <Text style={styles.noMessagingOptionsText}>
+                    This coach hasn't set up messaging preferences yet.
+                  </Text>
+                </View>
+              )}
+              
+              {/* Always show SMS fallback */}
+              <TouchableOpacity
+                style={[styles.messagingOptionCard, styles.smsOptionCard]}
+                onPress={() => {
+                  handleFallbackSMS(selectedCoach);
+                  setShowMessagingModal(false);
+                }}
+              >
+                <View style={styles.messagingOptionContent}>
+                  <Text style={styles.messagingOptionIcon}>💬</Text>
+                  <View style={styles.messagingOptionTextContainer}>
+                    <Text style={styles.messagingOptionName}>SMS</Text>
+                    <Text style={styles.messagingOptionDescription}>Send a text message</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <View style={styles.container}>
+      {renderMessagingModal()}
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.headerContainer}>
           <Text style={styles.headerTitle}>Certified Coaches</Text>
@@ -712,6 +999,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
+  coachAvatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
   coachInfo: {
     flex: 1,
   },
@@ -850,6 +1142,112 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  // Messaging modal styles
+  messagingModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  messagingModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34, // Safe area padding
+    maxHeight: '80%',
+  },
+  messagingModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  messagingModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  messagingModalCloseButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  messagingOptionsContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  messagingOptionsDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  messagingOptionCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    marginBottom: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  smsOptionCard: {
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  messagingOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  messagingOptionIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  messagingOptionIconImage: {
+    width: 28,
+    height: 28,
+    marginRight: 12,
+  },
+  whatsappIconRounded: {
+    borderRadius: 6,
+  },
+  messagingOptionTextContainer: {
+    flex: 1,
+  },
+  messagingOptionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  messagingOptionDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  noMessagingOptions: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  noMessagingOptionsText: {
+    fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
   },

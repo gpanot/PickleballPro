@@ -394,6 +394,7 @@ export default function AdminDashboard({ navigation }) {
           id, 
           name, 
           email, 
+          avatar_url,
           created_at, 
           updated_at, 
           is_active,
@@ -1961,7 +1962,15 @@ export default function AdminDashboard({ navigation }) {
         <View style={[styles.modernTableCell, { flex: 2 }]}>
           <View style={styles.coachInfoContainer}>
             <View style={styles.coachAvatar}>
-              <Text style={styles.coachAvatarText}>{getCoachInitials(coach.name)}</Text>
+              {coach.avatar_url ? (
+                <Image 
+                  source={{ uri: coach.avatar_url }} 
+                  style={styles.coachAvatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.coachAvatarText}>{getCoachInitials(coach.name)}</Text>
+              )}
               {coach.is_verified && (
                 <View style={styles.verifiedIcon}>
                   <Ionicons name="checkmark" size={10} color="#FFFFFF" />
@@ -2238,7 +2247,15 @@ export default function AdminDashboard({ navigation }) {
         <View style={[styles.modernTableCell, { flex: 2 }]}>
           <View style={styles.userInfoContainer}>
             <View style={styles.userAvatar}>
-              <Text style={styles.userAvatarText}>{getUserInitials(user.name, user.email)}</Text>
+              {user.avatar_url ? (
+                <Image 
+                  source={{ uri: user.avatar_url }} 
+                  style={styles.userAvatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.userAvatarText}>{getUserInitials(user.name, user.email)}</Text>
+              )}
             </View>
             <View style={styles.userDetails}>
               <Text style={styles.userName}>{user.name || 'No Name'}</Text>
@@ -4482,6 +4499,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
+  coachAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
   verifiedIcon: {
     position: 'absolute',
     bottom: -2,
@@ -4673,6 +4695,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  userAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   userDetails: {
     flex: 1,

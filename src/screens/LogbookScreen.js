@@ -153,9 +153,17 @@ export default function LogbookScreen({ navigation }) {
         activeOpacity={0.7}
       >
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
-          </Text>
+          {user.avatarUrl ? (
+            <Image 
+              source={{ uri: user.avatarUrl }} 
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>
+              {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     </View>
@@ -509,6 +517,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   // Floating Action Button
   fab: {
