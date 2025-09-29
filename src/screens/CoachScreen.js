@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
 import { getCoaches, transformCoachData } from '../lib/supabase';
@@ -26,13 +27,78 @@ export default function CoachScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
+  // Location state
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  
   const specialtyFilters = ['Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
 
-  // Fetch coaches from API on component mount
+  // Request location permission and get user location on component mount
   useEffect(() => {
+    requestLocationPermission();
     fetchCoaches();
   }, []);
+
+  const requestLocationPermission = async () => {
+    try {
+      setLocationLoading(true);
+      
+      // Check if location services are enabled
+      const enabled = await Location.hasServicesEnabledAsync();
+      if (!enabled) {
+        Alert.alert(
+          'Location Services Disabled',
+          'Please enable location services to sort coaches by distance.',
+          [{ text: 'OK' }]
+        );
+        setLocationLoading(false);
+        return;
+      }
+
+      // Request permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status === 'granted') {
+        setLocationPermissionGranted(true);
+        await getUserLocation();
+      } else {
+        setLocationPermissionGranted(false);
+        Alert.alert(
+          'Location Permission Required',
+          'To sort coaches by distance, please allow location access in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Settings', onPress: () => Location.requestForegroundPermissionsAsync() }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+      Alert.alert('Error', 'Failed to request location permission.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const getUserLocation = async () => {
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      
+      console.log('User location obtained:', location.coords);
+    } catch (error) {
+      console.error('Error getting user location:', error);
+      Alert.alert('Error', 'Failed to get your current location.');
+    }
+  };
 
   const fetchCoaches = async () => {
     try {
@@ -56,6 +122,30 @@ export default function CoachScreen() {
       setLoading(false);
     }
   };
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in miles
+  };
+
+  // Get coach coordinates from the coach object
+  const getCoachCoordinates = (coach) => {
+    if (coach.latitude && coach.longitude) {
+      return {
+        latitude: parseFloat(coach.latitude),
+        longitude: parseFloat(coach.longitude)
+      };
+    }
+    return null;
+  };
   
   const filteredAndSortedCoaches = coaches
     .filter(coach => {
@@ -74,7 +164,33 @@ export default function CoachScreen() {
         case 'Price':
           return a.hourlyRate - b.hourlyRate; // Lowest price first
         case 'Location':
-          return a.location.localeCompare(b.location); // Alphabetical order
+          if (userLocation && locationPermissionGranted) {
+            // Sort by distance from user location
+            const aCoords = getCoachCoordinates(a);
+            const bCoords = getCoachCoordinates(b);
+            
+            if (aCoords && bCoords) {
+              const distanceA = calculateDistance(
+                userLocation.latitude, 
+                userLocation.longitude, 
+                aCoords.latitude, 
+                aCoords.longitude
+              );
+              const distanceB = calculateDistance(
+                userLocation.latitude, 
+                userLocation.longitude, 
+                bCoords.latitude, 
+                bCoords.longitude
+              );
+              return distanceA - distanceB; // Closest first
+            } else if (aCoords && !bCoords) {
+              return -1; // Coaches with coordinates come first
+            } else if (!aCoords && bCoords) {
+              return 1; // Coaches with coordinates come first
+            }
+          }
+          // Fallback to alphabetical order if no user location or coordinates
+          return a.location.localeCompare(b.location);
         default:
           return 0;
       }
@@ -129,15 +245,32 @@ export default function CoachScreen() {
               key={option}
               style={[
                 styles.sortButton,
-                sortBy === option && styles.sortButtonActive
+                sortBy === option && styles.sortButtonActive,
+                option === 'Location' && !locationPermissionGranted && styles.sortButtonDisabled
               ]}
-              onPress={() => setSortBy(option)}
+              onPress={() => {
+                if (option === 'Location' && !locationPermissionGranted) {
+                  Alert.alert(
+                    'Location Permission Required',
+                    'Please allow location access to sort coaches by distance.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Allow', onPress: requestLocationPermission }
+                    ]
+                  );
+                } else {
+                  setSortBy(option);
+                }
+              }}
             >
               <Text style={[
                 styles.sortButtonText,
-                sortBy === option && styles.sortButtonTextActive
+                sortBy === option && styles.sortButtonTextActive,
+                option === 'Location' && !locationPermissionGranted && styles.sortButtonTextDisabled
               ]}>
                 {option}
+                {option === 'Location' && locationLoading && ' 📍'}
+                {option === 'Location' && !locationPermissionGranted && !locationLoading && ' 🔒'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -253,7 +386,22 @@ export default function CoachScreen() {
       
       <View style={styles.coachLocation}>
         <WebIcon name="location-outline" size={14} color="#6B7280" />
-        <Text style={styles.locationText}>{coach.location}</Text>
+        <Text style={styles.locationText}>
+          {coach.location.replace(/\s*\([^)]*\)$/, '')} {/* Remove coordinates from display */}
+          {userLocation && locationPermissionGranted && (() => {
+            const coachCoords = getCoachCoordinates(coach);
+            if (coachCoords) {
+              const distance = calculateDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                coachCoords.latitude,
+                coachCoords.longitude
+              );
+              return ` • ${distance.toFixed(1)} mi away`;
+            }
+            return '';
+          })()}
+        </Text>
       </View>
       
       <TouchableOpacity 
@@ -474,6 +622,12 @@ const styles = StyleSheet.create({
   },
   sortButtonTextActive: {
     color: 'white',
+  },
+  sortButtonDisabled: {
+    opacity: 0.5,
+  },
+  sortButtonTextDisabled: {
+    color: '#9CA3AF',
   },
   resultsContainer: {
     paddingHorizontal: 24,

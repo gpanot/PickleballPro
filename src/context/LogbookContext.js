@@ -113,6 +113,12 @@ export const LogbookProvider = ({ children }) => {
       ? thisWeekEntries.reduce((sum, entry) => sum + entry.feeling, 0) / thisWeekEntries.length
       : 0;
 
+    // Calculate last 5 sessions average mood
+    const last5Sessions = sortedEntries.slice(0, 5);
+    const last5AverageFeeling = last5Sessions.length > 0 
+      ? last5Sessions.reduce((sum, entry) => sum + entry.feeling, 0) / last5Sessions.length
+      : 0;
+
     // Get first session date
     const sortedByDate = [...logbookEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
     const firstSessionDate = sortedByDate.length > 0 ? sortedByDate[0].date : new Date().toISOString().split('T')[0];
@@ -168,6 +174,7 @@ export const LogbookProvider = ({ children }) => {
       weekSessions,
       monthSessions,
       weeklyAverageFeeling: Math.round(weeklyAverageFeeling * 10) / 10,
+      last5AverageFeeling: Math.round(last5AverageFeeling * 10) / 10,
       firstSessionDate,
       totalSessions: logbookEntries.length,
       topStrongSkills,

@@ -85,7 +85,10 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
       {/* Phone Status Bar */}
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
-      <View style={[styles.wrapper, { paddingTop: insets.top }]}>
+      <View style={[styles.wrapper, { 
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom 
+      }]}>
         {/* Progress Status Bar */}
         <View style={styles.statusBar}>
           <View style={styles.progressContainer}>

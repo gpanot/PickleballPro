@@ -27,6 +27,7 @@ import ExerciseDetailScreen from './src/screens/ExerciseDetailScreen';
 import ExercisePickerScreen from './src/screens/ExercisePickerScreen';
 import AddTrainingSessionScreen from './src/screens/AddTrainingSessionScreen';
 import EditTrainingSessionScreen from './src/screens/EditTrainingSessionScreen';
+import LogConfirmationScreen from './src/screens/LogConfirmationScreen';
 import AddExerciseScreen from './src/screens/AddExerciseScreen';
 import ProgramDetailScreen from './src/screens/ProgramDetailScreen';
 import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
@@ -178,6 +179,7 @@ function AppContent() {
             <Stack.Screen name="AddExercise" component={AddExerciseScreen} />
             <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
             <Stack.Screen name="EditTrainingSession" component={EditTrainingSessionScreen} />
+            <Stack.Screen name="LogConfirmation" component={LogConfirmationScreen} />
             <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
             <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
             <Stack.Screen 

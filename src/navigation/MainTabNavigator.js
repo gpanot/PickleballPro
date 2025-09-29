@@ -1,5 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TabIcon from '../components/TabIcon';
 
 import ExploreTrainingScreen from '../screens/ExploreTrainingScreen';
@@ -11,6 +12,8 @@ import FeedbackScreen from '../screens/FeedbackScreen';
 const Tab = createBottomTabNavigator();
 
 export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Library' }) {
+  const insets = useSafeAreaInsets();
+  
   // Get props from route params if passed via initialParams
   const finalOnLogout = onLogout || route?.params?.onLogout;
   const finalInitialRouteName = initialRouteName || route?.params?.initialRouteName || 'Library';
@@ -50,9 +53,9 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
           shadowOpacity: 0.1,
           shadowRadius: 8,
           elevation: 8,
-          paddingBottom: 12,
+          paddingBottom: 12 + insets.bottom,
           paddingTop: 12,
-          height: 80,
+          height: 80 + insets.bottom,
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
         },

@@ -12,23 +12,7 @@ The `expo-dev-menu` repository consists of two different parts, the exported pac
 
 Local development is usually done through [`bare-expo`](/apps/bare-expo).
 
-First, make sure to `yarn` and `yarn start` in `expo-dev-menu` which will add the port for the dev menu packager to [`dev-menu-packager-host`](./assets/dev-menu-packager-host`). This is bundled into the native code in `bare-expo` so need to be done first.
-
-To use `dev-client` when running `bare-expo` on Android, open [MainApplication.java](/apps/bare-expo/android/app/src/main/java/dev/expo/payments/MainApplication.java) and set the `USE_DEV_CLIENT` value to `true`.
-
-```diff
-- static final boolean USE_DEV_CLIENT = false;
-+ static final boolean USE_DEV_CLIENT = true;
-```
-
-To use `dev-client` when running `bare-expo` on iOS, open [AppDelegate.mm](/apps/bare-expo/ios/BareExpo/AppDelegate.mm) and set the `USE_DEV_CLIENT` value to `YES`.
-
-```diff
-- BOOL useDevClient = NO;
-+ BOOL useDevClient = YES;
-```
-
-Then build the native apps with `npx pod-install && yarn ios` or `yarn android`.
+First, make sure to `yarn` and `yarn start` in `expo-dev-menu` which will add the port for the dev menu packager to [`dev-menu-packager-host`](./assets/dev-menu-packager-host). This is bundled into the native code in `bare-expo` so it needs to be done first. When done with local development, you need to reset the contents of `dev-menu-packager-host`!
 
 ### Making JavaScript changes inside the `app` folder
 
@@ -36,11 +20,11 @@ To update the JavaScript code inside the `app` folder, you need to run the `dev-
 
 1. Navigate to the `dev-menu` package: `cd packages/expo-dev-menu`
 2. Start the Metro bundler: `yarn start`
-3. To use your local bundler on Android, open [DevMenuHost.java](/packages/expo-dev-menu/android/src/debug/java/expo/modules/devmenu/DevMenuHost.kt) and set `getUseDeveloperSupport` to `true`.
+3. To use your local bundler on Android, open [DevMenuManager.kt](/packages/expo-dev-menu/android/src/debug/java/expo/modules/devmenu/DevMenuManager.kt) and set `useDeveloperSupport` to `true`.
 
 ```diff
-- override fun getUseDeveloperSupport() = false
-+ override fun getUseDeveloperSupport() = true
+- val useDeveloperSupport = false
++ val useDeveloperSupport = true
 ```
 
 4. Play with your changes on a simulator or device through `bare-expo`

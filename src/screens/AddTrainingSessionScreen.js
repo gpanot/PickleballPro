@@ -158,36 +158,11 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
 
     addLogbookEntry(entry);
     
-    if (isTrainingSession) {
-      // For training sessions, navigate directly to Logbook
-      Alert.alert(
-        '🎉 Session Saved!', 
-        'Your training session has been saved to your logbook.',
-        [
-          {
-            text: 'View Logbook',
-            onPress: () => {
-              // Navigate to Main with Logbook tab
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main', state: { routes: [{ name: 'Logbook' }], index: 0 } }],
-              });
-            },
-          }
-        ]
-      );
-    } else {
-      Alert.alert(
-        'Success', 
-        'Training session logged successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          }
-        ]
-      );
-    }
+    // Navigate to the new confirmation screen instead of showing alerts
+    navigation.navigate('LogConfirmation', { 
+      entry: entry,
+      isTrainingSession: isTrainingSession 
+    });
   };
 
   const toggleTrainingFocus = (focusValue) => {

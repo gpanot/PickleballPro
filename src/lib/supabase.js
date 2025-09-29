@@ -247,11 +247,7 @@ export const createAdminUser = async (email, password, name, role = 'content_edi
 
 // 1. Get all published programs for Explore screen
 export const getPrograms = async () => {
-  console.log('📊 Supabase: getPrograms called');
-  
   try {
-    console.log('📊 Supabase: Executing streamlined query (skip session checks for web compatibility)...');
-    
     // Direct query without session validation - works with anonymous access
     const { data, error } = await supabase
       .from('programs')
@@ -285,39 +281,16 @@ export const getPrograms = async () => {
       .order('order_index', { ascending: true })
       .order('is_featured', { ascending: false });
 
-    console.log('📊 Supabase: Query executed - error:', !!error, 'data count:', data?.length || 0);
-    
     if (error) {
-      console.error('📊 Supabase: Query error details:', error);
-      console.error('📊 Supabase: Error message:', error.message);
-      console.error('📊 Supabase: Error details:', error.details);
-      console.error('📊 Supabase: Error hint:', error.hint);
-      console.error('📊 Supabase: Error code:', error.code);
-      
-      // Check for common RLS issues
-      if (error.code === '42501' || error.message?.includes('row-level security')) {
-        console.error('📊 Supabase: 🚨 RLS POLICY ERROR DETECTED! 🚨');
-        console.error('📊 Supabase: The query is being blocked by Row Level Security');
-      }
-      
       throw error;
     }
     
     if (!data || data.length === 0) {
-      console.warn('📊 Supabase: No programs found in database');
       return { data: [], error: null };
     }
     
-    console.log('📊 Supabase: Raw query result sample (first program):');
-    console.log(JSON.stringify(data[0], null, 2));
-    console.log('📊 Supabase: ✅ getPrograms successful - returning', data.length, 'programs');
-    
     return { data, error: null };
   } catch (error) {
-    console.error('📊 Supabase: Error fetching programs:', error);
-    console.error('📊 Supabase: Error details:', error.details);
-    console.error('📊 Supabase: Error hint:', error.hint);
-    console.error('📊 Supabase: Error code:', error.code);
     return { data: null, error };
   }
 };
@@ -488,20 +461,12 @@ export const getUserProgress = async () => {
 
 // Helper function to transform program data to match your current app structure
 export const transformProgramData = (programs) => {
-  console.log('🔄 Supabase: transformProgramData called with', programs?.length || 0, 'programs');
-  
   if (!programs || !Array.isArray(programs)) {
-    console.warn('🔄 Supabase: Invalid programs data:', programs);
     return [];
   }
   
   try {
     const transformed = programs.map((program, index) => {
-      console.log(`🔄 Supabase: Transforming program ${index + 1}:`, program.name);
-      
-      if (!program.routines) {
-        console.warn(`🔄 Supabase: Program ${program.name} has no routines`);
-      }
       
       return {
         id: program.id,
@@ -516,7 +481,6 @@ export const transformProgramData = (programs) => {
         routines: (program.routines || [])
           .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
           .map(routine => {
-            console.log(`🔄 Supabase: Processing routine:`, routine.name);
             return {
               id: routine.id,
               name: routine.name,
@@ -526,7 +490,6 @@ export const transformProgramData = (programs) => {
                 .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
                 .map(re => {
                   if (!re.exercises) {
-                    console.warn(`🔄 Supabase: Missing exercise data for routine exercise`);
                     return null;
                   }
                   return {
@@ -599,7 +562,11 @@ export const transformCoachData = (coaches) => {
     rating: coach.rating_avg,
     reviewCount: coach.rating_count,
     specialties: coach.specialties,
-    location: coach.location,
+    location: coach.latitude && coach.longitude 
+      ? `${coach.location} (${coach.latitude},${coach.longitude})`
+      : coach.location,
+    latitude: coach.latitude,
+    longitude: coach.longitude,
     verified: coach.is_verified,
     image: coach.avatar_url
   }));

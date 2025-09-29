@@ -142,16 +142,14 @@ export const AuthProvider = ({ children }) => {
 
   const fetchOrCreateUserProfile = async (authUser) => {
     try {
-      console.log('AuthContext: Fetching user profile from database...');
       const { data: userProfile, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
         .single();
       
-      if (error) {
-        console.log('AuthContext: Profile not found, creating new profile...');
-        // Create profile if it doesn't exist
+      if (error && error.code === 'PGRST116') {
+        // Profile not found, create new profile
         const defaultName = authUser.email ? authUser.email.split('@')[0] : authUser.id;
         const { data: newProfile, error: createError } = await supabase
           .from('users')
@@ -166,7 +164,28 @@ export const AuthProvider = ({ children }) => {
           .single();
 
         if (createError) {
-          console.error('AuthContext: Error creating user profile:', createError);
+          // Check if it's a duplicate key error (profile already exists)
+          if (createError.code === '23505' || createError.message?.includes('duplicate key')) {
+            // Profile was created by another process, fetch it
+            const { data: existingProfile } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', authUser.id)
+              .single();
+            
+            if (existingProfile) {
+              const profileWithDefaults = {
+                ...existingProfile,
+                name: existingProfile.name || existingProfile.email?.split('@')[0] || existingProfile.id,
+                dupr_rating: existingProfile.dupr_rating || 2.0,
+                focus_areas: existingProfile.focus_areas || []
+              };
+              setProfile(profileWithDefaults);
+              return;
+            }
+          }
+          
+          // Fallback to local profile
           setProfile({
             id: authUser.id,
             email: authUser.email,
@@ -175,10 +194,9 @@ export const AuthProvider = ({ children }) => {
             focus_areas: []
           });
         } else {
-          console.log('AuthContext: ✅ Created new user profile');
           setProfile(newProfile);
         }
-      } else {
+      } else if (userProfile) {
         // Use existing profile with defaults
         const profileWithDefaults = {
           ...userProfile,
@@ -186,11 +204,11 @@ export const AuthProvider = ({ children }) => {
           dupr_rating: userProfile.dupr_rating || 2.0,
           focus_areas: userProfile.focus_areas || []
         };
-        console.log('AuthContext: ✅ Found existing user profile');
         setProfile(profileWithDefaults);
+      } else {
+        throw error;
       }
     } catch (error) {
-      console.error('AuthContext: Error with user profile:', error);
       // Set default profile to prevent null issues
       setProfile({
         id: authUser.id,

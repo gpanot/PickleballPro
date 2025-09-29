@@ -14,25 +14,27 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { PlatformMap, PlatformMarker } from '../components/PlatformMap';
 import ModernIcon from '../components/ModernIcon';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
 export default function CreateCoachProfileScreen({ navigation }) {
-  const { user: authUser } = useAuth();
+  const { user: authUser, profile: userProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: authUser?.user_metadata?.full_name || '',
+    name: authUser?.user_metadata?.full_name || userProfile?.name || '',
     email: authUser?.email || '',
     bio: '',
-    duprRating: '',
+    duprRating: userProfile?.dupr_rating ? userProfile.dupr_rating.toFixed(3) : '',
     hourlyRate: '',
     location: '',
     latitude: null,
     longitude: null,
     phone: '',
     specialties: [],
+    coachingRadius: 5, // Default to 5km
     isVerified: false,
     isActive: true,
     isAcceptingStudents: false // Default to not published
@@ -51,6 +53,8 @@ export default function CreateCoachProfileScreen({ navigation }) {
   });
   const [previewLocation, setPreviewLocation] = useState('');
   const [geocodingLoading, setGeocodingLoading] = useState(false);
+  const [existingCoachProfile, setExistingCoachProfile] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Add debug useEffect
   useEffect(() => {
@@ -58,6 +62,71 @@ export default function CreateCoachProfileScreen({ navigation }) {
     console.log('Platform:', Platform.OS);
     console.log('Initial map region:', mapRegion);
   }, []);
+
+  // Check for existing coach profile when component mounts
+  useEffect(() => {
+    const checkExistingProfile = async () => {
+      if (authUser?.email) {
+        try {
+          console.log('Checking for existing coach profile...');
+          const { data: existingCoach, error } = await supabase
+            .from('coaches')
+            .select('*')
+            .eq('email', authUser.email)
+            .single();
+
+          if (error && error.code !== 'PGRST116') {
+            // PGRST116 is "not found" error which is expected for new profiles
+            console.error('Error checking existing coach profile:', error);
+            return;
+          }
+
+          if (existingCoach) {
+            console.log('Found existing coach profile:', existingCoach);
+            setExistingCoachProfile(existingCoach);
+            setIsEditMode(true);
+            
+            // Populate form with existing data
+            setFormData({
+              name: existingCoach.name || '',
+              email: existingCoach.email || '',
+              bio: existingCoach.bio || '',
+              duprRating: existingCoach.dupr_rating ? existingCoach.dupr_rating.toFixed(3) : '',
+              hourlyRate: existingCoach.hourly_rate ? (existingCoach.hourly_rate / 100).toString() : '',
+              location: existingCoach.location || '',
+              latitude: existingCoach.latitude,
+              longitude: existingCoach.longitude,
+              phone: existingCoach.phone || '',
+              specialties: existingCoach.specialties || [],
+              coachingRadius: existingCoach.coaching_radius || 5,
+              isVerified: existingCoach.is_verified || false,
+              isActive: existingCoach.is_active !== false, // Default to true if null/undefined
+              isAcceptingStudents: existingCoach.is_accepting_students || false
+            });
+          } else {
+            console.log('No existing coach profile found - create mode');
+            setIsEditMode(false);
+          }
+        } catch (error) {
+          console.error('Error checking existing coach profile:', error);
+        }
+      }
+    };
+
+    checkExistingProfile();
+  }, [authUser?.email]);
+
+  // Update form data when user profile loads (only for new profiles)
+  useEffect(() => {
+    if (!isEditMode && userProfile && userProfile.dupr_rating && !formData.duprRating) {
+      console.log('Auto-populating DUPR rating from user profile:', userProfile.dupr_rating);
+      setFormData(prevData => ({
+        ...prevData,
+        name: prevData.name || userProfile.name || '',
+        duprRating: userProfile.dupr_rating.toFixed(3)
+      }));
+    }
+  }, [userProfile, formData.duprRating, isEditMode]);
 
   // Auto-reverse geocode when coordinates change (with debounce)
   useEffect(() => {
@@ -90,55 +159,68 @@ export default function CreateCoachProfileScreen({ navigation }) {
 
     setLoading(true);
     try {
-      // Check if user already has a coach profile
-      const { data: existingCoach, error: checkError } = await supabase
-        .from('coaches')
-        .select('id')
-        .eq('email', formData.email)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error which is expected
-        throw checkError;
-      }
-
-      if (existingCoach) {
-        Alert.alert(
-          'Coach Profile Already Exists',
-          'You already have a coach profile with this email address. Please contact support if you need to update your existing profile.',
-          [{ text: 'OK' }]
-        );
-        setLoading(false);
-        return;
-      }
       const coachData = {
         name: formData.name,
         email: formData.email,
         bio: formData.bio || '',
-        dupr_rating: formData.duprRating ? parseFloat(formData.duprRating) : null,
+        dupr_rating: formData.duprRating ? parseFloat(parseFloat(formData.duprRating).toFixed(3)) : null,
         hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate) * 100 : null, // Convert to cents
         location: formData.location || '',
         latitude: formData.latitude,
         longitude: formData.longitude,
         phone: formData.phone || '',
         specialties: formData.specialties || [],
+        coaching_radius: formData.coachingRadius, // Coaching radius in kilometers
         is_verified: false, // New coach profiles start as unverified
-        is_active: formData.isActive !== false, // Default to true
+        is_active: Boolean(formData.isActive), // Convert to boolean explicitly
         is_accepting_students: formData.isAcceptingStudents, // User's choice to publish
         rating_avg: 0,
         rating_count: 0
       };
 
-      const { data, error } = await supabase
-        .from('coaches')
-        .insert([coachData])
-        .select();
+      // Debug: Log the values being saved
+      console.log('Saving coach data:', {
+        isEditMode,
+        isActive: formData.isActive,
+        is_active: Boolean(formData.isActive),
+        isAcceptingStudents: formData.isAcceptingStudents,
+        is_accepting_students: formData.isAcceptingStudents
+      });
+
+      let data, error;
+
+      if (isEditMode && existingCoachProfile) {
+        // Update existing profile
+        console.log('Updating existing coach profile with ID:', existingCoachProfile.id);
+        const result = await supabase
+          .from('coaches')
+          .update(coachData)
+          .eq('id', existingCoachProfile.id)
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      } else {
+        // Create new profile
+        console.log('Creating new coach profile');
+        const result = await supabase
+          .from('coaches')
+          .insert([coachData])
+          .select();
+        
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
-      const successMessage = formData.isAcceptingStudents 
-        ? 'Your coach profile has been created successfully! It will be reviewed by our team before being published in the coach directory.'
-        : 'Your coach profile has been created successfully! You can publish it in the coach directory anytime by updating your profile.';
+      const successMessage = isEditMode 
+        ? (formData.isAcceptingStudents 
+            ? 'Your coach profile has been updated successfully! Changes will be reviewed by our team.'
+            : 'Your coach profile has been updated successfully!')
+        : (formData.isAcceptingStudents 
+            ? 'Your coach profile has been created successfully! It will be reviewed by our team before being published in the coach directory.'
+            : 'Your coach profile has been created successfully! You can publish it in the coach directory anytime by updating your profile.');
         
       Alert.alert(
         'Success', 
@@ -152,18 +234,11 @@ export default function CreateCoachProfileScreen({ navigation }) {
       );
       
     } catch (error) {
-      console.error('Error creating coach profile:', error);
-      Alert.alert('Error', 'Failed to create coach profile: ' + error.message);
+      console.error('Error saving coach profile:', error);
+      Alert.alert('Error', `Failed to ${isEditMode ? 'update' : 'create'} coach profile: ` + error.message);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleMapPress = (event) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    console.log('Map pressed at:', latitude, longitude);
-    console.log('Event details:', JSON.stringify(event.nativeEvent, null, 2));
-    setTempCoordinates({ latitude, longitude });
   };
 
   const reverseGeocode = async (latitude, longitude) => {
@@ -443,6 +518,64 @@ export default function CreateCoachProfileScreen({ navigation }) {
     console.log('Opening map picker...');
     
     try {
+      // For Android, directly get location and populate without opening modal
+      if (Platform.OS === 'android') {
+        setLocationLoading(true);
+        
+        try {
+          // Try to get current location first
+          const currentLocation = await getCurrentLocation();
+          if (currentLocation) {
+            console.log('Android: Got current location:', currentLocation);
+            
+            // Perform reverse geocoding to get address
+            const locationString = await reverseGeocode(currentLocation.latitude, currentLocation.longitude);
+            
+            // Update form data directly
+            setFormData({
+              ...formData,
+              latitude: currentLocation.latitude,
+              longitude: currentLocation.longitude,
+              location: locationString || formData.location, // Keep existing if geocoding fails
+            });
+            
+            if (locationString) {
+              Alert.alert(
+                'Location Set',
+                `Your location has been set to: "${locationString}"`,
+                [{ text: 'OK' }]
+              );
+            } else {
+              Alert.alert(
+                'Location Set',
+                'Your coordinates have been saved! You can manually enter the city name in the location field if needed.',
+                [{ text: 'OK' }]
+              );
+            }
+            
+            return; // Exit early for Android
+          } else {
+            Alert.alert(
+              'Location Error',
+              'Unable to get your current location. Please try again or enter your location manually.',
+              [{ text: 'OK' }]
+            );
+            return;
+          }
+        } catch (error) {
+          console.error('Android location error:', error);
+          Alert.alert(
+            'Location Error',
+            'Failed to get your location. Please try again or enter your location manually.',
+            [{ text: 'OK' }]
+          );
+          return;
+        } finally {
+          setLocationLoading(false);
+        }
+      }
+      
+      // For iOS and Web, continue with the map picker modal
       let targetLocation;
       
       // If coordinates already exist, use them
@@ -524,12 +657,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
               <iframe
                 key={`${tempCoordinates.latitude}-${tempCoordinates.longitude}`}
                 src={`https://maps.google.com/maps?q=${tempCoordinates.latitude},${tempCoordinates.longitude}&hl=en&z=15&output=embed`}
-                style={{
-                  width: '100%',
-                  height: '350px',
-                  border: 'none',
-                  borderRadius: '8px',
-                }}
+                style={{ width: '100%', height: '350px', border: 'none', borderRadius: 8 }}
                 title="Location Map"
                 loading="lazy"
               />
@@ -538,9 +666,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
                   style={styles.openInGoogleMapsButton}
                   onPress={() => {
                     const url = `https://maps.google.com/?q=${tempCoordinates.latitude},${tempCoordinates.longitude}`;
-                    if (typeof window !== 'undefined') {
-                      window.open(url, '_blank');
-                    }
+                    if (typeof window !== 'undefined') window.open(url, '_blank');
                   }}
                 >
                   <Ionicons name="open-outline" size={16} color="#059669" />
@@ -549,63 +675,40 @@ export default function CreateCoachProfileScreen({ navigation }) {
               </View>
             </View>
           ) : (
-            <View style={styles.mobileMapContainer}>
-              <View style={styles.mobileMapHeader}>
-                <Ionicons name="map" size={24} color="#059669" />
-                <Text style={styles.mobileMapTitle}>Location Preview</Text>
-              </View>
-              <View style={styles.mobileMapContent}>
-                <View style={styles.coordinateDisplay}>
-                  <Text style={styles.coordinateDisplayLabel}>Selected Coordinates:</Text>
-                  <Text style={styles.coordinateDisplayValue}>
-                    {tempCoordinates.latitude.toFixed(6)}, {tempCoordinates.longitude.toFixed(6)}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.openMapsAppButton}
-                  onPress={async () => {
-                    try {
-                      const lat = tempCoordinates.latitude;
-                      const lng = tempCoordinates.longitude;
-                      
-                      let url;
-                      if (Platform.OS === 'ios') {
-                        // Try Apple Maps first, fallback to Google Maps
-                        url = `maps://maps.apple.com/?q=${lat},${lng}`;
-                      } else if (Platform.OS === 'android') {
-                        // Android - use geo intent
-                        url = `geo:${lat},${lng}?q=${lat},${lng}`;
-                      } else {
-                        // Web fallback
-                        url = `https://maps.google.com/?q=${lat},${lng}`;
-                        if (typeof window !== 'undefined') {
-                          window.open(url, '_blank');
-                          return;
-                        }
-                      }
-                      
-                      // For mobile platforms, try to open the native app
-                      if (Platform.OS !== 'web') {
-                        const supported = await Linking.canOpenURL(url);
-                        if (supported) {
-                          await Linking.openURL(url);
-                        } else {
-                          // Fallback to Google Maps web
-                          const fallbackUrl = `https://maps.google.com/?q=${lat},${lng}`;
-                          await Linking.openURL(fallbackUrl);
-                        }
-                      }
-                    } catch (error) {
-                      console.error('Error opening maps:', error);
-                      Alert.alert('Error', 'Unable to open maps application.');
-                    }
-                  }}
-                >
-                  <Ionicons name="navigate" size={20} color="#059669" />
-                  <Text style={styles.openMapsAppText}>View in Maps App</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            // MOBILE: Show a real MapView
+            <PlatformMap
+              style={{ height: 350, width: '100%' }}               // ensure non-zero height!
+              initialRegion={{
+                latitude: mapRegion.latitude,
+                longitude: mapRegion.longitude,
+                latitudeDelta: mapRegion.latitudeDelta,
+                longitudeDelta: mapRegion.longitudeDelta,
+              }}
+              region={{
+                latitude: tempCoordinates.latitude,
+                longitude: tempCoordinates.longitude,
+                latitudeDelta: mapRegion.latitudeDelta,
+                longitudeDelta: mapRegion.longitudeDelta,
+              }}
+              onPress={(e) => {
+                const { latitude, longitude } = e.nativeEvent.coordinate;
+                setTempCoordinates({ latitude, longitude });
+              }}
+              onMapReady={() => console.log('Map ready')}
+              onRegionChangeComplete={(r) => setMapRegion(r)}
+            >
+              <PlatformMarker
+                coordinate={{
+                  latitude: tempCoordinates.latitude,
+                  longitude: tempCoordinates.longitude,
+                }}
+                draggable
+                onDragEnd={(e) => {
+                  const { latitude, longitude } = e.nativeEvent.coordinate;
+                  setTempCoordinates({ latitude, longitude });
+                }}
+              />
+            </PlatformMap>
           )}
           
           <View style={styles.coordinateInputsSection}>
@@ -724,7 +827,9 @@ export default function CreateCoachProfileScreen({ navigation }) {
       >
         <Ionicons name="arrow-back" size={24} color="#1F2937" />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>Create Your Coach Profile</Text>
+      <Text style={styles.headerTitle}>
+        {isEditMode ? 'Edit Your Coach Profile' : 'Create Your Coach Profile'}
+      </Text>
       <TouchableOpacity 
         style={styles.saveButton}
         onPress={handleSaveCoach}
@@ -733,7 +838,9 @@ export default function CreateCoachProfileScreen({ navigation }) {
         {loading ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Text style={styles.saveButtonText}>Save</Text>
+          <Text style={styles.saveButtonText}>
+            {isEditMode ? 'Update' : 'Save'}
+          </Text>
         )}
       </TouchableOpacity>
     </View>
@@ -812,14 +919,58 @@ export default function CreateCoachProfileScreen({ navigation }) {
             
             <View style={styles.formField}>
               <Text style={styles.formLabel}>DUPR Rating</Text>
+              <Text style={styles.formDescription}>
+                {userProfile?.dupr_rating 
+                  ? 'Auto-populated from your profile. You can edit if needed (x.xxx format)'
+                  : 'Enter your rating in x.xxx format (e.g., 4.125, 3.750)'
+                }
+              </Text>
               <TextInput
                 style={styles.formInput}
-                placeholder="4.5"
+                placeholder="4.125"
                 value={formData.duprRating}
-                onChangeText={(text) => setFormData({...formData, duprRating: text})}
+                onChangeText={(text) => {
+                  // Allow only numbers and decimal point
+                  const cleanedText = text.replace(/[^0-9.]/g, '');
+                  
+                  // Ensure only one decimal point
+                  const parts = cleanedText.split('.');
+                  if (parts.length > 2) {
+                    return; // Don't update if more than one decimal point
+                  }
+                  
+                  // Limit to x.xxx format (one digit before decimal, up to 3 after)
+                  if (parts[0] && parts[0].length > 1) {
+                    parts[0] = parts[0].slice(0, 1); // Keep only first digit before decimal
+                  }
+                  if (parts[1] && parts[1].length > 3) {
+                    parts[1] = parts[1].slice(0, 3); // Keep only 3 digits after decimal
+                  }
+                  
+                  const formattedText = parts.join('.');
+                  
+                  // Validate range (DUPR ratings are typically 1.000 to 8.000)
+                  const numValue = parseFloat(formattedText);
+                  if (formattedText !== '' && (isNaN(numValue) || numValue < 1 || numValue > 8)) {
+                    return; // Don't update if outside valid range
+                  }
+                  
+                  setFormData({...formData, duprRating: formattedText});
+                }}
                 keyboardType="decimal-pad"
                 placeholderTextColor="#9CA3AF"
+                maxLength={5} // x.xxx = 5 characters max
               />
+              {formData.duprRating && (
+                <Text style={styles.duprValidationText}>
+                  {(() => {
+                    const rating = parseFloat(formData.duprRating);
+                    if (isNaN(rating)) return '❌ Invalid format';
+                    if (rating < 1 || rating > 8) return '❌ Rating must be between 1.000 and 8.000';
+                    return `✅ Valid DUPR rating: ${rating.toFixed(3)}`;
+                  })()}
+                </Text>
+              )}
             </View>
 
             <View style={styles.formField}>
@@ -857,16 +1008,59 @@ export default function CreateCoachProfileScreen({ navigation }) {
                   {locationLoading 
                     ? 'Getting Location...' 
                     : formData.latitude && formData.longitude 
-                      ? 'Update Map Location' 
-                      : 'Set Map Location'
+                      ? (Platform.OS === 'android' ? 'Update My Location' : 'Update Map Location')
+                      : (Platform.OS === 'android' ? 'Get My Location' : 'Set Map Location')
                   }
                 </Text>
               </TouchableOpacity>
               {formData.latitude && formData.longitude && (
-                <Text style={styles.coordinatesText}>
-                  📍 {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
-                </Text>
+                <View style={styles.locationSummary}>
+                  <Text style={styles.coordinatesText}>
+                    📍 {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                  </Text>
+                  <Text style={styles.radiusSummaryText}>
+                    🎯 Coaching radius: {formData.coachingRadius < 1 
+                      ? `${Math.round(formData.coachingRadius * 1000)}m` 
+                      : `${formData.coachingRadius}km`}
+                  </Text>
+                </View>
               )}
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Coaching Radius</Text>
+              <Text style={styles.formDescription}>How far are you willing to travel for coaching sessions?</Text>
+              <View style={styles.radiusSelector}>
+                <View style={styles.radiusSliderContainer}>
+                  <Text style={styles.radiusValue}>
+                    {formData.coachingRadius < 1 
+                      ? `${Math.round(formData.coachingRadius * 1000)}m` 
+                      : `${formData.coachingRadius}km`}
+                  </Text>
+                  <View style={styles.radiusSlider}>
+                    {/* Custom slider using buttons for better cross-platform compatibility */}
+                    <View style={styles.radiusOptions}>
+                      {[0.5, 1, 2, 5, 10, 15, 20, 30].map(radius => (
+                        <TouchableOpacity
+                          key={radius}
+                          style={[
+                            styles.radiusOption,
+                            formData.coachingRadius === radius && styles.radiusOptionSelected
+                          ]}
+                          onPress={() => setFormData({...formData, coachingRadius: radius})}
+                        >
+                          <Text style={[
+                            styles.radiusOptionText,
+                            formData.coachingRadius === radius && styles.radiusOptionTextSelected
+                          ]}>
+                            {radius < 1 ? `${Math.round(radius * 1000)}m` : `${radius}km`}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              </View>
             </View>
 
             <View style={styles.formField}>
@@ -904,7 +1098,10 @@ export default function CreateCoachProfileScreen({ navigation }) {
               <View style={styles.checkboxContainer}>
                 <TouchableOpacity
                   style={[styles.checkbox, formData.isActive && styles.checkboxChecked]}
-                  onPress={() => setFormData({...formData, isActive: !formData.isActive})}
+                  onPress={() => {
+                    console.log('Toggling isActive from', formData.isActive, 'to', !formData.isActive);
+                    setFormData({...formData, isActive: !formData.isActive});
+                  }}
                 >
                   {formData.isActive && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
                 </TouchableOpacity>
@@ -1037,6 +1234,11 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 8,
   },
+  duprValidationText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  },
   formInput: {
     borderWidth: 1,
     borderColor: '#D1D5DB',
@@ -1077,6 +1279,50 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   specialtyOptionTextSelected: {
+    color: '#FFFFFF',
+  },
+  radiusSelector: {
+    marginTop: 8,
+  },
+  radiusSliderContainer: {
+    alignItems: 'center',
+  },
+  radiusValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#059669',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  radiusSlider: {
+    width: '100%',
+  },
+  radiusOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  radiusOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  radiusOptionSelected: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  radiusOptionText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  radiusOptionTextSelected: {
     color: '#FFFFFF',
   },
   checkboxContainer: {
@@ -1157,11 +1403,21 @@ const styles = StyleSheet.create({
     color: '#059669',
     marginLeft: 8,
   },
+  locationSummary: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
   coordinatesText: {
     fontSize: 12,
     color: '#6B7280',
-    marginTop: 4,
     textAlign: 'center',
+  },
+  radiusSummaryText: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 2,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   mapPickerContainer: {
     flex: 1,

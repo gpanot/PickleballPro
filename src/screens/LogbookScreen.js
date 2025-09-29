@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   TouchableWithoutFeedback,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -103,6 +104,43 @@ export default function LogbookScreen({ navigation }) {
     return sessionTypeOptions.find(option => option.value === value) || sessionTypeOptions[0];
   };
 
+  // Calculate coach recommendation score (0-100)
+  const getCoachRecommendationScore = () => {
+    if (logbookEntries.length === 0) return 50; // Default middle position
+
+    // Criteria for needing a coach:
+    // 1. Low average mood (last 5 sessions) - 40% weight
+    // 2. High frequency of difficulty areas - 30% weight  
+    // 3. Stagnant progress (same weak skills appearing repeatedly) - 20% weight
+    // 4. Low session frequency - 10% weight
+
+    let score = 0;
+
+    // 1. Mood factor (40 points max)
+    const moodScore = summary.last5AverageFeeling || 0;
+    const moodFactor = Math.max(0, (3 - moodScore) / 2 * 40); // Lower mood = higher score
+    score += moodFactor;
+
+    // 2. Difficulty frequency (30 points max)
+    const recentEntries = logbookEntries.slice(0, 10); // Last 10 sessions
+    const entriesWithDifficulty = recentEntries.filter(entry => entry.difficulty && entry.difficulty.length > 0);
+    const difficultyRate = entriesWithDifficulty.length / Math.max(recentEntries.length, 1);
+    const difficultyFactor = difficultyRate * 30;
+    score += difficultyFactor;
+
+    // 3. Stagnant progress (20 points max)
+    const weakSkillsCount = summary.topWeakSkills.length;
+    const stagnationFactor = Math.min(weakSkillsCount / 3, 1) * 20;
+    score += stagnationFactor;
+
+    // 4. Session frequency (10 points max)
+    const weeklyFrequency = summary.weekSessions;
+    const frequencyFactor = weeklyFrequency < 2 ? 10 : Math.max(0, (3 - weeklyFrequency) / 3 * 10);
+    score += frequencyFactor;
+
+    return Math.min(Math.max(Math.round(score), 0), 100);
+  };
+
 
   const summary = getLogbookSummary();
 
@@ -143,7 +181,7 @@ export default function LogbookScreen({ navigation }) {
           {/* Total Hours Card */}
           <View style={styles.totalHoursCard}>
             <Text style={styles.totalHoursValue}>{summary.totalHours}h</Text>
-            <Text style={styles.totalHoursLabel}>Total Training Hours</Text>
+            <Text style={styles.totalHoursLabel}>Total Hours</Text>
             <Text style={styles.totalHoursSubtext}>
               {summary.totalSessions} sessions since {formatDate(summary.firstSessionDate)}
             </Text>
@@ -192,6 +230,23 @@ export default function LogbookScreen({ navigation }) {
             )}
           </View>
 
+          {/* Last 5 Sessions Average Mood */}
+          {summary.last5AverageFeeling > 0 && (
+            <View style={styles.last5FeelingCard}>
+              <View style={styles.last5FeelingHeader}>
+                <Text style={styles.last5FeelingTitle}>🎯 Last 5 Sessions Mood</Text>
+                <View style={styles.feelingDisplay}>
+                  <Text style={styles.feelingEmoji}>
+                    {getFeelingData(Math.round(summary.last5AverageFeeling)).emoji}
+                  </Text>
+                  <Text style={styles.feelingLabel}>
+                    {getFeelingData(Math.round(summary.last5AverageFeeling)).label}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
           {/* Weekly Feeling Progress */}
           {summary.weeklyAverageFeeling > 0 && (
             <View style={styles.weeklyFeelingCard}>
@@ -208,6 +263,48 @@ export default function LogbookScreen({ navigation }) {
               </View>
             </View>
           )}
+
+          {/* Coach Recommendation */}
+          {logbookEntries.length >= 3 && (() => {
+            const coachScore = getCoachRecommendationScore();
+            return (
+              <TouchableOpacity 
+                style={styles.coachRecommendationCard}
+                onPress={() => navigation.navigate('Coach')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.coachRecommendationTitle}>🏓 Do you need a coach?</Text>
+                <View style={styles.coachProgressContainer}>
+                  <Text style={[
+                    styles.coachProgressLabel,
+                    coachScore <= 50 ? styles.coachProgressLabelBold : null
+                  ]}>NO</Text>
+                  <View style={styles.coachProgressBar}>
+                    <View style={styles.coachProgressTrack} />
+                    <View 
+                      style={[
+                        styles.coachProgressBall,
+                        { left: `${coachScore}%` }
+                      ]}
+                    >
+                      <Image 
+                        source={require('../../assets/images/icon_ball.png')}
+                        style={styles.ballImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  </View>
+                  <Text style={[
+                    styles.coachProgressLabel,
+                    coachScore > 50 ? styles.coachProgressLabelBold : null
+                  ]}>YES</Text>
+                </View>
+                <Text style={styles.coachRecommendationSubtext}>
+                  Based on your recent mood and training patterns
+                </Text>
+              </TouchableOpacity>
+            );
+          })()}
         </>
       )}
     </View>
@@ -528,12 +625,32 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 3,
   },
+  // Last 5 sessions feeling card
+  last5FeelingCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+    marginBottom: 8,
+  },
+  last5FeelingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  last5FeelingTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0369A1',
+  },
   weeklyFeelingCard: {
     backgroundColor: '#F0F9FF',
     borderRadius: 8,
     padding: 8,
     borderWidth: 1,
     borderColor: '#E0F2FE',
+    marginBottom: 8,
   },
   weeklyFeelingHeader: {
     flexDirection: 'row',
@@ -557,6 +674,68 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#0369A1',
+  },
+  // Coach recommendation styles
+  coachRecommendationCard: {
+    backgroundColor: '#FEF7FF',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F3E8FF',
+  },
+  coachRecommendationTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#7C3AED',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  coachProgressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  coachProgressLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#6B7280',
+    width: 50,
+    textAlign: 'center',
+  },
+  coachProgressLabelBold: {
+    fontWeight: '900',
+    color: '#1F2937',
+    fontSize: 12,
+  },
+  coachProgressBar: {
+    flex: 1,
+    height: 20,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  coachProgressTrack: {
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+  },
+  coachProgressBall: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: -15, // Center the ball on the position (increased from -10 to -15)
+  },
+  ballImage: {
+    width: 27,
+    height: 27,
+  },
+  coachRecommendationSubtext: {
+    fontSize: 10,
+    color: '#9333EA',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   // Entries styles
   entriesContainer: {

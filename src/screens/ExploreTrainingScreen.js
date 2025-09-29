@@ -19,15 +19,8 @@ import { getPrograms, transformProgramData, supabase } from '../lib/supabase';
 const { width } = Dimensions.get('window');
 
 export default function ExploreTrainingScreen({ navigation }) {
-  console.log('🎾 ExploreTrainingScreen rendering!');
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  
-  console.log('🎾 ExploreTrainingScreen: User context state:', {
-    hasUser: !!user,
-    userId: user?.id,
-    userEmail: user?.email
-  });
   
   // State for API data
   const [explorePrograms, setExplorePrograms] = useState([]);
@@ -38,15 +31,11 @@ export default function ExploreTrainingScreen({ navigation }) {
 
   // Fetch programs from API on component mount
   useEffect(() => {
-    console.log('🎾 ExploreTrainingScreen: useEffect triggered - component mounted');
-    console.log('🎾 ExploreTrainingScreen: User state:', !!user, 'User ID:', user?.id);
     fetchPrograms();
     fetchCategoryOrder();
   }, []);
 
   const fetchPrograms = async () => {
-    console.log('🎾 ExploreTrainingScreen: Starting fetchPrograms...');
-    
     // Add timeout for the entire fetch operation
     const fetchTimeout = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Fetch programs timeout after 20 seconds')), 20000)
@@ -55,75 +44,39 @@ export default function ExploreTrainingScreen({ navigation }) {
     const fetchOperation = async () => {
       try {
         setLoading(true);
-        console.log('🎾 ExploreTrainingScreen: Loading state set to true');
-        
-        console.log('🎾 ExploreTrainingScreen: Calling getPrograms from Supabase...');
-        const startTime = Date.now();
         const { data, error } = await getPrograms();
-        const endTime = Date.now();
-        
-        console.log(`🎾 ExploreTrainingScreen: getPrograms completed in ${endTime - startTime}ms`);
-        console.log('🎾 ExploreTrainingScreen: getPrograms response - error:', !!error, 'data length:', data?.length || 0);
         
         if (error) {
-          console.error('🎾 ExploreTrainingScreen: Supabase error:', error);
-          console.error('🎾 ExploreTrainingScreen: Error type:', typeof error);
-          console.error('🎾 ExploreTrainingScreen: Error details:', error.message, error.code, error.details);
           throw error;
         }
         
         if (!data) {
-          console.warn('🎾 ExploreTrainingScreen: No data returned from getPrograms - setting empty array');
           setExplorePrograms([]);
           setError(null);
           return;
         }
         
         if (Array.isArray(data) && data.length === 0) {
-          console.warn('🎾 ExploreTrainingScreen: Empty array returned from database');
           setExplorePrograms([]);
           setError(null);
           return;
         }
         
-        console.log('🎾 ExploreTrainingScreen: Raw data from Supabase (first item):');
-        console.log(JSON.stringify(data[0], null, 2));
-        
         // Transform the data to match your current app structure
-        console.log('🎾 ExploreTrainingScreen: Transforming program data...');
         const transformedPrograms = transformProgramData(data);
-        console.log('🎾 ExploreTrainingScreen: Transformed programs:', transformedPrograms.length, 'items');
-        
-        if (transformedPrograms.length > 0) {
-          console.log('🎾 ExploreTrainingScreen: First transformed program:', JSON.stringify(transformedPrograms[0], null, 2));
-          
-        }
-        
         setExplorePrograms(transformedPrograms);
         setError(null);
-        
-        // Log categories for debugging
-        const categories = [...new Set(transformedPrograms.map(p => p.category).filter(Boolean))];
-        console.log('🎾 ExploreTrainingScreen: Available categories:', categories);
-        console.log('🎾 ExploreTrainingScreen: ✅ Programs loaded successfully');
       } catch (err) {
-        console.error('🎾 ExploreTrainingScreen: Error fetching programs:', err);
-        console.error('🎾 ExploreTrainingScreen: Error name:', err.name);
-        console.error('🎾 ExploreTrainingScreen: Error message:', err.message);
-        console.error('🎾 ExploreTrainingScreen: Error stack:', err.stack);
         setError(err.message || 'Failed to load programs');
-        // Fallback to empty array if API fails
         setExplorePrograms([]);
       } finally {
         setLoading(false);
-        console.log('🎾 ExploreTrainingScreen: Loading state set to false');
       }
     };
     
     try {
       await Promise.race([fetchOperation(), fetchTimeout]);
     } catch (timeoutError) {
-      console.error('🎾 ExploreTrainingScreen: Fetch operation timed out:', timeoutError);
       setError('Request timed out. Please try again.');
       setExplorePrograms([]);
       setLoading(false);
@@ -132,49 +85,39 @@ export default function ExploreTrainingScreen({ navigation }) {
 
   const fetchCategoryOrder = async () => {
     try {
-      console.log('📋 ExploreTrainingScreen: Fetching saved category order...');
       const { data: orderData, error: orderError } = await supabase
         .rpc('get_category_order');
       
       if (orderError) {
-        console.log('📋 ExploreTrainingScreen: No saved category order found:', orderError.message);
         setSavedCategoryOrder([]);
       } else {
-        console.log('📋 ExploreTrainingScreen: Loaded saved category order:', orderData);
         setSavedCategoryOrder(orderData || []);
       }
     } catch (error) {
-      console.log('📋 ExploreTrainingScreen: Could not load saved category order:', error.message);
       setSavedCategoryOrder([]);
     }
   };
 
   const onRefresh = async () => {
-    console.log('🎾 ExploreTrainingScreen: Pull to refresh triggered');
     setRefreshing(true);
     try {
-      console.log('🎾 ExploreTrainingScreen: Calling getPrograms for refresh...');
       const { data, error } = await getPrograms();
       
       if (error) {
-        console.error('🎾 ExploreTrainingScreen: Refresh error:', error);
         throw error;
       }
       
       // Transform the data to match your current app structure
       const transformedPrograms = transformProgramData(data);
-      console.log('🎾 ExploreTrainingScreen: Refresh successful, got', transformedPrograms.length, 'programs');
       setExplorePrograms(transformedPrograms);
       setError(null);
       
       // Also refresh category order
       await fetchCategoryOrder();
     } catch (err) {
-      console.error('🎾 ExploreTrainingScreen: Error refreshing programs:', err);
       setError(err.message);
     } finally {
       setRefreshing(false);
-      console.log('🎾 ExploreTrainingScreen: Refresh completed');
     }
   };
 
@@ -249,8 +192,6 @@ export default function ExploreTrainingScreen({ navigation }) {
     // Sort categories according to saved order
     let categories;
     if (savedCategoryOrder && savedCategoryOrder.length > 0) {
-      console.log('📋 ExploreTrainingScreen: Using saved category order:', savedCategoryOrder);
-      
       // Create ordered list based on saved order
       const orderedCategories = [];
       
@@ -267,9 +208,7 @@ export default function ExploreTrainingScreen({ navigation }) {
       orderedCategories.push(...newCategories);
       
       categories = orderedCategories;
-      console.log('📋 ExploreTrainingScreen: Final category order:', categories);
     } else {
-      console.log('📋 ExploreTrainingScreen: No saved order, using default order');
       categories = uniqueCategories;
     }
     

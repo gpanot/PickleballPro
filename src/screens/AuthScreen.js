@@ -115,7 +115,10 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { 
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom 
+      }]}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardContainer}

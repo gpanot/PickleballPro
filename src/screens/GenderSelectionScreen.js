@@ -75,7 +75,10 @@ export default function GenderSelectionScreen({ navigation, onComplete, onGoBack
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { 
+      paddingTop: insets.top,
+      paddingBottom: insets.bottom 
+    }]}>
       {/* Status Bar */}
       <View style={styles.statusBar}>
         <View style={styles.progressContainer}>
@@ -224,6 +227,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
     justifyContent: 'center',
     paddingBottom: 20,
+    paddingHorizontal: 0,
   },
   continueButton: {
     backgroundColor: '#007AFF',

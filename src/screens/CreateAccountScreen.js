@@ -58,7 +58,10 @@ export default function CreateAccountScreen({
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { 
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom 
+      }]}>          
         {/* Status Bar */}
         <View style={styles.statusBar}>
           <View style={styles.progressContainer}>
@@ -68,53 +71,56 @@ export default function CreateAccountScreen({
           </View>
         </View>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Create an account</Text>
-          <Text style={styles.subtitle}>
-            Save your workouts, progress, settings, and more.
-          </Text>
-        </View>
+        {/* Content Section */}
+        <View style={styles.contentSection}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Create an account</Text>
+            <Text style={styles.subtitle}>
+              Save your workouts, progress, settings, and more.
+            </Text>
+          </View>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          {/* Continue with Google Button */}
-          <TouchableOpacity 
-            style={styles.googleButton}
-            onPress={handleContinueWithGoogle}
-            activeOpacity={0.8}
-          >
-            <View style={styles.googleButtonContent}>
-              <View style={styles.googleIcon}>
-                <Text style={styles.googleG}>G</Text>
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            {/* Continue with Google Button */}
+            <TouchableOpacity 
+              style={styles.googleButton}
+              onPress={handleContinueWithGoogle}
+              activeOpacity={0.8}
+            >
+              <View style={styles.googleButtonContent}>
+                <View style={styles.googleIcon}>
+                  <Text style={styles.googleG}>G</Text>
+                </View>
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
               </View>
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            {/* Continue with Email Button */}
+            <TouchableOpacity 
+              style={styles.emailButton}
+              onPress={handleContinueWithEmail}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.emailButtonText}>Continue with Email</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              By continuing you are agreeing to PicklePro's{' '}
+            </Text>
+            <View style={styles.footerLinks}>
+              <TouchableOpacity>
+                <Text style={styles.footerLink}>Privacy Policy</Text>
+              </TouchableOpacity>
+              <Text style={styles.footerText}> and </Text>
+              <TouchableOpacity>
+                <Text style={styles.footerLink}>Terms of Service</Text>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-
-          {/* Continue with Email Button */}
-          <TouchableOpacity 
-            style={styles.emailButton}
-            onPress={handleContinueWithEmail}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.emailButtonText}>Continue with Email</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            By continuing you are agreeing to PicklePro's{' '}
-          </Text>
-          <View style={styles.footerLinks}>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Privacy Policy</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerText}> and </Text>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Terms of Service</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -127,6 +133,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
     paddingHorizontal: 30,
+  },
+  contentSection: {
+    flex: 1,
     justifyContent: 'center',
   },
   statusBar: {

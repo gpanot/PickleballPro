@@ -111,7 +111,10 @@ export default function CoachingPreferenceScreen({ onComplete }) {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>          
+    <View style={[styles.container, { 
+      paddingTop: insets.top,
+      paddingBottom: insets.bottom 
+    }]}>          
       {/* Status Bar */}
       <View style={styles.statusBar}>
         <View style={styles.progressContainer}>

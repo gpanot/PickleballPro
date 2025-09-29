@@ -159,7 +159,10 @@ export default function IntensitySelectionScreen({ onComplete }) {
       {/* Phone Status Bar */}
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
-      <View style={[styles.container, { paddingTop: insets.top }]}>          
+      <View style={[styles.container, { 
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom 
+      }]}>          
         {/* Progress Status Bar */}
         <View style={styles.statusBar}>
           <View style={styles.progressContainer}>
