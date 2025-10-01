@@ -13,9 +13,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
+import { supabase } from '../lib/supabase';
+import { useUser } from '../context/UserContext';
 
 export default function ProgramDetailScreen({ navigation, route }) {
   const { program: initialProgram, onUpdateProgram, source } = route.params;
+  const { user } = useUser();
   const insets = useSafeAreaInsets();
   const [program, setProgram] = React.useState(initialProgram);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = React.useState(false);
@@ -31,43 +34,133 @@ export default function ProgramDetailScreen({ navigation, route }) {
   }, [program, navigation, onUpdateProgram]);
 
   // Routine management functions
-  const createRoutine = () => {
+  const createRoutine = async () => {
+    console.log('🚀 [ProgramDetailScreen] createRoutine called');
+    console.log('📝 [ProgramDetailScreen] Routine name:', newRoutineName.trim());
+    console.log('🏠 [ProgramDetailScreen] Program ID:', program?.id);
+    console.log('👤 [ProgramDetailScreen] Current user:', user?.id);
+    
     if (!newRoutineName.trim()) {
+      console.log('❌ [ProgramDetailScreen] Validation failed: Empty routine name');
       Alert.alert('Error', 'Please enter a routine name');
       return;
     }
     
-    const newRoutine = {
-      id: Date.now().toString(),
-      name: newRoutineName.trim(),
-      exercises: [],
-      createdAt: new Date().toISOString(),
-    };
+    if (!program?.id) {
+      console.log('❌ [ProgramDetailScreen] Validation failed: No program ID');
+      Alert.alert('Error', 'Program not found');
+      return;
+    }
     
-    const updatedProgram = {
-      ...program,
-      routines: [...program.routines, newRoutine]
-    };
+    if (!user?.id) {
+      console.log('❌ [ProgramDetailScreen] Validation failed: No user ID');
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
     
-    setProgram(updatedProgram);
-    
-    setNewRoutineName('');
-    setShowCreateRoutineModal(false);
-    
-    // Navigate to RoutineDetail first, then automatically open ExercisePicker
-    navigation.navigate('RoutineDetail', { 
-      program: updatedProgram,
-      routine: newRoutine,
-      onUpdateRoutine: (updatedRoutine) => {
-        setProgram(prev => ({
-          ...prev,
-          routines: prev.routines.map(r => 
-            r.id === updatedRoutine.id ? updatedRoutine : r
-          )
-        }));
-      },
-      autoOpenExercisePicker: true // Flag to automatically open exercise picker
-    });
+    try {
+      console.log('🔄 [ProgramDetailScreen] Starting routine creation process...');
+      
+      const newRoutine = {
+        id: Date.now().toString(),
+        name: newRoutineName.trim(),
+        exercises: [],
+        createdAt: new Date().toISOString(),
+      };
+      
+      console.log('📋 [ProgramDetailScreen] Routine object created:', {
+        id: newRoutine.id,
+        name: newRoutine.name,
+        programId: program.id,
+        exercisesCount: newRoutine.exercises.length
+      });
+      
+      // 🚨 ISSUE: This was only saving to LOCAL STATE, not to database!
+      console.log('⚠️ [ProgramDetailScreen] WARNING: Previously only saved to local state - NOT to database!');
+      console.log('🔧 [ProgramDetailScreen] Now attempting to save to database using user function...');
+      
+      // Try to save to database using the user function
+      console.log('💾 [ProgramDetailScreen] Attempting to save routine to database...');
+      try {
+        const { data: savedRoutine, error: saveError } = await supabase.rpc('create_routine_as_user', {
+          routine_program_id: program.id,
+          routine_name: newRoutine.name,
+          routine_description: `User-created routine: ${newRoutine.name}`,
+          routine_order_index: (program.routines?.length || 0) + 1,
+          routine_time_estimate_minutes: 30, // Default estimate
+          routine_is_published: false
+        });
+        
+        if (saveError) {
+          console.error('❌ [ProgramDetailScreen] Database save failed:', saveError);
+          console.log('📱 [ProgramDetailScreen] Falling back to local storage only');
+          Alert.alert('Warning', 'Routine saved locally but could not sync to server. It will sync when connection is available.');
+        } else {
+          console.log('✅ [ProgramDetailScreen] Routine saved to database successfully:', savedRoutine);
+          
+          // 🔧 CRITICAL FIX: RPC functions return arrays, so get the first element
+          const routineData = Array.isArray(savedRoutine) ? savedRoutine[0] : savedRoutine;
+          
+          if (routineData && routineData.id) {
+            console.log('🔄 [ProgramDetailScreen] Updating routine ID from timestamp to UUID:', {
+              oldId: newRoutine.id,
+              newId: routineData.id,
+              idType: typeof routineData.id
+            });
+            newRoutine.id = routineData.id;
+            newRoutine.program_id = routineData.program_id;
+            newRoutine.order_index = routineData.order_index;
+            newRoutine.time_estimate_minutes = routineData.time_estimate_minutes;
+            newRoutine.is_published = routineData.is_published;
+            console.log('✅ [ProgramDetailScreen] Routine object updated with database UUID');
+          } else {
+            console.log('⚠️ [ProgramDetailScreen] No routine data returned from database function');
+          }
+        }
+      } catch (dbError) {
+        console.error('❌ [ProgramDetailScreen] Database operation failed:', dbError);
+        console.log('📱 [ProgramDetailScreen] Continuing with local storage only');
+        Alert.alert('Warning', `Database save failed: ${dbError.message}. Routine saved locally.`);
+      }
+      
+      // Update local state (this was the only thing happening before)
+      console.log('📱 [ProgramDetailScreen] Updating local state...');
+      const updatedProgram = {
+        ...program,
+        routines: [...(program.routines || []), newRoutine]
+      };
+      
+      console.log('📊 [ProgramDetailScreen] Local routines count after add:', updatedProgram.routines.length);
+      setProgram(updatedProgram);
+      
+      // Clear form
+      console.log('🧹 [ProgramDetailScreen] Clearing form...');
+      setNewRoutineName('');
+      setShowCreateRoutineModal(false);
+      
+      console.log('✅ [ProgramDetailScreen] Routine creation completed successfully');
+      
+      // Navigate to RoutineDetail first, then automatically open ExercisePicker
+      console.log('🧭 [ProgramDetailScreen] Navigating to RoutineDetail...');
+      navigation.navigate('RoutineDetail', { 
+        program: updatedProgram,
+        routine: newRoutine,
+        onUpdateRoutine: (updatedRoutine) => {
+          console.log('🔄 [ProgramDetailScreen] Updating routine from RoutineDetail:', updatedRoutine.id);
+          setProgram(prev => ({
+            ...prev,
+            routines: prev.routines.map(r => 
+              r.id === updatedRoutine.id ? updatedRoutine : r
+            )
+          }));
+        },
+        autoOpenExercisePicker: true // Flag to automatically open exercise picker
+      });
+      
+    } catch (error) {
+      console.error('💥 [ProgramDetailScreen] Unexpected error in createRoutine:', error);
+      Alert.alert('Error', `Failed to create routine: ${error.message}`);
+    }
   };
 
   const deleteRoutine = (routineId) => {

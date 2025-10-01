@@ -191,7 +191,15 @@ export default function CoachScreen() {
         case 'Rating':
           return b.rating - a.rating; // Highest rating first
         case 'Price':
-          return a.hourlyRate - b.hourlyRate; // Lowest price first
+          // Handle coaches with no price (show them at the end)
+          if (!a.hourlyRate && !b.hourlyRate) return 0;
+          if (!a.hourlyRate) return 1; // a goes to end
+          if (!b.hourlyRate) return -1; // b goes to end
+          
+          // Convert both prices to USD for fair comparison
+          const aUSDRate = a.currency === 'VND' ? a.hourlyRate / 24000 : a.hourlyRate;
+          const bUSDRate = b.currency === 'VND' ? b.hourlyRate / 24000 : b.hourlyRate;
+          return aUSDRate - bUSDRate; // Lowest price first
         case 'Location':
           if (userLocation && locationPermissionGranted) {
             // Sort by distance from user location
@@ -435,6 +443,29 @@ export default function CoachScreen() {
       .map(([key, option]) => option);
   };
 
+  // Format price based on currency
+  const formatPrice = (hourlyRate, currency) => {
+    if (!hourlyRate || hourlyRate === 0) return 'Contact';
+    
+    if (currency === 'VND') {
+      // Format VND with k suffix for thousands
+      if (hourlyRate >= 1000) {
+        const inThousands = hourlyRate / 1000;
+        // Handle decimal places for cleaner display
+        if (inThousands % 1 === 0) {
+          return `${Math.round(inThousands)}k₫`;
+        } else {
+          return `${inThousands.toFixed(1)}k₫`;
+        }
+      } else {
+        return `${hourlyRate.toLocaleString('vi-VN')}₫`;
+      }
+    } else {
+      // Format USD
+      return `$${hourlyRate}`;
+    }
+  };
+
   const renderSortOptions = () => (
     <View style={styles.sortContainer}>
       <View style={styles.sortRow}>
@@ -587,7 +618,7 @@ export default function CoachScreen() {
         </View>
         
         <View style={styles.coachPrice}>
-          <Text style={styles.priceText}>${coach.hourlyRate}</Text>
+          <Text style={styles.priceText}>{formatPrice(coach.hourlyRate, coach.currency)}</Text>
           <Text style={styles.priceLabel}>per hour</Text>
         </View>
       </View>

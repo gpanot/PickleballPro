@@ -109,6 +109,8 @@ export default function AdminDashboard({ navigation }) {
   const [showDeleteExerciseConfirmation, setShowDeleteExerciseConfirmation] = useState(false);
   const [showUserLogbookModal, setShowUserLogbookModal] = useState(false);
   const [selectedUserForLogbook, setSelectedUserForLogbook] = useState(null);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
   
 
   // Web responsiveness
@@ -1767,10 +1769,40 @@ export default function AdminDashboard({ navigation }) {
                         </Text>
                       </View>
                       <View style={styles.categoryDetails}>
-                        <Text style={styles.categoryName}>{category.name}</Text>
-                        <Text style={styles.categoryMeta}>
-                          Position: {index + 1}
-                        </Text>
+                        {editingCategoryId === category.id ? (
+                          <View style={styles.categoryEditContainer}>
+                            <TextInput
+                              style={styles.categoryEditInput}
+                              value={editingCategoryName}
+                              onChangeText={setEditingCategoryName}
+                              placeholder="Category name"
+                              placeholderTextColor="#9CA3AF"
+                              autoFocus={true}
+                              onSubmitEditing={handleSaveCategoryName}
+                            />
+                            <View style={styles.categoryEditButtons}>
+                              <TouchableOpacity 
+                                style={styles.categoryEditSaveButton}
+                                onPress={handleSaveCategoryName}
+                              >
+                                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                style={styles.categoryEditCancelButton}
+                                onPress={handleCancelCategoryEdit}
+                              >
+                                <Ionicons name="close" size={14} color="#6B7280" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <>
+                            <Text style={styles.categoryName}>{category.name}</Text>
+                            <Text style={styles.categoryMeta}>
+                              Position: {index + 1}
+                            </Text>
+                          </>
+                        )}
                       </View>
                     </View>
                   </View>
@@ -1811,9 +1843,21 @@ export default function AdminDashboard({ navigation }) {
                   </View>
                   <View style={[styles.modernTableCell, { flex: 1 }]}>
                     <View style={styles.modernActionButtons}>
-                      <TouchableOpacity style={styles.modernActionButton}>
-                        <Ionicons name="eye-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
+                      {editingCategoryId === category.id ? (
+                        <Text style={styles.editingText}>Editing...</Text>
+                      ) : (
+                        <>
+                          <TouchableOpacity 
+                            style={styles.modernActionButton}
+                            onPress={() => handleEditCategory(category)}
+                          >
+                            <Ionicons name="create-outline" size={16} color="#6B7280" />
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.modernActionButton}>
+                            <Ionicons name="eye-outline" size={16} color="#6B7280" />
+                          </TouchableOpacity>
+                        </>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -3164,6 +3208,90 @@ export default function AdminDashboard({ navigation }) {
     }
   };
 
+  const handleEditCategory = (category) => {
+    setEditingCategoryId(category.id);
+    setEditingCategoryName(category.name);
+  };
+
+  const handleSaveCategoryName = async () => {
+    if (!editingCategoryId || !editingCategoryName.trim()) {
+      Alert.alert('Error', 'Category name cannot be empty');
+      return;
+    }
+
+    try {
+      // Find the category being edited
+      const categoryToEdit = categories.find(c => c.id === editingCategoryId);
+      if (!categoryToEdit) {
+        throw new Error('Category not found');
+      }
+
+      const oldCategoryName = categoryToEdit.name;
+      const newCategoryName = editingCategoryName.trim();
+
+      // Check if the name has actually changed
+      if (oldCategoryName === newCategoryName) {
+        setEditingCategoryId(null);
+        setEditingCategoryName('');
+        return;
+      }
+
+      // Check if the new name already exists
+      const existingCategory = categories.find(c => c.name.toLowerCase() === newCategoryName.toLowerCase() && c.id !== editingCategoryId);
+      if (existingCategory) {
+        Alert.alert('Error', 'A category with this name already exists');
+        return;
+      }
+
+      console.log('📝 Updating category name from', oldCategoryName, 'to', newCategoryName);
+
+      // Update all programs that use this category
+      const { error: updateError } = await supabase
+        .from('programs')
+        .update({ category: newCategoryName })
+        .eq('category', oldCategoryName);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update the local categories state
+      const updatedCategories = categories.map(category => {
+        if (category.id === editingCategoryId) {
+          return {
+            ...category,
+            name: newCategoryName,
+            id: newCategoryName.toLowerCase().replace(/\s+/g, '_')
+          };
+        }
+        return category;
+      });
+
+      setCategories(updatedCategories);
+      setHasUnsavedCategoryChanges(true);
+
+      // Clear editing state
+      setEditingCategoryId(null);
+      setEditingCategoryName('');
+
+      Alert.alert('Success', `Category renamed from "${oldCategoryName}" to "${newCategoryName}"`);
+
+      // Refresh programs to show updated category names
+      if (contentTab === 'programs') {
+        fetchPrograms();
+      }
+
+    } catch (error) {
+      console.error('Error updating category name:', error);
+      Alert.alert('Error', `Failed to update category name: ${error.message}`);
+    }
+  };
+
+  const handleCancelCategoryEdit = () => {
+    setEditingCategoryId(null);
+    setEditingCategoryName('');
+  };
+
   const handleRefresh = () => {
     // Refresh data based on current active tab
     switch (activeTab) {
@@ -3605,13 +3733,7 @@ const styles = StyleSheet.create({
     }),
   },
   refreshSpinning: {
-    ...(Platform.OS === 'web' && {
-      animation: 'spin 1s linear infinite',
-      '@keyframes spin': {
-        '0%': { transform: 'rotate(0deg)' },
-        '100%': { transform: 'rotate(360deg)' },
-      },
-    }),
+    // Animation removed - use Animated API for cross-platform animations
   },
   searchContainer: {
     flexDirection: 'row',
@@ -3631,7 +3753,7 @@ const styles = StyleSheet.create({
     color: '#18181b', // zinc-900
     backgroundColor: 'transparent',
     ...(Platform.OS === 'web' && {
-      outline: 'none',
+      outlineStyle: 'none',
     }),
   },
   notificationButton: {
@@ -5456,5 +5578,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#1F2937',
+  },
+
+  // Category Edit Styles
+  categoryEditContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 8,
+  },
+  categoryEditInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    ...(Platform.OS === 'web' && {
+      outlineStyle: 'none',
+    }),
+  },
+  categoryEditButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  categoryEditSaveButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transition: 'background-color 0.2s ease',
+      '&:hover': {
+        backgroundColor: '#059669',
+      },
+    }),
+  },
+  categoryEditCancelButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      transition: 'background-color 0.2s ease',
+      '&:hover': {
+        backgroundColor: '#E5E7EB',
+      },
+    }),
+  },
+  editingText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
 });

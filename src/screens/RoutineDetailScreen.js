@@ -8,16 +8,19 @@ import {
   Alert,
   Platform,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
 import { useLogbook } from '../context/LogbookContext';
+import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
 
 export default function RoutineDetailScreen({ navigation, route }) {
   const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source } = route.params;
+  const { user } = useUser();
   const insets = useSafeAreaInsets();
   const [routine, setRoutine] = React.useState(initialRoutine);
   const { addLogbookEntry } = useLogbook();
@@ -39,6 +42,311 @@ export default function RoutineDetailScreen({ navigation, route }) {
   const [isSessionActive, setIsSessionActive] = React.useState(false);
   const [sessionTime, setSessionTime] = React.useState(0);
   const timerRef = React.useRef(null);
+  
+  // Track unsaved exercises (added locally but not yet saved to database)
+  const [unsavedExercises, setUnsavedExercises] = React.useState([]);
+  const [isSavingExercises, setIsSavingExercises] = React.useState(false);
+  
+  // Pull to refresh state
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Refresh routine data from database
+  const onRefresh = React.useCallback(async () => {
+    console.log('🔄 [RoutineDetailScreen] Pull to refresh triggered');
+    setIsRefreshing(true);
+    
+    try {
+      if (!routine.id || !user?.id) {
+        console.log('❌ [RoutineDetailScreen] Missing routine ID or user ID for refresh');
+        return;
+      }
+      
+      console.log('📥 [RoutineDetailScreen] Refreshing routine data from database...');
+      
+      // Fetch updated routine with exercises
+      const { data: routineData, error: routineError } = await supabase
+        .from('routines')
+        .select(`
+          id,
+          name,
+          description,
+          order_index,
+          time_estimate_minutes,
+          is_published,
+          created_at,
+          program_id
+        `)
+        .eq('id', routine.id)
+        .single();
+      
+      if (routineError) {
+        console.error('❌ [RoutineDetailScreen] Error fetching routine:', routineError);
+        Alert.alert('Refresh Failed', 'Could not refresh routine data. Please try again.');
+        return;
+      }
+      
+      // Fetch exercises for this routine
+      const { data: routineExercises, error: exerciseError } = await supabase
+        .from('routine_exercises')
+        .select(`
+          id,
+          order_index,
+          is_optional,
+          exercises (
+            id,
+            code,
+            title,
+            description,
+            goal_text,
+            skill_category,
+            skill_categories_json,
+            difficulty,
+            target_type,
+            target_value,
+            target_unit,
+            instructions,
+            tips_json,
+            estimated_minutes,
+            demo_video_url,
+            demo_image_url,
+            thumbnail_url,
+            tier_level,
+            tags,
+            is_published,
+            created_at
+          )
+        `)
+        .eq('routine_id', routine.id)
+        .order('order_index', { ascending: true });
+      
+      if (exerciseError) {
+        console.error('❌ [RoutineDetailScreen] Error fetching exercises:', exerciseError);
+      }
+      
+      // Transform exercises to match local format
+      const exercises = (routineExercises || []).map(re => ({
+        ...re.exercises,
+        name: re.exercises.title, // Map title to name for compatibility
+        routineExerciseId: re.id,
+        routine_exercise_id: re.id,
+        order_index: re.order_index,
+        is_optional: re.is_optional,
+        // Add target formatting for compatibility
+        target: re.exercises.target_value && re.exercises.target_unit 
+          ? `${re.exercises.target_value} ${re.exercises.target_unit}`
+          : `${re.exercises.target_value || 10} attempts`
+      }));
+      
+      console.log('✅ [RoutineDetailScreen] Refreshed routine with', exercises.length, 'exercises');
+      
+      // Update routine state with fresh data
+      const refreshedRoutine = {
+        ...routineData,
+        exercises: exercises
+      };
+      
+      setRoutine(refreshedRoutine);
+      
+      // Clear any unsaved exercises since we're refreshing from database
+      setUnsavedExercises([]);
+      
+      // Update parent if callback exists
+      if (onUpdateRoutine) {
+        onUpdateRoutine(refreshedRoutine);
+      }
+      
+      console.log('🎉 [RoutineDetailScreen] Refresh completed successfully');
+      
+    } catch (error) {
+      console.error('💥 [RoutineDetailScreen] Unexpected error during refresh:', error);
+      Alert.alert('Refresh Failed', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [routine.id, user?.id, onUpdateRoutine]);
+
+  // Batch save exercises to database
+  const saveUnsavedExercises = async () => {
+    if (unsavedExercises.length === 0) {
+      console.log('📭 [RoutineDetailScreen] No unsaved exercises to save');
+      return;
+    }
+
+    console.log('🚀 [RoutineDetailScreen] saveUnsavedExercises called');
+    console.log('📊 [RoutineDetailScreen] Unsaved exercises count:', unsavedExercises.length);
+    
+    if (!routine.id) {
+      console.log('❌ [RoutineDetailScreen] No routine ID - cannot save to database');
+      return;
+    }
+
+    if (!user?.id) {
+      console.log('❌ [RoutineDetailScreen] No user ID - cannot save to database');
+      return;
+    }
+
+    setIsSavingExercises(true);
+
+    try {
+      console.log('🔄 [RoutineDetailScreen] Starting batch save process...');
+      
+      const exercisesToSave = [];
+      const exercisesToCreate = [];
+
+      // Separate existing exercises from generated ones that need to be created
+      for (const exercise of unsavedExercises) {
+        const isUUID = exercise.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        
+        if (isUUID) {
+          // Real database exercise - just create the relationship
+          exercisesToSave.push(exercise);
+        } else {
+          // Generated exercise - needs to be created in database first
+          exercisesToCreate.push(exercise);
+        }
+      }
+
+      console.log('📋 [RoutineDetailScreen] Exercises to save (existing):', exercisesToSave.length);
+      console.log('📋 [RoutineDetailScreen] Exercises to create (generated):', exercisesToCreate.length);
+
+      // Step 1: Create generated exercises in database or find existing ones
+      const createdExerciseIds = [];
+      for (const exercise of exercisesToCreate) {
+        try {
+          console.log('➕ [RoutineDetailScreen] Processing exercise:', exercise.name);
+          
+          // First, check if exercise already exists
+          const { data: existingExercise, error: findError } = await supabase
+            .from('exercises')
+            .select('id, code')
+            .eq('code', exercise.id)
+            .single();
+          
+          if (existingExercise) {
+            console.log('🔍 [RoutineDetailScreen] Exercise already exists, using existing ID:', existingExercise.id);
+            createdExerciseIds.push({
+              originalExercise: exercise,
+              newId: existingExercise.id
+            });
+            continue;
+          }
+          
+          // If not found, create new exercise
+          console.log('➕ [RoutineDetailScreen] Creating new exercise:', exercise.name);
+          const { data: createdExercise, error: createError } = await supabase.rpc('create_exercise_as_user', {
+            exercise_code: exercise.id, // Use the generated ID as code
+            exercise_title: exercise.name || exercise.title,
+            exercise_description: exercise.description || `Generated exercise: ${exercise.name}`,
+            exercise_instructions: exercise.description || 'Follow the exercise instructions',
+            exercise_goal: exercise.target || 'Complete the exercise',
+            exercise_difficulty: exercise.difficulty || 3,
+            exercise_target_value: 10,
+            exercise_target_unit: 'attempts',
+            exercise_estimated_minutes: 10,
+            exercise_skill_category: exercise.skillId || 'general',
+            exercise_skill_categories_json: JSON.stringify(exercise.skillCategories || []),
+            exercise_is_published: false
+          });
+
+          if (createError) {
+            console.error('❌ [RoutineDetailScreen] Error creating exercise:', createError);
+            // If it's a duplicate key error, try to find the existing exercise
+            if (createError.code === '23505') {
+              console.log('🔄 [RoutineDetailScreen] Duplicate key error, trying to find existing exercise...');
+              const { data: existingAfterError } = await supabase
+                .from('exercises')
+                .select('id, code')
+                .eq('code', exercise.id)
+                .single();
+              
+              if (existingAfterError) {
+                console.log('✅ [RoutineDetailScreen] Found existing exercise after duplicate error:', existingAfterError.id);
+                createdExerciseIds.push({
+                  originalExercise: exercise,
+                  newId: existingAfterError.id
+                });
+              }
+            }
+            continue;
+          }
+
+          if (createdExercise && createdExercise[0]) {
+            const newExerciseId = createdExercise[0].id;
+            console.log('✅ [RoutineDetailScreen] Exercise created with ID:', newExerciseId);
+            createdExerciseIds.push({
+              originalExercise: exercise,
+              newId: newExerciseId
+            });
+          }
+        } catch (error) {
+          console.error('❌ [RoutineDetailScreen] Error processing exercise:', error);
+        }
+      }
+
+      // Step 2: Create routine-exercise relationships for all exercises
+      const allExercisesToLink = [
+        ...exercisesToSave.map(ex => ({ exercise: ex, exerciseId: ex.id })),
+        ...createdExerciseIds.map(item => ({ exercise: item.originalExercise, exerciseId: item.newId }))
+      ];
+
+      console.log('🔗 [RoutineDetailScreen] Creating routine-exercise relationships for', allExercisesToLink.length, 'exercises');
+
+      const relationshipInserts = allExercisesToLink.map((item, index) => ({
+        routine_id: routine.id,
+        exercise_id: item.exerciseId,
+        order_index: (routine.exercises?.length || 0) - unsavedExercises.length + index + 1,
+        is_optional: false
+      }));
+
+      if (relationshipInserts.length > 0) {
+        const { data: savedRelations, error: relationError } = await supabase
+          .from('routine_exercises')
+          .insert(relationshipInserts)
+          .select();
+
+        if (relationError) {
+          console.error('❌ [RoutineDetailScreen] Error creating routine-exercise relationships:', relationError);
+        } else {
+          console.log('✅ [RoutineDetailScreen] Created', savedRelations?.length || 0, 'routine-exercise relationships');
+          
+          // Update local exercises with database IDs
+          setRoutine(prev => ({
+            ...prev,
+            exercises: prev.exercises.map(ex => {
+              if (ex.isUnsaved) {
+                const matchingRelation = savedRelations?.find(rel => {
+                  const matchingItem = allExercisesToLink.find(item => 
+                    item.exerciseId === rel.exercise_id && 
+                    item.exercise.routineExerciseId === ex.routineExerciseId
+                  );
+                  return !!matchingItem;
+                });
+                
+                if (matchingRelation) {
+                  return {
+                    ...ex,
+                    routine_exercise_id: matchingRelation.id,
+                    order_index: matchingRelation.order_index,
+                    isUnsaved: false
+                  };
+                }
+              }
+              return ex;
+            })
+          }));
+        }
+      }
+
+      // Clear unsaved exercises
+      setUnsavedExercises([]);
+      console.log('✅ [RoutineDetailScreen] Batch save completed successfully');
+
+    } catch (error) {
+      console.error('💥 [RoutineDetailScreen] Unexpected error in saveUnsavedExercises:', error);
+    } finally {
+      setIsSavingExercises(false);
+    }
+  };
 
   // Update routine in parent when it changes
   React.useEffect(() => {
@@ -46,6 +354,19 @@ export default function RoutineDetailScreen({ navigation, route }) {
       onUpdateRoutine(routine);
     }
   }, [routine, onUpdateRoutine]);
+
+  // Save unsaved exercises when user navigates away from Exercise Picker
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      // When returning to this screen, save any unsaved exercises
+      if (unsavedExercises.length > 0) {
+        console.log('🔄 [RoutineDetailScreen] Screen focused with unsaved exercises - saving...');
+        saveUnsavedExercises();
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, unsavedExercises]);
 
   // Auto-open exercise picker if flag is set (when coming from routine creation)
   React.useEffect(() => {
@@ -117,12 +438,41 @@ export default function RoutineDetailScreen({ navigation, route }) {
     ]
   };
 
-  // Exercise management functions
+  // Exercise management functions - now with batch saving approach
   const addExerciseToRoutine = (exercise) => {
-    setRoutine(prev => ({
-      ...prev,
-      exercises: [...(prev.exercises || []), { ...exercise, routineExerciseId: Date.now() }]
-    }));
+    console.log('🚀 [RoutineDetailScreen] addExerciseToRoutine called');
+    console.log('📝 [RoutineDetailScreen] Exercise:', exercise.name || exercise.title);
+    console.log('🔧 [RoutineDetailScreen] Using batch save approach - will save when user exits Exercise Picker');
+    
+    // Create local exercise object
+    const routineExerciseId = Date.now();
+    const newExercise = { 
+      ...exercise, 
+      routineExerciseId: routineExerciseId,
+      isUnsaved: true // Mark as unsaved for batch processing
+    };
+    
+    console.log('📋 [RoutineDetailScreen] Exercise object created:', {
+      id: exercise.id,
+      name: exercise.name || exercise.title,
+      routineExerciseId: routineExerciseId,
+      isGenerated: !exercise.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    });
+    
+    // Add to local state immediately for UI responsiveness
+    setRoutine(prev => {
+      const updatedRoutine = {
+        ...prev,
+        exercises: [...(prev.exercises || []), newExercise]
+      };
+      console.log('📊 [RoutineDetailScreen] Local exercises count after add:', updatedRoutine.exercises.length);
+      return updatedRoutine;
+    });
+    
+    // Track as unsaved for batch processing
+    setUnsavedExercises(prev => [...prev, newExercise]);
+    
+    console.log('✅ [RoutineDetailScreen] Exercise added to local state - will save when exiting Exercise Picker');
   };
 
   const removeExerciseFromRoutine = (routineExerciseId) => {
@@ -163,82 +513,61 @@ export default function RoutineDetailScreen({ navigation, route }) {
     });
   };
 
-  // Optimized navigation function using preloaded data (no API calls!)
+  // Navigation function - let ExerciseDetailScreen handle the data transformation
   const handleNavigateToExercise = React.useCallback((exercise) => {
     if (isNavigating) return; // Prevent multiple navigation calls
     
     setIsNavigating(true);
     
     try {
-      // Use preloaded complete exercise data if available
-      if (exercise.completeExerciseData) {
-        console.log('🚀 Using preloaded exercise data - no API call needed!');
-        navigation.navigate('ExerciseDetail', {
-          exercise: exercise.completeExerciseData,
-          rawExercise: exercise.completeExerciseData
-        });
-      } else {
-        // Fallback for exercises without preloaded data (AI-generated, etc.)
-        console.log('⚠️ No preloaded data, using fallback exercise structure');
-        const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
-        const exerciseName = exercise.name || exercise.title || 'Exercise';
-        const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
-        
-        navigation.navigate('ExerciseDetail', {
-          exercise: {
-            code: exercise.id,
-            title: exerciseName,
-            level: `${program.name} - ${routine.name}`,
-            goal: exerciseDescription,
-            instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
-            targetType: exercise.targetType || "count",
-            targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
-            difficulty: exercise.difficulty,
-            validationMode: "manual",
-            estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
-            equipment: ["Balls", "Partner/Coach"],
-            tips: [
-              "Focus on technique over power",
-              "Take your time with each attempt",
-              "Reset between attempts"
-            ],
-            previousAttempts: []
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error navigating to exercise:', error);
-      // Fallback to simplified exercise data
-      const exerciseTarget = exercise.target || exercise.goal || 'Complete the exercise';
-      const exerciseName = exercise.name || exercise.title || 'Exercise';
-      const exerciseDescription = exercise.description || exercise.goal || 'Complete the exercise';
+      console.log('🚀 [RoutineDetailScreen] Navigating to ExerciseDetailScreen');
+      console.log('📋 [RoutineDetailScreen] Raw exercise data:', {
+        id: exercise.id,
+        title: exercise.title,
+        name: exercise.name,
+        hasInstructions: !!exercise.instructions,
+        hasDescription: !!exercise.description,
+        hasDemoVideo: !!exercise.demo_video_url,
+        hasDemoImage: !!exercise.demo_image_url,
+        hasThumbnail: !!exercise.thumbnail_url,
+        targetType: exercise.target_type,
+        targetValue: exercise.target_value,
+        targetUnit: exercise.target_unit,
+        difficulty: exercise.difficulty
+      });
+
+      // Simply pass the raw exercise data to ExerciseDetailScreen
+      // Let ExerciseDetailScreen handle all the data transformation logic
+      console.log('✅ [RoutineDetailScreen] Passing raw exercise data to ExerciseDetailScreen');
       
       navigation.navigate('ExerciseDetail', {
-        exercise: {
-          code: exercise.id,
-          title: exerciseName,
-          level: `${program.name} - ${routine.name}`,
-          goal: exerciseDescription,
-          instructions: `Practice the ${exerciseName} exercise.\n\nTarget: ${exerciseTarget}\n\nDifficulty: ${exercise.difficulty}/5`,
-          targetType: exercise.targetType || "count",
-          targetValue: (exercise.target && exercise.target.includes && exercise.target.includes('/')) ? exercise.target : exercise.targetValue || "6/10",
-          difficulty: exercise.difficulty,
-          validationMode: "manual",
-          estimatedTime: exercise.timeEstimate ? `${exercise.timeEstimate} min` : "10-15 min",
-          equipment: ["Balls", "Partner/Coach"],
-          tips: [
-            "Focus on technique over power",
-            "Take your time with each attempt",
-            "Reset between attempts"
-          ],
-          previousAttempts: []
+        exercise: exercise, // Pass raw exercise data
+        rawExercise: exercise, // Also pass as rawExercise for compatibility
+        onExerciseUpdated: (updatedExercise) => {
+          console.log('🔄 [RoutineDetailScreen] Exercise updated from detail screen:', updatedExercise.id);
+          // Update the exercise in the routine if needed
+          setRoutine(prev => ({
+            ...prev,
+            exercises: prev.exercises.map(ex => 
+              ex.id === updatedExercise.id ? { ...ex, ...updatedExercise } : ex
+            )
+          }));
         }
+      });
+      
+    } catch (error) {
+      console.error('❌ [RoutineDetailScreen] Error navigating to exercise:', error);
+      
+      // Minimal fallback - still let ExerciseDetailScreen handle it
+      navigation.navigate('ExerciseDetail', {
+        exercise: exercise,
+        rawExercise: exercise
       });
     } finally {
       // Reset navigation state immediately since no async operations
       setIsNavigating(false);
     }
-  }, [isNavigating, navigation, program.name, routine.name]);
+  }, [isNavigating, navigation]);
 
   // Quick log functions
   const handleAddLog = React.useCallback((exercise) => {
@@ -554,6 +883,16 @@ export default function RoutineDetailScreen({ navigation, route }) {
         <ScrollView 
           style={styles.exercisesList}
           contentContainerStyle={styles.exercisesContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#3B82F6"
+              colors={["#3B82F6"]}
+              title="Pull to refresh exercises..."
+              titleColor="#6B7280"
+            />
+          }
         >
           <View style={styles.exercisesHeader}>
             <View style={styles.exercisesHeaderTop}>
@@ -754,6 +1093,16 @@ export default function RoutineDetailScreen({ navigation, route }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor="#3B82F6"
+            colors={["#3B82F6"]}
+            title="Pull to refresh exercises..."
+            titleColor="#6B7280"
+          />
+        }
       >
         {renderExercisesContentUpdated()}
         

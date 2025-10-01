@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1F2937',
     backgroundColor: '#FFFFFF',
-    outline: 'none',
+    outlineStyle: 'none',
   },
   textArea: {
     height: 80,

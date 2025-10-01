@@ -79,17 +79,32 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
   };
 
   const handleCreateRoutine = async () => {
+    console.log('🚀 [WebCreateRoutineModal] handleCreateRoutine called');
+    console.log('📝 [WebCreateRoutineModal] Routine title:', routineTitle.trim());
+    console.log('🏠 [WebCreateRoutineModal] Selected program:', selectedProgram?.id);
+    console.log('👤 [WebCreateRoutineModal] Current user:', user?.id);
+    console.log('✏️ [WebCreateRoutineModal] Is editing:', isEditing);
+    
     if (!routineTitle.trim()) {
+      console.log('❌ [WebCreateRoutineModal] Validation failed: Empty routine title');
       Alert.alert('Error', 'Please enter a routine title');
       return;
     }
 
     if (!selectedProgram) {
+      console.log('❌ [WebCreateRoutineModal] Validation failed: No program selected');
       Alert.alert('Error', 'Please select a program for this routine');
       return;
     }
 
+    if (!user?.id) {
+      console.log('❌ [WebCreateRoutineModal] Validation failed: No user ID');
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
+
     try {
+      console.log('🔄 [WebCreateRoutineModal] Starting routine creation/update process...');
       setLoading(true);
       
       const routineData = {
@@ -100,10 +115,20 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
         is_published: isEditing ? editingRoutine.is_published : false
       };
 
+      console.log('📋 [WebCreateRoutineModal] Routine data prepared:', {
+        name: routineData.name,
+        program_id: routineData.program_id,
+        order_index: routineData.order_index,
+        is_published: routineData.is_published
+      });
+
       let data, error;
 
       if (isEditing) {
-        // Update existing routine
+        console.log('✏️ [WebCreateRoutineModal] Updating existing routine...');
+        console.log('🚨 [WebCreateRoutineModal] WARNING: Using direct table update - should use update_routine_as_user function!');
+        
+        // Update existing routine - TODO: Should use update_routine_as_user function
         routineData.updated_at = new Date().toISOString();
         const result = await supabase
           .from('routines')
@@ -112,25 +137,70 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
           .select();
         data = result.data;
         error = result.error;
+        
+        if (error) {
+          console.error('❌ [WebCreateRoutineModal] Direct update failed:', error);
+        } else {
+          console.log('✅ [WebCreateRoutineModal] Direct update succeeded:', data);
+        }
       } else {
-        // Create new routine
-        const result = await supabase
-          .from('routines')
-          .insert([routineData])
-          .select();
-        data = result.data;
-        error = result.error;
+        console.log('➕ [WebCreateRoutineModal] Creating new routine...');
+        console.log('🔧 [WebCreateRoutineModal] Attempting to use create_routine_as_user function...');
+        
+        // Try to use the user function first
+        try {
+          const { data: userFunctionData, error: userFunctionError } = await supabase.rpc('create_routine_as_user', {
+            routine_program_id: selectedProgram.id,
+            routine_name: routineData.name,
+            routine_description: routineData.description,
+            routine_order_index: routineData.order_index,
+            routine_time_estimate_minutes: 30, // Default estimate
+            routine_is_published: routineData.is_published
+          });
+          
+          if (userFunctionError) {
+            console.error('❌ [WebCreateRoutineModal] User function failed:', userFunctionError);
+            console.log('🔄 [WebCreateRoutineModal] Falling back to direct insert...');
+            throw userFunctionError;
+          } else {
+            console.log('✅ [WebCreateRoutineModal] User function succeeded:', userFunctionData);
+            data = userFunctionData;
+            error = null;
+          }
+        } catch (userFunctionError) {
+          console.log('📱 [WebCreateRoutineModal] User function failed, trying direct insert...');
+          console.log('🚨 [WebCreateRoutineModal] WARNING: Using direct table insert - may fail due to RLS policies!');
+          
+          // Fallback to direct insert (original approach)
+          const result = await supabase
+            .from('routines')
+            .insert([routineData])
+            .select();
+          data = result.data;
+          error = result.error;
+          
+          if (error) {
+            console.error('❌ [WebCreateRoutineModal] Direct insert also failed:', error);
+          } else {
+            console.log('✅ [WebCreateRoutineModal] Direct insert succeeded:', data);
+          }
+        }
       }
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [WebCreateRoutineModal] Final error:', error);
+        throw error;
+      }
 
+      console.log('✅ [WebCreateRoutineModal] Routine operation completed successfully');
       Alert.alert('Success', `Routine "${routineTitle}" ${isEditing ? 'updated' : 'created'} successfully!`);
       handleClose();
       onSuccess && onSuccess();
     } catch (error) {
-      console.error(`Error ${isEditing ? 'updating' : 'creating'} routine:`, error);
+      console.error(`💥 [WebCreateRoutineModal] Error ${isEditing ? 'updating' : 'creating'} routine:`, error);
       Alert.alert('Error', `Failed to ${isEditing ? 'update' : 'create'} routine: ` + error.message);
     } finally {
+      console.log('🏁 [WebCreateRoutineModal] Cleaning up...');
       setLoading(false);
     }
   };

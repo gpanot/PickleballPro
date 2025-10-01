@@ -11,6 +11,7 @@ import {
   Platform,
   Modal,
   Linking,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +36,11 @@ export default function CreateCoachProfileScreen({ navigation }) {
     phone: '',
     specialties: [],
     coachingRadius: 5, // Default to 5km
+    messagingPreferences: {
+      whatsapp: false,
+      imessage: false,
+      zalo: false
+    },
     isVerified: false,
     isActive: true,
     isAcceptingStudents: false // Default to not published
@@ -55,6 +61,139 @@ export default function CreateCoachProfileScreen({ navigation }) {
   const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [existingCoachProfile, setExistingCoachProfile] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [detectedCountry, setDetectedCountry] = useState(null);
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [countryDetectionLoading, setCountryDetectionLoading] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Messaging options configuration
+  const messagingOptions = {
+    whatsapp: {
+      id: 'whatsapp',
+      name: 'WhatsApp',
+      iconType: 'image',
+      iconSource: require('../../assets/images/whatsapp_icon.png'),
+      color: '#25D366',
+      description: 'Message via WhatsApp',
+      countries: ['US', 'VN'] // Available in both countries
+    },
+    imessage: {
+      id: 'imessage',
+      name: 'iMessage',
+      iconType: 'emoji',
+      icon: '💬',
+      color: '#007AFF',
+      description: 'Message via iMessage (iOS)',
+      countries: ['US', 'VN'] // Available in both countries
+    },
+    zalo: {
+      id: 'zalo',
+      name: 'Zalo',
+      iconType: 'image',
+      iconSource: require('../../assets/images/zalo_icon.jpg'),
+      color: '#0068FF',
+      description: 'Message via Zalo',
+      countries: ['VN'] // Only available in Vietnam
+    }
+  };
+
+  // Get available messaging options based on selected country
+  const getAvailableMessagingOptions = (countryCode) => {
+    return Object.values(messagingOptions).filter(option => 
+      option.countries.includes(countryCode)
+    );
+  };
+
+  // Handle messaging preference change
+  const handleMessagingPreferenceChange = (optionId, value) => {
+    setFormData({
+      ...formData,
+      messagingPreferences: {
+        ...formData.messagingPreferences,
+        [optionId]: value
+      }
+    });
+  };
+
+  // Check if at least one messaging option is selected
+  const isMessagingValid = () => {
+    const availableOptions = getAvailableMessagingOptions(selectedCountry || 'VN');
+    return availableOptions.some(option => 
+      formData.messagingPreferences[option.id]
+    );
+  };
+
+  // Phone country configurations with currency info
+  const phoneCountries = {
+    US: {
+      name: 'United States',
+      code: 'US',
+      dialCode: '+1',
+      flag: '🇺🇸',
+      placeholder: '(555) 123-4567',
+      currency: {
+        symbol: '$',
+        code: 'USD',
+        placeholder: '75',
+        description: 'Typical range: $30-150/hour',
+        format: (amount) => `$${amount}`,
+        validate: (amount) => {
+          const num = parseFloat(amount);
+          return !isNaN(num) && num >= 10 && num <= 500;
+        }
+      },
+      format: (number) => {
+        // Remove all non-digits
+        const digits = number.replace(/\D/g, '');
+        // Apply US format: (xxx) xxx-xxxx
+        if (digits.length <= 3) return digits;
+        if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+      },
+      validate: (number) => {
+        const digits = number.replace(/\D/g, '');
+        return digits.length === 10;
+      }
+    },
+    VN: {
+      name: 'Vietnam',
+      code: 'VN',
+      dialCode: '+84',
+      flag: '🇻🇳',
+      placeholder: '0123 456 789',
+      currency: {
+        symbol: '₫',
+        code: 'VND',
+        placeholder: '500000',
+        description: 'Typical range: 300,000-1,500,000₫/hour',
+        format: (amount) => {
+          // Format Vietnamese currency with thousand separators
+          const num = parseFloat(amount);
+          if (isNaN(num)) return amount;
+          return num.toLocaleString('vi-VN') + '₫';
+        },
+        validate: (amount) => {
+          const num = parseFloat(amount.replace(/[,\s₫]/g, ''));
+          return !isNaN(num) && num >= 100000 && num <= 5000000;
+        }
+      },
+      format: (number) => {
+        // Remove all non-digits
+        const digits = number.replace(/\D/g, '');
+        // Remove leading 0 if present (Vietnamese numbers often start with 0)
+        const cleanDigits = digits.startsWith('0') ? digits.slice(1) : digits;
+        // Apply Vietnamese format: xxx xxx xxx
+        if (cleanDigits.length <= 3) return cleanDigits;
+        if (cleanDigits.length <= 6) return `${cleanDigits.slice(0, 3)} ${cleanDigits.slice(3)}`;
+        return `${cleanDigits.slice(0, 3)} ${cleanDigits.slice(3, 6)} ${cleanDigits.slice(6, 9)}`;
+      },
+      validate: (number) => {
+        const digits = number.replace(/\D/g, '');
+        const cleanDigits = digits.startsWith('0') ? digits.slice(1) : digits;
+        return cleanDigits.length === 9;
+      }
+    }
+  };
 
   // Add debug useEffect
   useEffect(() => {
@@ -62,6 +201,24 @@ export default function CreateCoachProfileScreen({ navigation }) {
     console.log('Platform:', Platform.OS);
     console.log('Initial map region:', mapRegion);
   }, []);
+
+  // Detect country intelligently based on context
+  useEffect(() => {
+    // Only run country detection if we have the necessary context
+    if (isEditMode !== null) { // Wait for edit mode to be determined
+      if (!isEditMode || !formData.phone) {
+        // New profile or no existing phone number - detect country
+        detectUserCountry();
+      } else {
+        // Editing existing profile with phone number - infer country from phone format
+        const inferredCountry = inferCountryFromPhone(formData.phone);
+        console.log('Inferred country from existing phone:', inferredCountry);
+        setDetectedCountry(inferredCountry);
+        setSelectedCountry(inferredCountry);
+        setCountryDetectionLoading(false);
+      }
+    }
+  }, [isEditMode, formData.phone]);
 
   // Check for existing coach profile when component mounts
   useEffect(() => {
@@ -92,13 +249,20 @@ export default function CreateCoachProfileScreen({ navigation }) {
               email: existingCoach.email || '',
               bio: existingCoach.bio || '',
               duprRating: existingCoach.dupr_rating ? existingCoach.dupr_rating.toFixed(3) : '',
-              hourlyRate: existingCoach.hourly_rate ? (existingCoach.hourly_rate / 100).toString() : '',
+              hourlyRate: existingCoach.hourly_rate ? 
+                (existingCoach.currency === 'VND' ? existingCoach.hourly_rate.toString() : (existingCoach.hourly_rate / 100).toString()) 
+                : '',
               location: existingCoach.location || '',
               latitude: existingCoach.latitude,
               longitude: existingCoach.longitude,
               phone: existingCoach.phone || '',
               specialties: existingCoach.specialties || [],
               coachingRadius: existingCoach.coaching_radius || 5,
+              messagingPreferences: existingCoach.messaging_preferences || {
+                whatsapp: false,
+                imessage: false,
+                zalo: false
+              },
               isVerified: existingCoach.is_verified || false,
               isActive: existingCoach.is_active !== false, // Default to true if null/undefined
               isAcceptingStudents: existingCoach.is_accepting_students || false
@@ -115,6 +279,261 @@ export default function CreateCoachProfileScreen({ navigation }) {
 
     checkExistingProfile();
   }, [authUser?.email]);
+
+  // Country detection function
+  const detectUserCountry = async () => {
+    setCountryDetectionLoading(true);
+    try {
+      // First try to get location
+      const location = await getCurrentLocationForCountry();
+      if (location) {
+        // Use reverse geocoding to get country
+        const country = await getCountryFromCoordinates(location.latitude, location.longitude);
+        if (country) {
+          console.log('Detected country:', country);
+          setDetectedCountry(country);
+          setSelectedCountry(country);
+        } else {
+          // Fallback to Vietnam (default)
+          console.log('Could not detect country, defaulting to Vietnam');
+          setDetectedCountry('VN');
+          setSelectedCountry('VN');
+        }
+      } else {
+        // If location fails, try IP-based detection as fallback
+        const ipCountry = await getCountryFromIP();
+        if (ipCountry) {
+          console.log('Detected country from IP:', ipCountry);
+          setDetectedCountry(ipCountry);
+          setSelectedCountry(ipCountry);
+        } else {
+          // Final fallback
+          console.log('All detection methods failed, defaulting to Vietnam');
+          setDetectedCountry('VN');
+          setSelectedCountry('VN');
+        }
+      }
+    } catch (error) {
+      console.error('Country detection error:', error);
+      // Default to Vietnam
+      setDetectedCountry('VN');
+      setSelectedCountry('VN');
+    } finally {
+      setCountryDetectionLoading(false);
+    }
+  };
+
+  // Get location for country detection (simpler version)
+  const getCurrentLocationForCountry = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        return new Promise((resolve) => {
+          if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                resolve({
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                });
+              },
+              (error) => {
+                console.log('Web geolocation failed:', error);
+                resolve(null);
+              },
+              { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+            );
+          } else {
+            resolve(null);
+          }
+        });
+      } else {
+        try {
+          const Location = require('expo-location');
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            return null;
+          }
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Low, // Lower accuracy for faster response
+          });
+          return {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+        } catch (error) {
+          console.log('Mobile location failed:', error);
+          return null;
+        }
+      }
+    } catch (error) {
+      console.log('Location detection failed:', error);
+      return null;
+    }
+  };
+
+  // Get country from coordinates
+  const getCountryFromCoordinates = async (latitude, longitude) => {
+    try {
+      // Use a simple geocoding service to get country
+      const response = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`,
+        { method: 'GET', headers: { 'User-Agent': 'PickleballHero/1.0' } }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        const countryCode = data.countryCode;
+        
+        // Map country codes to our supported countries
+        if (countryCode === 'US') return 'US';
+        if (countryCode === 'VN') return 'VN';
+        
+        // Default to VN for Asian countries, US for others
+        const asianCountries = ['VN', 'TH', 'SG', 'MY', 'PH', 'ID', 'KH', 'LA', 'MM', 'BN'];
+        if (asianCountries.includes(countryCode)) {
+          return 'VN';
+        } else {
+          return 'US';
+        }
+      }
+    } catch (error) {
+      console.log('Geocoding country detection failed:', error);
+    }
+    return null;
+  };
+
+  // IP-based country detection as fallback
+  const getCountryFromIP = async () => {
+    try {
+      const response = await fetch('https://ipapi.co/country_code/', {
+        method: 'GET',
+        headers: { 'User-Agent': 'PickleballHero/1.0' }
+      });
+      
+      if (response.ok) {
+        const countryCode = await response.text();
+        
+        // Map to our supported countries
+        if (countryCode === 'US') return 'US';
+        if (countryCode === 'VN') return 'VN';
+        
+        // Default logic based on region
+        const asianCountries = ['VN', 'TH', 'SG', 'MY', 'PH', 'ID', 'KH', 'LA', 'MM', 'BN'];
+        if (asianCountries.includes(countryCode)) {
+          return 'VN';
+        } else {
+          return 'US';
+        }
+      }
+    } catch (error) {
+      console.log('IP country detection failed:', error);
+    }
+    return null;
+  };
+
+  // Format phone number based on selected country
+  const formatPhoneNumber = (number, countryCode) => {
+    if (!countryCode || !phoneCountries[countryCode]) return number;
+    return phoneCountries[countryCode].format(number);
+  };
+
+  // Validate phone number
+  const validatePhoneNumber = (number, countryCode) => {
+    if (!countryCode || !phoneCountries[countryCode]) return false;
+    return phoneCountries[countryCode].validate(number);
+  };
+
+  // Infer country from existing phone number format
+  const inferCountryFromPhone = (phoneNumber) => {
+    if (!phoneNumber) return 'VN'; // Default fallback
+    
+    // Remove all formatting to get just digits
+    const digitsOnly = phoneNumber.replace(/[^0-9]/g, '');
+    
+    // US format patterns
+    if (
+      (digitsOnly.length === 10) || // (555) 123-4567 -> 10 digits
+      (digitsOnly.length === 11 && digitsOnly.startsWith('1')) || // +1 555 123 4567
+      phoneNumber.includes('(') && phoneNumber.includes(')') && phoneNumber.includes('-') // US format pattern
+    ) {
+      return 'US';
+    }
+    
+    // Vietnam format patterns
+    if (
+      (digitsOnly.length === 9) || // 123 456 789 -> 9 digits
+      (digitsOnly.length === 10 && digitsOnly.startsWith('0')) || // 0123 456 789
+      (digitsOnly.length === 11 && digitsOnly.startsWith('84')) || // +84 123 456 789
+      phoneNumber.includes(' ') && !phoneNumber.includes('(') // Vietnamese spacing pattern
+    ) {
+      return 'VN';
+    }
+    
+    // Default to Vietnam if unclear
+    return 'VN';
+  };
+
+  // Handle currency conversion when country changes
+  const convertCurrency = (amount, fromCountry, toCountry) => {
+    if (!amount || fromCountry === toCountry) return amount;
+    
+    // Simple currency conversion (you might want to use real exchange rates)
+    const exchangeRates = {
+      'US_to_VN': 24000, // 1 USD ≈ 24,000 VND (approximate)
+      'VN_to_US': 1/24000  // 1 VND ≈ 0.0000417 USD
+    };
+    
+    const numAmount = parseFloat(amount.replace(/[,\s₫$]/g, ''));
+    if (isNaN(numAmount)) return '';
+    
+    if (fromCountry === 'US' && toCountry === 'VN') {
+      return Math.round(numAmount * exchangeRates.US_to_VN).toString();
+    } else if (fromCountry === 'VN' && toCountry === 'US') {
+      return Math.round(numAmount * exchangeRates.VN_to_US).toString();
+    }
+    
+    return amount;
+  };
+
+  // Handle country change
+  const handleCountryChange = (newCountry) => {
+    const oldCountry = selectedCountry;
+    setSelectedCountry(newCountry);
+    
+    // Convert existing hourly rate if there is one
+    if (formData.hourlyRate && oldCountry && oldCountry !== newCountry) {
+      const convertedRate = convertCurrency(formData.hourlyRate, oldCountry, newCountry);
+      setFormData({
+        ...formData,
+        phone: '', // Clear phone when changing countries
+        hourlyRate: convertedRate
+      });
+      
+      // Show conversion notification
+      if (convertedRate !== formData.hourlyRate) {
+        const oldCurrency = phoneCountries[oldCountry]?.currency.symbol || '';
+        const newCurrency = phoneCountries[newCountry]?.currency.symbol || '';
+        Alert.alert(
+          'Currency Converted',
+          `Your hourly rate has been converted from ${oldCurrency}${formData.hourlyRate} to ${newCurrency}${convertedRate}`,
+          [{ text: 'OK' }]
+        );
+      }
+    } else {
+      setFormData({...formData, phone: ''});
+    }
+  };
+
+  // Handle phone number change
+  const handlePhoneChange = (text) => {
+    if (!selectedCountry) {
+      setFormData({...formData, phone: text});
+      return;
+    }
+    
+    const formatted = formatPhoneNumber(text, selectedCountry);
+    setFormData({...formData, phone: formatted});
+  };
 
   // Update form data when user profile loads (only for new profiles)
   useEffect(() => {
@@ -157,6 +576,15 @@ export default function CreateCoachProfileScreen({ navigation }) {
       return;
     }
 
+    // Validate messaging preferences if phone number is provided
+    if (formData.phone && !isMessagingValid()) {
+      Alert.alert(
+        'Messaging Options Required', 
+        'Please select at least one messaging option for students to contact you.'
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const coachData = {
@@ -164,13 +592,15 @@ export default function CreateCoachProfileScreen({ navigation }) {
         email: formData.email,
         bio: formData.bio || '',
         dupr_rating: formData.duprRating ? parseFloat(parseFloat(formData.duprRating).toFixed(3)) : null,
-        hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate) * 100 : null, // Convert to cents
+        hourly_rate: formData.hourlyRate ? parseInt(formData.hourlyRate.replace(/[,\s₫$]/g, '')) * (selectedCountry === 'VN' ? 1 : 100) : null, // Store VND as-is, USD in cents
+        currency: selectedCountry === 'VN' ? 'VND' : 'USD',
         location: formData.location || '',
         latitude: formData.latitude,
         longitude: formData.longitude,
         phone: formData.phone || '',
         specialties: formData.specialties || [],
         coaching_radius: formData.coachingRadius, // Coaching radius in kilometers
+        messaging_preferences: formData.messagingPreferences,
         is_verified: false, // New coach profiles start as unverified
         is_active: Boolean(formData.isActive), // Convert to boolean explicitly
         is_accepting_students: formData.isAcceptingStudents, // User's choice to publish
@@ -618,6 +1048,55 @@ export default function CreateCoachProfileScreen({ navigation }) {
     }
   };
 
+  const renderCountryPicker = () => (
+    <Modal
+      visible={showCountryPicker}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      transparent
+    >
+      <View style={styles.countryPickerOverlay}>
+        <View style={styles.countryPickerContainer}>
+          <View style={styles.countryPickerHeader}>
+            <TouchableOpacity
+              style={styles.countryPickerCancelButton}
+              onPress={() => setShowCountryPicker(false)}
+            >
+              <Text style={styles.countryPickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.countryPickerTitle}>Select Country</Text>
+            <View style={styles.countryPickerSpacer} />
+          </View>
+          
+          <View style={styles.countryPickerContent}>
+            {Object.entries(phoneCountries).map(([code, country]) => (
+              <TouchableOpacity
+                key={code}
+                style={[
+                  styles.countryOption,
+                  selectedCountry === code && styles.countryOptionSelected
+                ]}
+                onPress={() => {
+                  handleCountryChange(code);
+                  setShowCountryPicker(false);
+                }}
+              >
+                <Text style={styles.countryOptionFlag}>{country.flag}</Text>
+                <View style={styles.countryOptionTextContainer}>
+                  <Text style={styles.countryOptionName}>{country.name}</Text>
+                  <Text style={styles.countryOptionDialCode}>{country.dialCode}</Text>
+                </View>
+                {selectedCountry === code && (
+                  <Ionicons name="checkmark" size={20} color="#059669" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const renderMapPicker = () => (
     <Modal
       visible={showMapPicker}
@@ -850,6 +1329,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
     <View style={styles.container}>
       {renderHeader()}
       {renderMapPicker()}
+      {renderCountryPicker()}
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
@@ -890,14 +1370,136 @@ export default function CreateCoachProfileScreen({ navigation }) {
 
             <View style={styles.formField}>
               <Text style={styles.formLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder="(555) 123-4567"
-                value={formData.phone}
-                onChangeText={(text) => setFormData({...formData, phone: text})}
-                keyboardType="phone-pad"
-                placeholderTextColor="#9CA3AF"
-              />
+              {countryDetectionLoading ? (
+                <View style={styles.countryDetectionLoading}>
+                  <ActivityIndicator size="small" color="#059669" />
+                  <Text style={styles.countryDetectionText}>Detecting your country...</Text>
+                </View>
+              ) : (
+                <View style={styles.phoneInputContainer}>
+                  <TouchableOpacity
+                    style={styles.countrySelector}
+                    onPress={() => setShowCountryPicker(true)}
+                  >
+                    {selectedCountry && phoneCountries[selectedCountry] ? (
+                      <>
+                        <Text style={styles.countryFlag}>{phoneCountries[selectedCountry].flag}</Text>
+                        <Text style={styles.dialCode}>{phoneCountries[selectedCountry].dialCode}</Text>
+                        <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.countryFlag}>🌍</Text>
+                        <Text style={styles.dialCode}>+?</Text>
+                        <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                      </>
+                    )}
+                  </TouchableOpacity>
+                  <TextInput
+                    style={styles.phoneInput}
+                    placeholder={selectedCountry && phoneCountries[selectedCountry] ? phoneCountries[selectedCountry].placeholder : "Enter phone number"}
+                    value={formData.phone}
+                    onChangeText={handlePhoneChange}
+                    keyboardType="phone-pad"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                </View>
+              )}
+              {selectedCountry && formData.phone && (
+                <View style={styles.phoneValidation}>
+                  {validatePhoneNumber(formData.phone, selectedCountry) ? (
+                    <Text style={styles.phoneValidationSuccess}>✅ Valid phone number</Text>
+                  ) : (
+                    <Text style={styles.phoneValidationError}>❌ Invalid phone number format</Text>
+                  )}
+                </View>
+              )}
+              {detectedCountry && (
+                <Text style={styles.countryDetectionResult}>
+                  {isEditMode && formData.phone 
+                    ? `📱 Inferred from phone: ${phoneCountries[detectedCountry]?.name || detectedCountry}`
+                    : `📍 Auto-detected: ${phoneCountries[detectedCountry]?.name || detectedCountry}`
+                  }
+                </Text>
+              )}
+            </View>
+
+            {/* Messaging Preferences Section */}
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Preferred Messaging Apps *</Text>
+              <Text style={styles.formDescription}>
+                Select how students can reach you. Choose at least one option.
+              </Text>
+              
+              <View style={styles.messagingOptionsContainer}>
+                {getAvailableMessagingOptions(selectedCountry || 'VN').map(option => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.messagingOption,
+                      formData.messagingPreferences[option.id] && styles.messagingOptionSelected
+                    ]}
+                    onPress={() => 
+                      handleMessagingPreferenceChange(
+                        option.id, 
+                        !formData.messagingPreferences[option.id]
+                      )
+                    }
+                  >
+                    <View style={styles.messagingOptionContent}>
+                      <View style={styles.messagingOptionHeader}>
+                        {option.iconType === 'image' ? (
+                          <Image 
+                            source={option.iconSource} 
+                            style={[
+                              styles.messagingOptionIconImage,
+                              option.id === 'whatsapp' && styles.whatsappIconRounded
+                            ]} 
+                          />
+                        ) : (
+                          <Text style={styles.messagingOptionIcon}>{option.icon}</Text>
+                        )}
+                        <Text style={[
+                          styles.messagingOptionName,
+                          formData.messagingPreferences[option.id] && styles.messagingOptionNameSelected
+                        ]}>
+                          {option.name}
+                        </Text>
+                        <View style={[
+                          styles.messagingCheckbox,
+                          formData.messagingPreferences[option.id] && styles.messagingCheckboxSelected
+                        ]}>
+                          {formData.messagingPreferences[option.id] && (
+                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                          )}
+                        </View>
+                      </View>
+                      <Text style={[
+                        styles.messagingOptionDescription,
+                        formData.messagingPreferences[option.id] && styles.messagingOptionDescriptionSelected
+                      ]}>
+                        {option.description}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              {!isMessagingValid() && formData.phone && (
+                <View style={styles.messagingValidation}>
+                  <Text style={styles.messagingValidationError}>
+                    ⚠️ Please select at least one messaging option
+                  </Text>
+                </View>
+              )}
+              
+              {selectedCountry === 'US' && (
+                <View style={styles.messagingNote}>
+                  <Text style={styles.messagingNoteText}>
+                    💡 Zalo is primarily used in Vietnam and is not available for US coaches
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.formField}>
@@ -974,15 +1576,35 @@ export default function CreateCoachProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Hourly Rate ($)</Text>
+              <Text style={styles.formLabel}>
+                Hourly Rate ({selectedCountry && phoneCountries[selectedCountry] ? phoneCountries[selectedCountry].currency.symbol : '$'})
+              </Text>
+              {selectedCountry && phoneCountries[selectedCountry] && (
+                <Text style={styles.formDescription}>
+                  {phoneCountries[selectedCountry].currency.description}
+                </Text>
+              )}
               <TextInput
                 style={styles.formInput}
-                placeholder="75"
+                placeholder={selectedCountry && phoneCountries[selectedCountry] ? phoneCountries[selectedCountry].currency.placeholder : '75'}
                 value={formData.hourlyRate}
                 onChangeText={(text) => setFormData({...formData, hourlyRate: text})}
                 keyboardType="numeric"
                 placeholderTextColor="#9CA3AF"
               />
+              {selectedCountry && formData.hourlyRate && phoneCountries[selectedCountry] && (
+                <View style={styles.currencyValidation}>
+                  {phoneCountries[selectedCountry].currency.validate(formData.hourlyRate) ? (
+                    <Text style={styles.currencyValidationSuccess}>
+                      ✅ Valid rate: {phoneCountries[selectedCountry].currency.format(formData.hourlyRate)}/hour
+                    </Text>
+                  ) : (
+                    <Text style={styles.currencyValidationError}>
+                      ❌ Rate should be within typical range for {phoneCountries[selectedCountry].name}
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
 
             <View style={styles.formField}>
@@ -1249,7 +1871,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     backgroundColor: '#FFFFFF',
     ...Platform.select({
-      web: { outline: 'none' }
+      web: { outlineStyle: 'none' }
     }),
   },
   textArea: {
@@ -1697,5 +2319,263 @@ const styles = StyleSheet.create({
     color: '#065F46',
     fontWeight: '500',
     marginLeft: 22,
+  },
+  // Phone number and country picker styles
+  phoneInputContainer: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  countrySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#F9FAFB',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E7EB',
+    minWidth: 85,
+  },
+  countryFlag: {
+    fontSize: 18,
+    marginRight: 4,
+  },
+  dialCode: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginRight: 4,
+  },
+  phoneInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1F2937',
+    ...Platform.select({
+      web: { outlineStyle: 'none' }
+    }),
+  },
+  phoneValidation: {
+    marginTop: 4,
+  },
+  phoneValidationSuccess: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '500',
+  },
+  phoneValidationError: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '500',
+  },
+  countryDetectionLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  countryDetectionText: {
+    fontSize: 14,
+    color: '#065F46',
+    marginLeft: 8,
+  },
+  countryDetectionResult: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  // Country picker modal styles
+  countryPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  countryPickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  countryPickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  countryPickerCancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  countryPickerCancelText: {
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  countryPickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  countryPickerSpacer: {
+    width: 60, // Same width as cancel button for balance
+  },
+  countryPickerContent: {
+    paddingVertical: 8,
+  },
+  countryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  countryOptionSelected: {
+    backgroundColor: '#F0FDF4',
+  },
+  countryOptionFlag: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  countryOptionTextContainer: {
+    flex: 1,
+  },
+  countryOptionName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  countryOptionDialCode: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  // Messaging preferences styles
+  messagingOptionsContainer: {
+    marginTop: 8,
+  },
+  messagingOption: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    marginBottom: 12,
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  messagingOptionSelected: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#059669',
+    borderWidth: 2,
+  },
+  messagingOptionContent: {
+    flex: 1,
+  },
+  messagingOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  messagingOptionIcon: {
+    fontSize: 20,
+    marginRight: 12,
+  },
+  messagingOptionIconImage: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+  },
+  whatsappIconRounded: {
+    borderRadius: 6,
+  },
+  messagingOptionName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+  },
+  messagingOptionNameSelected: {
+    color: '#059669',
+  },
+  messagingCheckbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  messagingCheckboxSelected: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  messagingOptionDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 32, // Align with the text above
+  },
+  messagingOptionDescriptionSelected: {
+    color: '#065F46',
+  },
+  messagingValidation: {
+    marginTop: 8,
+  },
+  messagingValidationError: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '500',
+  },
+  messagingNote: {
+    backgroundColor: '#EBF8FF',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  messagingNoteText: {
+    fontSize: 12,
+    color: '#1E40AF',
+    lineHeight: 16,
+  },
+  // Currency validation styles
+  currencyValidation: {
+    marginTop: 4,
+  },
+  currencyValidationSuccess: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '500',
+  },
+  currencyValidationError: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '500',
   },
 });

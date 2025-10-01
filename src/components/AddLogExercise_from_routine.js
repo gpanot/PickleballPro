@@ -190,7 +190,9 @@ export default function AddLogExercise_from_routine({
           
           <View style={styles.targetSection}>
             <Text style={styles.targetLabel}>TARGET</Text>
-            <Text style={styles.targetValue}>{exercise.target}</Text>
+            <Text style={styles.targetValue}>
+              {exercise.target_value ? exercise.target_value : 'No data'}
+            </Text>
           </View>
           
           <View style={styles.resultSection}>

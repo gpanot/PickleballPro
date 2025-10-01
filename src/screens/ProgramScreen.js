@@ -12,6 +12,7 @@ import {
   Dimensions,
   RefreshControl,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,6 +35,13 @@ export default function ProgramScreen({ navigation, route }) {
   const [isProcessingImage, setIsProcessingImage] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
+
+  // Load programs when component mounts
+  React.useEffect(() => {
+    console.log('🔄 [ProgramScreen] Component mounted, loading programs...');
+    console.log('👤 [ProgramScreen] Current user:', user?.id);
+    loadPrograms();
+  }, [user?.id]);
 
   // Handle new program added from Explore
   React.useEffect(() => {
@@ -93,6 +101,213 @@ export default function ProgramScreen({ navigation, route }) {
   };
 
   // Program management functions
+  
+  // Load programs from database and local storage
+  const loadPrograms = async () => {
+    try {
+      console.log('📂 [ProgramScreen] loadPrograms called');
+      
+      if (!user?.id) {
+        console.log('❌ [ProgramScreen] No user ID, skipping program load');
+        return;
+      }
+
+      console.log('💾 [ProgramScreen] Attempting to load from database...');
+      
+      // Try to load from database first with routines
+      try {
+        console.log('🔍 [ProgramScreen] Loading programs with routines from database...');
+        const { data: dbPrograms, error: dbError } = await supabase
+          .from('programs')
+          .select(`
+            *,
+            routines (
+              id,
+              name,
+              description,
+              order_index,
+              time_estimate_minutes,
+              is_published,
+              created_at
+            )
+          `)
+          .eq('created_by', user.id)
+          .order('created_at', { ascending: false });
+
+        if (dbError) {
+          console.error('❌ [ProgramScreen] Database load failed:', dbError);
+        } else {
+          console.log('✅ [ProgramScreen] Loaded from database:', dbPrograms?.length || 0, 'programs');
+          
+          if (dbPrograms && dbPrograms.length > 0) {
+            // Transform database programs to match local format
+            const transformedPrograms = await Promise.all(dbPrograms.map(async (dbProgram) => {
+              console.log('🔄 [ProgramScreen] Processing program:', dbProgram.name);
+              console.log('📋 [ProgramScreen] Program routines:', dbProgram.routines?.length || 0);
+              console.log('🖼️ [ProgramScreen] Program thumbnail URL:', dbProgram.thumbnail_url);
+              
+              // Handle thumbnail - convert URL to local format if needed
+              let thumbnail = null;
+              if (dbProgram.thumbnail_url) {
+                try {
+                  // For now, we'll use the URL directly - could download and cache locally later
+                  thumbnail = { uri: dbProgram.thumbnail_url };
+                  console.log('✅ [ProgramScreen] Thumbnail loaded from URL');
+                } catch (error) {
+                  console.error('❌ [ProgramScreen] Error loading thumbnail:', error);
+                }
+              }
+              
+              // Transform routines to match local format and load their exercises
+              const routines = await Promise.all((dbProgram.routines || []).map(async (dbRoutine) => {
+                console.log('🔄 [ProgramScreen] Loading exercises for routine:', dbRoutine.name);
+                
+                // Load exercises for this routine
+                let exercises = [];
+                try {
+                  const { data: routineExercises, error: exerciseError } = await supabase
+                    .from('routine_exercises')
+                    .select(`
+                      id,
+                      order_index,
+                      is_optional,
+                      exercises (
+                        id,
+                        code,
+                        title,
+                        description,
+                        goal_text,
+                        skill_category,
+                        skill_categories_json,
+                        difficulty,
+                        target_type,
+                        target_value,
+                        target_unit,
+                        instructions,
+                        tips_json,
+                        estimated_minutes,
+                        demo_video_url,
+                        demo_image_url,
+                        thumbnail_url,
+                        tier_level,
+                        tags,
+                        is_published,
+                        created_at
+                      )
+                    `)
+                    .eq('routine_id', dbRoutine.id)
+                    .order('order_index', { ascending: true });
+                  
+                  if (exerciseError) {
+                    console.error('❌ [ProgramScreen] Error loading exercises for routine:', exerciseError);
+                  } else {
+                    exercises = (routineExercises || []).map(re => ({
+                      ...re.exercises,
+                      name: re.exercises.title, // Map title to name for compatibility
+                      routineExerciseId: re.id,
+                      routine_exercise_id: re.id,
+                      order_index: re.order_index,
+                      is_optional: re.is_optional,
+                      // Add target formatting for compatibility
+                      target: re.exercises.target_value && re.exercises.target_unit 
+                        ? `${re.exercises.target_value} ${re.exercises.target_unit}`
+                        : `${re.exercises.target_value || 10} attempts`
+                    }));
+                    console.log('✅ [ProgramScreen] Loaded', exercises.length, 'exercises for routine:', dbRoutine.name);
+                  }
+                } catch (error) {
+                  console.error('❌ [ProgramScreen] Error loading exercises:', error);
+                }
+                
+                return {
+                  id: dbRoutine.id,
+                  name: dbRoutine.name,
+                  description: dbRoutine.description,
+                  exercises: exercises, // ✅ Now properly loading exercises
+                  createdAt: dbRoutine.created_at,
+                  order_index: dbRoutine.order_index,
+                  time_estimate_minutes: dbRoutine.time_estimate_minutes,
+                  is_published: dbRoutine.is_published
+                };
+              }));
+              
+              console.log('📊 [ProgramScreen] Transformed routines for', dbProgram.name, ':', routines.length);
+              
+              return {
+                id: dbProgram.id,
+                name: dbProgram.name,
+                description: dbProgram.description,
+                thumbnail: thumbnail, // ✅ Now properly loading thumbnails
+                thumbnailUrl: dbProgram.thumbnail_url, // Keep URL for reference
+                routines: routines, // ✅ Now properly loading routines
+                createdAt: dbProgram.created_at,
+                category: dbProgram.category,
+                tier: dbProgram.tier,
+                isPublished: dbProgram.is_published,
+                program_type: dbProgram.program_type,
+                is_shareable: dbProgram.is_shareable,
+                visibility: dbProgram.visibility
+              };
+            }));
+            
+            console.log('📊 [ProgramScreen] Final transformed programs:', transformedPrograms.length);
+            transformedPrograms.forEach(program => {
+              const totalExercises = program.routines.reduce((sum, routine) => sum + routine.exercises.length, 0);
+              console.log(`📋 [ProgramScreen] Program "${program.name}": ${program.routines.length} routines, ${totalExercises} exercises, thumbnail: ${!!program.thumbnail}`);
+              program.routines.forEach(routine => {
+                console.log(`  📝 [ProgramScreen] Routine "${routine.name}": ${routine.exercises.length} exercises`);
+              });
+            });
+            
+            setPrograms(transformedPrograms);
+            console.log('📊 [ProgramScreen] Set programs from database with routines and thumbnails');
+            
+            // Save to local storage as backup
+            await AsyncStorage.setItem(`@user_programs_${user.id}`, JSON.stringify(transformedPrograms));
+            console.log('💾 [ProgramScreen] Saved to local storage as backup');
+            return;
+          }
+        }
+      } catch (dbError) {
+        console.error('❌ [ProgramScreen] Database error:', dbError);
+      }
+
+      // Fallback to local storage
+      console.log('📱 [ProgramScreen] Falling back to local storage...');
+      try {
+        const localPrograms = await AsyncStorage.getItem(`@user_programs_${user.id}`);
+        if (localPrograms) {
+          const parsedPrograms = JSON.parse(localPrograms);
+          console.log('✅ [ProgramScreen] Loaded from local storage:', parsedPrograms.length, 'programs');
+          setPrograms(parsedPrograms);
+        } else {
+          console.log('📭 [ProgramScreen] No local programs found');
+          setPrograms([]);
+        }
+      } catch (localError) {
+        console.error('❌ [ProgramScreen] Local storage error:', localError);
+        setPrograms([]);
+      }
+
+    } catch (error) {
+      console.error('💥 [ProgramScreen] Unexpected error in loadPrograms:', error);
+      setPrograms([]);
+    }
+  };
+
+  // Save programs to local storage
+  const savePrograms = async (programsToSave) => {
+    try {
+      if (user?.id) {
+        console.log('💾 [ProgramScreen] Saving programs to local storage:', programsToSave.length);
+        await AsyncStorage.setItem(`@user_programs_${user.id}`, JSON.stringify(programsToSave));
+        console.log('✅ [ProgramScreen] Programs saved to local storage');
+      }
+    } catch (error) {
+      console.error('❌ [ProgramScreen] Error saving programs:', error);
+    }
+  };
+
   // AI Program Generation function
   const generateAIProgramHandler = async () => {
     // Validate user can generate AI program
@@ -179,40 +394,233 @@ export default function ProgramScreen({ navigation, route }) {
     }
   };
 
+  // Upload program thumbnail to Supabase Storage
+  const uploadProgramThumbnail = async (imageUri, programName) => {
+    try {
+      console.log('📤 [ProgramScreen] Starting thumbnail upload...');
+      
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Generate a unique filename with user folder structure
+      const fileExtension = 'jpg';
+      const sanitizedProgramName = programName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const fileName = `${user.id}/${sanitizedProgramName}_${Date.now()}.${fileExtension}`;
+      
+      console.log('📋 [ProgramScreen] Upload details:', {
+        userId: user.id,
+        fileName,
+        bucketName: 'program_thumbnails',
+        sanitizedProgramName
+      });
+      
+      // Read file as array buffer (works for both web and React Native)
+      const response = await fetch(imageUri);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      console.log('📊 [ProgramScreen] File size:', arrayBuffer.byteLength, 'bytes');
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('program_thumbnails')
+        .upload(fileName, arrayBuffer, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (error) {
+        console.error('❌ [ProgramScreen] Storage upload error:', error);
+        
+        // Provide specific error messages for common issues
+        if (error.message.includes('row-level security policy')) {
+          console.log('🚨 [ProgramScreen] RLS policy error - bucket needs setup');
+          Alert.alert(
+            'Storage Setup Required',
+            'The program thumbnails storage bucket needs to be set up. Creating program without thumbnail for now.'
+          );
+          return null;
+        }
+        
+        if (error.message.includes('bucket') && error.message.includes('not found')) {
+          console.log('🚨 [ProgramScreen] Bucket not found - needs creation');
+          Alert.alert(
+            'Storage Bucket Missing',
+            'Program thumbnails bucket needs to be created. Creating program without thumbnail for now.'
+          );
+          return null;
+        }
+        
+        throw error;
+      }
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('program_thumbnails')
+        .getPublicUrl(fileName);
+
+      console.log('✅ [ProgramScreen] Thumbnail uploaded successfully:', publicUrl);
+      return publicUrl;
+
+    } catch (error) {
+      console.error('❌ [ProgramScreen] Error uploading thumbnail:', error);
+      Alert.alert('Warning', 'Failed to upload thumbnail. Program will be created without image.');
+      return null;
+    }
+  };
+
   const createProgram = async () => {
+    console.log('🚀 [ProgramScreen] createProgram called');
+    console.log('📝 [ProgramScreen] Program name:', newProgramName.trim());
+    console.log('🖼️ [ProgramScreen] Has image:', !!selectedImage);
+    console.log('👤 [ProgramScreen] Current user:', user?.id);
+    
     if (!newProgramName.trim()) {
+      console.log('❌ [ProgramScreen] Validation failed: Empty program name');
       Alert.alert('Error', 'Please enter a program name');
       return;
     }
     
-    let compressedThumbnail = null;
-    if (selectedImage) {
-      try {
-        // Compress the selected image
-        const manipResult = await ImageManipulator.manipulateAsync(
-          selectedImage.uri,
-          [{ resize: { width: 300, height: 300 } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-        );
-        compressedThumbnail = manipResult;
-      } catch (error) {
-        console.error('Error compressing image:', error);
-        Alert.alert('Error', 'Failed to process image. Program will be created without thumbnail.');
-      }
+    if (!user?.id) {
+      console.log('❌ [ProgramScreen] Validation failed: No user ID');
+      Alert.alert('Error', 'User not authenticated');
+      return;
     }
     
-    const newProgram = {
-      id: Date.now().toString(),
-      name: newProgramName.trim(),
-      thumbnail: compressedThumbnail,
-      routines: [],
-      createdAt: new Date().toISOString(),
-    };
-    
-    setPrograms(prev => [...prev, newProgram]);
-    setNewProgramName('');
-    setSelectedImage(null);
-    setShowCreateProgramModal(false);
+    try {
+      console.log('🔄 [ProgramScreen] Starting program creation process...');
+      
+      let compressedThumbnail = null;
+      let thumbnailUrl = null;
+      
+      if (selectedImage) {
+        try {
+          console.log('🖼️ [ProgramScreen] Processing image...');
+          
+          // Compress the selected image for local storage
+          const manipResult = await ImageManipulator.manipulateAsync(
+            selectedImage.uri,
+            [{ resize: { width: 300, height: 300 } }],
+            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          );
+          compressedThumbnail = manipResult;
+          console.log('✅ [ProgramScreen] Image compressed successfully');
+          
+          // Upload to Supabase Storage for database storage
+          console.log('📤 [ProgramScreen] Uploading thumbnail to storage...');
+          thumbnailUrl = await uploadProgramThumbnail(manipResult.uri, newProgramName.trim());
+          
+          if (thumbnailUrl) {
+            console.log('✅ [ProgramScreen] Thumbnail uploaded to storage:', thumbnailUrl);
+          } else {
+            console.log('⚠️ [ProgramScreen] Thumbnail upload failed, continuing without URL');
+          }
+          
+        } catch (error) {
+          console.error('❌ [ProgramScreen] Error processing image:', error);
+          Alert.alert('Warning', 'Failed to process image. Program will be created without thumbnail.');
+        }
+      }
+      
+      const newProgram = {
+        id: Date.now().toString(),
+        name: newProgramName.trim(),
+        thumbnail: compressedThumbnail, // For local storage
+        thumbnailUrl: thumbnailUrl, // For database storage
+        routines: [],
+        createdAt: new Date().toISOString(),
+      };
+      
+      console.log('📋 [ProgramScreen] Program object created:', {
+        id: newProgram.id,
+        name: newProgram.name,
+        hasThumbnail: !!newProgram.thumbnail,
+        hasThumbnailUrl: !!newProgram.thumbnailUrl,
+        routinesCount: newProgram.routines.length
+      });
+      
+      // Save to database using the user function with thumbnail URL
+      console.log('💾 [ProgramScreen] Attempting to save to database...');
+      try {
+        const { data: savedProgram, error: saveError } = await supabase.rpc('create_program_as_user', {
+          program_name: newProgram.name,
+          program_description: `User-created program: ${newProgram.name}`,
+          program_category: 'Custom',
+          program_tier: 'Beginner',
+          program_is_published: false,
+          program_thumbnail_url: thumbnailUrl // Now properly handling image upload!
+        });
+        
+        if (saveError) {
+          console.error('❌ [ProgramScreen] Database save failed:', saveError);
+          console.log('📱 [ProgramScreen] Falling back to local storage only');
+          Alert.alert('Warning', 'Program saved locally but could not sync to server. It will sync when connection is available.');
+        } else {
+          console.log('✅ [ProgramScreen] Program saved to database successfully:', savedProgram);
+          
+          // 🔧 CRITICAL FIX: RPC functions return arrays, so get the first element
+          const programData = Array.isArray(savedProgram) ? savedProgram[0] : savedProgram;
+          
+          if (programData && programData.id) {
+            console.log('🔄 [ProgramScreen] Updating program ID from timestamp to UUID:', {
+              oldId: newProgram.id,
+              newId: programData.id,
+              idType: typeof programData.id
+            });
+            newProgram.id = programData.id;
+            newProgram.program_id = programData.id; // Also set program_id for consistency
+            newProgram.created_by = programData.created_by;
+            newProgram.category = programData.category;
+            newProgram.tier = programData.tier;
+            newProgram.is_published = programData.is_published;
+            console.log('✅ [ProgramScreen] Program object updated with database UUID');
+          } else {
+            console.log('⚠️ [ProgramScreen] No program data returned from database function');
+          }
+        }
+      } catch (dbError) {
+        console.error('❌ [ProgramScreen] Database operation failed:', dbError);
+        console.log('📱 [ProgramScreen] Continuing with local storage only');
+        Alert.alert('Warning', `Database save failed: ${dbError.message}. Program saved locally.`);
+      }
+      
+      // Update local state
+      console.log('📱 [ProgramScreen] Updating local state...');
+      console.log('🔍 [ProgramScreen] Final program object before adding to state:', {
+        id: newProgram.id,
+        name: newProgram.name,
+        idType: typeof newProgram.id,
+        isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newProgram.id)
+      });
+      
+      setPrograms(prev => {
+        const updated = [...prev, newProgram];
+        console.log('📊 [ProgramScreen] Local programs count after add:', updated.length);
+        
+        // Save to local storage immediately
+        savePrograms(updated);
+        
+        return updated;
+      });
+      
+      // Clear form
+      console.log('🧹 [ProgramScreen] Clearing form...');
+      setNewProgramName('');
+      setSelectedImage(null);
+      setShowCreateProgramModal(false);
+      
+      console.log('✅ [ProgramScreen] Program creation completed successfully');
+      
+      // Show success message with thumbnail status
+      const successMessage = thumbnailUrl 
+        ? `Program "${newProgram.name}" created successfully with thumbnail!`
+        : `Program "${newProgram.name}" created successfully!`;
+      Alert.alert('Success', successMessage);
+      
+    } catch (error) {
+      console.error('💥 [ProgramScreen] Unexpected error in createProgram:', error);
+      Alert.alert('Error', `Failed to create program: ${error.message}`);
+    }
   };
 
   // Image handling functions

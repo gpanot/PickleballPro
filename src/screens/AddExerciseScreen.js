@@ -156,10 +156,9 @@ export default function AddExerciseScreen({ navigation, route }) {
               
               console.log('Deleting exercise with ID:', exercise.originalId || exercise.id);
               
-              const { error } = await supabase
-                .from('exercises')
-                .delete()
-                .eq('id', exercise.originalId || exercise.id);
+              const { error } = await supabase.rpc('delete_exercise_as_user', {
+                exercise_code: exercise.code
+              });
 
               if (error) throw error;
 
@@ -261,25 +260,44 @@ export default function AddExerciseScreen({ navigation, route }) {
       let data, error;
 
       if (isEditing && exercise) {
-        // Update existing exercise
+        // Update existing exercise using user function
         console.log('Updating exercise with ID:', exercise.originalId || exercise.id, 'and data:', exerciseData);
-        const updateResult = await supabase
-          .from('exercises')
-          .update(exerciseData)
-          .eq('id', exercise.originalId || exercise.id)
-          .select();
+        const updateResult = await supabase.rpc('update_exercise_as_user', {
+          exercise_code: exercise.code || cleanCode,
+          exercise_title: exerciseData.title,
+          exercise_description: exerciseData.description,
+          exercise_instructions: exerciseData.instructions,
+          exercise_goal: exerciseData.goal_text,
+          exercise_difficulty: exerciseData.difficulty,
+          exercise_target_value: exerciseData.target_value,
+          exercise_target_unit: 'shots', // Default unit
+          exercise_estimated_minutes: exerciseData.estimated_minutes,
+          exercise_skill_category: exerciseData.skill_category,
+          exercise_skill_categories_json: exerciseData.skill_categories_json,
+          exercise_is_published: exerciseData.is_published
+        });
         
-        data = updateResult.data;
+        data = updateResult.data ? [updateResult.data] : updateResult.data;
         error = updateResult.error;
       } else {
-        // Create new exercise
+        // Create new exercise using user function
         console.log('Creating exercise with title:', cleanExerciseName, 'and code:', cleanCode);
-        const insertResult = await supabase
-          .from('exercises')
-          .insert([exerciseData])
-          .select();
+        const insertResult = await supabase.rpc('create_exercise_as_user', {
+          exercise_code: cleanCode,
+          exercise_title: exerciseData.title,
+          exercise_description: exerciseData.description,
+          exercise_instructions: exerciseData.instructions,
+          exercise_goal: exerciseData.goal_text,
+          exercise_difficulty: exerciseData.difficulty,
+          exercise_target_value: exerciseData.target_value,
+          exercise_target_unit: 'shots', // Default unit
+          exercise_estimated_minutes: exerciseData.estimated_minutes,
+          exercise_skill_category: exerciseData.skill_category,
+          exercise_skill_categories_json: exerciseData.skill_categories_json,
+          exercise_is_published: exerciseData.is_published
+        });
         
-        data = insertResult.data;
+        data = insertResult.data ? [insertResult.data] : insertResult.data;
         error = insertResult.error;
       }
 

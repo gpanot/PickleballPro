@@ -87,56 +87,18 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     title: rawExercise.title || rawExercise.name || "Exercise",
     level: `Difficulty Level ${rawExercise.difficulty || 1}`,
     goal: rawExercise.goal_text || rawExercise.goal || rawExercise.description || "Complete the exercise successfully",
-    instructions: rawExercise.instructions || `Target: ${rawExercise.target || "Complete the exercise"}
-
-Description:
-${rawExercise.description || "No additional instructions available"}
-
-Success Criteria:
-${rawExercise.target || "Complete as instructed"}`,
+    instructions: rawExercise.instructions || rawExercise.description || "No additional instructions available",
     targetType: rawExercise.target_type || "count",
     targetValue: rawExercise.target_value || rawExercise.target || "Complete",
+    targetUnit: rawExercise.target_unit || "attempts",
     difficulty: rawExercise.difficulty || 1,
-    validationMode: "manual",
+    validationMode: rawExercise.validation_mode || "manual",
     estimatedTime: rawExercise.estimated_minutes ? `${rawExercise.estimated_minutes} min` : "10-15 min",
     equipment: ["Balls", "Paddle"],
     tips: (rawExercise.tips_json && Array.isArray(rawExercise.tips_json) && rawExercise.tips_json.length > 0) 
       ? rawExercise.tips_json.filter(tip => tip && tip.trim())
-      : [
-          "Focus on proper form and technique",
-          "Take your time with each repetition", 
-          "Practice consistently for best results"
-        ]
-  } : {
-    code: "7.1",
-    title: "Drop Consistency",
-    level: "Level 7: Third Shot Drop",
-    goal: "Master the third shot drop by consistently placing the ball in the NVZ",
-    instructions: `Setup:
-• Stand at the baseline
-• Partner feeds balls from the NVZ
-• Focus on soft touch and arc
-
-Execution:
-1. Take a comfortable ready position
-2. Use a pendulum swing motion
-3. Aim for the NVZ with proper arc
-4. Reset after each attempt
-
-Success Criteria:
-Land 6 out of 10 drops in the NVZ to pass this drill.`,
-    targetType: "count",
-    targetValue: "6/10",
-    difficulty: 3,
-    validationMode: "manual",
-    estimatedTime: "10-15 min",
-    equipment: ["Balls", "Partner/Coach"],
-    tips: [
-      "Keep your paddle face open",
-      "Use your legs for power, not your arm", 
-      "Aim for the kitchen line, not the net"
-    ]
-  };
+      : []
+  } : null;
 
 
   const getDifficultyStars = () => {
@@ -175,15 +137,31 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
     </View>
   );
 
-  const renderGoalCard = () => (
-    <View style={styles.goalCard}>
-      <View style={styles.goalContent}>
-        <ModernIcon name="target" size={20} color="#2563EB" style={styles.goalIcon} />
-        <View style={styles.goalTextContainer}>
-          <Text style={styles.goalTitle}>Goal</Text>
-          <Text style={styles.goalDescription}>{exercise.goal}</Text>
+  const renderGoalTargetRow = () => (
+    <View style={styles.goalTargetContainer}>
+      <View style={styles.goalCard}>
+        <View style={styles.goalContent}>
+          <ModernIcon name="target" size={20} color="#2563EB" style={styles.goalIcon} />
+          <View style={styles.goalTextContainer}>
+            <Text style={styles.goalTitle}>Goal</Text>
+            <Text style={styles.goalDescription}>{exercise.goal}</Text>
+          </View>
         </View>
       </View>
+      
+      {exercise.targetValue && exercise.targetValue !== "Complete" && (
+        <View style={styles.targetCard}>
+          <View style={styles.targetContent}>
+            <ModernIcon name="flag" size={20} color="#059669" style={styles.targetIcon} />
+            <View style={styles.targetTextContainer}>
+              <Text style={styles.targetTitle}>Target</Text>
+              <Text style={styles.targetDescription}>
+                {exercise.targetValue} {exercise.targetUnit && exercise.targetUnit !== "attempts" ? exercise.targetUnit : ""}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -236,21 +214,27 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
     );
   };
 
-  const renderTips = () => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Pro Tips</Text>
-      <View style={styles.tipsContainer}>
-        {exercise.tips.map((tip, index) => (
-          <View key={index} style={styles.tipItem}>
-            <View style={styles.tipNumber}>
-              <Text style={styles.tipNumberText}>{index + 1}</Text>
+  const renderTips = () => {
+    if (!exercise.tips || exercise.tips.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Pro Tips</Text>
+        <View style={styles.tipsContainer}>
+          {exercise.tips.map((tip, index) => (
+            <View key={index} style={styles.tipItem}>
+              <View style={styles.tipNumber}>
+                <Text style={styles.tipNumberText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.tipText}>{tip}</Text>
             </View>
-            <Text style={styles.tipText}>{tip}</Text>
-          </View>
-        ))}
+          ))}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderTags = () => {
     const tags = rawExercise?.skill_categories_json || rawExercise?.tags || [];
@@ -275,6 +259,36 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
 
 
 
+  // Handle case when no exercise data is available
+  if (!exercise) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.safeArea, { paddingTop: insets.top }]}>
+          <View style={styles.header}>
+            <View style={styles.headerContent}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+              >
+                <Ionicons 
+                  name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
+                  size={24} 
+                  color="#007AFF" 
+                />
+              </TouchableOpacity>
+              <View style={styles.headerText}>
+                <Text style={styles.titleText}>Exercise Not Found</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>No exercise data available</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={[styles.safeArea, { paddingTop: insets.top }]}>
@@ -295,7 +309,7 @@ Land 6 out of 10 drops in the NVZ to pass this drill.`,
         }
       >
         <View style={styles.content}>
-          {renderGoalCard()}
+          {renderGoalTargetRow()}
           {renderVideoSection()}
           {renderInstructions()}
           {renderTips()}
@@ -363,13 +377,18 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 12,
   },
+  goalTargetContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
   goalCard: {
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#DBEAFE',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    flex: 0.6, // 60% width
   },
   goalContent: {
     flexDirection: 'row',
@@ -392,6 +411,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E40AF',
     lineHeight: 20,
+  },
+  targetCard: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
+    padding: 16,
+    flex: 0.4, // 40% width
+  },
+  targetContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  targetIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  targetTextContainer: {
+    flex: 1,
+  },
+  targetTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#047857',
+    marginBottom: 4,
+  },
+  targetDescription: {
+    fontSize: 14,
+    color: '#065F46',
+    lineHeight: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   videoSection: {
     backgroundColor: 'white',

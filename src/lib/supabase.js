@@ -641,7 +641,9 @@ export const transformCoachData = (coaches) => {
     name: coach.name,
     bio: coach.bio,
     duprRating: coach.dupr_rating,
-    hourlyRate: coach.hourly_rate ? coach.hourly_rate / 100 : 0, // Convert from cents
+    hourlyRate: coach.hourly_rate ? 
+      (coach.currency === 'VND' ? coach.hourly_rate : coach.hourly_rate / 100) : 0, // VND as-is, USD from cents
+    currency: coach.currency || 'USD', // Default to USD if not specified
     rating: coach.rating_avg,
     reviewCount: coach.rating_count,
     specialties: coach.specialties,

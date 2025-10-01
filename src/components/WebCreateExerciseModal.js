@@ -286,15 +286,29 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           </View>
         </View>
 
-          {/* Target/Success Criteria Card */}
-        <View style={styles.previewGoalCard}>
-          <View style={styles.previewGoalContent}>
-            <Text style={styles.previewGoalIcon}>🎯</Text>
-            <View style={styles.previewGoalTextContainer}>
-              <Text style={styles.previewGoalTitle}>Goal</Text>
-              <Text style={styles.previewGoalDescription}>{previewExercise.goal}</Text>
+          {/* Goal and Target Row */}
+        <View style={styles.previewGoalTargetRow}>
+          <View style={styles.previewGoalCard}>
+            <View style={styles.previewGoalContent}>
+              <Text style={styles.previewGoalIcon}>🎯</Text>
+              <View style={styles.previewGoalTextContainer}>
+                <Text style={styles.previewGoalTitle}>Goal</Text>
+                <Text style={styles.previewGoalDescription}>{previewExercise.goal}</Text>
+              </View>
             </View>
           </View>
+          
+          {previewExercise.targetValue && previewExercise.targetValue !== "Enter target number" && (
+            <View style={styles.previewTargetCard}>
+              <View style={styles.previewTargetContent}>
+                <Text style={styles.previewTargetIcon}>🏁</Text>
+                <View style={styles.previewTargetTextContainer}>
+                  <Text style={styles.previewTargetTitle}>Target</Text>
+                  <Text style={styles.previewTargetDescription}>{previewExercise.targetValue}</Text>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Video Section */}
@@ -628,34 +642,41 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
               </>
             )}
 
-            <Text style={styles.modalLabel}>Goal *</Text>
-            <TextInput
-              style={[styles.modalInput, styles.modalTextArea]}
-              value={goal}
-              onChangeText={setGoal}
-              placeholder="What is the goal/success criteria? e.g., Land 6 out of 10 drops in the NVZ, Complete 20 consecutive dinks"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-
-            <Text style={styles.modalLabel}>Target</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={targetValue}
-              onChangeText={(text) => {
-                // Only allow numbers and limit to 999
-                const numericValue = text.replace(/[^0-9]/g, '');
-                if (numericValue === '' || (parseInt(numericValue) <= 999)) {
-                  setTargetValue(numericValue);
-                }
-              }}
-              placeholder="Enter target number (1-999)"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="numeric"
-              maxLength={3}
-            />
+            {/* Goal and Target Row */}
+            <View style={styles.goalTargetRow}>
+              <View style={styles.goalColumn}>
+                <Text style={styles.modalLabel}>Goal *</Text>
+                <TextInput
+                  style={[styles.modalInput, styles.modalTextArea, styles.goalInput]}
+                  value={goal}
+                  onChangeText={setGoal}
+                  placeholder="What is the goal/success criteria? e.g., Land 6 out of 10 drops in the NVZ"
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+              
+              <View style={styles.targetColumn}>
+                <Text style={styles.modalLabel}>Target</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={targetValue}
+                  onChangeText={(text) => {
+                    // Only allow numbers and limit to 999
+                    const numericValue = text.replace(/[^0-9]/g, '');
+                    if (numericValue === '' || (parseInt(numericValue) <= 999)) {
+                      setTargetValue(numericValue);
+                    }
+                  }}
+                  placeholder="Enter target number (1-999)"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
+              </View>
+            </View>
 
             <Text style={styles.modalLabel}>Instructions *</Text>
             <TextInput
@@ -1042,6 +1063,21 @@ const styles = StyleSheet.create({
     height: 80,
     textAlignVertical: 'top',
   },
+  goalTargetRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  goalColumn: {
+    flex: 0.6, // 60% width
+  },
+  targetColumn: {
+    flex: 0.4, // 40% width
+  },
+  goalInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
   modalLargeTextArea: {
     height: 160,
     textAlignVertical: 'top',
@@ -1217,13 +1253,26 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
+  previewGoalTargetRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
   previewGoalCard: {
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#DBEAFE',
     borderRadius: 8,
     padding: 12,
-    marginBottom: 16,
+    flex: 0.6, // 60% width
+  },
+  previewTargetCard: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    padding: 12,
+    flex: 0.4, // 40% width
   },
   previewGoalContent: {
     flexDirection: 'row',
@@ -1246,6 +1295,29 @@ const styles = StyleSheet.create({
   previewGoalDescription: {
     fontSize: 12,
     color: '#1E40AF',
+    lineHeight: 16,
+  },
+  previewTargetContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  previewTargetIcon: {
+    fontSize: 16,
+    marginRight: 8,
+    marginTop: 2,
+  },
+  previewTargetTextContainer: {
+    flex: 1,
+  },
+  previewTargetTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#047857',
+    marginBottom: 4,
+  },
+  previewTargetDescription: {
+    fontSize: 12,
+    color: '#065F46',
     lineHeight: 16,
   },
   previewVideoSection: {
