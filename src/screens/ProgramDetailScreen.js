@@ -163,19 +163,59 @@ export default function ProgramDetailScreen({ navigation, route }) {
     }
   };
 
-  const deleteRoutine = (routineId) => {
+  const deleteRoutine = async (routineId) => {
+    const routineToDelete = program.routines.find(r => r.id === routineId);
+    
     Alert.alert(
       'Delete Routine',
-      'Are you sure you want to delete this routine? This action cannot be undone.',
+      `Are you sure you want to delete "${routineToDelete?.name}"?\n\nThis action cannot be undone and will:\n• Delete all exercises from this routine\n• Remove this routine from other users if the program was shared\n\nThis will affect all users who have this program.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: () => setProgram(prev => ({
-            ...prev,
-            routines: prev.routines.filter(r => r.id !== routineId)
-          }))
+          onPress: async () => {
+            try {
+              console.log('🗑️ [ProgramDetailScreen] Deleting routine:', routineId);
+              
+              // Delete from database if it's a UUID (database routine)
+              const isUUID = routineId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+              
+              if (isUUID && user?.id) {
+                console.log('💾 [ProgramDetailScreen] Deleting from database...');
+                
+                const { error } = await supabase.rpc('delete_routine_as_user', {
+                  routine_id: routineId
+                });
+                
+                if (error) {
+                  console.error('❌ [ProgramDetailScreen] Database delete failed:', error);
+                  Alert.alert('Error', `Failed to delete from database: ${error.message}`);
+                  return;
+                }
+                
+                console.log('✅ [ProgramDetailScreen] Routine deleted from database');
+              }
+              
+              // Update local state
+              const updatedProgram = {
+                ...program,
+                routines: program.routines.filter(r => r.id !== routineId)
+              };
+              setProgram(updatedProgram);
+              
+              // Update parent if callback exists
+              if (onUpdateProgram) {
+                onUpdateProgram(updatedProgram);
+              }
+              
+              Alert.alert('Success', 'Routine deleted successfully');
+              
+            } catch (error) {
+              console.error('💥 [ProgramDetailScreen] Error deleting routine:', error);
+              Alert.alert('Error', `Failed to delete routine: ${error.message}`);
+            }
+          }
         }
       ]
     );

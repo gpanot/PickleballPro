@@ -475,11 +475,58 @@ export default function RoutineDetailScreen({ navigation, route }) {
     console.log('✅ [RoutineDetailScreen] Exercise added to local state - will save when exiting Exercise Picker');
   };
 
-  const removeExerciseFromRoutine = (routineExerciseId) => {
-    setRoutine(prev => ({
-      ...prev,
-      exercises: (prev.exercises || []).filter(ex => ex.routineExerciseId !== routineExerciseId)
-    }));
+  const removeExerciseFromRoutine = async (routineExerciseId) => {
+    const exerciseToRemove = routine.exercises.find(ex => ex.routineExerciseId === routineExerciseId);
+    
+    Alert.alert(
+      'Remove Exercise',
+      `Are you sure you want to remove "${exerciseToRemove?.name || exerciseToRemove?.title}" from this routine?\n\nThis action cannot be undone and will:\n• Remove this exercise from the routine\n• Affect other users if this program was shared\n\nNote: The exercise itself will remain in the database and can be added again.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ [RoutineDetailScreen] Removing exercise from routine:', routineExerciseId);
+              
+              // Delete from database if it's a database routine-exercise relationship
+              const isUUID = routineExerciseId && typeof routineExerciseId === 'string' && 
+                            routineExerciseId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+              
+              if (isUUID && user?.id) {
+                console.log('💾 [RoutineDetailScreen] Deleting from database...');
+                
+                const { error } = await supabase
+                  .from('routine_exercises')
+                  .delete()
+                  .eq('id', routineExerciseId);
+                
+                if (error) {
+                  console.error('❌ [RoutineDetailScreen] Database delete failed:', error);
+                  Alert.alert('Error', `Failed to remove from database: ${error.message}`);
+                  return;
+                }
+                
+                console.log('✅ [RoutineDetailScreen] Exercise removed from database');
+              }
+              
+              // Update local state
+              setRoutine(prev => ({
+                ...prev,
+                exercises: (prev.exercises || []).filter(ex => ex.routineExerciseId !== routineExerciseId)
+              }));
+              
+              Alert.alert('Success', 'Exercise removed from routine successfully');
+              
+            } catch (error) {
+              console.error('💥 [RoutineDetailScreen] Error removing exercise:', error);
+              Alert.alert('Error', `Failed to remove exercise: ${error.message}`);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const moveExerciseUp = (index) => {

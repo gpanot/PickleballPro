@@ -141,7 +141,7 @@ export default function AddExerciseScreen({ navigation, route }) {
   const handleDelete = async () => {
     Alert.alert(
       'Delete Exercise',
-      `Are you sure you want to delete "${exerciseName}"? This action cannot be undone.`,
+      `Are you sure you want to delete "${exerciseName}"?\n\nThis action cannot be undone and will:\n• Permanently delete this exercise from the database\n• Remove it from all routines that use it\n• Affect other users if this exercise was shared in programs\n\nThis will impact all users who have programs with this exercise.`,
       [
         {
           text: 'Cancel',

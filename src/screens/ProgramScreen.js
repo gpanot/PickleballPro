@@ -672,16 +672,55 @@ export default function ProgramScreen({ navigation, route }) {
     setSelectedImage(null);
   };
 
-  const deleteProgram = (programId) => {
+  const deleteProgram = async (programId) => {
+    const programToDelete = programs.find(p => p.id === programId);
+    
     Alert.alert(
       'Delete Program',
-      'Are you sure you want to delete this program? This action cannot be undone.',
+      `Are you sure you want to delete "${programToDelete?.name}"?\n\nThis action cannot be undone and will:\n• Delete all routines in this program\n• Delete all exercises from these routines\n• Remove this program from other users if it was shared\n\nThis will affect all users who have this program.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Delete', 
           style: 'destructive',
-          onPress: () => setPrograms(prev => prev.filter(p => p.id !== programId))
+          onPress: async () => {
+            try {
+              console.log('🗑️ [ProgramScreen] Deleting program:', programId);
+              
+              // Delete from database if it's a UUID (database program)
+              const isUUID = programId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+              
+              if (isUUID && user?.id) {
+                console.log('💾 [ProgramScreen] Deleting from database...');
+                
+                const { error } = await supabase.rpc('delete_program_as_user', {
+                  program_id: programId
+                });
+                
+                if (error) {
+                  console.error('❌ [ProgramScreen] Database delete failed:', error);
+                  Alert.alert('Error', `Failed to delete from database: ${error.message}`);
+                  return;
+                }
+                
+                console.log('✅ [ProgramScreen] Program deleted from database');
+              }
+              
+              // Update local state
+              setPrograms(prev => {
+                const updated = prev.filter(p => p.id !== programId);
+                // Save updated list to local storage
+                savePrograms(updated);
+                return updated;
+              });
+              
+              Alert.alert('Success', 'Program deleted successfully');
+              
+            } catch (error) {
+              console.error('💥 [ProgramScreen] Error deleting program:', error);
+              Alert.alert('Error', `Failed to delete program: ${error.message}`);
+            }
+          }
         }
       ]
     );
