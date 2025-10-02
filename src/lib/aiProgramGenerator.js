@@ -427,25 +427,188 @@ function selectExercisesForRoutine(exercisesBySkill, focusAreas, targetCount, is
 }
 
 /**
- * Saves the generated program to the user's local programs list
+ * Saves the generated program to the database and user's local programs list
  * @param {Object} program - The generated program
  * @param {Function} updatePrograms - Function to update programs state
  */
-export function saveAIProgram(program, updatePrograms) {
-  console.log('🤖 Saving AI-generated program:', program.name);
+export async function saveAIProgram(program, updatePrograms) {
+  console.log('🤖 Saving AI-generated program to database:', program.name);
   
-  updatePrograms(prevPrograms => {
-    // Check if program already exists to avoid duplicates
-    const exists = prevPrograms.some(p => p.id === program.id);
-    if (exists) {
-      console.log('🤖 Program already exists, not adding duplicate');
-      return prevPrograms;
+  try {
+    // Step 1: Create the program in database
+    console.log('🤖 Creating program in database...');
+    const { data: savedProgram, error: programError } = await supabase.rpc('create_program_as_user', {
+      program_name: program.name,
+      program_description: program.description,
+      program_category: program.category || 'AI Generated',
+      program_tier: program.tier || 'Beginner',
+      program_is_published: false,
+      program_thumbnail_url: null,
+      program_is_shareable: true,
+      program_visibility: 'private'
+    });
+
+    if (programError) {
+      console.error('❌ Failed to create program in database:', programError);
+      throw programError;
     }
+
+    const dbProgram = Array.isArray(savedProgram) ? savedProgram[0] : savedProgram;
+    console.log('✅ Program created in database with ID:', dbProgram.id);
+
+    // Step 2: Create routines and their exercises
+    const savedRoutines = [];
+    for (const routine of program.routines) {
+      console.log('🤖 Creating routine:', routine.name);
+      
+      // Create routine in database
+      const { data: savedRoutine, error: routineError } = await supabase.rpc('create_routine_as_user', {
+        routine_program_id: dbProgram.id,
+        routine_name: routine.name,
+        routine_description: routine.description,
+        routine_order_index: routine.order_index,
+        routine_time_estimate_minutes: routine.time_estimate_minutes,
+        routine_is_published: false
+      });
+
+      if (routineError) {
+        console.error('❌ Failed to create routine:', routineError);
+        throw routineError;
+      }
+
+      const dbRoutine = Array.isArray(savedRoutine) ? savedRoutine[0] : savedRoutine;
+      console.log('✅ Routine created with ID:', dbRoutine.id);
+
+      // Step 3: Create exercises and link them to routine
+      const savedExercises = [];
+      for (let i = 0; i < routine.exercises.length; i++) {
+        const exercise = routine.exercises[i];
+        console.log('🤖 Processing exercise:', exercise.title || exercise.name);
+
+        // Check if exercise already exists in database by title (most reliable)
+        let exerciseId = null;
+        const exerciseTitle = exercise.title || exercise.name;
+        
+        const { data: existingExercise } = await supabase
+          .from('exercises')
+          .select('id')
+          .eq('title', exerciseTitle)
+          .maybeSingle();
+
+        if (existingExercise) {
+          console.log('🔍 Exercise already exists, using existing ID:', existingExercise.id);
+          exerciseId = existingExercise.id;
+        } else {
+          // Create new exercise with unique code
+          console.log('➕ Creating new exercise in database');
+          const uniqueCode = `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          const { data: createdExercise, error: exerciseError } = await supabase.rpc('create_exercise_as_user', {
+            exercise_code: uniqueCode,
+            exercise_title: exerciseTitle,
+            exercise_description: exercise.description || `AI-generated exercise: ${exerciseTitle}`,
+            exercise_instructions: exercise.instructions || exercise.description || 'Follow the exercise instructions',
+            exercise_goal: exercise.goal_text || exercise.target || 'Complete the exercise',
+            exercise_difficulty: exercise.difficulty || 3,
+            exercise_target_value: exercise.target_value || 10,
+            exercise_target_unit: exercise.target_unit || 'attempts',
+            exercise_estimated_minutes: exercise.estimated_minutes || 10,
+            exercise_skill_category: exercise.skill_category || 'general',
+            exercise_skill_categories_json: JSON.stringify(exercise.skill_categories_json || []),
+            exercise_is_published: false
+          });
+
+          if (exerciseError) {
+            console.error('❌ Failed to create exercise:', exerciseError);
+            throw exerciseError;
+          }
+
+          const dbExercise = Array.isArray(createdExercise) ? createdExercise[0] : createdExercise;
+          exerciseId = dbExercise.id;
+          console.log('✅ Exercise created with ID:', exerciseId);
+        }
+
+        // Step 4: Link exercise to routine
+        console.log('🔗 Linking exercise to routine...');
+        const { error: linkError } = await supabase
+          .from('routine_exercises')
+          .insert({
+            routine_id: dbRoutine.id,
+            exercise_id: exerciseId,
+            order_index: i + 1,
+            is_optional: exercise.is_optional || false
+          });
+
+        if (linkError) {
+          console.error('❌ Failed to link exercise to routine:', linkError);
+          throw linkError;
+        }
+
+        // Add exercise data for local storage
+        savedExercises.push({
+          ...exercise,
+          id: exerciseId,
+          routine_exercise_id: `${dbRoutine.id}_${exerciseId}`,
+          order_index: i + 1
+        });
+      }
+
+      // Add routine data for local storage
+      savedRoutines.push({
+        ...routine,
+        id: dbRoutine.id,
+        exercises: savedExercises
+      });
+    }
+
+    // Step 5: Update program object with database IDs
+    const finalProgram = {
+      ...program,
+      id: dbProgram.id,
+      program_id: dbProgram.id,
+      created_by: dbProgram.created_by,
+      category: dbProgram.category,
+      tier: dbProgram.tier,
+      is_published: dbProgram.is_published,
+      routines: savedRoutines,
+      createdAt: dbProgram.created_at,
+      is_synced_to_db: true // Flag to indicate this program is in database
+    };
+
+    console.log('🤖 AI Program successfully saved to database with full structure');
+
+    // Step 6: Update local state
+    updatePrograms(prevPrograms => {
+      // Check if program already exists to avoid duplicates
+      const exists = prevPrograms.some(p => p.id === finalProgram.id);
+      if (exists) {
+        console.log('🤖 Program already exists in local state, not adding duplicate');
+        return prevPrograms;
+      }
+      
+      return [...prevPrograms, finalProgram];
+    });
+
+    console.log('🤖 AI Program saved successfully to both database and local state');
+    return { success: true, program: finalProgram };
+
+  } catch (error) {
+    console.error('❌ Failed to save AI program to database:', error);
     
-    return [...prevPrograms, program];
-  });
-  
-  console.log('🤖 AI Program saved successfully');
+    // Fallback: save to local storage only
+    console.log('📱 Falling back to local storage only...');
+    updatePrograms(prevPrograms => {
+      const exists = prevPrograms.some(p => p.id === program.id);
+      if (exists) {
+        console.log('🤖 Program already exists, not adding duplicate');
+        return prevPrograms;
+      }
+      
+      return [...prevPrograms, { ...program, is_synced_to_db: false }];
+    });
+
+    return { success: false, error: error.message, program: { ...program, is_synced_to_db: false } };
+  }
 }
 
 /**
@@ -494,5 +657,75 @@ export function validateUserForAIGeneration(user) {
   return {
     isValid: true,
     message: 'Ready to generate your AI program!'
+  };
+}
+
+/**
+ * Syncs any unsynced AI programs to the database
+ * Call this when user logs in or when connection is restored
+ * @param {Array} programs - Array of user programs
+ * @param {Function} updatePrograms - Function to update programs state
+ */
+export async function syncUnsyncedAIPrograms(programs, updatePrograms) {
+  console.log('🔄 Checking for unsynced AI programs...');
+  
+  const unsyncedPrograms = programs.filter(program => 
+    program.is_ai_generated && !program.is_synced_to_db
+  );
+  
+  if (unsyncedPrograms.length === 0) {
+    console.log('✅ No unsynced AI programs found');
+    return { success: true, syncedCount: 0 };
+  }
+  
+  console.log(`🔄 Found ${unsyncedPrograms.length} unsynced AI programs, attempting to sync...`);
+  
+  let syncedCount = 0;
+  const updatedPrograms = [...programs];
+  
+  for (const program of unsyncedPrograms) {
+    try {
+      console.log(`🔄 Syncing program: ${program.name}`);
+      
+      // Remove the old unsynced program from the list
+      const programIndex = updatedPrograms.findIndex(p => p.id === program.id);
+      if (programIndex !== -1) {
+        updatedPrograms.splice(programIndex, 1);
+      }
+      
+      // Save to database (this will add it back with proper database IDs)
+      const saveResult = await saveAIProgram(program, (updateFn) => {
+        // Don't use the callback here, we'll update manually
+      });
+      
+      if (saveResult.success) {
+        // Add the synced program to our updated list
+        updatedPrograms.push(saveResult.program);
+        syncedCount++;
+        console.log(`✅ Successfully synced program: ${program.name}`);
+      } else {
+        // Re-add the unsynced program if sync failed
+        updatedPrograms.push(program);
+        console.log(`❌ Failed to sync program: ${program.name}`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error syncing program ${program.name}:`, error);
+      // Re-add the unsynced program if sync failed
+      if (!updatedPrograms.find(p => p.id === program.id)) {
+        updatedPrograms.push(program);
+      }
+    }
+  }
+  
+  // Update the programs state with all changes
+  updatePrograms(() => updatedPrograms);
+  
+  console.log(`🔄 Sync complete: ${syncedCount}/${unsyncedPrograms.length} programs synced`);
+  
+  return {
+    success: syncedCount > 0,
+    syncedCount,
+    totalAttempted: unsyncedPrograms.length
   };
 }

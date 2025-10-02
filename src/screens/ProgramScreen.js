@@ -11,6 +11,8 @@ import {
   Image,
   Dimensions,
   RefreshControl,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,7 +22,7 @@ import { useUser } from '../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import SkillsScreen from './SkillsScreen';
-import { generateAIProgram, validateUserForAIGeneration, saveAIProgram } from '../lib/aiProgramGenerator';
+import { generateAIProgram, validateUserForAIGeneration, saveAIProgram, syncUnsyncedAIPrograms } from '../lib/aiProgramGenerator';
 import { supabase } from '../lib/supabase';
 
 export default function ProgramScreen({ navigation, route }) {
@@ -34,6 +36,10 @@ export default function ProgramScreen({ navigation, route }) {
   const [isProcessingImage, setIsProcessingImage] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
+  const [isLoadingPrograms, setIsLoadingPrograms] = React.useState(true);
+  
+  // Animation for rotating ball
+  const rotateAnim = React.useRef(new Animated.Value(0)).current;
 
   // Load programs when component mounts
   React.useEffect(() => {
@@ -41,6 +47,25 @@ export default function ProgramScreen({ navigation, route }) {
     console.log('👤 [ProgramScreen] Current user:', user?.id);
     loadPrograms();
   }, [user?.id]);
+
+  // Start rotation animation when loading
+  React.useEffect(() => {
+    if (isLoadingPrograms) {
+      const rotateAnimation = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      );
+      rotateAnimation.start();
+      
+      return () => {
+        rotateAnimation.stop();
+        rotateAnim.setValue(0);
+      };
+    }
+  }, [isLoadingPrograms, rotateAnim]);
 
   // Handle new program added from Explore
   React.useEffect(() => {
@@ -105,9 +130,11 @@ export default function ProgramScreen({ navigation, route }) {
   const loadPrograms = async () => {
     try {
       console.log('📂 [ProgramScreen] loadPrograms called');
+      setIsLoadingPrograms(true);
       
       if (!user?.id) {
         console.log('❌ [ProgramScreen] No user ID, skipping program load');
+        setIsLoadingPrograms(false);
         return;
       }
 
@@ -264,6 +291,18 @@ export default function ProgramScreen({ navigation, route }) {
             // Save to local storage as backup
             await AsyncStorage.setItem(`@user_programs_${user.id}`, JSON.stringify(transformedPrograms));
             console.log('💾 [ProgramScreen] Saved to local storage as backup');
+            
+            // After loading programs, sync any unsynced AI programs
+            try {
+              console.log('🔄 [ProgramScreen] Checking for unsynced AI programs...');
+              const syncResult = await syncUnsyncedAIPrograms(transformedPrograms, setPrograms);
+              if (syncResult.syncedCount > 0) {
+                console.log(`✅ [ProgramScreen] Synced ${syncResult.syncedCount} AI programs to database`);
+              }
+            } catch (syncError) {
+              console.error('❌ [ProgramScreen] Error syncing AI programs:', syncError);
+            }
+            
             return;
           }
         }
@@ -279,6 +318,17 @@ export default function ProgramScreen({ navigation, route }) {
           const parsedPrograms = JSON.parse(localPrograms);
           console.log('✅ [ProgramScreen] Loaded from local storage:', parsedPrograms.length, 'programs');
           setPrograms(parsedPrograms);
+          
+          // After loading from local storage, try to sync any unsynced AI programs
+          try {
+            console.log('🔄 [ProgramScreen] Checking for unsynced AI programs from local storage...');
+            const syncResult = await syncUnsyncedAIPrograms(parsedPrograms, setPrograms);
+            if (syncResult.syncedCount > 0) {
+              console.log(`✅ [ProgramScreen] Synced ${syncResult.syncedCount} AI programs to database from local storage`);
+            }
+          } catch (syncError) {
+            console.error('❌ [ProgramScreen] Error syncing AI programs from local storage:', syncError);
+          }
         } else {
           console.log('📭 [ProgramScreen] No local programs found');
           setPrograms([]);
@@ -291,6 +341,8 @@ export default function ProgramScreen({ navigation, route }) {
     } catch (error) {
       console.error('💥 [ProgramScreen] Unexpected error in loadPrograms:', error);
       setPrograms([]);
+    } finally {
+      setIsLoadingPrograms(false);
     }
   };
 
@@ -360,20 +412,32 @@ export default function ProgramScreen({ navigation, route }) {
       // Generate the AI program
       const aiProgram = await generateAIProgram(user);
       
-      // Save to local programs list
-      saveAIProgram(aiProgram, setPrograms);
+      // Save to database and local programs list
+      const saveResult = await saveAIProgram(aiProgram, setPrograms);
       
-      Alert.alert(
-        'AI Program Created! 🤖',
-        `"${aiProgram.name}" has been created with ${aiProgram.routines.length} routines tailored to your DUPR ${user.duprRating} level and focus areas.`,
-        [
-
-          {
-            text: 'OK',
-            style: 'default'
-          }
-        ]
-      );
+      if (saveResult.success) {
+        Alert.alert(
+          'AI Program Created! 🤖',
+          `"${aiProgram.name}" has been created with ${aiProgram.routines.length} routines tailored to your DUPR ${user.duprRating} level and focus areas.\n\n✅ Synced to your account - available on all devices!`,
+          [
+            {
+              text: 'OK',
+              style: 'default'
+            }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'AI Program Created! 🤖',
+          `"${aiProgram.name}" has been created with ${aiProgram.routines.length} routines tailored to your DUPR ${user.duprRating} level and focus areas.\n\n⚠️ Saved locally only - will sync when connection is available.`,
+          [
+            {
+              text: 'OK',
+              style: 'default'
+            }
+          ]
+        );
+      }
       
     } catch (error) {
       console.error('AI Program Generation Error:', error);
@@ -754,6 +818,28 @@ export default function ProgramScreen({ navigation, route }) {
   // Check if user already has an AI-generated program
   const hasAIProgram = programs.some(program => program.is_ai_generated);
 
+  const renderLoadingScreen = () => {
+    const spin = rotateAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
+    return (
+      <View style={styles.loadingContainer}>
+        <Animated.Image
+          source={require('../../assets/images/icon_ball.png')}
+          style={[
+            styles.loadingBall,
+            {
+              transform: [{ rotate: spin }],
+            },
+          ]}
+        />
+        <Text style={styles.loadingText}>Loading your programs...</Text>
+      </View>
+    );
+  };
+
   const renderProgramsContent = () => (
     <View style={styles.customizedContainer}>
       {programs.length === 0 ? (
@@ -836,6 +922,22 @@ export default function ProgramScreen({ navigation, route }) {
                       <Text style={styles.programStatsText}>
                         {program.routines.reduce((total, routine) => total + (routine.exercises?.length || 0), 0)} exercises
                       </Text>
+                      {program.is_ai_generated && (
+                        <>
+                          <Text style={styles.programStatsText}>•</Text>
+                          <Text style={[styles.programStatsText, styles.aiGeneratedText]}>
+                            🤖 AI
+                          </Text>
+                          {program.is_synced_to_db === false && (
+                            <>
+                              <Text style={styles.programStatsText}>•</Text>
+                              <Text style={[styles.programStatsText, styles.unsyncedText]}>
+                                📱 Local
+                              </Text>
+                            </>
+                          )}
+                        </>
+                      )}
                     </View>
                     <View style={styles.programActions}>
                       <Text style={styles.chevronText}>{'>'}</Text>
@@ -905,6 +1007,8 @@ export default function ProgramScreen({ navigation, route }) {
       
       {currentView === 'skills' ? (
         <SkillsScreen navigation={navigation} />
+      ) : isLoadingPrograms ? (
+        renderLoadingScreen()
       ) : (
         <ScrollView 
           style={styles.scrollView} 
@@ -1226,6 +1330,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9CA3AF',
   },
+  aiGeneratedText: {
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
+  unsyncedText: {
+    color: '#F59E0B',
+    fontWeight: '500',
+  },
   programActions: {
     paddingLeft: 8,
   },
@@ -1389,6 +1501,25 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 24,
+  },
+  // Loading styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    backgroundColor: '#F9FAFB',
+  },
+  loadingBall: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+    textAlign: 'center',
   },
   // Tab Navigation Styles
   tabContainer: {

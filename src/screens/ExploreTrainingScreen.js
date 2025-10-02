@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebLinearGradient from '../components/WebLinearGradient';
@@ -28,12 +29,34 @@ export default function ExploreTrainingScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [savedCategoryOrder, setSavedCategoryOrder] = useState([]);
+  
+  // Animation for rotating ball
+  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   // Fetch programs from API on component mount
   useEffect(() => {
     fetchPrograms();
     fetchCategoryOrder();
   }, []);
+
+  // Start rotation animation when loading
+  useEffect(() => {
+    if (loading) {
+      const rotateAnimation = Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      );
+      rotateAnimation.start();
+      
+      return () => {
+        rotateAnimation.stop();
+        rotateAnim.setValue(0);
+      };
+    }
+  }, [loading, rotateAnim]);
 
   const fetchPrograms = async () => {
     // Add timeout for the entire fetch operation
@@ -166,9 +189,22 @@ export default function ExploreTrainingScreen({ navigation }) {
   const renderProgramsContent = () => {
     // Loading state
     if (loading) {
+      const spin = rotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+      });
+
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <Animated.Image
+            source={require('../../assets/images/icon_ball.png')}
+            style={[
+              styles.loadingBall,
+              {
+                transform: [{ rotate: spin }],
+              },
+            ]}
+          />
           <Text style={styles.loadingText}>Loading programs...</Text>
         </View>
       );
@@ -484,6 +520,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+  },
+  loadingBall: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
   },
   loadingText: {
     fontSize: 16,

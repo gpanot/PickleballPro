@@ -389,6 +389,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showDuprModal, setShowDuprModal] = useState(false);
   const [duprInput, setDuprInput] = useState('');
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState('');
   const [avatarImage, setAvatarImage] = useState(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
@@ -535,7 +537,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
     return duprPattern.test(value);
   };
 
-  const saveDuprRating = () => {
+  const saveDuprRating = async () => {
     if (!validateDuprFormat(duprInput)) {
       Alert.alert('Invalid Format', 'DUPR rating must be in format x.xxx (e.g., 3.500)');
       return;
@@ -547,12 +549,76 @@ export default function ProfileScreen({ onLogout, navigation }) {
       return;
     }
 
-    setUser(prevUser => ({
-      ...prevUser,
-      duprRating: newRating
-    }));
-    setShowDuprModal(false);
-    Alert.alert('Success', 'DUPR rating updated successfully!');
+    try {
+      // Update in database
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ dupr_rating: newRating })
+        .eq('id', authUser.id);
+
+      if (updateError) {
+        console.error('Error updating DUPR rating in database:', updateError);
+        Alert.alert('Error', 'Failed to update DUPR rating. Please try again.');
+        return;
+      }
+
+      // Update local state only after successful database update
+      setUser(prevUser => ({
+        ...prevUser,
+        duprRating: newRating
+      }));
+      
+      setShowDuprModal(false);
+      Alert.alert('Success', 'DUPR rating updated successfully!');
+    } catch (error) {
+      console.error('Error saving DUPR rating:', error);
+      Alert.alert('Error', 'Failed to update DUPR rating. Please try again.');
+    }
+  };
+
+  const handleNameEdit = () => {
+    setNameInput(user.name || '');
+    setShowNameModal(true);
+  };
+
+  const validateName = (name) => {
+    const trimmedName = name.trim();
+    return trimmedName.length >= 2 && trimmedName.length <= 50;
+  };
+
+  const saveName = async () => {
+    if (!validateName(nameInput)) {
+      Alert.alert('Invalid Name', 'Name must be between 2 and 50 characters long.');
+      return;
+    }
+
+    try {
+      const trimmedName = nameInput.trim();
+      
+      // Update in database
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ name: trimmedName })
+        .eq('id', authUser.id);
+
+      if (updateError) {
+        console.error('Error updating name in database:', updateError);
+        Alert.alert('Error', 'Failed to update name. Please try again.');
+        return;
+      }
+
+      // Update local state only after successful database update
+      setUser(prevUser => ({
+        ...prevUser,
+        name: trimmedName
+      }));
+      
+      setShowNameModal(false);
+      Alert.alert('Success', 'Name updated successfully!');
+    } catch (error) {
+      console.error('Error saving name:', error);
+      Alert.alert('Error', 'Failed to update name. Please try again.');
+    }
   };
 
   const handleAvatarPress = () => {
@@ -930,7 +996,12 @@ export default function ProfileScreen({ onLogout, navigation }) {
               )}
             </TouchableOpacity>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{user.name || 'User'}</Text>
+              <TouchableOpacity onPress={handleNameEdit} activeOpacity={0.7}>
+                <View style={styles.nameContainer}>
+                  <Text style={styles.userName}>{user.name || 'User'}</Text>
+                  <ModernIcon name="edit" size={14} color="#6B7280" style={styles.nameEditIcon} />
+                </View>
+              </TouchableOpacity>
               <Text style={styles.userEmail}>{authUser?.email || user.email || ''}</Text>
             </View>
           </View>
@@ -1329,6 +1400,50 @@ export default function ProfileScreen({ onLogout, navigation }) {
     </Modal>
   );
 
+  const renderNameEditModal = () => (
+    <Modal
+      visible={showNameModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowNameModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Edit Name</Text>
+          <Text style={styles.modalSubtitle}>Enter your display name</Text>
+          
+          <TextInput
+            style={styles.nameInput}
+            value={nameInput}
+            onChangeText={setNameInput}
+            placeholder="Your Name"
+            maxLength={50}
+            autoFocus={true}
+            selectTextOnFocus={true}
+            autoCapitalize="words"
+            autoCorrect={false}
+          />
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={() => setShowNameModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.saveButton]} 
+              onPress={saveName}
+            >
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
@@ -1348,6 +1463,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
       </ScrollView>
       
       {renderDuprEditModal()}
+      {renderNameEditModal()}
       {renderBadgesModal()}
     </View>
   );
@@ -1462,11 +1578,19 @@ const styles = StyleSheet.create({
   userInfo: {
     flex: 1,
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   userName: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 4,
+    marginRight: 8,
+  },
+  nameEditIcon: {
+    opacity: 0.6,
   },
   userEmail: {
     fontSize: 14,
@@ -1675,6 +1799,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     textAlign: 'center',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 24,
+  },
+  nameInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
     backgroundColor: '#F9FAFB',
     marginBottom: 24,
   },

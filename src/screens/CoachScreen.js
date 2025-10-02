@@ -43,6 +43,10 @@ export default function CoachScreen() {
   const [selectedCoach, setSelectedCoach] = useState(null);
   const [showMessagingModal, setShowMessagingModal] = useState(false);
   
+  // Avatar modal state
+  const [selectedAvatarCoach, setSelectedAvatarCoach] = useState(null);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  
   const specialtyFilters = ['Verified', 'Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
 
@@ -435,6 +439,11 @@ export default function CoachScreen() {
     }
   };
 
+  const handleAvatarPress = (coach) => {
+    setSelectedAvatarCoach(coach);
+    setShowAvatarModal(true);
+  };
+
   const getAvailableMessagingOptions = (coach) => {
     if (!coach.messagingPreferences) return [];
     
@@ -576,7 +585,11 @@ export default function CoachScreen() {
   const renderCoachCard = (coach) => (
       <View key={coach.id} style={styles.coachCard}>
         <View style={styles.coachHeader}>
-          <View style={styles.coachAvatar}>
+          <TouchableOpacity 
+          style={styles.coachAvatar}
+          onPress={() => handleAvatarPress(coach)}
+          activeOpacity={0.7}
+        >
             {coach.image ? (
             <Image 
               source={{ uri: coach.image }} 
@@ -592,7 +605,7 @@ export default function CoachScreen() {
               {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
             </Text>
           )}
-        </View>
+        </TouchableOpacity>
         
         <View style={styles.coachInfo}>
           <View style={styles.coachNameRow}>
@@ -668,6 +681,65 @@ export default function CoachScreen() {
       </TouchableOpacity>
     </View>
   );
+
+  const renderAvatarModal = () => {
+    if (!selectedAvatarCoach) return null;
+    
+    return (
+      <Modal
+        visible={showAvatarModal}
+        animationType="fade"
+        transparent
+        statusBarTranslucent
+      >
+        <View style={styles.avatarModalOverlay}>
+          <TouchableOpacity
+            style={styles.avatarModalCloseArea}
+            onPress={() => setShowAvatarModal(false)}
+            activeOpacity={1}
+          >
+            <View style={styles.avatarModalContainer}>
+              <TouchableOpacity
+                style={styles.avatarModalCloseButton}
+                onPress={() => setShowAvatarModal(false)}
+              >
+                <Ionicons name="close" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              
+              <View style={styles.avatarModalContent}>
+                {selectedAvatarCoach.image ? (
+                  <Image 
+                    source={{ uri: selectedAvatarCoach.image }} 
+                    style={styles.avatarModalImage}
+                    resizeMode="contain"
+                    onError={(error) => {
+                      console.log('Failed to load coach avatar in modal:', selectedAvatarCoach.image, error);
+                    }}
+                  />
+                ) : (
+                  <View style={styles.avatarModalFallback}>
+                    <Text style={styles.avatarModalFallbackText}>
+                      {selectedAvatarCoach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                
+                <View style={styles.avatarModalInfo}>
+                  <Text style={styles.avatarModalName}>{selectedAvatarCoach.name}</Text>
+                  {selectedAvatarCoach.verified && (
+                    <View style={styles.avatarModalVerified}>
+                      <WebIcon name="checkmark-circle" size={20} color="#10B981" />
+                      <Text style={styles.avatarModalVerifiedText}>Verified Coach</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  };
 
   const renderMessagingModal = () => {
     if (!selectedCoach) return null;
@@ -762,6 +834,7 @@ export default function CoachScreen() {
 
   return (
     <View style={styles.container}>
+      {renderAvatarModal()}
       {renderMessagingModal()}
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.headerContainer}>
@@ -1281,5 +1354,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  // Avatar modal styles
+  avatarModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarModalCloseArea: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarModalContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  avatarModalCloseButton: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    zIndex: 1000,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  avatarModalContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  avatarModalImage: {
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    marginBottom: 20,
+  },
+  avatarModalFallback: {
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatarModalFallbackText: {
+    fontSize: 72,
+    fontWeight: '600',
+    color: 'white',
+  },
+  avatarModalInfo: {
+    alignItems: 'center',
+  },
+  avatarModalName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  avatarModalVerified: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  avatarModalVerifiedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#10B981',
+    marginLeft: 6,
   },
 });
