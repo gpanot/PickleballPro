@@ -20,14 +20,13 @@ import { useUser } from '../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import SkillsScreen from './SkillsScreen';
-import BadgesScreen from './BadgesScreen';
 import { generateAIProgram, validateUserForAIGeneration, saveAIProgram } from '../lib/aiProgramGenerator';
 import { supabase } from '../lib/supabase';
 
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [currentView, setCurrentView] = React.useState('programs'); // 'skills', 'programs', or 'badges'
+  const [currentView, setCurrentView] = React.useState('programs'); // 'skills' or 'programs'
   const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
@@ -900,23 +899,12 @@ export default function ProgramScreen({ navigation, route }) {
               </Text>
               {currentView === 'skills' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => setCurrentView('badges')}
-            >
-              <Text style={[styles.tabText, currentView === 'badges' && styles.activeTabText]}>
-                Badges
-              </Text>
-              {currentView === 'badges' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
           </View>
         </View>
       </View>
       
       {currentView === 'skills' ? (
         <SkillsScreen navigation={navigation} />
-      ) : currentView === 'badges' ? (
-        <BadgesScreen navigation={navigation} />
       ) : (
         <ScrollView 
           style={styles.scrollView} 

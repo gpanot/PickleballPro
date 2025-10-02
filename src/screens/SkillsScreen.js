@@ -8,6 +8,7 @@ import {
   Dimensions,
   Modal,
   Platform,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -727,6 +728,7 @@ export default function SkillsScreen({ navigation }) {
   const [programProgress, setProgramProgress] = React.useState(new Map());
   const [showBadgeCongratulationModal, setShowBadgeCongratulationModal] = React.useState(false);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = React.useState(null);
+  const [badgeQueue, setBadgeQueue] = React.useState([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isHeaderExpanded, setIsHeaderExpanded] = React.useState(true);
 
@@ -1040,6 +1042,9 @@ export default function SkillsScreen({ navigation }) {
     setExerciseRatings(prev => new Map(prev.set(exerciseKey, rating)));
     setShowRatingModal(false);
     setSelectedExerciseForRating(null);
+    // Auto-close exercise detail modal and return to DUPR list
+    setShowExerciseModal(false);
+    setSelectedSkill(null);
   };
 
   const isExerciseCompleted = (exercise, skillId) => {
@@ -1115,33 +1120,53 @@ export default function SkillsScreen({ navigation }) {
       set.badges.map(badge => ({ ...badge, dupr: set.dupr }))
     );
     
+    const newlyUnlockedBadges = [];
+    
     for (const badge of allBadges) {
       // Skip if badge is already collected
       if (collectedBadges.has(badge.id)) continue;
       
       // Check program completion badges
       if (badge.type === 'program_completion' && completedProgramId && badge.program_id === completedProgramId) {
-        setNewlyUnlockedBadge({
+        newlyUnlockedBadges.push({
           ...badge,
           progress: { tier: 'unlocked', progress: 1.0 }
         });
-        setShowBadgeCongratulationModal(true);
-        break; // Show one at a time
       }
       
       // Check drill threshold badges
       if (badge.type === 'drill_threshold') {
         const badgeProgress = calculateDrillThresholdBadgeProgress(badge);
         if (badgeProgress.tier !== 'locked' && badgeProgress.tier !== undefined) {
-          setNewlyUnlockedBadge({
+          newlyUnlockedBadges.push({
             ...badge,
             progress: badgeProgress
           });
-          setShowBadgeCongratulationModal(true);
-          break; // Show one at a time
         }
       }
     }
+    
+    // Add newly unlocked badges to queue
+    if (newlyUnlockedBadges.length > 0) {
+      setBadgeQueue(prev => [...prev, ...newlyUnlockedBadges]);
+      // Show first badge if no modal is currently showing
+      if (!showBadgeCongratulationModal) {
+        showNextBadge();
+      }
+    }
+  };
+
+  // Show next badge in queue
+  const showNextBadge = () => {
+    setBadgeQueue(prev => {
+      if (prev.length > 0) {
+        const nextBadge = prev[0];
+        setNewlyUnlockedBadge(nextBadge);
+        setShowBadgeCongratulationModal(true);
+        return prev.slice(1); // Remove first badge from queue
+      }
+      return prev;
+    });
   };
 
   // Simple drill threshold badge calculation
@@ -1166,7 +1191,57 @@ export default function SkillsScreen({ navigation }) {
       setCollectedBadges(prev => new Set([...prev, newlyUnlockedBadge.id]));
       setShowBadgeCongratulationModal(false);
       setNewlyUnlockedBadge(null);
+      
+      // Show next badge in queue after a short delay
+      setTimeout(() => {
+        showNextBadge();
+      }, 300);
     }
+  };
+
+  // Clear all progress function (same as in BadgesScreen)
+  const clearAllProgress = async () => {
+    try {
+      // Clear all AsyncStorage keys related to progress
+      await AsyncStorage.multiRemove([
+        EXERCISE_RATINGS_KEY,
+        COLLECTED_BADGES_KEY,
+        PROGRAM_PROGRESS_KEY,
+        HEADER_EXPANDED_KEY
+      ]);
+      
+      // Reset all state
+      setExerciseRatings(new Map());
+      setCollectedBadges(new Set());
+      setProgramProgress(new Map());
+      setBadgeQueue([]);
+      setNewlyUnlockedBadge(null);
+      setShowBadgeCongratulationModal(false);
+      setCurrentRating(2.0);
+      setUserSkills(getUserSkillsForRating(2.0, new Map()));
+      
+      console.log('All DUPR progress cleared successfully!');
+      Alert.alert('Progress Reset', 'All DUPR 2-3 progress has been reset! You can now start fresh.');
+    } catch (error) {
+      console.error('Error clearing progress:', error);
+      Alert.alert('Error', 'Failed to clear progress. Check console for details.');
+    }
+  };
+
+  // Handle long press on DUPR Skill Progression header
+  const handleHeaderLongPress = () => {
+    Alert.alert(
+      'Reset DUPR Progress',
+      'Are you sure you want to reset all your DUPR 2-3 progress?\n\nThis will:\n• Clear all completed exercises\n• Reset all collected badges\n• Remove program completion status\n\nThis action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Reset Progress', 
+          style: 'destructive',
+          onPress: clearAllProgress
+        }
+      ]
+    );
   };
 
   const handleRatingStepPress = (rating) => {
@@ -1223,6 +1298,56 @@ export default function SkillsScreen({ navigation }) {
     
     
     return isCompleted;
+  };
+
+  // Helper function to get badges for a specific DUPR level
+  const getBadgesForRating = (rating) => {
+    const ratingKey = rating.toFixed(1);
+    const badgeSet = badgeMatrix.badge_sets.find(set => set.dupr.toFixed(1) === ratingKey);
+    
+    if (!badgeSet) return [];
+    
+    return badgeSet.badges.map(badge => ({
+      ...badge,
+      dupr: badgeSet.dupr,
+      progress: calculateBadgeProgress(badge)
+    }));
+  };
+
+  // Calculate badge progress for display
+  const calculateBadgeProgress = (badge) => {
+    // If badge is collected, it should be unlocked
+    if (collectedBadges.has(badge.id)) {
+      return { isUnlocked: true, progress: 1.0, isCollected: true };
+    }
+    
+    // Calculate based on actual progress
+    if (badge.type === 'program_completion') {
+      const programId = badge.program_id;
+      const programStatus = programProgress.get(programId);
+      
+      if (programStatus && programStatus.completed) {
+        return { isUnlocked: true, progress: 1.0, isCollected: false };
+      }
+      
+      return { isUnlocked: false, progress: programStatus ? programStatus.progress : 0, isCollected: false };
+    }
+    
+    if (badge.type === 'drill_threshold') {
+      const skillKey = getSkillKey(badge.skill);
+      
+      // Count completed exercises for this skill at this DUPR level
+      const completedCount = Array.from(exerciseRatings.keys())
+        .filter(key => key.startsWith(`${badge.dupr}-${skillKey}-`)).length;
+
+      // Simple logic: 1+ completed = unlocked
+      if (completedCount >= 1) return { isUnlocked: true, progress: 1.0, isCollected: false };
+      
+      return { isUnlocked: false, progress: 0, isCollected: false };
+    }
+    
+    // For other badge types, return locked
+    return { isUnlocked: false, progress: 0, isCollected: false };
   };
 
   const renderProgressPath = () => {
@@ -1389,6 +1514,88 @@ export default function SkillsScreen({ navigation }) {
     );
   };
 
+  // Render badges section for current rating
+  const renderBadgesSection = () => {
+    const badges = getBadgesForRating(currentRating);
+    
+    if (badges.length === 0) {
+      return null;
+    }
+    
+    return (
+      <View style={styles.badgesSection}>
+        <Text style={styles.badgesSectionTitle}>
+          🏆 Badges for DUPR {currentRating.toFixed(1)}
+        </Text>
+        <Text style={styles.badgesSectionSubtitle}>
+          Complete exercises to unlock these achievements
+        </Text>
+        
+        <View style={styles.badgesGrid}>
+          {badges.map((badge) => renderBadgeCard(badge))}
+        </View>
+      </View>
+    );
+  };
+
+  // Render individual badge card
+  const renderBadgeCard = (badge) => {
+    const icon = getBadgeIcon(badge.id, badge.skill);
+    const { isUnlocked, isCollected } = badge.progress;
+    
+    return (
+      <View
+        key={badge.id}
+        style={[
+          styles.badgeCard,
+          !isUnlocked && styles.badgeCardLocked,
+          isUnlocked && !isCollected && styles.badgeCardUnlocked,
+          isUnlocked && isCollected && styles.badgeCardCollected,
+        ]}
+      >
+        {/* Badge Icon */}
+        <View style={styles.badgeIconContainer}>
+          <View style={[
+            styles.badgeRing,
+            isUnlocked && styles.badgeRingUnlocked
+          ]}>
+            <Text style={[
+              styles.badgeIcon,
+              !isUnlocked && styles.badgeIconLocked
+            ]}>
+              {icon}
+            </Text>
+          </View>
+          {isCollected && (
+            <View style={styles.collectedIndicator}>
+              <Text style={styles.collectedCheckmark}>✓</Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Badge Info */}
+        <Text style={[
+          styles.badgeName,
+          !isUnlocked && styles.badgeNameLocked
+        ]}>
+          {badge.name}
+        </Text>
+        
+        <Text style={[
+          styles.badgeDescription,
+          !isUnlocked && styles.badgeDescriptionLocked
+        ]}>
+          {badge.type === 'program_completion' 
+            ? 'Complete entire program'
+            : badge.type === 'drill_threshold'
+            ? `Master ${badge.skill} skills`
+            : 'Special achievement'
+          }
+        </Text>
+      </View>
+    );
+  };
+
   // Show loading indicator while data is being loaded
   if (isLoading) {
     return (
@@ -1406,14 +1613,24 @@ export default function SkillsScreen({ navigation }) {
             <TouchableOpacity 
               style={styles.headerToggle}
               onPress={() => setIsHeaderExpanded(!isHeaderExpanded)}
+              onLongPress={handleHeaderLongPress}
+              delayLongPress={1000}
             >
               <View style={styles.headerToggleContent}>
                 <Text style={styles.headerTitle}>DUPR Skill Progression</Text>
-                <Ionicons 
-                  name={isHeaderExpanded ? "chevron-up" : "chevron-down"} 
-                  size={20} 
-                  color="#FFFFFF" 
-                />
+                <View style={styles.headerIcons}>
+                  <Ionicons 
+                    name="refresh" 
+                    size={16} 
+                    color="rgba(255, 255, 255, 0.6)" 
+                    style={styles.resetHintIcon}
+                  />
+                  <Ionicons 
+                    name={isHeaderExpanded ? "chevron-up" : "chevron-down"} 
+                    size={20} 
+                    color="#FFFFFF" 
+                  />
+                </View>
               </View>
               {!isHeaderExpanded && (
                 <Text style={styles.headerCompactSubtitle}>2.0 → 3.0 • {(() => {
@@ -1490,6 +1707,9 @@ export default function SkillsScreen({ navigation }) {
               return renderSkillNode(skillTemplate);
             })}
           </View>
+
+          {/* Badges Section for Current Rating */}
+          {renderBadgesSection()}
 
           {/* Achievement Summary */}
           <View style={styles.achievementSection}>
@@ -1725,6 +1945,13 @@ export default function SkillsScreen({ navigation }) {
                     : `${newlyUnlockedBadge.progress?.tier?.charAt(0).toUpperCase() + newlyUnlockedBadge.progress?.tier?.slice(1)} Tier Unlocked`
                   }
                 </Text>
+                
+                {/* Show queue indicator if there are more badges */}
+                {badgeQueue.length > 0 && (
+                  <Text style={styles.badgeQueueIndicator}>
+                    +{badgeQueue.length} more badge{badgeQueue.length !== 1 ? 's' : ''} waiting!
+                  </Text>
+                )}
 
                 {/* Collect Button */}
                 <TouchableOpacity
@@ -1761,6 +1988,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  resetHintIcon: {
+    opacity: 0.7,
   },
   headerTitle: {
     fontSize: 20,
@@ -2369,8 +2604,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#10B981',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  badgeQueueIndicator: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
     marginBottom: 32,
     textAlign: 'center',
+    fontStyle: 'italic',
   },
   badgeCollectButton: {
     backgroundColor: '#10B981',
@@ -2388,5 +2631,120 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Badge Section Styles
+  badgesSection: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  badgesSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  badgesSectionSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  badgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  badgeCard: {
+    width: (width - 72) / 2, // 2 columns with padding
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  badgeCardLocked: {
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  badgeCardUnlocked: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  badgeCardCollected: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 3,
+  },
+  badgeIconContainer: {
+    position: 'relative',
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeRingUnlocked: {
+    borderColor: '#10B981',
+  },
+  badgeIcon: {
+    fontSize: 24,
+  },
+  badgeIconLocked: {
+    opacity: 0.5,
+  },
+  badgeName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  badgeNameLocked: {
+    color: '#9CA3AF',
+  },
+  badgeDescription: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  badgeDescriptionLocked: {
+    color: '#D1D5DB',
+  },
+  collectedIndicator: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#10B981',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  collectedCheckmark: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

@@ -413,8 +413,6 @@ export default function BadgesScreen({ navigation }) {
   const [selectedDupr, setSelectedDupr] = React.useState(null);
   const [selectedSkill, setSelectedSkill] = React.useState(null);
   const [collectedBadges, setCollectedBadges] = React.useState(new Set());
-  const [showCongratulationModal, setShowCongratulationModal] = React.useState(false);
-  const [newlyUnlockedBadge, setNewlyUnlockedBadge] = React.useState(null);
   const [programProgress, setProgramProgress] = React.useState(new Map());
 
   // Load exercise ratings, collected badges, and program progress
@@ -462,16 +460,8 @@ export default function BadgesScreen({ navigation }) {
   React.useEffect(() => {
     if (!isLoading && exerciseRatings.size > 0) {
       detectAndUpdateProgramCompletion();
-      checkForNewlyUnlockedBadges();
     }
   }, [exerciseRatings, isLoading]);
-
-  // Check for newly unlocked badges when program progress changes
-  React.useEffect(() => {
-    if (!isLoading && programProgress.size > 0) {
-      checkForNewlyUnlockedBadges();
-    }
-  }, [programProgress, isLoading]);
 
   // Function to detect and update program completion
   const detectAndUpdateProgramCompletion = () => {
@@ -525,28 +515,6 @@ export default function BadgesScreen({ navigation }) {
     }
   };
 
-  // Check for newly unlocked badges that haven't been collected yet
-  const checkForNewlyUnlockedBadges = () => {
-    const allBadges = badgeMatrix.badge_sets.flatMap(set => 
-      set.badges.map(badge => ({ ...badge, dupr: set.dupr }))
-    );
-    
-    for (const badge of allBadges) {
-      // Skip if badge is already collected
-      if (collectedBadges.has(badge.id)) continue;
-      
-      // Calculate if this badge should be unlocked (ignoring collection status)
-      const progress = calculateBadgeProgressRaw(badge);
-      
-      if (progress.isUnlocked) {
-        // Badge is unlocked but not collected - show collection modal
-        setNewlyUnlockedBadge(badge);
-        setShowCongratulationModal(true);
-        console.log(`Found unlocked badge for collection: ${badge.name}`);
-        break; // Show one at a time
-      }
-    }
-  };
 
   // Calculate badge progress based on exercise completion (ignoring collection status)
   const calculateBadgeProgressRaw = (badge) => {
@@ -675,13 +643,6 @@ export default function BadgesScreen({ navigation }) {
     );
   };
 
-  const collectBadge = () => {
-    if (newlyUnlockedBadge) {
-      setCollectedBadges(prev => new Set([...prev, newlyUnlockedBadge.id]));
-      setShowCongratulationModal(false);
-      setNewlyUnlockedBadge(null);
-    }
-  };
 
   const clearAllProgress = async () => {
     try {
@@ -901,41 +862,6 @@ export default function BadgesScreen({ navigation }) {
         {filteredBadges.map(renderBadgeCard)}
       </ScrollView>
 
-      {/* Congratulation Modal */}
-      {showCongratulationModal && newlyUnlockedBadge && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.congratulationModal}>
-            <View style={styles.congratulationContent}>
-              {/* Badge Icon */}
-              <View style={styles.congratulationBadgeContainer}>
-                <View style={styles.congratulationTierRing}>
-                  <Text style={styles.congratulationBadgeIcon}>
-                    {getBadgeIcon(newlyUnlockedBadge.id, newlyUnlockedBadge.skill)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Congratulation Text */}
-              <Text style={styles.congratulationTitle}>Congratulations!</Text>
-              <Text style={styles.congratulationMessage}>
-                You've unlocked the "{newlyUnlockedBadge.name}" badge!
-              </Text>
-              
-              <Text style={styles.congratulationTier}>
-                Achievement Unlocked!
-              </Text>
-
-              {/* Collect Button */}
-              <TouchableOpacity
-                style={styles.collectButton}
-                onPress={collectBadge}
-              >
-                <Text style={styles.collectButtonText}>Collect the Badge</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -1154,85 +1080,5 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: 'bold',
-  },
-  // Congratulation Modal Styles
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  congratulationModal: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    margin: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  congratulationContent: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  congratulationBadgeContainer: {
-    marginBottom: 24,
-  },
-  congratulationTierRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F3F4F6',
-    borderWidth: 4,
-    borderColor: '#10B981',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  congratulationBadgeIcon: {
-    fontSize: 40,
-  },
-  congratulationTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  congratulationMessage: {
-    fontSize: 18,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 24,
-  },
-  congratulationTier: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#10B981',
-    marginBottom: 32,
-    textAlign: 'center',
-  },
-  collectButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  collectButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 });

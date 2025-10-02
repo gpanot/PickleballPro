@@ -10,19 +10,366 @@ import {
   Modal,
   TextInput,
   Image,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
+import { useLogbook } from '../context/LogbookContext';
 import { checkAdminAccess, supabase } from '../lib/supabase';
 
 import { tiers, levels } from '../data/mockData';
+
+const { width } = Dimensions.get('window');
+
+// Storage constants for badges
+const EXERCISE_RATINGS_KEY = '@pickleball_hero:exercise_ratings';
+const COLLECTED_BADGES_KEY = '@pickleball_hero:collected_badges';
+const PROGRAM_PROGRESS_KEY = '@pickleball_hero:program_progress';
+
+// DUPR Programs data (simplified version)
+const duprPrograms = {
+  "dupr_programs": [
+    {
+      "dupr": 2.0,
+      "program_id": "P-2.0",
+      "sessions": [
+        {
+          "session_id": "P-2.0-S1",
+          "title": "Foundations: Control & Consistency",
+          "drills": [
+            { "skill": "Serve", "level": 1, "title": "Serve Consistency", "goal": "7/10 serves in play" },
+            { "skill": "Return", "level": 1, "title": "Return Consistency", "goal": "7/10 returns in play" },
+            { "skill": "Dink", "level": 1, "title": "Dink Rally", "goal": "10 consecutive dinks" }
+          ]
+        }
+      ]
+    },
+    {
+      "dupr": 2.1,
+      "program_id": "P-2.1",
+      "sessions": [
+        {
+          "session_id": "P-2.1-S1",
+          "title": "Expanding the Basics",
+          "drills": [
+            { "skill": "Serve", "level": 1, "title": "Serve Accuracy", "goal": "8/10 serves in play" },
+            { "skill": "Reset", "level": 1, "title": "Basic Reset", "goal": "4/10 into NVZ" }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+// Badge matrix data
+const badgeMatrix = {
+  "badge_sets": [
+    {
+      "dupr": 2.0,
+      "badges": [
+        {
+          "id": "rookie_20",
+          "name": "Rookie",
+          "type": "program_completion",
+          "program_id": "P-2.0",
+          "tiers": { "single": true }
+        },
+        {
+          "id": "dink_debut_20",
+          "name": "Dink Debut",
+          "type": "drill_threshold",
+          "skill": "Dink",
+          "level": 1,
+          "metric": "streak",
+          "thresholds": { "bronze": 10, "silver": 20, "gold": 30 }
+        }
+      ]
+    },
+    {
+      "dupr": 2.1,
+      "badges": [
+        {
+          "id": "serve_starter_21",
+          "name": "Serve Starter",
+          "type": "drill_threshold",
+          "skill": "Serve",
+          "level": 1,
+          "metric": "count_in",
+          "thresholds": { "bronze": "8/10", "silver": "9/10", "gold": "10/10" }
+        },
+        {
+          "id": "reset_beginner_21",
+          "name": "Reset Beginner",
+          "type": "drill_threshold",
+          "skill": "Reset",
+          "level": 1,
+          "metric": "count_success",
+          "thresholds": { "bronze": "4/10", "silver": "6/10", "gold": "8/10" }
+        }
+      ]
+    },
+    {
+      "dupr": 2.2,
+      "badges": [
+        {
+          "id": "return_builder_22",
+          "name": "Return Builder",
+          "type": "drill_threshold",
+          "skill": "Return",
+          "level": 2,
+          "metric": "count_deep",
+          "thresholds": { "bronze": "7/10", "silver": "8/10", "gold": "9/10" }
+        },
+        {
+          "id": "dink_builder_22",
+          "name": "Dink Builder",
+          "type": "drill_threshold",
+          "skill": "Dink",
+          "level": 2,
+          "metric": "streak",
+          "thresholds": { "bronze": 12, "silver": 18, "gold": 25 }
+        }
+      ]
+    },
+    {
+      "dupr": 2.3,
+      "badges": [
+        {
+          "id": "volley_starter_23",
+          "name": "Volley Starter",
+          "type": "drill_threshold",
+          "skill": "Volley",
+          "level": 1,
+          "metric": "count_success",
+          "thresholds": { "bronze": "6/10", "silver": "8/10", "gold": "10/10" }
+        },
+        {
+          "id": "transition_beginner_23",
+          "name": "Transition Beginner",
+          "type": "drill_threshold",
+          "skill": "Transition",
+          "level": 1,
+          "metric": "count_success",
+          "thresholds": { "bronze": "6/10", "silver": "8/10", "gold": "10/10" }
+        }
+      ]
+    },
+    {
+      "dupr": 2.4,
+      "badges": [
+        {
+          "id": "return_sniper_24",
+          "name": "Return Sniper",
+          "type": "drill_threshold",
+          "skill": "Return",
+          "level": 3,
+          "metric": "count_crosscourt",
+          "thresholds": { "bronze": "6/10", "silver": "8/10", "gold": "10/10" }
+        },
+        {
+          "id": "footwork_first_24",
+          "name": "Footwork First",
+          "type": "drill_threshold",
+          "skill": "Transition",
+          "level": 2,
+          "metric": "count_balanced_entry",
+          "thresholds": { "bronze": "7/10", "silver": "9/10", "gold": "10/10" }
+        }
+      ]
+    },
+    {
+      "dupr": 2.5,
+      "badges": [
+        {
+          "id": "drop_artist_25",
+          "name": "Drop Artist",
+          "type": "drill_threshold",
+          "skill": "Drop",
+          "level": 1,
+          "metric": "count_nvz",
+          "thresholds": { "bronze": "4/10", "silver": "6/10", "gold": "8/10" }
+        },
+        {
+          "id": "dink_grinder_25",
+          "name": "Dink Grinder",
+          "type": "drill_threshold",
+          "skill": "Dink",
+          "level": 2,
+          "metric": "streak_crosscourt",
+          "thresholds": { "bronze": 15, "silver": 25, "gold": 35 }
+        }
+      ]
+    },
+    {
+      "dupr": 2.6,
+      "badges": [
+        {
+          "id": "corner_server_26",
+          "name": "Corner Server",
+          "type": "drill_threshold",
+          "skill": "Serve",
+          "level": 3,
+          "metric": "count_corners",
+          "thresholds": { "bronze": "4/8", "silver": "6/8", "gold": "8/8" }
+        },
+        {
+          "id": "reset_wizard_26",
+          "name": "Reset Wizard",
+          "type": "drill_threshold",
+          "skill": "Reset",
+          "level": 2,
+          "metric": "count_under_pressure",
+          "thresholds": { "bronze": "5/10", "silver": "7/10", "gold": "9/10" }
+        }
+      ]
+    },
+    {
+      "dupr": 2.7,
+      "badges": [
+        {
+          "id": "extended_rally_27",
+          "name": "Extended Rally",
+          "type": "drill_threshold",
+          "skill": "Dink",
+          "level": 3,
+          "metric": "streak",
+          "thresholds": { "bronze": 20, "silver": 30, "gold": 40 }
+        },
+        {
+          "id": "volley_wall_27",
+          "name": "Volley Wall",
+          "type": "drill_threshold",
+          "skill": "Volley",
+          "level": 2,
+          "metric": "count_redirect",
+          "thresholds": { "bronze": "5/10", "silver": "7/10", "gold": "9/10" }
+        }
+      ]
+    },
+    {
+      "dupr": 2.8,
+      "badges": [
+        {
+          "id": "quick_hands_28",
+          "name": "Quick Hands",
+          "type": "drill_threshold",
+          "skill": "Speed-up",
+          "level": 1,
+          "metric": "count_wins",
+          "thresholds": { "bronze": "3/5", "silver": "4/5", "gold": "5/5" }
+        },
+        {
+          "id": "pressure_dinker_28",
+          "name": "Pressure Dinker",
+          "type": "drill_threshold",
+          "skill": "Dink",
+          "level": 3,
+          "metric": "streak_pressure",
+          "thresholds": { "bronze": 12, "silver": 20, "gold": 30 }
+        }
+      ]
+    },
+    {
+      "dupr": 2.9,
+      "badges": [
+        {
+          "id": "consistent_server_29",
+          "name": "Consistent Server",
+          "type": "drill_threshold",
+          "skill": "Serve",
+          "level": 3,
+          "metric": "count_deep",
+          "thresholds": { "bronze": "6/10", "silver": "8/10", "gold": "10/10" }
+        },
+        {
+          "id": "target_returner_29",
+          "name": "Target Returner",
+          "type": "drill_threshold",
+          "skill": "Return",
+          "level": 3,
+          "metric": "count_target_side",
+          "thresholds": { "bronze": "6/10", "silver": "8/10", "gold": "10/10" }
+        },
+        {
+          "id": "reset_pro_29",
+          "name": "Reset Pro",
+          "type": "drill_threshold",
+          "skill": "Reset",
+          "level": 3,
+          "metric": "count_under_pressure",
+          "thresholds": { "bronze": "6/10", "silver": "8/10", "gold": "10/10" }
+        }
+      ]
+    },
+    {
+      "dupr": 3.0,
+      "badges": [
+        {
+          "id": "solid_30",
+          "name": "Solid 3.0",
+          "type": "program_completion",
+          "program_id": "P-3.0",
+          "tiers": { "single": true }
+        },
+        {
+          "id": "all_rounder_30",
+          "name": "All-Rounder",
+          "type": "skill_collection",
+          "requirement": { "skills_at_or_above_level": 3, "count": { "bronze": 5, "silver": 8, "gold": 12 } }
+        },
+        {
+          "id": "club_ready_30",
+          "name": "Club Ready",
+          "type": "meta_sessions",
+          "thresholds": { "bronze": 20, "silver": 30, "gold": 50 }
+        }
+      ]
+    }
+  ]
+};
+
+// Badge icons mapping
+const getBadgeIcon = (badgeId, skillType) => {
+  const iconMap = {
+    // Skill-based icons
+    'Serve': '🎯',
+    'Return': '↩️',
+    'Dink': '🏓',
+    'Drop': '🎯',
+    'Volley': '⚡',
+    'Reset': '🔄',
+    'Speed-up': '💨',
+    'Transition': '🏃',
+    
+    // Special badges
+    'rookie': '🔰',
+    'solid': '🏆',
+    'all_rounder': '⭐',
+    'club_ready': '🎖️'
+  };
+  
+  // Try skill-based mapping first
+  if (skillType && iconMap[skillType]) {
+    return iconMap[skillType];
+  }
+  
+  // Fallback to badge name patterns
+  for (const [key, icon] of Object.entries(iconMap)) {
+    if (badgeId.toLowerCase().includes(key.toLowerCase())) {
+      return icon;
+    }
+  }
+  
+  return '🏅'; // Default badge icon
+};
 
 // Combined data for the merged profile/home screen
 
@@ -37,17 +384,28 @@ const recentActivity = [
 export default function ProfileScreen({ onLogout, navigation }) {
   const { user, resetAllOnboarding, setUser } = useUser();
   const { user: authUser, isAuthenticated, signOut } = useAuth();
+  const { getLogbookSummary } = useLogbook();
   const insets = useSafeAreaInsets();
   const [isAdmin, setIsAdmin] = useState(false);
   const [showDuprModal, setShowDuprModal] = useState(false);
   const [duprInput, setDuprInput] = useState('');
   const [avatarImage, setAvatarImage] = useState(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  
+  // Badge-related state
+  const [showBadgesModal, setShowBadgesModal] = useState(false);
+  const [exerciseRatings, setExerciseRatings] = useState(new Map());
+  const [collectedBadges, setCollectedBadges] = useState(new Set());
+  const [programProgress, setProgramProgress] = useState(new Map());
+  const [badgesLoading, setBadgesLoading] = useState(false);
+  const [badgeFilter, setBadgeFilter] = useState('all'); // 'all', 'unlocked', 'collected'
+  const [selectedDuprLevel, setSelectedDuprLevel] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
       checkAdmin();
       loadUserAvatar();
+      loadBadgeData(); // Load badge data when profile screen mounts
     }
   }, [isAuthenticated, authUser]);
 
@@ -92,8 +450,6 @@ export default function ProfileScreen({ onLogout, navigation }) {
       setIsAdmin(false);
     }
   };
-  const completedLevels = levels.filter(level => level.completed).length;
-  const totalLevels = levels.length;
   
 
   const handleSyncDUPR = () => {
@@ -350,6 +706,174 @@ export default function ProfileScreen({ onLogout, navigation }) {
     }
   };
 
+  // Badge-related helper functions
+  const loadBadgeData = async () => {
+    try {
+      setBadgesLoading(true);
+      const [ratingsJson, savedCollectedBadges, savedProgramProgress] = await Promise.all([
+        AsyncStorage.getItem(EXERCISE_RATINGS_KEY),
+        loadCollectedBadges(),
+        loadProgramProgress()
+      ]);
+      
+      if (ratingsJson) {
+        const ratingsArray = JSON.parse(ratingsJson);
+        setExerciseRatings(new Map(ratingsArray));
+      }
+      
+      setCollectedBadges(savedCollectedBadges);
+      setProgramProgress(savedProgramProgress);
+    } catch (error) {
+      console.error('Error loading badge data:', error);
+    } finally {
+      setBadgesLoading(false);
+    }
+  };
+
+  const loadCollectedBadges = async () => {
+    try {
+      const badgesJson = await AsyncStorage.getItem(COLLECTED_BADGES_KEY);
+      if (badgesJson) {
+        const badgesArray = JSON.parse(badgesJson);
+        return new Set(badgesArray);
+      }
+      return new Set();
+    } catch (error) {
+      console.error('Error loading collected badges:', error);
+      return new Set();
+    }
+  };
+
+  const loadProgramProgress = async () => {
+    try {
+      const progressJson = await AsyncStorage.getItem(PROGRAM_PROGRESS_KEY);
+      if (progressJson) {
+        const progressObject = JSON.parse(progressJson);
+        return new Map(Object.entries(progressObject));
+      }
+      return new Map();
+    } catch (error) {
+      console.error('Error loading program progress:', error);
+      return new Map();
+    }
+  };
+
+  const getSkillKey = (skillName) => {
+    const skillMap = {
+      'serve': 'serve',
+      'return': 'return', 
+      'drive': 'drive',
+      'dink': 'dinking',
+      'drop': 'thirdShot',
+      'volley': 'volleys',
+      'reset': 'resets',
+      'speed-up': 'speedUps',
+      'transition': 'transition',
+      'strategy': 'strategy'
+    };
+    
+    const normalizedName = skillName.toLowerCase();
+    return skillMap[normalizedName] || normalizedName;
+  };
+
+  const calculateBadgeProgress = (badge) => {
+    // If badge is collected, it should be unlocked
+    if (collectedBadges.has(badge.id)) {
+      return { isUnlocked: true, progress: 1.0 };
+    }
+    
+    // Calculate based on actual progress
+    if (badge.type === 'program_completion') {
+      const programId = badge.program_id;
+      const programStatus = programProgress.get(programId);
+      
+      if (programStatus && programStatus.completed) {
+        return { isUnlocked: true, progress: 1.0 };
+      }
+      
+      return { isUnlocked: false, progress: programStatus ? programStatus.progress : 0 };
+    }
+    
+    if (badge.type === 'drill_threshold') {
+      const skillKey = getSkillKey(badge.skill);
+      
+      // Count completed exercises for this skill at this DUPR level
+      const completedCount = Array.from(exerciseRatings.keys())
+        .filter(key => key.startsWith(`${badge.dupr}-${skillKey}-`)).length;
+
+      // Simple logic: 1+ completed = unlocked
+      if (completedCount >= 1) return { isUnlocked: true, progress: 1.0 };
+      
+      return { isUnlocked: false, progress: 0 };
+    }
+    
+    // For other badge types, return locked
+    return { isUnlocked: false, progress: 0 };
+  };
+
+  const getAllBadges = () => {
+    return badgeMatrix.badge_sets.flatMap(set => 
+      set.badges.map(badge => ({
+        ...badge,
+        dupr: set.dupr,
+        progress: calculateBadgeProgress(badge)
+      }))
+    );
+  };
+
+  const getFilteredBadges = () => {
+    let badges = getAllBadges();
+    
+    // Filter by status
+    if (badgeFilter === 'unlocked') {
+      badges = badges.filter(badge => badge.progress.isUnlocked);
+    } else if (badgeFilter === 'collected') {
+      badges = badges.filter(badge => collectedBadges.has(badge.id));
+    }
+    
+    // Filter by DUPR level
+    if (selectedDuprLevel) {
+      badges = badges.filter(badge => badge.dupr === selectedDuprLevel);
+    }
+    
+    return badges;
+  };
+
+  const getDuprLevels = () => {
+    return [...new Set(badgeMatrix.badge_sets.map(set => set.dupr))].sort();
+  };
+
+  const getBadgeStats = () => {
+    const allBadges = getAllBadges();
+    const unlockedCount = allBadges.filter(badge => badge.progress.isUnlocked).length;
+    const collectedCount = allBadges.filter(badge => collectedBadges.has(badge.id)).length;
+    
+    return {
+      total: allBadges.length,
+      unlocked: unlockedCount,
+      collected: collectedCount
+    };
+  };
+
+  const handleBadgesPress = () => {
+    loadBadgeData();
+    setShowBadgesModal(true);
+  };
+
+  const getDaysActive = () => {
+    const logbookSummary = getLogbookSummary();
+    if (!logbookSummary.firstSessionDate) {
+      return '-';
+    }
+    
+    const firstSessionDate = new Date(logbookSummary.firstSessionDate);
+    const today = new Date();
+    const timeDiff = today.getTime() - firstSessionDate.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    return Math.max(0, daysDiff);
+  };
+
   const renderTopBar = () => (
     <View style={styles.topBar}>
       <TouchableOpacity 
@@ -462,22 +986,26 @@ export default function ProfileScreen({ onLogout, navigation }) {
       
       <View style={styles.statsGrid}>
         <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>{completedLevels}</Text>
+          <Text style={styles.statNumber}>-</Text>
           <Text style={styles.statLabel}>Levels Completed</Text>
         </View>
         
-        <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>8</Text>
+        <TouchableOpacity 
+          style={styles.overallStatCard}
+          onPress={handleBadgesPress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.statNumber}>{getBadgeStats().unlocked}</Text>
           <Text style={styles.statLabel}>Badges Earned</Text>
-        </View>
+        </TouchableOpacity>
         
         <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>47</Text>
+          <Text style={styles.statNumber}>{getDaysActive()}</Text>
           <Text style={styles.statLabel}>Days Active</Text>
         </View>
         
         <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>156</Text>
+          <Text style={styles.statNumber}>-</Text>
           <Text style={styles.statLabel}>Exercises Done</Text>
         </View>
       </View>
@@ -550,6 +1078,214 @@ export default function ProfileScreen({ onLogout, navigation }) {
     </View>
   );
 
+  const renderBadgeCard = (badge) => {
+    const icon = getBadgeIcon(badge.id, badge.skill);
+    const { isUnlocked, progress } = badge.progress;
+    const isCollected = collectedBadges.has(badge.id);
+    
+    return (
+      <View
+        key={badge.id}
+        style={[
+          styles.badgeCard,
+          !isUnlocked && styles.badgeCardLocked,
+          isUnlocked && !isCollected && styles.badgeCardUnlocked,
+          isUnlocked && isCollected && styles.badgeCardCollected,
+        ]}
+      >
+        {/* Badge Ring with Progress */}
+        <View style={styles.badgeIconContainer}>
+          <View style={[
+            styles.badgeRing,
+            isUnlocked && { borderColor: '#10B981' }
+          ]}>
+            <Text style={[
+              styles.badgeIcon,
+              !isUnlocked && styles.badgeIconLocked
+            ]}>
+              {icon}
+            </Text>
+          </View>
+          
+          {/* Progress Ring */}
+          {isUnlocked && !isCollected && (
+            <View style={styles.progressRing}>
+              <View style={[
+                styles.progressFill,
+                { transform: [{ rotate: `${progress * 360}deg` }] }
+              ]} />
+            </View>
+          )}
+          
+        </View>
+        
+        {/* Badge Info */}
+        <Text style={[
+          styles.badgeName,
+          !isUnlocked && styles.badgeNameLocked
+        ]}>
+          {badge.name}
+        </Text>
+        
+        <Text style={[
+          styles.badgeLabel,
+          !isUnlocked && styles.badgeLabelLocked
+        ]}>
+          DUPR {badge.dupr}
+        </Text>
+        
+        {/* Badge Type Indicator */}
+        <View style={styles.badgeTypeContainer}>
+          <Text style={[
+            styles.badgeType,
+            !isUnlocked && styles.badgeTypeLocked
+          ]}>
+            {badge.type === 'program_completion' ? 'Program' : 
+             badge.type === 'drill_threshold' ? 'Skill' : 'Special'}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderBadgeStats = () => {
+    const stats = getBadgeStats();
+    
+    return (
+      <View style={styles.badgeStatsContainer}>
+        <View style={styles.badgeStatItem}>
+          <Text style={styles.badgeStatNumber}>{stats.collected}</Text>
+          <Text style={styles.badgeStatLabel}>Collected</Text>
+        </View>
+        <View style={styles.badgeStatDivider} />
+        <View style={styles.badgeStatItem}>
+          <Text style={styles.badgeStatNumber}>{stats.unlocked}</Text>
+          <Text style={styles.badgeStatLabel}>Unlocked</Text>
+        </View>
+        <View style={styles.badgeStatDivider} />
+        <View style={styles.badgeStatItem}>
+          <Text style={styles.badgeStatNumber}>{stats.total}</Text>
+          <Text style={styles.badgeStatLabel}>Total</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderFilterTabs = () => (
+    <View style={styles.filterTabsContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterTabsContent}
+      >
+        <TouchableOpacity
+          style={[styles.filterTab, badgeFilter === 'all' && styles.filterTabActive]}
+          onPress={() => setBadgeFilter('all')}
+        >
+          <Text style={[styles.filterTabText, badgeFilter === 'all' && styles.filterTabTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.filterTab, badgeFilter === 'unlocked' && styles.filterTabActive]}
+          onPress={() => setBadgeFilter('unlocked')}
+        >
+          <Text style={[styles.filterTabText, badgeFilter === 'unlocked' && styles.filterTabTextActive]}>
+            Unlocked
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.filterTab, badgeFilter === 'collected' && styles.filterTabActive]}
+          onPress={() => setBadgeFilter('collected')}
+        >
+          <Text style={[styles.filterTabText, badgeFilter === 'collected' && styles.filterTabTextActive]}>
+            Collected
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
+  const renderDuprFilter = () => (
+    <View style={styles.duprFilterContainer}>
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.duprFilterContent}
+      >
+        <TouchableOpacity
+          style={[styles.duprChip, !selectedDuprLevel && styles.duprChipActive]}
+          onPress={() => setSelectedDuprLevel(null)}
+        >
+          <Text style={[styles.duprChipText, !selectedDuprLevel && styles.duprChipTextActive]}>
+            All Levels
+          </Text>
+        </TouchableOpacity>
+        
+        {getDuprLevels().map(dupr => (
+          <TouchableOpacity
+            key={dupr}
+            style={[styles.duprChip, selectedDuprLevel === dupr && styles.duprChipActive]}
+            onPress={() => setSelectedDuprLevel(selectedDuprLevel === dupr ? null : dupr)}
+          >
+            <Text style={[styles.duprChipText, selectedDuprLevel === dupr && styles.duprChipTextActive]}>
+              DUPR {dupr}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  const renderBadgesModal = () => (
+    <Modal
+      visible={showBadgesModal}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={() => setShowBadgesModal(false)}
+    >
+      <View style={styles.badgesModalContainer}>
+        {/* Header */}
+        <View style={styles.badgesModalHeader}>
+          <TouchableOpacity 
+            style={styles.badgesModalBackButton}
+            onPress={() => setShowBadgesModal(false)}
+          >
+            <Ionicons name="close" size={24} color="#6B7280" />
+          </TouchableOpacity>
+          <Text style={styles.badgesModalTitle}>Your Badges</Text>
+          <View style={styles.badgesModalRightSpace} />
+        </View>
+
+        {/* Stats */}
+        {renderBadgeStats()}
+
+        {/* Filter Tabs */}
+        {renderFilterTabs()}
+
+        {/* DUPR Level Filter */}
+        {renderDuprFilter()}
+
+        {/* Content */}
+        <ScrollView 
+          style={styles.badgesModalContent}
+          contentContainerStyle={styles.badgesGrid}
+          showsVerticalScrollIndicator={false}
+        >
+          {badgesLoading ? (
+            <View style={styles.badgesLoadingContainer}>
+              <Text style={styles.badgesLoadingText}>Loading badges...</Text>
+            </View>
+          ) : (
+            getFilteredBadges().map(renderBadgeCard)
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+
   const renderDuprEditModal = () => (
     <Modal
       visible={showDuprModal}
@@ -612,6 +1348,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
       </ScrollView>
       
       {renderDuprEditModal()}
+      {renderBadgesModal()}
     </View>
   );
 }
@@ -970,5 +1707,265 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  // Badge Modal Styles
+  badgesModalContainer: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  badgesModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  badgesModalBackButton: {
+    padding: 8,
+    marginLeft: -4,
+  },
+  badgesModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 16,
+  },
+  badgesModalRightSpace: {
+    width: 40,
+  },
+  
+  // Badge Stats
+  badgeStatsContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  badgeStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  badgeStatNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  badgeStatLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  badgeStatDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 16,
+  },
+  
+  // Filter Tabs
+  filterTabsContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  filterTabsContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterTabActive: {
+    backgroundColor: '#1F2937',
+    borderColor: '#1F2937',
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  filterTabTextActive: {
+    color: 'white',
+  },
+  
+  // DUPR Filter
+  duprFilterContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  duprFilterContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  duprChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  duprChipActive: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  duprChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  duprChipTextActive: {
+    color: 'white',
+  },
+  
+  badgesModalContent: {
+    flex: 1,
+  },
+  badgesLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  badgesLoadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  badgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+  badgeCard: {
+    width: (width - 48) / 3,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  badgeCardLocked: {
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    opacity: 0.7,
+  },
+  badgeCardUnlocked: {
+    borderColor: '#10B981',
+    backgroundColor: 'white',
+    shadowColor: '#10B981',
+    shadowOpacity: 0.15,
+  },
+  badgeCardCollected: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 3,
+    shadowColor: '#10B981',
+    shadowOpacity: 0.2,
+  },
+  badgeIconContainer: {
+    position: 'relative',
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+  },
+  badgeRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#E5E7EB',
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: '#E5E7EB',
+    position: 'absolute',
+    borderTopColor: '#10B981',
+    transform: [{ rotate: '-90deg' }],
+  },
+  progressFill: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    borderTopColor: '#10B981',
+    position: 'absolute',
+  },
+  badgeIcon: {
+    fontSize: 24,
+    zIndex: 2,
+  },
+  badgeIconLocked: {
+    opacity: 0.5,
+  },
+  badgeName: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 4,
+    lineHeight: 14,
+  },
+  badgeNameLocked: {
+    color: '#9CA3AF',
+  },
+  badgeLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  badgeLabelLocked: {
+    color: '#D1D5DB',
+  },
+  badgeTypeContainer: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeType: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  badgeTypeLocked: {
+    color: '#D1D5DB',
   },
 });
