@@ -426,12 +426,17 @@ export const createLogbookEntry = async (entryData, userId = null) => {
   }
 };
 
-export const getLogbookEntries = async () => {
+export const getLogbookEntries = async (userId) => {
   try {
+    if (!userId) {
+      console.warn('getLogbookEntries: No userId provided, returning empty array');
+      return { data: [], error: null };
+    }
+
     const { data, error } = await supabase
       .from('logbook_entries')
       .select('*')
-      // .eq('user_id', userId) // TODO: Add when auth is implemented
+      .eq('user_id', userId)
       .order('date', { ascending: false });
 
     if (error) throw error;

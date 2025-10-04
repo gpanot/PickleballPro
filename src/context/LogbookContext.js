@@ -30,12 +30,31 @@ export const LogbookProvider = ({ children }) => {
     loadLogbookEntries();
   }, []);
 
+  // Reload entries when user changes
+  useEffect(() => {
+    if (user?.id) {
+      console.log('🔄 [LogbookContext] User changed, reloading entries for user:', user.id);
+      loadLogbookEntries();
+    }
+  }, [user?.id]);
+
   const loadLogbookEntries = async () => {
     try {
-      // First try to load from Supabase
-      const { data: supabaseEntries, error } = await getLogbookEntries();
+      // Check if we have a user ID before attempting to load
+      if (!user?.id) {
+        console.log('🔄 [LogbookContext] No user ID available, skipping Supabase load');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('🔄 [LogbookContext] Loading logbook entries for user:', user.id);
+      
+      // First try to load from Supabase with user ID
+      const { data: supabaseEntries, error } = await getLogbookEntries(user.id);
       
       if (supabaseEntries && !error) {
+        console.log('✅ [LogbookContext] Successfully loaded', supabaseEntries.length, 'entries from Supabase');
+        
         // Transform Supabase data to match local format
         const transformedEntries = supabaseEntries.map(entry => {
           // Parse JSON strings back to arrays for training_focus
@@ -79,7 +98,7 @@ export const LogbookProvider = ({ children }) => {
         await saveLogbookEntries(transformedEntries);
       } else {
         // Fallback to local storage if Supabase fails
-        console.log('Supabase failed, loading from local storage:', error);
+        console.log('⚠️ [LogbookContext] Supabase failed, loading from local storage:', error);
         const storedEntries = await AsyncStorage.getItem(STORAGE_KEY);
         if (storedEntries) {
           const parsedEntries = JSON.parse(storedEntries);
