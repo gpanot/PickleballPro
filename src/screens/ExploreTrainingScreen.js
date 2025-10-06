@@ -15,12 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
+import { usePreload } from '../context/PreloadContext';
 import { getPrograms, transformProgramData, supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
 export default function ExploreTrainingScreen({ navigation }) {
   const { user } = useUser();
+  const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
   const insets = useSafeAreaInsets();
   
   // State for API data
@@ -35,7 +37,25 @@ export default function ExploreTrainingScreen({ navigation }) {
 
   // Fetch programs from API on component mount
   useEffect(() => {
-    fetchPrograms();
+    // Check if we have preloaded data first
+    const preloadedPrograms = getDataWithFallback('programs');
+    if (preloadedPrograms && preloadedPrograms.length > 0) {
+      console.log('🚀 ExploreTrainingScreen: Using preloaded programs data - INSTANT LOAD!');
+      setExplorePrograms(preloadedPrograms);
+      setLoading(false);
+      setError(null);
+    } else if (hasPreloadedData('programs')) {
+      // We have preloaded data but it's empty
+      console.log('📭 ExploreTrainingScreen: Preloaded programs data is empty - INSTANT LOAD!');
+      setExplorePrograms([]);
+      setLoading(false);
+      setError(null);
+    } else {
+      // No preloaded data, fetch normally
+      console.log('⏳ ExploreTrainingScreen: No preloaded data, fetching programs...');
+      fetchPrograms();
+    }
+    
     fetchCategoryOrder();
   }, []);
 
@@ -124,16 +144,24 @@ export default function ExploreTrainingScreen({ navigation }) {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      const { data, error } = await getPrograms();
-      
-      if (error) {
-        throw error;
+      // Try to refresh from preload context first
+      const refreshedPrograms = await refreshData('programs');
+      if (refreshedPrograms) {
+        setExplorePrograms(refreshedPrograms);
+        setError(null);
+      } else {
+        // Fallback to direct API call
+        const { data, error } = await getPrograms();
+        
+        if (error) {
+          throw error;
+        }
+        
+        // Transform the data to match your current app structure
+        const transformedPrograms = transformProgramData(data);
+        setExplorePrograms(transformedPrograms);
+        setError(null);
       }
-      
-      // Transform the data to match your current app structure
-      const transformedPrograms = transformProgramData(data);
-      setExplorePrograms(transformedPrograms);
-      setError(null);
       
       // Also refresh category order
       await fetchCategoryOrder();

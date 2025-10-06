@@ -40,6 +40,7 @@ import AdminRoute from './src/components/AdminRoute';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { PreloadProvider } from './src/context/PreloadContext';
 
 const Stack = createStackNavigator();
 
@@ -309,9 +310,11 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <UserProvider>
-            <LogbookProvider>
-              <AppContent />
-            </LogbookProvider>
+            <PreloadProvider>
+              <LogbookProvider>
+                <AppContent />
+              </LogbookProvider>
+            </PreloadProvider>
           </UserProvider>
         </AuthProvider>
       </SafeAreaProvider>

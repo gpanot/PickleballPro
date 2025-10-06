@@ -19,6 +19,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
+import { usePreload } from '../context/PreloadContext';
 import { getCoaches, transformCoachData } from '../lib/supabase';
 
 export default function CoachScreen() {
@@ -26,6 +27,7 @@ export default function CoachScreen() {
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [sortBy, setSortBy] = useState('Rating');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const { getDataWithFallback, hasPreloadedData, refreshData } = usePreload();
   const insets = useSafeAreaInsets();
   
   // API state
@@ -53,7 +55,25 @@ export default function CoachScreen() {
   // Request location permission and get user location on component mount
   useEffect(() => {
     requestLocationPermission();
-    fetchCoaches();
+    
+    // Check if we have preloaded data first
+    const preloadedCoaches = getDataWithFallback('coaches');
+    if (preloadedCoaches && preloadedCoaches.length > 0) {
+      console.log('🚀 CoachScreen: Using preloaded coaches data - INSTANT LOAD!');
+      setCoaches(preloadedCoaches);
+      setLoading(false);
+      setError(null);
+    } else if (hasPreloadedData('coaches')) {
+      // We have preloaded data but it's empty
+      console.log('📭 CoachScreen: Preloaded coaches data is empty - INSTANT LOAD!');
+      setCoaches([]);
+      setLoading(false);
+      setError(null);
+    } else {
+      // No preloaded data, fetch normally
+      console.log('⏳ CoachScreen: No preloaded data, fetching coaches...');
+      fetchCoaches();
+    }
   }, []);
 
   const requestLocationPermission = async () => {
@@ -72,8 +92,10 @@ export default function CoachScreen() {
         return;
       }
 
-      // Request permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      // Request permission with descriptive message
+      const { status } = await Location.requestForegroundPermissionsAsync({
+        requestMessage: "Your location is used to locate the nearest available coach"
+      });
       
       if (status === 'granted') {
         setLocationPermissionGranted(true);
@@ -147,8 +169,24 @@ export default function CoachScreen() {
     }
   };
 
-  const onRefresh = () => {
-    fetchCoaches(true);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Try to refresh from preload context first
+      const refreshedCoaches = await refreshData('coaches');
+      if (refreshedCoaches) {
+        setCoaches(refreshedCoaches);
+        setError(null);
+      } else {
+        // Fallback to direct API call
+        await fetchCoaches(true);
+      }
+    } catch (err) {
+      console.error('Error refreshing coaches:', err);
+      setError(err.message);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // Calculate distance between two coordinates using Haversine formula

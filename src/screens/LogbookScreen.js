@@ -16,6 +16,7 @@ import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
+import { usePreload } from '../context/PreloadContext';
 import skillsData from '../data/Commun_skills_tags.json';
 
 export default function LogbookScreen({ navigation }) {

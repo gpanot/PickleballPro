@@ -24,14 +24,14 @@ export default function FeedbackScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const feedbackOptions = [
-    'Fun drills',
-    'Challenging enough',
+    'The Librairy screen',
+    'The Program screen',
+    'The Coach screen',
+    'The Logbook screen',
+    'It is motivating',
     'Easy to use',
-    'Helps me improve',
-    'Great content',
-    'Good variety',
-    'Clear instructions',
-    'Motivating'
+    'Help me to improve',
+    'Great content'
   ];
 
   const handleOptionToggle = (option) => {
@@ -142,7 +142,7 @@ export default function FeedbackScreen() {
 
           {/* Feedback Options */}
           <View style={styles.optionsSection}>
-            <Text style={styles.sectionTitle}>What's working well for you?</Text>
+            <Text style={styles.sectionTitle}>What's do you like the most?</Text>
             <View style={styles.optionsGrid}>
               {feedbackOptions.map((option) => (
                 <TouchableOpacity
@@ -166,7 +166,7 @@ export default function FeedbackScreen() {
 
           {/* Text Feedback */}
           <View style={styles.textFeedbackSection}>
-            <Text style={styles.sectionTitle}>What do you like the most?</Text>
+            <Text style={styles.sectionTitle}>Where the app is helping you to improve?</Text>
             <TextInput
               style={styles.textInput}
               placeholder="Tell us what you love or what could make it even better."

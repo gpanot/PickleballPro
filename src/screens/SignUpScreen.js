@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
   const { user, getOnboardingData } = useUser();
+  const scrollViewRef = useRef(null);
 
   // Pre-populate name from onboarding flow or user context
   React.useEffect(() => {
@@ -129,6 +131,13 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
     }
   };
 
+  const handlePasswordFocus = () => {
+    // Scroll to bottom to ensure Create Account button is visible
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
+
   const isFormValid = name.trim() && email.trim() && password;
 
   return (
@@ -142,7 +151,14 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardContainer}
         >
-          <View style={styles.content}>
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.content}>
             {/* Back Button */}
             <TouchableOpacity 
               style={styles.backButton} 
@@ -199,6 +215,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
                   placeholderTextColor="#9CA3AF"
                   value={password}
                   onChangeText={setPassword}
+                  onFocus={handlePasswordFocus}
                   secureTextEntry
                   autoCapitalize="none"
                 />
@@ -230,7 +247,8 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
                 <Text style={styles.footerLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
-          </View>
+            </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </View>
     </>
@@ -245,6 +263,14 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingBottom: 20,
   },
   content: {
     flex: 1,

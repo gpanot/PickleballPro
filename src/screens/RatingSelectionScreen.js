@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,7 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
   const [ratingInput, setRatingInput] = useState('');
   const { updateUserRating } = useUser();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef(null);
 
   const handleOptionSelect = (option) => {
     setSelectedOption(option);
@@ -27,6 +29,11 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
       // Default rating of 2.0 for users without rating
       updateUserRating(2.0, 'none');
       onComplete();
+    } else if (option === 'dupr') {
+      // Scroll to bottom when DUPR option is selected to show the input section
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
   };
 
@@ -117,70 +124,83 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>What's your rating?</Text>
-        <Text style={styles.subtitle}>
-          Help us personalize your training experience
-        </Text>
-      </View>
-
-      {/* Options */}
-      <View style={styles.optionsContainer}>
-        {renderOption(
-          'dupr',
-          'Enter your official DUPR rating',
-          'I have an official DUPR account',
-          'star'
-        )}
-        
-        {renderOption(
-          'none',
-          "I don't have a rating",
-          "I'm new to pickleball",
-          'help'
-        )}
-      </View>
-
-      {/* Rating Input */}
-      {selectedOption === 'dupr' && (
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>
-            Enter your DUPR rating
-          </Text>
-          <TextInput
-            style={styles.ratingInput}
-            placeholder="e.g., 3.500"
-            placeholderTextColor="#9CA3AF"
-            value={ratingInput}
-            onChangeText={setRatingInput}
-            keyboardType="decimal-pad"
-            maxLength={5}
-            autoFocus
-          />
-          <Text style={styles.inputHint}>
-            Rating should be between 2.0 and 8.0
-          </Text>
-          
-          <TouchableOpacity 
-            style={styles.submitButton}
-            onPress={handleRatingSubmit}
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.scrollableContent}
+            contentContainerStyle={styles.scrollContentContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.submitButtonText}>Continue</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.title}>What's your rating?</Text>
+              <Text style={styles.subtitle}>
+                Help us personalize your training experience
+              </Text>
+            </View>
 
-      {selectedOption === 'none' && (
-        <View style={styles.defaultRatingInfo}>
-          <ModernIcon name="help" size={20} color="#666666" />
-          <Text style={styles.defaultRatingText}>
-            We'll start you at rating 2.0. You can update this anytime in your profile.
-          </Text>
-        </View>
-      )}
+            {/* Options */}
+            <View style={styles.optionsContainer}>
+              {renderOption(
+                'dupr',
+                'Enter your official DUPR rating',
+                'I have an official DUPR account',
+                'star'
+              )}
+              
+              {renderOption(
+                'none',
+                "I don't have a rating",
+                "I'm new to pickleball",
+                'help'
+              )}
+            </View>
+
+            {/* Rating Input */}
+            {selectedOption === 'dupr' && (
+              <View style={styles.inputSection}>
+                <Text style={styles.inputLabel}>
+                  Enter your DUPR rating
+                </Text>
+                <TextInput
+                  style={styles.ratingInput}
+                  placeholder="e.g., 3.500"
+                  placeholderTextColor="#9CA3AF"
+                  value={ratingInput}
+                  onChangeText={setRatingInput}
+                  keyboardType="decimal-pad"
+                  maxLength={5}
+                  autoFocus
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 100);
+                  }}
+                />
+                <Text style={styles.inputHint}>
+                  Rating should be between 2.0 and 8.0
+                </Text>
+                
+                <TouchableOpacity 
+                  style={styles.submitButton}
+                  onPress={handleRatingSubmit}
+                >
+                  <Text style={styles.submitButtonText}>Continue</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {selectedOption === 'none' && (
+              <View style={styles.defaultRatingInfo}>
+                <ModernIcon name="help" size={20} color="#666666" />
+                <Text style={styles.defaultRatingText}>
+                  We'll start you at rating 2.0. You can update this anytime in your profile.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
         </KeyboardAvoidingView>
       </View>
     </>
@@ -195,7 +215,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 30,
+  },
+  scrollableContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: 20,
+    paddingBottom: 50, // Extra space at bottom to ensure Continue button is visible
   },
   header: {
     alignItems: 'center',

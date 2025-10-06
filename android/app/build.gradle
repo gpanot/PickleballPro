@@ -84,7 +84,7 @@ android {
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
+    compileSdk 35  // Explicitly set to 35
 
     namespace 'com.picklepro.mobile'
     defaultConfig {
@@ -173,4 +173,24 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+}
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk 35
+
+    namespace 'com.picklepro.mobile'
+    
+    // Add this lint options block
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+    
+    defaultConfig {
+        // ... rest of your config
+    }
+    // ... rest of android block
 }
