@@ -357,6 +357,13 @@ export default function ProgramDetailScreen({ navigation, route }) {
         throw new Error('User not authenticated');
       }
 
+      // Safety check: Prevent blob URLs from being uploaded
+      if (imageUri.startsWith('blob:')) {
+        console.warn('⚠️ [ProgramDetailScreen] Blob URL detected, cannot upload:', imageUri);
+        Alert.alert('Warning', 'Invalid image format. Program will be updated without image.');
+        return null;
+      }
+
       // Generate a unique filename with user folder structure
       const fileExtension = 'jpg';
       const sanitizedProgramName = programName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
@@ -384,6 +391,13 @@ export default function ProgramDetailScreen({ navigation, route }) {
       const { data: { publicUrl } } = supabase.storage
         .from('program_thumbnails')
         .getPublicUrl(fileName);
+
+      // Safety check: Ensure the returned URL is not a blob URL
+      if (publicUrl.startsWith('blob:')) {
+        console.error('❌ [ProgramDetailScreen] Generated URL is still a blob URL - upload may have failed');
+        Alert.alert('Warning', 'Thumbnail upload failed. Program will be updated without image.');
+        return null;
+      }
 
       console.log('✅ [ProgramDetailScreen] Thumbnail uploaded successfully:', publicUrl);
       return publicUrl;
@@ -589,22 +603,21 @@ export default function ProgramDetailScreen({ navigation, route }) {
               : 'Create your first routine to organize exercises within this program.'
             }
           </Text>
-          <TouchableOpacity
-            style={[
-              styles.addFirstRoutineButton,
-              source === 'explore' && styles.addToProgramsButton
-            ]}
-            onPress={source === 'explore' ? addToMyPrograms : () => setShowCreateRoutineModal(true)}
-          >
-            <WebIcon 
-              name={source === 'explore' ? 'bookmark' : 'add'} 
-              size={20} 
-              color="white" 
-            />
-            <Text style={styles.addFirstRoutineButtonText}>
-              {source === 'explore' ? 'Add to my Program List' : 'Create First Routine'}
-            </Text>
-          </TouchableOpacity>
+          {source !== 'explore' && (
+            <TouchableOpacity
+              style={styles.addFirstRoutineButton}
+              onPress={() => setShowCreateRoutineModal(true)}
+            >
+              <WebIcon 
+                name="add" 
+                size={20} 
+                color="white" 
+              />
+              <Text style={styles.addFirstRoutineButtonText}>
+                Create First Routine
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView 
@@ -644,22 +657,21 @@ export default function ProgramDetailScreen({ navigation, route }) {
             </View>
           ))}
 
-          <TouchableOpacity
-            style={[
-              styles.addMoreRoutinesButton,
-              source === 'explore' && styles.addToProgramsButton
-            ]}
-            onPress={source === 'explore' ? addToMyPrograms : () => setShowCreateRoutineModal(true)}
-          >
-            <WebIcon 
-              name={source === 'explore' ? 'bookmark' : 'add'} 
-              size={20} 
-              color="white" 
-            />
-            <Text style={styles.addMoreRoutinesButtonText}>
-              {source === 'explore' ? 'Add to my Program List' : 'Add new session'}
-            </Text>
-          </TouchableOpacity>
+          {source !== 'explore' && (
+            <TouchableOpacity
+              style={styles.addMoreRoutinesButton}
+              onPress={() => setShowCreateRoutineModal(true)}
+            >
+              <WebIcon 
+                name="add" 
+                size={20} 
+                color="white" 
+              />
+              <Text style={styles.addMoreRoutinesButtonText}>
+                Add new session
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Sharing Section - Only show for owned programs (not from explore) */}
           {source !== 'explore' && (
@@ -800,7 +812,10 @@ export default function ProgramDetailScreen({ navigation, route }) {
       
       <ScrollView 
         style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          source === 'explore' && styles.scrollContentWithFixedButton
+        ]}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
       >
@@ -808,6 +823,25 @@ export default function ProgramDetailScreen({ navigation, route }) {
         
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Fixed Add to Program Button for Explore Mode */}
+      {source === 'explore' && (
+        <View style={[styles.fixedButtonContainer, { paddingBottom: insets.bottom }]}>
+          <TouchableOpacity
+            style={styles.fixedAddToProgramButton}
+            onPress={addToMyPrograms}
+          >
+            <WebIcon 
+              name="bookmark" 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.fixedAddToProgramButtonText}>
+              Add to my Program List
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Create Routine Modal */}
       <Modal
@@ -1003,6 +1037,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  scrollContentWithFixedButton: {
+    paddingBottom: 100, // Extra padding to account for fixed button
   },
   // Routines styles
   routinesContainer: {
@@ -1377,6 +1414,43 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   shareButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  // Fixed button styles
+  fixedButtonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fixedAddToProgramButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fixedAddToProgramButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
