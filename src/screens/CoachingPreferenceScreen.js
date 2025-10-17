@@ -4,8 +4,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { requestTrackingPermission, getTrackingStatus } from 'react-native-tracking-transparency';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 
@@ -35,6 +37,22 @@ export default function CoachingPreferenceScreen({ onComplete }) {
 
   const handlePreferenceSelect = async (preferenceId) => {
     setSelectedPreference(preferenceId);
+    
+    // Request App Tracking Transparency permission on iOS
+    if (Platform.OS === 'ios') {
+      try {
+        console.log('CoachingPreferenceScreen: Requesting ATT permission on iOS');
+        const trackingStatus = await getTrackingStatus();
+        console.log('CoachingPreferenceScreen: Current tracking status:', trackingStatus);
+        
+        if (trackingStatus === 'not-determined') {
+          const permission = await requestTrackingPermission();
+          console.log('CoachingPreferenceScreen: ATT permission result:', permission);
+        }
+      } catch (error) {
+        console.error('CoachingPreferenceScreen: Error requesting ATT permission:', error);
+      }
+    }
     
     // Save coaching preference data to UserContext
     console.log('CoachingPreferenceScreen: Saving coaching preference to UserContext:', preferenceId);
@@ -94,15 +112,15 @@ export default function CoachingPreferenceScreen({ onComplete }) {
       {preference.id === 'yes' && (
         <View style={styles.benefitsList}>
           <View style={styles.benefitItem}>
-            <ModernIcon name="checkmark-circle" size={16} color="#007AFF" />
+            <ModernIcon name="checkmark" size={16} color="#007AFF" />
             <Text style={styles.benefitText}>Personalized coaching</Text>
           </View>
           <View style={styles.benefitItem}>
-            <ModernIcon name="checkmark-circle" size={16} color="#007AFF" />
+            <ModernIcon name="checkmark" size={16} color="#007AFF" />
             <Text style={styles.benefitText}>Faster skill improvement</Text>
           </View>
           <View style={styles.benefitItem}>
-            <ModernIcon name="checkmark-circle" size={16} color="#007AFF" />
+            <ModernIcon name="checkmark" size={16} color="#007AFF" />
             <Text style={styles.benefitText}>Professional guidance</Text>
           </View>
         </View>

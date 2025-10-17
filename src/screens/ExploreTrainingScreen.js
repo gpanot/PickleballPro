@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Animated,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebLinearGradient from '../components/WebLinearGradient';
@@ -18,7 +19,41 @@ import { useUser } from '../context/UserContext';
 import { usePreload } from '../context/PreloadContext';
 import { getPrograms, transformProgramData, supabase } from '../lib/supabase';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Responsive design helper functions optimized for iPad portrait mode
+const getColumnsForWidth = (screenWidth, screenHeight) => {
+  // Special handling for iPad portrait mode (768x1024)
+  if (screenWidth === 768 && screenHeight >= 1024) return 3; // iPad portrait - 3 columns
+  if (screenWidth >= 1024) return 4; // Large tablets landscape (iPad Pro, etc.)
+  if (screenWidth >= 768) return 3;  // iPad mini, standard tablets
+  if (screenWidth >= 480) return 2;  // Large phones, small tablets
+  return 2; // Default for phones
+};
+
+const getCardWidth = (screenWidth, screenHeight) => {
+  const columns = getColumnsForWidth(screenWidth, screenHeight);
+  // Optimized padding for iPad portrait mode
+  const padding = (screenWidth === 768 && screenHeight >= 1024) ? 24 : 16;
+  const margin = 12; // Slightly larger margin for better spacing
+  const totalHorizontalSpace = padding * 2 + margin * (columns - 1);
+  return (screenWidth - totalHorizontalSpace) / columns;
+};
+
+const getHorizontalCardWidth = (screenWidth, screenHeight) => {
+  const cardWidth = getCardWidth(screenWidth, screenHeight);
+  return cardWidth * 0.85; // Slightly smaller for horizontal scroll
+};
+
+// Enhanced thumbnail height calculation for portrait mode
+const getThumbnailHeight = (screenWidth, screenHeight) => {
+  const cardWidth = getCardWidth(screenWidth, screenHeight);
+  // For iPad portrait, use a better aspect ratio
+  if (screenWidth === 768 && screenHeight >= 1024) {
+    return Math.max(180, cardWidth * 0.8); // Taller thumbnails for portrait
+  }
+  return Math.max(160, cardWidth * 0.75);
+};
 
 export default function ExploreTrainingScreen({ navigation }) {
   const { user } = useUser();
@@ -311,7 +346,7 @@ export default function ExploreTrainingScreen({ navigation }) {
           
           if (categoryPrograms.length === 0) return null;
           
-          const useHorizontalScroll = categoryPrograms.length > 2;
+          const useHorizontalScroll = categoryPrograms.length >= 2;
           
           return (
             <View key={category} style={styles.categoriesSection}>
@@ -420,8 +455,8 @@ const styles = StyleSheet.create({
   },
   // Header styles
   headerContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16, // iPad portrait padding
+    paddingVertical: (width === 768 && height >= 1024) ? 20 : 16, // More vertical padding for iPad
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
@@ -445,36 +480,42 @@ const styles = StyleSheet.create({
   programsContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    // Web-specific optimizations for smooth scrolling on iPad
+    ...(Platform.OS === 'web' && width === 768 && height >= 1024 && {
+      WebkitOverflowScrolling: 'touch',
+      scrollBehavior: 'smooth',
+    }),
   },
   programsContent: {
-    paddingVertical: 20,
+    paddingVertical: (width === 768 && height >= 1024) ? 24 : 20, // Optimized for iPad portrait
+    paddingHorizontal: width >= 768 ? ((width === 768 && height >= 1024) ? 24 : 32) : 0, // iPad portrait specific padding
   },
   categoriesSection: {
-    marginBottom: 32,
+    marginBottom: (width === 768 && height >= 1024) ? 28 : 32, // Tighter spacing for iPad portrait
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: width >= 768 ? 0 : 16, // Adjust padding for tablets
   },
   programsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 8,
-    justifyContent: 'space-between',
+    paddingHorizontal: width >= 768 ? 0 : 16, // No extra padding on tablets since we have content padding
+    justifyContent: 'flex-start',
   },
   horizontalScroll: {
-    paddingLeft: 16,
+    paddingLeft: width >= 768 ? 0 : 16, // Adjust for tablet padding
   },
   horizontalScrollContent: {
-    paddingRight: 16,
+    paddingRight: width >= 768 ? 0 : 16, // Adjust for tablet padding
   },
   programCard: {
-    width: (width - 48) / 2,
-    marginHorizontal: 8,
-    marginBottom: 16,
+    width: getCardWidth(width, height),
+    marginRight: 12, // Increased margin for better spacing
+    marginBottom: (width === 768 && height >= 1024) ? 20 : 16, // More vertical space on iPad portrait
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     shadowColor: '#000',
@@ -482,9 +523,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    // Web-specific optimizations for iPad portrait
+    ...(Platform.OS === 'web' && width === 768 && height >= 1024 && {
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      cursor: 'pointer',
+    }),
   },
   horizontalProgramCard: {
-    width: ((width - 48) / 2) * 0.9,
+    width: getHorizontalCardWidth(width, height),
     marginRight: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -493,10 +540,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    // Web-specific optimizations
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      cursor: 'pointer',
+    }),
   },
   thumbnailContainer: {
     width: '100%',
-    height: 160,
+    height: getThumbnailHeight(width, height), // Enhanced responsive height for iPad portrait
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     overflow: 'hidden',
@@ -516,14 +569,14 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   programDetails: {
-    padding: 12,
+    padding: (width === 768 && height >= 1024) ? 14 : 12, // More padding for iPad portrait
   },
   programTitle: {
-    fontSize: 14,
+    fontSize: (width === 768 && height >= 1024) ? 15 : 14, // Slightly larger text for iPad portrait
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 6,
-    lineHeight: 18,
+    lineHeight: (width === 768 && height >= 1024) ? 20 : 18,
   },
   ratingContainer: {
     flexDirection: 'row',

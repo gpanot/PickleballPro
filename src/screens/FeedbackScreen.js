@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase';
 
 export default function FeedbackScreen() {
   const { user } = useAuth();
+  const scrollViewRef = useRef(null);
   const [rating, setRating] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState([]);
   const [whatYouLike, setWhatYouLike] = useState('');
@@ -42,6 +43,13 @@ export default function FeedbackScreen() {
         return [...prev, option];
       }
     });
+  };
+
+  const handleLastTextInputFocus = () => {
+    // Scroll to bottom when the last text input is focused
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
   };
 
   const handleSubmit = async () => {
@@ -125,6 +133,7 @@ export default function FeedbackScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView 
+          ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -187,6 +196,7 @@ export default function FeedbackScreen() {
               placeholderTextColor="#9CA3AF"
               value={whatToAdd}
               onChangeText={setWhatToAdd}
+              onFocus={handleLastTextInputFocus}
               multiline
               numberOfLines={4}
               textAlignVertical="top"

@@ -18,6 +18,8 @@ buildscript {
         classpath('com.android.tools.build:gradle:8.7.2')
         classpath('com.facebook.react:react-native-gradle-plugin')
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        // Add the dependency for the Google services Gradle plugin
+        classpath('com.google.gms:google-services:4.4.3')
     }
 }
 

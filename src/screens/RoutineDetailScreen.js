@@ -215,11 +215,13 @@ export default function RoutineDetailScreen({ navigation, route }) {
         try {
           console.log('➕ [RoutineDetailScreen] Processing exercise:', exercise.name);
           
-          // First, check if exercise already exists
+          // First, check if exercise already exists by title (more reliable than code)
           const { data: existingExercise, error: findError } = await supabase
             .from('exercises')
             .select('id, code')
-            .eq('code', exercise.id)
+            .eq('title', exercise.name || exercise.title)
+            .eq('created_by', user.id)
+            .eq('is_published', false)
             .single();
           
           if (existingExercise) {
@@ -231,9 +233,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
             continue;
           }
           
-          // If not found, create new exercise
+          // If not found, create new exercise with duplicate prevention
           console.log('➕ [RoutineDetailScreen] Creating new exercise:', exercise.name);
-          const { data: createdExercise, error: createError } = await supabase.rpc('create_exercise_as_user', {
+          const { data: createdExercise, error: createError } = await supabase.rpc('create_exercise_as_user_with_duplicate_check', {
             exercise_code: exercise.id, // Use the generated ID as code
             exercise_title: exercise.name || exercise.title,
             exercise_description: exercise.description || `Generated exercise: ${exercise.name}`,
@@ -580,16 +582,25 @@ export default function RoutineDetailScreen({ navigation, route }) {
         targetType: exercise.target_type,
         targetValue: exercise.target_value,
         targetUnit: exercise.target_unit,
-        difficulty: exercise.difficulty
+        difficulty: exercise.difficulty,
+        hasTipsJson: !!exercise.tips_json,
+        tipsCount: exercise.tips_json ? exercise.tips_json.length : 0,
+        hasCompleteData: !!exercise.completeExerciseData,
+        completeDataTips: exercise.completeExerciseData?.tips_json ? exercise.completeExerciseData.tips_json.length : 0
       });
 
-      // Simply pass the raw exercise data to ExerciseDetailScreen
-      // Let ExerciseDetailScreen handle all the data transformation logic
-      console.log('✅ [RoutineDetailScreen] Passing raw exercise data to ExerciseDetailScreen');
+      // Prepare the exercise data with tips - prioritize completeExerciseData if available
+      const exerciseDataToPass = exercise.completeExerciseData || exercise;
+      
+      console.log('✅ [RoutineDetailScreen] Passing exercise data with tips:', {
+        hasTipsJson: !!exerciseDataToPass.tips_json,
+        tipsCount: exerciseDataToPass.tips_json ? exerciseDataToPass.tips_json.length : 0,
+        tips: exerciseDataToPass.tips_json
+      });
       
       navigation.navigate('ExerciseDetail', {
-        exercise: exercise, // Pass raw exercise data
-        rawExercise: exercise, // Also pass as rawExercise for compatibility
+        exercise: exerciseDataToPass, // Pass complete exercise data with tips
+        rawExercise: exerciseDataToPass, // Also pass as rawExercise for compatibility
         onExerciseUpdated: (updatedExercise) => {
           console.log('🔄 [RoutineDetailScreen] Exercise updated from detail screen:', updatedExercise.id);
           // Update the exercise in the routine if needed

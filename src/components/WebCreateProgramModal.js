@@ -135,6 +135,99 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
     }
   };
 
+  const uploadThumbnailToStorage = async (imageUri) => {
+    try {
+      console.log('📸 Starting thumbnail upload to storage...', imageUri);
+      
+      // Generate a unique filename with user folder structure
+      let fileExt = 'jpg'; // Default extension
+      
+      // Try to extract extension from URI, but handle blob URLs
+      if (!imageUri.startsWith('blob:')) {
+        const uriParts = imageUri.split('.');
+        if (uriParts.length > 1) {
+          fileExt = uriParts.pop().toLowerCase();
+        }
+      }
+      
+      // Generate filename with user folder structure for better organization
+      const sanitizedProgramName = programName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const fileName = `${user.id}/${sanitizedProgramName}_${Date.now()}.${fileExt}`;
+      
+      console.log('📁 File path:', fileName);
+      
+      // For web, we need to convert the image to a blob
+      if (Platform.OS === 'web') {
+        const response = await fetch(imageUri);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        console.log('📦 Blob size:', blob.size, 'bytes, type:', blob.type);
+        
+        const { data, error } = await supabase.storage
+          .from('program_thumbnails')
+          .upload(fileName, blob, {
+            contentType: blob.type || `image/${fileExt}`,
+            upsert: true // Allow overwriting existing files
+          });
+          
+        if (error) {
+          console.error('❌ Storage upload error:', error);
+          throw error;
+        }
+        
+        // Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('program_thumbnails')
+          .getPublicUrl(fileName);
+          
+        console.log('✅ Thumbnail uploaded successfully:', publicUrl);
+        
+        // Verify the URL is valid (not a blob URL)
+        if (publicUrl.startsWith('blob:')) {
+          throw new Error('Generated URL is still a blob URL - upload may have failed');
+        }
+        
+        return publicUrl;
+      } else {
+        // For mobile, use the file URI directly
+        const { data, error } = await supabase.storage
+          .from('program_thumbnails')
+          .upload(fileName, {
+            uri: imageUri,
+            type: `image/${fileExt}`,
+            name: fileName.split('/').pop(),
+          });
+          
+        if (error) {
+          console.error('❌ Storage upload error:', error);
+          throw error;
+        }
+        
+        // Get the public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('program_thumbnails')
+          .getPublicUrl(fileName);
+          
+        console.log('✅ Thumbnail uploaded successfully:', publicUrl);
+        return publicUrl;
+      }
+    } catch (error) {
+      console.error('❌ Error uploading thumbnail:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('row-level security policy')) {
+        throw new Error('Storage bucket permissions not configured. Please check the program_thumbnails bucket setup.');
+      } else if (error.message.includes('bucket') && error.message.includes('not found')) {
+        throw new Error('Program thumbnails storage bucket not found. Please create the program_thumbnails bucket.');
+      } else {
+        throw new Error(`Failed to upload thumbnail: ${error.message}`);
+      }
+    }
+  };
+
   const handleCreateProgram = async () => {
     if (!programName.trim()) {
       Alert.alert('Error', 'Please enter a program name');
@@ -166,6 +259,31 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         console.log('User profile:', profile);
       }
       
+      // Upload thumbnail to storage if provided
+      let thumbnailUrl = null;
+      if (thumbnail) {
+        if (typeof thumbnail === 'string') {
+          // Check if it's a blob URL (local) - these should be re-uploaded
+          if (thumbnail.startsWith('blob:')) {
+            console.log('🔄 Detected blob URL, re-uploading to storage...');
+            thumbnailUrl = await uploadThumbnailToStorage(thumbnail);
+          } else {
+            // If it's already a proper storage URL, keep it
+            thumbnailUrl = thumbnail;
+          }
+        } else if (thumbnail.uri) {
+          // If it's a new image object, upload it to storage
+          thumbnailUrl = await uploadThumbnailToStorage(thumbnail.uri);
+        }
+      }
+      
+      // Validate thumbnail URL before saving
+      if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
+        console.warn('⚠️ Blob URL detected, not saving to database:', thumbnailUrl);
+        thumbnailUrl = null; // Don't save blob URLs
+        Alert.alert('Warning', 'Thumbnail upload failed. Program will be saved without thumbnail.');
+      }
+
       // Create the program data
       const programData = {
         name: programName.trim(),
@@ -175,17 +293,12 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         rating: rating,
         added_count: userCount,
         is_published: status === 'published',
+        thumbnail_url: thumbnailUrl,
       };
 
       // Add created_by only for new programs
       if (!isEditing) {
         programData.created_by = user.id;
-      }
-
-      // Add thumbnail URL if available (in a real app, you'd upload to storage first)
-      if (thumbnail) {
-        // For now, we'll store the local URI. In production, upload to Supabase Storage
-        programData.thumbnail_url = typeof thumbnail === 'string' ? thumbnail : thumbnail.uri;
       }
 
       let data, error;
@@ -290,7 +403,10 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             <Text style={styles.modalLabel}>Thumbnail (Square)</Text>
             <TouchableOpacity style={styles.thumbnailSelector} onPress={handleSelectImage}>
               {thumbnail ? (
-                <Image source={{ uri: thumbnail.uri }} style={styles.thumbnailPreview} />
+                <Image 
+                  source={{ uri: typeof thumbnail === 'string' ? thumbnail : thumbnail.uri }} 
+                  style={styles.thumbnailPreview} 
+                />
               ) : (
                 <View style={styles.thumbnailPlaceholder}>
                   <Ionicons name="image-outline" size={32} color="#9CA3AF" />

@@ -280,9 +280,9 @@ export default function AddExerciseScreen({ navigation, route }) {
         data = updateResult.data ? [updateResult.data] : updateResult.data;
         error = updateResult.error;
       } else {
-        // Create new exercise using user function
+        // Create new exercise using user function with duplicate prevention
         console.log('Creating exercise with title:', cleanExerciseName, 'and code:', cleanCode);
-        const insertResult = await supabase.rpc('create_exercise_as_user', {
+        const insertResult = await supabase.rpc('create_exercise_as_user_with_duplicate_check', {
           exercise_code: cleanCode,
           exercise_title: exerciseData.title,
           exercise_description: exerciseData.description,

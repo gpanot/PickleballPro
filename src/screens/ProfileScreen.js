@@ -11,6 +11,7 @@ import {
   TextInput,
   Image,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -402,6 +403,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const [badgesLoading, setBadgesLoading] = useState(false);
   const [badgeFilter, setBadgeFilter] = useState('all'); // 'all', 'unlocked', 'collected'
   const [selectedDuprLevel, setSelectedDuprLevel] = useState(null);
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+  const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
@@ -477,7 +480,11 @@ export default function ProfileScreen({ onLogout, navigation }) {
   };
 
   const handleSettings = () => {
-    Alert.alert('Settings', 'Settings page will be available in the next update.');
+    navigation?.navigate('AppSettings');
+  };
+
+  const handleHelpSupport = () => {
+    navigation?.navigate('HelpSupport');
   };
 
   const handleLogout = () => {
@@ -686,6 +693,13 @@ export default function ProfileScreen({ onLogout, navigation }) {
         throw new Error('User not authenticated');
       }
 
+      // Safety check: Prevent blob URLs from being uploaded
+      if (imageUri.startsWith('blob:')) {
+        console.warn('⚠️ [ProfileScreen] Blob URL detected, cannot upload:', imageUri);
+        Alert.alert('Error', 'Invalid image format. Please select a different image.');
+        return;
+      }
+
       // Generate a unique filename with user folder structure
       const fileExtension = 'jpg';
       const fileName = `${authUser.id}/avatar_${Date.now()}.${fileExtension}`;
@@ -738,6 +752,13 @@ export default function ProfileScreen({ onLogout, navigation }) {
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
+
+      // Safety check: Ensure the returned URL is not a blob URL
+      if (publicUrl.startsWith('blob:')) {
+        console.error('❌ [ProfileScreen] Generated URL is still a blob URL - upload may have failed');
+        Alert.alert('Error', 'Image upload failed. Please try again.');
+        return;
+      }
 
       // Update user profile with avatar URL
       const { error: updateError } = await supabase
@@ -1125,7 +1146,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
         <ModernIcon name="action" size={8} color="#9CA3AF" />
       </TouchableOpacity>
       
-      <TouchableOpacity style={styles.settingsItem}>
+      <TouchableOpacity style={styles.settingsItem} onPress={handleHelpSupport}>
         <View style={styles.settingsItemLeft}>
           <ModernIcon name="help" size={20} color="#6B7280" />
           <Text style={styles.settingsItemText}>Help & Support</Text>
@@ -1444,6 +1465,218 @@ export default function ProfileScreen({ onLogout, navigation }) {
     </Modal>
   );
 
+  const handlePrivacyPolicyPress = async () => {
+    const url = 'https://prism-8db991.ingress-haven.ewp.live/privacy-policy-piklepro-pickleball-hero/';
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Unable to open Privacy Policy link');
+      }
+    } catch (error) {
+      console.error('Error opening Privacy Policy:', error);
+      Alert.alert('Error', 'Failed to open Privacy Policy link');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      if (!authUser?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Starting account deletion for user:', authUser.id);
+
+      // Delete user's programs first (to maintain referential integrity)
+      const { error: programsError } = await supabase
+        .from('user_programs')
+        .delete()
+        .eq('user_id', authUser.id);
+
+      if (programsError) {
+        console.error('Error deleting user programs:', programsError);
+      }
+
+      // Delete user's logbook entries
+      const { error: logbookError } = await supabase
+        .from('logbook_entries')
+        .delete()
+        .eq('user_id', authUser.id);
+
+      if (logbookError) {
+        console.error('Error deleting logbook entries:', logbookError);
+      }
+
+      // Delete user's feedback entries
+      const { error: feedbackError } = await supabase
+        .from('feedback')
+        .delete()
+        .eq('user_id', authUser.id);
+
+      if (feedbackError) {
+        console.error('Error deleting feedback entries:', feedbackError);
+      }
+
+      // Delete user's coach profile if exists
+      const { error: coachError } = await supabase
+        .from('coaches')
+        .delete()
+        .eq('user_id', authUser.id);
+
+      if (coachError) {
+        console.error('Error deleting coach profile:', coachError);
+      }
+
+      // Delete user's coach reviews if exists
+      const { error: reviewsError } = await supabase
+        .from('coach_reviews')
+        .delete()
+        .eq('user_id', authUser.id);
+
+      if (reviewsError) {
+        console.error('Error deleting coach reviews:', reviewsError);
+      }
+
+      // Finally, delete the user record
+      const { error: userError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', authUser.id);
+
+      if (userError) {
+        console.error('Error deleting user record:', userError);
+        throw userError;
+      }
+
+      // Delete user's avatar from storage if exists
+      try {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('avatar_url')
+          .eq('id', authUser.id)
+          .single();
+
+        if (userData?.avatar_url) {
+          const fileName = userData.avatar_url.split('/').pop();
+          const { error: storageError } = await supabase.storage
+            .from('avatars')
+            .remove([`${authUser.id}/${fileName}`]);
+
+          if (storageError) {
+            console.error('Error deleting avatar from storage:', storageError);
+          }
+        }
+      } catch (error) {
+        console.error('Error handling avatar deletion:', error);
+      }
+
+      // Clear local storage
+      await AsyncStorage.multiRemove([
+        EXERCISE_RATINGS_KEY,
+        COLLECTED_BADGES_KEY,
+        PROGRAM_PROGRESS_KEY
+      ]);
+
+      console.log('Account deletion completed successfully');
+
+      // Sign out the user
+      await signOut();
+      
+      // Reset onboarding state
+      resetAllOnboarding();
+
+      // Close modals
+      setShowDeleteAccountModal(false);
+      setShowDeleteConfirmationModal(false);
+
+      Alert.alert(
+        'Account Deleted',
+        'Your account and all associated data have been permanently deleted.',
+        [{ text: 'OK' }]
+      );
+
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      Alert.alert(
+        'Error',
+        'Failed to delete account. Please try again or contact support.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  const renderDeleteAccountModal = () => (
+    <Modal
+      visible={showDeleteAccountModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowDeleteAccountModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.deleteAccountModalContent}>
+          <Text style={styles.modalTitle}>Delete Account</Text>
+          <Text style={styles.deleteAccountModalText}>
+            To delete your account and its data, go to Program screen and Logbook screen, tap and hold to delete a program or a log. Once the last entry is deleted (all your data are now deleted).
+          </Text>
+          
+          <View style={styles.deleteAccountModalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.deleteAccountButton]} 
+              onPress={() => {
+                setShowDeleteAccountModal(false);
+                setShowDeleteConfirmationModal(true);
+              }}
+            >
+              <Text style={styles.deleteAccountButtonText}>Delete My Account</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={() => setShowDeleteAccountModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderDeleteConfirmationModal = () => (
+    <Modal
+      visible={showDeleteConfirmationModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowDeleteConfirmationModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Confirm Account Deletion</Text>
+          <Text style={styles.modalSubtitle}>
+            This action cannot be undone. All your data including programs, logbook entries, and account information will be permanently deleted.
+          </Text>
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.cancelButton]} 
+              onPress={() => setShowDeleteConfirmationModal(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.deleteAccountButton]} 
+              onPress={handleDeleteAccount}
+            >
+              <Text style={styles.deleteAccountButtonText}>Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
@@ -1459,12 +1692,24 @@ export default function ProfileScreen({ onLogout, navigation }) {
         {renderOverallStats()}
         {renderSettings()}
         
+        {/* Delete Account Link */}
+        <View style={styles.deleteAccountContainer}>
+          <TouchableOpacity 
+            onPress={() => setShowDeleteAccountModal(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.deleteAccountText}>How do I delete my account</Text>
+          </TouchableOpacity>
+        </View>
+        
         <View style={styles.bottomSpacing} />
       </ScrollView>
       
       {renderDuprEditModal()}
       {renderNameEditModal()}
       {renderBadgesModal()}
+      {renderDeleteAccountModal()}
+      {renderDeleteConfirmationModal()}
     </View>
   );
 }
@@ -1775,6 +2020,19 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  deleteAccountModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -1820,6 +2078,12 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
+  deleteAccountModalButtons: {
+    flexDirection: 'column',
+    width: '100%',
+    gap: 12,
+    marginTop: 8,
+  },
   modalButton: {
     flex: 1,
     height: 48,
@@ -1841,6 +2105,14 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  deleteAccountButton: {
+    backgroundColor: '#EF4444',
+  },
+  deleteAccountButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
@@ -2104,5 +2376,23 @@ const styles = StyleSheet.create({
   },
   badgeTypeLocked: {
     color: '#D1D5DB',
+  },
+  // Delete Account styles
+  deleteAccountContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  deleteAccountText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textDecorationLine: 'underline',
+  },
+  deleteAccountModalText: {
+    fontSize: 16,
+    color: '#374151',
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 24,
   },
 });

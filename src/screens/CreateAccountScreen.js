@@ -31,13 +31,14 @@ export default function CreateAccountScreen({
     }
   };
 
-  const handleContinueWithGoogle = () => {
-    Alert.alert(
-      'Coming Soon',
-      'This feature will be implemented soon',
-      [{ text: 'OK' }]
-    );
-  };
+  // Google authentication will be implemented later
+  // const handleContinueWithGoogle = () => {
+  //   Alert.alert(
+  //     'Coming Soon',
+  //     'This feature will be implemented soon',
+  //     [{ text: 'OK' }]
+  //   );
+  // };
 
   const handleContinueWithEmail = () => {
     if (navigation?.navigate) {
@@ -83,8 +84,8 @@ export default function CreateAccountScreen({
 
           {/* Action Buttons */}
           <View style={styles.buttonContainer}>
-            {/* Continue with Google Button */}
-            <TouchableOpacity 
+            {/* Google authentication will be implemented later */}
+            {/* <TouchableOpacity 
               style={styles.googleButton}
               onPress={handleContinueWithGoogle}
               activeOpacity={0.8}
@@ -95,7 +96,7 @@ export default function CreateAccountScreen({
                 </View>
                 <Text style={styles.googleButtonText}>Continue with Google</Text>
               </View>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             {/* Continue with Email Button */}
             <TouchableOpacity 
@@ -187,42 +188,43 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 24,
   },
-  googleButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  googleButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  googleIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4285F4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleG: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  googleButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
-  },
+  // Google button styles - will be used when Google auth is implemented
+  // googleButton: {
+  //   backgroundColor: '#ffffff',
+  //   borderRadius: 20,
+  //   padding: 24,
+  //   borderWidth: 2,
+  //   borderColor: '#E5E5E5',
+  //   shadowColor: '#000000',
+  //   shadowOffset: { width: 0, height: 2 },
+  //   shadowOpacity: 0.1,
+  //   shadowRadius: 8,
+  //   elevation: 4,
+  // },
+  // googleButtonContent: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   gap: 12,
+  // },
+  // googleIcon: {
+  //   width: 24,
+  //   height: 24,
+  //   borderRadius: 12,
+  //   backgroundColor: '#4285F4',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  // },
+  // googleG: {
+  //   color: 'white',
+  //   fontSize: 14,
+  //   fontWeight: '700',
+  // },
+  // googleButtonText: {
+  //   fontSize: 18,
+  //   fontWeight: '600',
+  //   color: '#000000',
+  // },
   emailButton: {
     backgroundColor: '#ffffff',
     borderRadius: 20,

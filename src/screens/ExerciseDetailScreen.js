@@ -25,6 +25,20 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   
   // Use current exercise data if available, otherwise fall back to initial data
   const rawExercise = currentExerciseData || initialRawExercise;
+  
+  // Debug logging for tips data
+  React.useEffect(() => {
+    console.log('🔍 [ExerciseDetailScreen] Raw exercise data received:', {
+      id: rawExercise?.id,
+      code: rawExercise?.code,
+      title: rawExercise?.title,
+      hasTipsJson: !!rawExercise?.tips_json,
+      tipsJson: rawExercise?.tips_json,
+      tipsCount: rawExercise?.tips_json ? rawExercise.tips_json.length : 0,
+      hasCompleteExerciseData: !!rawExercise?.completeExerciseData,
+      completeDataTips: rawExercise?.completeExerciseData?.tips_json
+    });
+  }, [rawExercise]);
 
   // Pull-to-refresh function
   const onRefresh = useCallback(async () => {
@@ -95,9 +109,26 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     validationMode: rawExercise.validation_mode || "manual",
     estimatedTime: rawExercise.estimated_minutes ? `${rawExercise.estimated_minutes} min` : "10-15 min",
     equipment: ["Balls", "Paddle"],
-    tips: (rawExercise.tips_json && Array.isArray(rawExercise.tips_json) && rawExercise.tips_json.length > 0) 
-      ? rawExercise.tips_json.filter(tip => tip && tip.trim())
-      : []
+    tips: (() => {
+      // Try multiple sources for tips data
+      // 1. Direct tips_json field (from database)
+      if (rawExercise.tips_json && Array.isArray(rawExercise.tips_json) && rawExercise.tips_json.length > 0) {
+        return rawExercise.tips_json.filter(tip => tip && tip.trim());
+      }
+      // 2. completeExerciseData.tips_json (from transformed data)
+      if (rawExercise.completeExerciseData?.tips_json && Array.isArray(rawExercise.completeExerciseData.tips_json) && rawExercise.completeExerciseData.tips_json.length > 0) {
+        return rawExercise.completeExerciseData.tips_json.filter(tip => tip && tip.trim());
+      }
+      // 3. completeExerciseData.tips (from transformed data)
+      if (rawExercise.completeExerciseData?.tips && Array.isArray(rawExercise.completeExerciseData.tips) && rawExercise.completeExerciseData.tips.length > 0) {
+        return rawExercise.completeExerciseData.tips.filter(tip => tip && tip.trim());
+      }
+      // 4. Legacy tips field (fallback)
+      if (rawExercise.tips && Array.isArray(rawExercise.tips) && rawExercise.tips.length > 0) {
+        return rawExercise.tips.filter(tip => tip && tip.trim());
+      }
+      return [];
+    })()
   } : null;
 
 

@@ -503,7 +503,7 @@ export async function saveAIProgram(program, updatePrograms) {
           console.log('➕ Creating new exercise in database');
           const uniqueCode = `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           
-          const { data: createdExercise, error: exerciseError } = await supabase.rpc('create_exercise_as_user', {
+          const { data: createdExercise, error: exerciseError } = await supabase.rpc('create_exercise_as_user_with_duplicate_check', {
             exercise_code: uniqueCode,
             exercise_title: exerciseTitle,
             exercise_description: exercise.description || `AI-generated exercise: ${exerciseTitle}`,

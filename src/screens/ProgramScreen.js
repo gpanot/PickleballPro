@@ -16,7 +16,19 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Enhanced responsive thumbnail sizing for iPad portrait mode
+const getThumbnailSize = (screenWidth, screenHeight) => {
+  // Special optimization for iPad portrait mode (768x1024)
+  if (screenWidth === 768 && screenHeight >= 1024) {
+    return { width: 90, height: 135 }; // Larger thumbnails for iPad portrait
+  }
+  if (screenWidth >= 768) {
+    return { width: 80, height: 120 }; // Larger thumbnails for tablets
+  }
+  return { width: 60, height: 100 }; // Default for phones
+};
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -37,9 +49,11 @@ export default function ProgramScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = React.useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
   const [isLoadingPrograms, setIsLoadingPrograms] = React.useState(true);
+  const [aiGenerationStep, setAiGenerationStep] = React.useState(0);
   
   // Animation for rotating ball
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
+  const aiRotateAnim = React.useRef(new Animated.Value(0)).current;
 
   // Load programs when component mounts
   React.useEffect(() => {
@@ -66,6 +80,40 @@ export default function ProgramScreen({ navigation, route }) {
       };
     }
   }, [isLoadingPrograms, rotateAnim]);
+
+  // Start AI generation animation and progress steps
+  React.useEffect(() => {
+    if (isGeneratingAI) {
+      // Start ball rotation animation
+      const aiRotateAnimation = Animated.loop(
+        Animated.timing(aiRotateAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        })
+      );
+      aiRotateAnimation.start();
+      
+      // Progress through different steps to make it feel complex
+      const progressSteps = [
+        { step: 0, delay: 0 },     // Analyzing your profile...
+        { step: 1, delay: 2000 },  // Finding perfect exercises...
+        { step: 2, delay: 4000 },  // Building your routines...
+        { step: 3, delay: 6500 },  // Finalizing your program...
+      ];
+      
+      const timeouts = progressSteps.map(({ step, delay }) => 
+        setTimeout(() => setAiGenerationStep(step), delay)
+      );
+      
+      return () => {
+        aiRotateAnimation.stop();
+        aiRotateAnim.setValue(0);
+        timeouts.forEach(timeout => clearTimeout(timeout));
+        setAiGenerationStep(0);
+      };
+    }
+  }, [isGeneratingAI, aiRotateAnim]);
 
   // Handle new program added from Explore
   React.useEffect(() => {
@@ -359,6 +407,81 @@ export default function ProgramScreen({ navigation, route }) {
     }
   };
 
+  // Update existing AI program function
+  const updateAIProgramHandler = async () => {
+    if (!existingAIProgram) {
+      Alert.alert('Error', 'No existing AI program found to update.');
+      return;
+    }
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Update Your AI Program',
+      `This will replace your current AI program "${existingAIProgram.name}" with a new one based on your current DUPR rating and focus areas.\n\nYour old program will be permanently deleted.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Update Program', 
+          style: 'default',
+          onPress: async () => {
+            try {
+              console.log('🔄 [ProgramScreen] Updating AI program...');
+              
+              // Delete the existing AI program first
+              await deleteExistingAIProgram(existingAIProgram.id);
+              
+              // Generate new AI program
+              await generateAIProgramHandler();
+              
+            } catch (error) {
+              console.error('❌ [ProgramScreen] Error updating AI program:', error);
+              Alert.alert('Error', 'Failed to update AI program. Please try again.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Delete existing AI program function
+  const deleteExistingAIProgram = async (programId) => {
+    try {
+      console.log('🗑️ [ProgramScreen] Deleting existing AI program:', programId);
+      
+      // Delete from database if it's a UUID (database program)
+      const isUUID = programId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      
+      if (isUUID && user?.id) {
+        console.log('💾 [ProgramScreen] Deleting AI program from database...');
+        
+        const { error } = await supabase.rpc('delete_program_as_user', {
+          program_id: programId
+        });
+        
+        if (error) {
+          console.error('❌ [ProgramScreen] Database delete failed:', error);
+          throw error;
+        }
+        
+        console.log('✅ [ProgramScreen] AI program deleted from database');
+      }
+      
+      // Update local state - remove the AI program
+      setPrograms(prev => {
+        const updated = prev.filter(p => p.id !== programId);
+        // Save updated list to local storage
+        savePrograms(updated);
+        return updated;
+      });
+      
+      console.log('✅ [ProgramScreen] AI program removed from local state');
+      
+    } catch (error) {
+      console.error('💥 [ProgramScreen] Error deleting existing AI program:', error);
+      throw error;
+    }
+  };
+
   // AI Program Generation function
   const generateAIProgramHandler = async () => {
     // Validate user can generate AI program
@@ -466,6 +589,13 @@ export default function ProgramScreen({ navigation, route }) {
         throw new Error('User not authenticated');
       }
 
+      // Safety check: Prevent blob URLs from being uploaded
+      if (imageUri.startsWith('blob:')) {
+        console.warn('⚠️ [ProgramScreen] Blob URL detected, cannot upload:', imageUri);
+        Alert.alert('Warning', 'Invalid image format. Program will be created without thumbnail.');
+        return null;
+      }
+
       // Generate a unique filename with user folder structure
       const fileExtension = 'jpg';
       const sanitizedProgramName = programName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
@@ -521,6 +651,13 @@ export default function ProgramScreen({ navigation, route }) {
       const { data: { publicUrl } } = supabase.storage
         .from('program_thumbnails')
         .getPublicUrl(fileName);
+
+      // Safety check: Ensure the returned URL is not a blob URL
+      if (publicUrl.startsWith('blob:')) {
+        console.error('❌ [ProgramScreen] Generated URL is still a blob URL - upload may have failed');
+        Alert.alert('Warning', 'Thumbnail upload failed. Program will be created without image.');
+        return null;
+      }
 
       console.log('✅ [ProgramScreen] Thumbnail uploaded successfully:', publicUrl);
       return publicUrl;
@@ -817,6 +954,7 @@ export default function ProgramScreen({ navigation, route }) {
 
   // Check if user already has an AI-generated program
   const hasAIProgram = programs.some(program => program.is_ai_generated);
+  const existingAIProgram = programs.find(program => program.is_ai_generated);
 
   const renderLoadingScreen = () => {
     const spin = rotateAnim.interpolate({
@@ -837,6 +975,83 @@ export default function ProgramScreen({ navigation, route }) {
         />
         <Text style={styles.loadingText}>Loading your programs...</Text>
       </View>
+    );
+  };
+
+  const renderAIGenerationOverlay = () => {
+    const aiSpin = aiRotateAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
+    const progressMessages = [
+      {
+        title: "🧠 Analyzing Your Profile",
+        subtitle: "Reviewing your DUPR rating and focus areas..."
+      },
+      {
+        title: "🎯 Finding Perfect Exercises", 
+        subtitle: "Matching exercises to your skill level..."
+      },
+      {
+        title: "🏗️ Building Your Routines",
+        subtitle: "Creating personalized training sessions..."
+      },
+      {
+        title: "✨ Finalizing Your Program",
+        subtitle: "Adding the finishing touches..."
+      }
+    ];
+
+    const currentMessage = progressMessages[aiGenerationStep] || progressMessages[0];
+
+    return (
+      <Modal
+        visible={isGeneratingAI}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}} // Prevent closing during generation
+      >
+        <View style={styles.aiGenerationOverlay}>
+          <View style={styles.aiGenerationContent}>
+            <Animated.Image
+              source={require('../../assets/images/icon_ball.png')}
+              style={[
+                styles.aiGenerationBall,
+                {
+                  transform: [{ rotate: aiSpin }],
+                },
+              ]}
+            />
+            
+            <Text style={styles.aiGenerationTitle}>
+              {currentMessage.title}
+            </Text>
+            
+            <Text style={styles.aiGenerationSubtitle}>
+              {currentMessage.subtitle}
+            </Text>
+            
+            <View style={styles.aiProgressContainer}>
+              <View style={styles.aiProgressTrack}>
+                <View 
+                  style={[
+                    styles.aiProgressFill, 
+                    { width: `${((aiGenerationStep + 1) / 4) * 100}%` }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.aiProgressText}>
+                Step {aiGenerationStep + 1} of 4
+              </Text>
+            </View>
+            
+            <Text style={styles.aiGenerationNote}>
+              🤖 Our AI is working hard to create your perfect program
+            </Text>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -948,7 +1163,7 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
           ))}
 
-          {!hasAIProgram && (
+          {!hasAIProgram ? (
             <TouchableOpacity
               style={styles.aiGenerateButton}
               onPress={generateAIProgramHandler}
@@ -957,6 +1172,17 @@ export default function ProgramScreen({ navigation, route }) {
               <Text style={styles.aiGenerateButtonIcon}>🤖</Text>
               <Text style={styles.aiGenerateButtonText}>
                 {isGeneratingAI ? 'Generating...' : 'Generate Your AI Program'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.aiUpdateButton}
+              onPress={updateAIProgramHandler}
+              disabled={isGeneratingAI}
+            >
+              <Text style={styles.aiUpdateButtonIcon}>🔄</Text>
+              <Text style={styles.aiUpdateButtonText}>
+                {isGeneratingAI ? 'Updating...' : 'Update Your AI Program'}
               </Text>
             </TouchableOpacity>
           )}
@@ -1029,6 +1255,9 @@ export default function ProgramScreen({ navigation, route }) {
           <View style={styles.bottomSpacing} />
         </ScrollView>
       )}
+
+      {/* AI Generation Loading Overlay */}
+      {renderAIGenerationOverlay()}
 
       {/* Create Program Modal */}
       <Modal
@@ -1192,6 +1421,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
+  aiUpdateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 12,
+  },
+  aiUpdateButtonIcon: {
+    fontSize: 18,
+    color: 'white',
+  },
+  aiUpdateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
   aiGenerateButtonLarge: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1247,7 +1496,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   programsContent: {
-    padding: 16,
+    padding: (width === 768 && height >= 1024) ? 24 : (width >= 768 ? 32 : 16), // Optimized for iPad portrait
     paddingBottom: 40,
   },
   programsHeader: {
@@ -1282,10 +1531,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   programThumbnailContainer: {
-    width: 60,
-    height: 100,
+    width: getThumbnailSize(width, height).width,
+    height: getThumbnailSize(width, height).height,
     borderRadius: 8,
-    marginRight: 16,
+    marginRight: (width === 768 && height >= 1024) ? 20 : 16, // More spacing for iPad portrait
     overflow: 'hidden',
   },
   programThumbnail: {
@@ -1520,6 +1769,79 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 16,
     textAlign: 'center',
+  },
+  // AI Generation Overlay styles
+  aiGenerationOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  aiGenerationContent: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    maxWidth: 320,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  aiGenerationBall: {
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
+    marginBottom: 24,
+  },
+  aiGenerationTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  aiGenerationSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  aiProgressContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  aiProgressTrack: {
+    width: '100%',
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  aiProgressFill: {
+    height: '100%',
+    backgroundColor: '#6366F1',
+    borderRadius: 3,
+    transition: 'width 0.5s ease-in-out',
+  },
+  aiProgressText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  aiGenerationNote: {
+    fontSize: 14,
+    color: '#8B5CF6',
+    textAlign: 'center',
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   // Tab Navigation Styles
   tabContainer: {

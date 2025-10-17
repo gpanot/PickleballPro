@@ -37,10 +37,13 @@ import CreateCoachProfileScreen from './src/screens/CreateCoachProfileScreen';
 import CropAvatar from './src/components/CropAvatar';
 import SplashScreen from './src/screens/SplashScreen';
 import AdminRoute from './src/components/AdminRoute';
+import AppSettingsScreen from './src/screens/AppSettingsScreen';
+import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PreloadProvider } from './src/context/PreloadContext';
+import { initializeDeepLinkHandling } from './src/lib/deepLinkHandler';
 
 const Stack = createStackNavigator();
 
@@ -179,7 +182,16 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      ref={(navigationRef) => {
+        // Initialize deep link handling when navigation is ready
+        if (navigationRef) {
+          const cleanup = initializeDeepLinkHandling(navigationRef);
+          // Store cleanup function for later use if needed
+          navigationRef.deepLinkCleanup = cleanup;
+        }
+      }}
+    >
       <StatusBar style="auto" backgroundColor="transparent" translucent />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
@@ -209,16 +221,26 @@ function AppContent() {
               component={AdminRoute}
               options={{ headerShown: false }}
             />
-                <Stack.Screen 
-                  name="CreateCoachProfile" 
-                  component={CreateCoachProfileScreen}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen 
-                  name="CropAvatar" 
-                  component={CropAvatar}
-                  options={{ headerShown: false }}
-                />
+            <Stack.Screen 
+              name="CreateCoachProfile" 
+              component={CreateCoachProfileScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="CropAvatar" 
+              component={CropAvatar}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="AppSettings" 
+              component={AppSettingsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="HelpSupport" 
+              component={HelpSupportScreen}
+              options={{ headerShown: false }}
+            />
           </>
         ) : (
           // ONBOARDING FLOW - Only for non-authenticated users
@@ -293,6 +315,16 @@ function AppContent() {
                 <Stack.Screen 
                   name="Admin" 
                   component={AdminRoute}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="AppSettings" 
+                  component={AppSettingsScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="HelpSupport" 
+                  component={HelpSupportScreen}
                   options={{ headerShown: false }}
                 />
               </>

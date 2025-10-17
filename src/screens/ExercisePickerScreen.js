@@ -41,11 +41,15 @@ export default function ExercisePickerScreen({ navigation, route }) {
 
   // Load user-created exercises
   useEffect(() => {
+    console.log('ExercisePickerScreen useEffect - user:', user?.id);
     loadUserCreatedExercises();
-  }, []);
+  }, [user]);
 
   const loadUserCreatedExercises = async (isRefreshing = false) => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping exercise load');
+      return;
+    }
     
     try {
       if (isRefreshing) {
@@ -54,13 +58,35 @@ export default function ExercisePickerScreen({ navigation, route }) {
         setLoading(true);
       }
       
+      console.log('Loading exercises for user:', user.id);
+      
       const { data, error } = await supabase
         .from('exercises')
         .select('*')
         .eq('created_by', user.id)
-        .eq('is_published', false); // User exercises are saved as drafts
+        .eq('is_published', false) // User exercises are saved as drafts
+        .order('created_at', { ascending: false }); // Order by creation date
       
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+      
+      console.log('Loaded user exercises:', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('Sample user exercises:', data.slice(0, 3).map(ex => ({
+          id: ex.id,
+          title: ex.title,
+          created_by: ex.created_by,
+          is_published: ex.is_published
+        })));
+        
+        // Validate that all exercises belong to the current user
+        const invalidExercises = data.filter(ex => ex.created_by !== user.id);
+        if (invalidExercises.length > 0) {
+          console.error('ERROR: Found exercises from other users:', invalidExercises);
+        }
+      }
       setUserCreatedExercises(data || []);
     } catch (error) {
       console.error('Error loading user exercises:', error);
@@ -163,7 +189,11 @@ export default function ExercisePickerScreen({ navigation, route }) {
       .filter(exercise => {
         const exerciseSkills = exercise.skill_categories_json || 
                              (exercise.skill_category ? exercise.skill_category.split(',') : []);
-        return exerciseSkills.includes(skill.id);
+        const matches = exerciseSkills.includes(skill.id);
+        if (matches) {
+          console.log(`Exercise "${exercise.title}" matches skill "${skill.id}" for user ${exercise.created_by}`);
+        }
+        return matches;
       })
       .map(transformUserExercise);
 

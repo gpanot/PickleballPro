@@ -4322,8 +4322,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   programThumbnailContainer: {
-    width: 40,
-    height: 40,
+    width: screenWidth >= 768 ? 60 : 40, // Larger thumbnails for tablets
+    height: screenWidth >= 768 ? 60 : 40,
     borderRadius: 6,
     marginRight: 12,
     overflow: 'hidden',
