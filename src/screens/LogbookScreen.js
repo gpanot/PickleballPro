@@ -196,6 +196,29 @@ export default function LogbookScreen({ navigation }) {
             </Text>
           </View>
 
+          {/* Session Type Hours */}
+          {summary.sessionTypeHours && Object.keys(summary.sessionTypeHours).length > 0 && (
+            <View style={styles.sessionTypeHoursCard}>
+              <Text style={styles.sessionTypeHoursTitle}>Hours by Type</Text>
+              <View style={styles.sessionTypeHoursList}>
+                {Object.entries(summary.sessionTypeHours)
+                  .sort(([,a], [,b]) => b - a) // Sort by hours descending
+                  .map(([type, hours]) => {
+                    const typeData = getSessionTypeData(type);
+                    return (
+                      <View key={type} style={styles.sessionTypeHoursItem}>
+                        <Text style={styles.sessionTypeHoursEmoji}>{typeData.emoji}</Text>
+                        <Text style={[styles.sessionTypeHoursLabel, { color: typeData.color }]}>
+                          {typeData.label}
+                        </Text>
+                        <Text style={styles.sessionTypeHoursValue}>{hours}h</Text>
+                      </View>
+                    );
+                  })}
+              </View>
+            </View>
+          )}
+
           {/* Skills Overview */}
           <View style={styles.skillsContainer}>
             {/* Strong Skills - Left Column */}
@@ -592,6 +615,51 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#0891B2',
     textAlign: 'center',
+  },
+  // Session Type Hours Card
+  sessionTypeHoursCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sessionTypeHoursTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sessionTypeHoursList: {
+    gap: 4,
+  },
+  sessionTypeHoursItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 6,
+  },
+  sessionTypeHoursEmoji: {
+    fontSize: 14,
+  },
+  sessionTypeHoursLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sessionTypeHoursValue: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   // Skills Sections
   skillsContainer: {

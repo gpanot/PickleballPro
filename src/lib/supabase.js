@@ -1,9 +1,49 @@
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const supabaseUrl = 'https://lenlkoqtczffweamgsxv.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxlbmxrb3F0Y3pmZndlYW1nc3h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwODc4NTMsImV4cCI6MjA3MzY2Mzg1M30.30bQPgg14boyWnITZoFOFxNzuZ8FXFPAqhsB8WRRjjA';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Custom storage adapter for React Native
+const customStorage = {
+  getItem: async (key) => {
+    try {
+      const value = await AsyncStorage.getItem(key);
+      console.log('🔐 Storage getItem:', key, value ? 'found' : 'not found');
+      return value;
+    } catch (error) {
+      console.error('🔐 Storage getItem error:', error);
+      return null;
+    }
+  },
+  setItem: async (key, value) => {
+    try {
+      await AsyncStorage.setItem(key, value);
+      console.log('🔐 Storage setItem:', key, 'saved');
+    } catch (error) {
+      console.error('🔐 Storage setItem error:', error);
+    }
+  },
+  removeItem: async (key) => {
+    try {
+      await AsyncStorage.removeItem(key);
+      console.log('🔐 Storage removeItem:', key, 'removed');
+    } catch (error) {
+      console.error('🔐 Storage removeItem error:', error);
+    }
+  }
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: customStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    // Increase session duration for better persistence
+    flowType: 'pkce'
+  }
+});
 
 // Add auth state listener for debugging
 supabase.auth.onAuthStateChange((event, session) => {
@@ -666,4 +706,130 @@ export const transformCoachData = (coaches) => {
       zalo: false
     }
   }));
+};
+
+// Coach functions
+export const checkCoachAccess = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('coaches')
+      .select('id, user_id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single();
+
+    if (error) {
+      // User is not a coach
+      return { isCoach: false, coachId: null, error: null };
+    }
+
+    return { isCoach: true, coachId: data.id, error: null };
+  } catch (error) {
+    console.error('Error checking coach access:', error);
+    return { isCoach: false, coachId: null, error };
+  }
+};
+
+// Student code functions
+export const getStudentCode = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('student_code')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    
+    // If no student code exists, generate one
+    if (!data.student_code) {
+      const studentCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ student_code: studentCode })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+      
+      return { data: { student_code: studentCode }, error: null };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error getting student code:', error);
+    return { data: null, error };
+  }
+};
+
+export const addStudentByCode = async (coachId, studentCode) => {
+  try {
+    // Find user by student code
+    const { data: studentData, error: studentError } = await supabase
+      .from('users')
+      .select('id, name, email, student_code')
+      .eq('student_code', studentCode)
+      .single();
+
+    if (studentError || !studentData) {
+      return { data: null, error: { message: 'Invalid student code' } };
+    }
+
+    // Check if relationship already exists
+    const { data: existingRelation, error: relationCheckError } = await supabase
+      .from('coach_students')
+      .select('id')
+      .eq('coach_id', coachId)
+      .eq('student_id', studentData.id)
+      .single();
+
+    if (existingRelation && !relationCheckError) {
+      return { data: null, error: { message: 'Student already added' } };
+    }
+
+    // Create coach-student relationship
+    const { data, error } = await supabase
+      .from('coach_students')
+      .insert({
+        coach_id: coachId,
+        student_id: studentData.id
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { data: { ...data, student: studentData }, error: null };
+  } catch (error) {
+    console.error('Error adding student by code:', error);
+    return { data: null, error };
+  }
+};
+
+export const getCoachStudents = async (coachId) => {
+  try {
+    const { data, error } = await supabase
+      .from('coach_students')
+      .select(`
+        id,
+        created_at,
+        students:student_id (
+          id,
+          name,
+          email,
+          avatar_url,
+          dupr_rating,
+          tier,
+          student_code
+        )
+      `)
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error getting coach students:', error);
+    return { data: null, error };
+  }
 };

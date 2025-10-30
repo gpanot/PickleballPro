@@ -451,6 +451,18 @@ export const LogbookProvider = ({ children }) => {
       .slice(0, 3)
       .map(([skill, count]) => ({ skill, count }));
 
+    // Calculate hours by session type
+    const sessionTypeHours = {};
+    logbookEntries.forEach(entry => {
+      const sessionType = entry.sessionType || 'training'; // Default to 'training' if not set
+      sessionTypeHours[sessionType] = (sessionTypeHours[sessionType] || 0) + entry.hours;
+    });
+
+    // Round session type hours
+    Object.keys(sessionTypeHours).forEach(type => {
+      sessionTypeHours[type] = Math.round(sessionTypeHours[type] * 10) / 10;
+    });
+
     return {
       totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal place
       thisWeekHours: Math.round(thisWeekHours * 10) / 10,
@@ -463,6 +475,7 @@ export const LogbookProvider = ({ children }) => {
       totalSessions: logbookEntries.length,
       topStrongSkills,
       topWeakSkills,
+      sessionTypeHours,
     };
   };
 

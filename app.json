@@ -2,7 +2,7 @@
   "expo": {
     "name": "PicklePro",
     "slug": "picklepro-mobile",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
@@ -27,7 +27,7 @@
     "android": {
       "backgroundColor": "#000000",
       "package": "com.picklepro.mobile",
-      "versionCode": 10,
+      "versionCode": 11,
       "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",

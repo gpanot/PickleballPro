@@ -24,7 +24,7 @@ import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
-import { checkAdminAccess, supabase } from '../lib/supabase';
+import { checkAdminAccess, supabase, getStudentCode } from '../lib/supabase';
 
 import { tiers, levels } from '../data/mockData';
 
@@ -405,12 +405,14 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const [selectedDuprLevel, setSelectedDuprLevel] = useState(null);
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false);
+  const [studentCode, setStudentCode] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
       checkAdmin();
       loadUserAvatar();
       loadBadgeData(); // Load badge data when profile screen mounts
+      loadStudentCode(); // Load student code
     }
   }, [isAuthenticated, authUser]);
 
@@ -453,6 +455,24 @@ export default function ProfileScreen({ onLogout, navigation }) {
     } catch (error) {
       console.error('Error checking admin access:', error);
       setIsAdmin(false);
+    }
+  };
+
+  const loadStudentCode = async () => {
+    try {
+      if (!authUser?.id) return;
+      
+      const { data, error } = await getStudentCode(authUser.id);
+      if (error) {
+        console.error('Error loading student code:', error);
+        return;
+      }
+      
+      if (data?.student_code) {
+        setStudentCode(data.student_code);
+      }
+    } catch (error) {
+      console.error('Error loading student code:', error);
     }
   };
   
@@ -1024,6 +1044,12 @@ export default function ProfileScreen({ onLogout, navigation }) {
                 </View>
               </TouchableOpacity>
               <Text style={styles.userEmail}>{authUser?.email || user.email || ''}</Text>
+              {studentCode && (
+                <View style={styles.studentCodeContainer}>
+                  <Text style={styles.studentCodeLabel}>Student Code:</Text>
+                  <Text style={styles.studentCodeValue}>{studentCode}</Text>
+                </View>
+              )}
             </View>
           </View>
           
@@ -1614,31 +1640,37 @@ export default function ProfileScreen({ onLogout, navigation }) {
       onRequestClose={() => setShowDeleteAccountModal(false)}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.deleteAccountModalContent}>
-          <Text style={styles.modalTitle}>Delete Account</Text>
-          <Text style={styles.deleteAccountModalText}>
-            To delete your account and its data, go to Program screen and Logbook screen, tap and hold to delete a program or a log. Once the last entry is deleted (all your data are now deleted).
-          </Text>
-          
-          <View style={styles.deleteAccountModalButtons}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.deleteAccountButton]} 
-              onPress={() => {
-                setShowDeleteAccountModal(false);
-                setShowDeleteConfirmationModal(true);
-              }}
-            >
-              <Text style={styles.deleteAccountButtonText}>Delete My Account</Text>
-            </TouchableOpacity>
+        <ScrollView 
+          contentContainerStyle={styles.deleteAccountModalScrollContainer}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.deleteAccountModalContent}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.deleteAccountModalText}>
+              Your data, logbook and programs will be deleted. Your account will be deleted permanently. You won't be able to restore your account and your data.
+            </Text>
             
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.cancelButton]} 
-              onPress={() => setShowDeleteAccountModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+            <View style={styles.deleteAccountModalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.deleteAccountButton]} 
+                onPress={() => {
+                  setShowDeleteAccountModal(false);
+                  setShowDeleteConfirmationModal(true);
+                }}
+              >
+                <Text style={styles.deleteAccountButtonText}>Delete My Account</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton]} 
+                onPress={() => setShowDeleteAccountModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -1657,7 +1689,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
             This action cannot be undone. All your data including programs, logbook entries, and account information will be permanently deleted.
           </Text>
           
-          <View style={styles.modalButtons}>
+          <View style={styles.deleteAccountModalButtons}>
             <TouchableOpacity 
               style={[styles.modalButton, styles.cancelButton]} 
               onPress={() => setShowDeleteConfirmationModal(false)}
@@ -1841,6 +1873,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: '#6B7280',
+    marginTop: 4,
+  },
+  studentCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
+  },
+  studentCodeLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#0369A1',
+    marginRight: 8,
+  },
+  studentCodeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0369A1',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    letterSpacing: 2,
   },
   duprSection: {
     alignItems: 'center',
@@ -2005,7 +2062,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   modalContent: {
     backgroundColor: 'white',
@@ -2020,18 +2076,25 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  deleteAccountModalScrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
   deleteAccountModalContent: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 24,
-    width: '90%',
-    maxWidth: 400,
+    padding: 20,
+    width: width * 0.85,
+    maxWidth: 380,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 10,
+    marginHorizontal: 20,
   },
   modalTitle: {
     fontSize: 20,
@@ -2082,14 +2145,14 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     width: '100%',
     gap: 12,
-    marginTop: 8,
+    marginTop: 16,
   },
   modalButton: {
-    flex: 1,
     height: 48,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
   cancelButton: {
     backgroundColor: '#F3F4F6',

@@ -200,6 +200,46 @@ export default function TabIcon({ name, focused, size = 24, color = '#000' }) {
           </View>
         );
         
+      case 'dashboard':
+        return (
+          <View style={[styles.iconContainer, { width: size, height: size }]}>
+            <View style={[
+              styles.dashboardIcon,
+              { 
+                backgroundColor: focused ? color : 'transparent',
+                borderColor: color,
+                width: size * 0.8,
+                height: size * 0.8,
+              }
+            ]}>
+              <View style={[
+                styles.dashboardLine1,
+                { 
+                  backgroundColor: focused ? 'white' : color,
+                  width: size * 0.25,
+                  height: size * 0.04,
+                }
+              ]} />
+              <View style={[
+                styles.dashboardLine2,
+                { 
+                  backgroundColor: focused ? 'white' : color,
+                  width: size * 0.25,
+                  height: size * 0.04,
+                }
+              ]} />
+              <View style={[
+                styles.dashboardLine3,
+                { 
+                  backgroundColor: focused ? 'white' : color,
+                  width: size * 0.25,
+                  height: size * 0.04,
+                }
+              ]} />
+            </View>
+          </View>
+        );
+        
       default:
         return (
           <View style={[
@@ -315,6 +355,25 @@ const styles = StyleSheet.create({
   },
   searchHandle: {
     borderRadius: 1,
+  },
+  // Dashboard icon (clipboard/dashboard)
+  dashboardIcon: {
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingLeft: 3,
+    gap: 2,
+  },
+  dashboardLine1: {
+    borderRadius: 2,
+    marginTop: 3,
+  },
+  dashboardLine2: {
+    borderRadius: 2,
+  },
+  dashboardLine3: {
+    borderRadius: 2,
   },
   // Default fallback
   defaultIcon: {
