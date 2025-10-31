@@ -48,11 +48,12 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
       
       if (error) {
         Alert.alert('Sign In Failed', error.message || 'Please check your credentials and try again.');
+        setIsLoading(false);
         return;
       }
 
       if (data?.user) {
-        console.log('Sign in successful!');
+        console.log('Sign in successful! Waiting for auth state to update...');
         
         // Call onAuthenticate to trigger app state updates (complete onboarding)
         if (onAuthenticate) {
@@ -63,15 +64,14 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
           console.log('❌ No onAuthenticate callback provided!');
         }
         
-        // Add a small delay to ensure auth state is processed
-        setTimeout(() => {
-          console.log('Authentication complete - app should now show main screen');
-        }, 500);
+        // Keep loading state active - the auth state change will trigger navigation
+        // Don't set isLoading to false here - let the component unmount naturally
+        // when the app navigates to the Main screen
+        console.log('✅ Sign in complete - auth state will trigger navigation');
       }
     } catch (error) {
       console.error('Sign in error:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };

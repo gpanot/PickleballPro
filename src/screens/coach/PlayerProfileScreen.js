@@ -14,6 +14,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
+import { Modal } from 'react-native';
 
 const PRIMARY_COLOR = '#27AE60';
 const SECONDARY_COLOR = '#F4F5F7';
@@ -28,7 +29,26 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const [activeTab, setActiveTab] = useState('Assessments');
   const [assessments, setAssessments] = useState([]);
   const [programs, setPrograms] = useState([]);
-  const [progress, setProgress] = useState(null);
+  const [progress, setProgress] = useState(null); // kept but not used
+  const [progressSeries, setProgressSeries] = useState(null);
+  const [progressDeltas, setProgressDeltas] = useState(null);
+  const [latestSummary, setLatestSummary] = useState(null);
+  const [expandedSkill, setExpandedSkill] = useState(null); // for large modal view
+  const [avgSkillScores, setAvgSkillScores] = useState(null);
+  const [skillOverviewExpanded, setSkillOverviewExpanded] = useState(true);
+
+  // Include all assessed skills
+  const PROGRESS_SKILLS = [
+    { id: 'serves', name: 'Serves', color: '#3B82F6' },
+    { id: 'dinks', name: 'Dinks', color: '#10B981' },
+    { id: 'volleys', name: 'Volleys / Resets', color: '#F59E0B' },
+    { id: 'third_shot', name: '3rd Shot', color: '#8B5CF6' },
+    { id: 'footwork', name: 'Footwork', color: '#EC4899' },
+    { id: 'game_play', name: 'Game Play / Scenarios', color: '#F43F5E' },
+  ];
+
+  const CHART_WIDTH = 300;
+  const CHART_HEIGHT = 140;
 
   useEffect(() => {
     if (!student) {
@@ -66,15 +86,101 @@ export default function PlayerProfileScreen({ route, navigation }) {
     try {
       const { data, error } = await supabase
         .from('coach_assessments')
-        .select('*')
+        .select('id, created_at, total_score, max_score, skills_data')
         .eq('student_id', studentId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAssessments(data || []);
+      const list = data || [];
+      setAssessments(list);
+      computeProgress(list);
+      computeSkillAverages(list);
     } catch (error) {
       console.error('Error loading assessments:', error);
     }
+  };
+
+  const computeProgress = (list) => {
+    if (!list || list.length === 0) {
+      setProgressSeries(null);
+      setProgressDeltas(null);
+      setLatestSummary(null);
+      return;
+    }
+    // Take last 5 assessments in chronological order
+    const lastFive = [...list].slice(0, 5).reverse();
+    const labels = lastFive.map((a, idx) => `A${lastFive.length - idx}`); // A1..A5
+    const dates = lastFive.map((a) => a.created_at); // Store actual dates
+
+    const series = PROGRESS_SKILLS.map((skill) => {
+      const values = lastFive.map((a) => {
+        const s = a.skills_data?.[skill.id];
+        return s?.total ?? 0; // 0-50
+      });
+      return { id: skill.id, name: skill.name, color: skill.color, values, dates };
+    });
+
+    // Deltas between last two assessments (if available)
+    let deltas = null;
+    if (list.length >= 2) {
+      const latest = list[0];
+      const prev = list[1];
+      deltas = PROGRESS_SKILLS.map((skill) => {
+        const lastVal = latest.skills_data?.[skill.id]?.total ?? 0;
+        const prevVal = prev.skills_data?.[skill.id]?.total ?? 0;
+        return { id: skill.id, name: skill.name, color: skill.color, delta: lastVal - prevVal };
+      });
+    }
+
+    setProgressSeries({ labels, series });
+    setProgressDeltas(deltas);
+
+    // Latest evaluation summary (most recent assessment)
+    const latest = list[0];
+    if (latest && latest.skills_data) {
+      const summary = PROGRESS_SKILLS.map((skill) => {
+        const sd = latest.skills_data?.[skill.id];
+        const score = sd?.total ?? 0;
+        const maxScore = sd?.maxScore ?? 50;
+        const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+        const level = pct >= 75 ? 'Advanced' : pct >= 50 ? 'Intermediate' : 'Beginner';
+        return { id: skill.id, name: skill.name, score, maxScore, level, color: skill.color };
+      });
+      setLatestSummary(summary);
+    } else {
+      setLatestSummary(null);
+    }
+  };
+
+  const computeSkillAverages = (list) => {
+    if (!list || list.length === 0) {
+      setAvgSkillScores(null);
+      return;
+    }
+    const sums = {};
+    const counts = {};
+    PROGRESS_SKILLS.forEach((s) => {
+      sums[s.id] = 0;
+      counts[s.id] = 0;
+    });
+    list.forEach((a) => {
+      PROGRESS_SKILLS.forEach((skill) => {
+        const v = a.skills_data?.[skill.id]?.total;
+        if (v !== undefined && v !== null) {
+          sums[skill.id] += v;
+          counts[skill.id]++;
+        }
+      });
+    });
+    const avgs = PROGRESS_SKILLS.map((s) => {
+      const avg = counts[s.id] ? Math.round(sums[s.id] / counts[s.id]) : 0;
+      const pct = (avg / 50) * 100;
+      let color = '#EF4444';
+      if (pct >= 75) color = '#27AE60';
+      else if (pct >= 50) color = '#F59E0B';
+      return { id: s.id, name: s.name, avg, color };
+    });
+    setAvgSkillScores(avgs);
   };
 
   const confirmDeleteAssessment = (assessment) => {
@@ -110,7 +216,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
         .from('user_programs')
         .select('*, programs(*)')
         .eq('user_id', studentId)
-        .eq('is_active', true);
+        .eq('is_completed', false);
 
       if (error) throw error;
       setPrograms(data || []);
@@ -162,6 +268,65 @@ export default function PlayerProfileScreen({ route, navigation }) {
     navigation.navigate('EvaluationSummary', { assessmentId: assessment.id, student: player });
   };
 
+// Helpers for chart
+function vToNorm(v) {
+  const max = 50;
+  const n = Math.max(0, Math.min(max, v));
+  return n / max; // 0..1
+}
+function formatDelta(n) {
+  const sign = n >= 0 ? '+' : '';
+  return `${sign}${Math.round(n)}`;
+}
+function levelColor(level) {
+  if (level === 'Advanced') return '#27AE60';
+  if (level === 'Intermediate') return '#F39C12';
+  return '#EF4444';
+}
+
+// Reusable tiny line component using measured width/height
+function SparkLine({ values, color, height = 64, style }) {
+  const [size, setSize] = useState({ width: 0, height });
+  const onLayout = (e) => {
+    const { width } = e.nativeEvent.layout;
+    setSize({ width, height });
+  };
+  const points = values || [];
+  return (
+    <View style={[{ height }, style]} onLayout={onLayout}>
+      {size.width > 0 && (
+        <View style={{ position: 'absolute', left: 0, top: 0, width: size.width, height: size.height }}>
+          {points.map((v, i) => {
+            const x = (i / Math.max(points.length - 1, 1)) * size.width;
+            const y = (1 - vToNorm(v)) * size.height;
+            if (i > 0) {
+              const prevX = ((i - 1) / Math.max(points.length - 1, 1)) * size.width;
+              const prevY = (1 - vToNorm(points[i - 1])) * size.height;
+              const dx = x - prevX;
+              const dy = y - prevY;
+              const length = Math.sqrt(dx * dx + dy * dy);
+              const angle = Math.atan2(dy, dx) * 57.2958;
+              // Position the segment centered between the two points so rotation pivots at center
+              const midX = (prevX + x) / 2;
+              const midY = (prevY + y) / 2;
+              const stroke = 2;
+              return (
+                <View key={`seg-${i}`}>
+                  <View style={{ position: 'absolute', left: midX - length / 2, top: midY - stroke / 2, width: length, height: stroke, backgroundColor: color, transform: [{ rotateZ: `${angle}deg` }], borderRadius: 1 }} />
+                  <View style={{ position: 'absolute', left: x - 3, top: y - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+                </View>
+              );
+            }
+            return (
+              <View key={`dot-${i}`} style={{ position: 'absolute', left: x - 3, top: y - 3, width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -176,54 +341,97 @@ export default function PlayerProfileScreen({ route, navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Player Profile</Text>
+        <View style={styles.placeholder} />
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {/* Player Info Card */}
-        <View style={styles.playerCard}>
-          <View style={styles.playerAvatarContainer}>
+        {/* Merged Player Header with Skill Overview */}
+        <View style={styles.mergedPlayerSection}>
+          {/* Player Info Row */}
+          <View style={styles.playerInfoRow}>
             {player?.avatar_url ? (
-              <Image source={{ uri: player.avatar_url }} style={styles.playerAvatar} />
+              <Image source={{ uri: player.avatar_url }} style={styles.compactAvatar} />
             ) : (
-              <View style={styles.playerAvatarFallback}>
-                <Text style={styles.playerAvatarText}>
+              <View style={styles.compactAvatarFallback}>
+                <Text style={styles.compactAvatarText}>
                   {player?.name?.charAt(0).toUpperCase() || 'P'}
                 </Text>
               </View>
             )}
+            <View style={styles.compactInfo}>
+              <Text style={styles.compactName} numberOfLines={1}>
+                {player?.name || 'Player'}
+              </Text>
+              <View style={styles.compactChips}>
+                {player?.dupr_rating && (
+                  <View style={styles.chip}>
+                    <Text style={styles.chipLabel}>DUPR</Text>
+                    <Text style={styles.chipValue}>{player.dupr_rating}</Text>
+                  </View>
+                )}
+                {player?.tier && (
+                  <View style={styles.chip}>
+                    <Text style={styles.chipLabel}>Tier</Text>
+                    <Text style={styles.chipValue}>{player.tier}</Text>
+                  </View>
+                )}
+                {player?.preferred_side && (
+                  <View style={styles.chip}>
+                    <Text style={styles.chipLabel}>Side</Text>
+                    <Text style={styles.chipValue}>{player.preferred_side}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            {assessments.length > 0 && (
+              <View style={styles.latestScoreContainer}>
+                <Text style={styles.latestScoreValue} numberOfLines={1}>
+                  {String(Number(assessments[0].total_score) || 0)}
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.playerName}>{player?.name || 'Player'}</Text>
-          <View style={styles.playerMeta}>
-            {player?.dupr_rating && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>DUPR</Text>
-                <Text style={styles.metaValue}>{player.dupr_rating}</Text>
-              </View>
-            )}
-            {player?.tier && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Tier</Text>
-                <Text style={styles.metaValue}>{player.tier}</Text>
-              </View>
-            )}
-            {player?.preferred_side && (
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Side</Text>
-                <Text style={styles.metaValue}>{player.preferred_side}</Text>
-              </View>
-            )}
-          </View>
-        </View>
 
-        {/* Action Buttons (moved Start New Assessment into Assessments tab) */}
-        <View style={styles.actionButtons}>
-          {programs.length > 0 && (
-            <TouchableOpacity style={styles.secondaryButton}>
-              <Ionicons name="play-circle-outline" size={20} color={PRIMARY_COLOR} />
-              <Text style={styles.secondaryButtonText}>View Active Program</Text>
-            </TouchableOpacity>
+          {/* Skill Overview Header (Collapsible) */}
+          <TouchableOpacity 
+            style={styles.skillOverviewToggle}
+            onPress={() => setSkillOverviewExpanded(!skillOverviewExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.skillOverviewToggleLeft}>
+              <View style={styles.skillAveragesDot} />
+              <Text style={styles.skillAveragesTitle}>Skill Overview</Text>
+              <Text style={styles.skillAveragesSubtitle}>· Average of all assessments</Text>
+            </View>
+            <Ionicons 
+              name={skillOverviewExpanded ? 'chevron-up' : 'chevron-down'} 
+              size={20} 
+              color="#6B7280" 
+            />
+          </TouchableOpacity>
+
+          {/* Collapsible Skill Badges */}
+          {skillOverviewExpanded && (
+            <View style={styles.profileAvgSkillsRow}>
+              {avgSkillScores
+                ? avgSkillScores.map((s) => (
+                    <View key={s.id} style={[styles.profileAvgBadge, { backgroundColor: s.color + '15', borderLeftColor: s.color }]}>
+                      <Text style={[styles.profileAvgName, { color: s.color }]} numberOfLines={1}>
+                        {s.name.replace(/\s*\/.*$/, '')}
+                      </Text>
+                      <Text style={[styles.profileAvgScore, { color: s.color }]}>{s.avg}</Text>
+                    </View>
+                  ))
+                : PROGRESS_SKILLS.map((s) => (
+                    <View key={s.id} style={[styles.profileAvgBadge, { backgroundColor: '#F3F4F6', borderLeftColor: '#D1D5DB' }]}>
+                      <Text style={[styles.profileAvgName, { color: '#9CA3AF' }]} numberOfLines={1}>
+                        {s.name.replace(/\s*\/.*$/, '')}
+                      </Text>
+                      <Text style={[styles.profileAvgScore, { color: '#9CA3AF' }]}>–</Text>
+                    </View>
+                  ))}
+            </View>
           )}
         </View>
 
@@ -246,12 +454,6 @@ export default function PlayerProfileScreen({ route, navigation }) {
         <View style={styles.tabContent}>
           {activeTab === 'Assessments' && (
             <View>
-              <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                <TouchableOpacity style={styles.primaryButton} onPress={handleStartAssessment}>
-                  <Ionicons name="clipboard-outline" size={20} color="white" />
-                  <Text style={styles.primaryButtonText}>Start New Assessment</Text>
-                </TouchableOpacity>
-              </View>
               {assessments.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="document-outline" size={48} color="#D1D5DB" />
@@ -261,34 +463,42 @@ export default function PlayerProfileScreen({ route, navigation }) {
                   </TouchableOpacity>
                 </View>
               ) : (
-                assessments.map((assessment) => (
-                  <TouchableOpacity
-                    key={assessment.id}
-                    style={styles.assessmentCard}
-                    onPress={() => handleViewAssessment(assessment)}
-                    onLongPress={() => confirmDeleteAssessment(assessment)}
-                    delayLongPress={400}
-                  >
-                    <View style={styles.assessmentHeader}>
-                      <Text style={styles.assessmentDate}>
-                        {new Date(assessment.created_at).toLocaleDateString()}
-                      </Text>
-                      <View style={styles.assessmentScore}>
-                        <Text style={styles.scoreValue}>
-                          {assessment.total_score || 0}/{assessment.max_score || 0}
+                <>
+                  {assessments.map((assessment) => (
+                    <TouchableOpacity
+                      key={assessment.id}
+                      style={styles.assessmentCard}
+                      onPress={() => handleViewAssessment(assessment)}
+                      onLongPress={() => confirmDeleteAssessment(assessment)}
+                      delayLongPress={400}
+                    >
+                      <View style={styles.assessmentHeader}>
+                        <Text style={styles.assessmentDate}>
+                          {new Date(assessment.created_at).toLocaleDateString()}
                         </Text>
-                        <Text style={styles.scorePercent}>
-                          ({Math.round(((assessment.total_score || 0) / (assessment.max_score || 1)) * 100)}%)
-                        </Text>
+                        <View style={styles.assessmentScore}>
+                          <Text style={styles.scoreValue}>
+                            {String(Number(assessment.total_score) || 0)}/{String(Number(assessment.max_score) || 0)}
+                          </Text>
+                          <Text style={styles.scorePercent}>
+                            ({Math.round(((Number(assessment.total_score) || 0) / (Number(assessment.max_score) || 1)) * 100)}%)
+                          </Text>
+                        </View>
                       </View>
-                    </View>
-                    {assessment.notes && (
-                      <Text style={styles.assessmentNotes} numberOfLines={2}>
-                        {assessment.notes}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                ))
+                      {assessment.notes && (
+                        <Text style={styles.assessmentNotes} numberOfLines={2}>
+                          {assessment.notes}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                  <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+                    <TouchableOpacity style={styles.primaryButton} onPress={handleStartAssessment}>
+                      <Ionicons name="clipboard-outline" size={20} color="white" />
+                      <Text style={styles.primaryButtonText}>Start New Assessment</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
             </View>
           )}
@@ -313,27 +523,150 @@ export default function PlayerProfileScreen({ route, navigation }) {
 
           {activeTab === 'Progress' && (
             <View>
-              {(!progress || progress.length === 0) ? (
-                <View style={styles.emptyState}>
-                  <Ionicons name="trending-up-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyText}>No progress data yet</Text>
-                </View>
-              ) : (
-                progress.map((item, index) => (
-                  <View key={index} style={styles.progressCard}>
-                    <Text style={styles.progressDate}>
-                      {new Date(item.completed_at).toLocaleDateString()}
-                    </Text>
-                    <Text style={styles.progressResult}>
-                      Result: {item.result_value}/{item.target_value}
-                    </Text>
+              <View style={styles.progressCard}>
+                <Text style={styles.progressTitle}>Skill Progression</Text>
+                {progressSeries ? (
+                  <View style={styles.sparkGrid}>
+                    {progressSeries.series.map((s) => {
+                      const latest = s.values[s.values.length - 1] || 0;
+                      return (
+                        <TouchableOpacity key={`spark-${s.id}`} style={styles.sparkCard} onPress={() => setExpandedSkill(s)} activeOpacity={0.8}>
+                          <View style={styles.sparkHeader}>
+                            <Text style={styles.sparkName} numberOfLines={1}>{s.name}</Text>
+                            <Text style={[styles.sparkValue, { color: s.color }]}>{latest}</Text>
+                          </View>
+                          <SparkLine values={s.values} color={s.color} height={64} style={styles.sparkCanvas} />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-                ))
-              )}
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="trending-up-outline" size={48} color="#D1D5DB" />
+                    <Text style={styles.emptyText}>No progress data yet</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.progressCard}>
+                <Text style={styles.progressTitle}>Recent Improvements</Text>
+                {progressDeltas ? (
+                  PROGRESS_SKILLS.map((s) => {
+                    const d = (progressDeltas.find(x=>x.id===s.id)?.delta || 0);
+                    const positive = d >= 0;
+                    return (
+                      <View key={`imp-${s.id}`} style={styles.improvementRow}>
+                        <Text style={styles.improvementName}>{s.name}</Text>
+                        <View style={[styles.deltaBarTrack]}>
+                          <View style={[styles.deltaBarFill, { width: `${Math.min(Math.abs(d)/50*100, 100)}%`, backgroundColor: positive ? '#10B981' : '#EF4444' }]} />
+                        </View>
+                        <View style={styles.improvementDelta}>
+                          <Ionicons name={ positive ? 'trending-up' : 'trending-down'} size={16} color={positive ? '#10B981' : '#EF4444'} />
+                          <Text style={[styles.improvementText, { color: positive ? '#10B981' : '#EF4444' }]}>
+                            {formatDelta(d)}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.emptyText}>Need at least two assessments to compute changes</Text>
+                )}
+              </View>
+
+              {/* Latest Evaluation Summary */}
+              <View style={styles.progressCard}>
+                <Text style={styles.progressTitle}>Latest Evaluation Summary</Text>
+                {latestSummary ? (
+                  <View style={styles.summaryTable}>
+                    <View style={styles.summaryHeaderRow}>
+                      <Text style={[styles.summaryHeaderText, { flex: 2 }]}>Skill</Text>
+                      <Text style={[styles.summaryHeaderText, { flex: 1, textAlign: 'right' }]}>Score</Text>
+                      <Text style={[styles.summaryHeaderText, { flex: 1, textAlign: 'center' }]}>Level</Text>
+                    </View>
+                    {latestSummary.map((row) => (
+                      <View key={`sum-${row.id}`} style={styles.summaryRow}>
+                        <Text style={[styles.summarySkill, { flex: 2 }]}>{row.name}</Text>
+                        <Text style={[styles.summaryScore, { flex: 1 }]}>{row.score}/{row.maxScore}</Text>
+                        <View style={[styles.summaryLevelBadge, { flex: 1, backgroundColor: levelColor(row.level)+'20' }]}>
+                          <Text style={[styles.summaryLevelText, { color: levelColor(row.level) }]}>{row.level}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>No evaluation summary yet</Text>
+                )}
+              </View>
+
+              {/* Skill Breakdown (bars) */}
+              <View style={styles.progressCard}>
+                <Text style={styles.progressTitle}>Skill Breakdown</Text>
+                {latestSummary ? (
+                  latestSummary.map((row) => {
+                    const pct = row.maxScore > 0 ? Math.round((row.score / row.maxScore) * 100) : 0;
+                    const color = pct >= 75 ? '#27AE60' : pct >= 50 ? '#F39C12' : '#EF4444';
+                    return (
+                      <View key={`bd-${row.id}`} style={styles.barItem}>
+                        <Text style={styles.barLabel}>{row.name}</Text>
+                        <View style={styles.barBackground}>
+                          <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: color }]} />
+                          <Text style={styles.barText}>{pct}%</Text>
+                        </View>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.emptyText}>No breakdown available</Text>
+                )}
+              </View>
             </View>
           )}
         </View>
       </ScrollView>
+      {/* Expanded Skill Modal */}
+      <Modal visible={!!expandedSkill} transparent animationType="fade" onRequestClose={() => setExpandedSkill(null)}>
+        <View style={styles.modalOverlayCenter}>
+          <View style={styles.modalChartCard}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>{expandedSkill?.name}</Text>
+              <TouchableOpacity onPress={() => setExpandedSkill(null)} style={{ padding: 8 }}>
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            {expandedSkill && (
+              <>
+                <SparkLine values={expandedSkill.values} color={expandedSkill.color} height={180} />
+                
+                {/* Assessment Data Table */}
+                <View style={styles.modalDataSection}>
+                  <Text style={styles.modalDataTitle}>Assessment History</Text>
+                  <View style={styles.modalDataTable}>
+                    <View style={styles.modalTableHeader}>
+                      <Text style={[styles.modalTableHeaderText, { flex: 2 }]}>Date</Text>
+                      <Text style={[styles.modalTableHeaderText, { flex: 1, textAlign: 'right' }]}>Score</Text>
+                    </View>
+                    {expandedSkill.values.map((value, idx) => {
+                      const date = expandedSkill.dates?.[idx];
+                      const dateStr = date 
+                        ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : `Assessment ${idx + 1}`;
+                      return (
+                        <View key={`data-${idx}`} style={styles.modalTableRow}>
+                          <Text style={[styles.modalTableCell, { flex: 2 }]}>{dateStr}</Text>
+                          <Text style={[styles.modalTableCellScore, { flex: 1, color: expandedSkill.color }]}>
+                            {value}/50
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -373,56 +706,87 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  playerCard: {
+  mergedPlayerSection: {
     backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  playerInfoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 32,
+    gap: 12,
     marginBottom: 16,
   },
-  playerAvatarContainer: {
-    marginBottom: 16,
+  compactAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
-  playerAvatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-  },
-  playerAvatarFallback: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  compactAvatarFallback: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: PRIMARY_COLOR,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playerAvatarText: {
-    fontSize: 36,
-    fontWeight: '600',
+  compactAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
     color: 'white',
   },
-  playerName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
+  compactInfo: {
+    flex: 1,
   },
-  playerMeta: {
-    flexDirection: 'row',
-    gap: 24,
-  },
-  metaItem: {
-    alignItems: 'center',
-  },
-  metaLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  metaValue: {
+  compactName: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  compactChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  chipLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  chipValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  latestScoreContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingLeft: 12,
+    width: 120,
+    flexShrink: 0,
+  },
+  latestScoreValue: {
+    fontSize: 32,
+    fontWeight: '700',
     color: PRIMARY_COLOR,
+    lineHeight: 36,
+    textAlign: 'right',
+  },
+  latestScoreMax: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    lineHeight: 18,
   },
   actionButtons: {
     paddingHorizontal: 16,
@@ -548,6 +912,211 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 12,
   },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  chartArea: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingVertical: 8,
+  },
+  sparkGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sparkCard: {
+    width: '48%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  sparkHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sparkName: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  sparkValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sparkCanvas: {
+    height: 64,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  gridRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  yLabel: {
+    width: 28,
+    fontSize: 10,
+    color: '#9CA3AF',
+    textAlign: 'right',
+    marginRight: 4,
+  },
+  gridLine: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    flex: 1,
+  },
+  chartInner: {
+    width: 300,
+    height: 140,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#374151',
+  },
+  xLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingLeft: 32,
+    paddingRight: 8,
+  },
+  xLabel: {
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+  improvementRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  deltaBarTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    marginHorizontal: 12,
+  },
+  deltaBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  improvementName: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  improvementDelta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  improvementText: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  summaryTable: {
+    backgroundColor: 'white',
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  summaryHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  summarySkill: {
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  summaryScore: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'right',
+  },
+  summaryLevelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  summaryLevelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  barItem: {
+    marginBottom: 12,
+  },
+  barLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 6,
+  },
+  barBackground: {
+    height: 20,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 10,
+  },
+  barText: {
+    position: 'absolute',
+    right: 10,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+  },
   progressDate: {
     fontSize: 14,
     color: '#6B7280',
@@ -579,6 +1148,140 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  modalOverlayCenter: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalChartCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  skillOverviewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  skillOverviewToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  skillAveragesDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: PRIMARY_COLOR,
+    marginRight: 8,
+  },
+  skillAveragesTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  skillAveragesSubtitle: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  profileAvgSkillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  profileAvgBadge: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    width: '31.5%',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  profileAvgName: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  profileAvgScore: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalDataSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  modalDataTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalDataTable: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 8,
+  },
+  modalTableHeader: {
+    flexDirection: 'row',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    marginBottom: 4,
+  },
+  modalTableHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  modalTableCell: {
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  modalTableCellScore: {
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'right',
   },
 });
 

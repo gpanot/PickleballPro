@@ -45,11 +45,7 @@ export default function CoachDashboardScreen({ navigation }) {
   // Reload when the tab/screen gains focus
   useEffect(() => {
     if (!isFocused) return;
-    if (coachId) {
-      loadStudents();
-    } else {
-      checkCoachAndLoadData();
-    }
+    checkCoachAndLoadData(); // Always refresh and verify when focused
   }, [isFocused]);
 
   const checkCoachAndLoadData = async () => {
@@ -64,7 +60,7 @@ export default function CoachDashboardScreen({ navigation }) {
       }
       
       setCoachId(id);
-      await loadStudents();
+      await loadStudents(id);
     } catch (error) {
       console.error('Error checking coach access:', error);
       Alert.alert('Error', 'Failed to load coach dashboard.');
@@ -73,11 +69,12 @@ export default function CoachDashboardScreen({ navigation }) {
     }
   };
 
-  const loadStudents = async () => {
-    if (!coachId) return;
+  const loadStudents = async (cId = null) => {
+    const currentCoachId = cId || coachId;
+    if (!currentCoachId) return;
     
     try {
-      const { data, error } = await getCoachStudents(coachId);
+      const { data, error } = await getCoachStudents(currentCoachId);
       if (error) throw error;
       
       // Transform data structure
@@ -92,6 +89,7 @@ export default function CoachDashboardScreen({ navigation }) {
         addedAt: item.created_at,
         lastAssessmentDate: null,
         lastAssessmentPercent: null,
+        lastAssessmentScore: null,
       }));
       
       // Fetch latest assessment per student in one query
@@ -101,7 +99,7 @@ export default function CoachDashboardScreen({ navigation }) {
           .from('coach_assessments')
           .select('id, student_id, total_score, max_score, created_at')
           .in('student_id', studentIds)
-          .eq('coach_id', coachId)
+          .eq('coach_id', currentCoachId)
           .order('created_at', { ascending: false });
         if (!assessErr && assessmentsData) {
           const latestByStudent = new Map();
@@ -116,6 +114,7 @@ export default function CoachDashboardScreen({ navigation }) {
               s.lastAssessmentDate = latest.created_at;
               const pct = (latest.total_score || 0) / Math.max(latest.max_score || 1, 1) * 100;
               s.lastAssessmentPercent = Math.round(pct);
+              s.lastAssessmentScore = Number(latest.total_score) || 0;
             }
           });
         }
@@ -149,7 +148,6 @@ export default function CoachDashboardScreen({ navigation }) {
       setStudentCodeInput('');
       setShowAddStudentModal(false);
       await loadStudents();
-      await loadStats();
     } catch (error) {
       console.error('Error adding student:', error);
       Alert.alert('Error', 'Failed to add student.');
@@ -175,6 +173,27 @@ export default function CoachDashboardScreen({ navigation }) {
     setRefreshing(false);
   };
 
+  const getRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+    const diffWeeks = Math.floor(diffDays / 7);
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+
+    if (diffYears > 0) return `${diffYears} year${diffYears > 1 ? 's' : ''} ago`;
+    if (diffMonths > 0) return `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
+    if (diffWeeks > 0) return `${diffWeeks} week${diffWeeks > 1 ? 's' : ''} ago`;
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffMins > 0) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    return 'Just now';
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -188,17 +207,17 @@ export default function CoachDashboardScreen({ navigation }) {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.headerTitle}>Coach Dashboard</Text>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search player by name or ID"
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
+        
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search player by name or ID"
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
       </View>
 
       {/* Stats Summary removed per requirements */}
@@ -212,14 +231,14 @@ export default function CoachDashboardScreen({ navigation }) {
         }
       >
         <Text style={styles.sectionTitle}>
-          Players ({filteredStudents.length})
+          Students ({filteredStudents.length})
         </Text>
         
         {filteredStudents.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={48} color="#D1D5DB" />
             <Text style={styles.emptyText}>
-              {searchQuery ? 'No players match your search' : 'No players added yet'}
+              {searchQuery ? 'No students match your search' : 'No students added yet'}
             </Text>
             {!searchQuery && (
               <TouchableOpacity
@@ -258,12 +277,19 @@ export default function CoachDashboardScreen({ navigation }) {
                   </View>
                   {student.lastAssessmentDate ? (
                     <Text style={styles.lastAssessmentText}>
-                      Last: {new Date(student.lastAssessmentDate).toLocaleDateString()} · {student.lastAssessmentPercent}%
+                      Last: {getRelativeTime(student.lastAssessmentDate)}
                     </Text>
                   ) : (
                     <Text style={styles.lastAssessmentText}>No assessment</Text>
                   )}
                 </View>
+                {student.lastAssessmentScore !== null && (
+                  <View style={styles.scoreContainer}>
+                    <Text style={styles.scoreText} numberOfLines={1}>
+                      {String(student.lastAssessmentScore)}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
               {/* Start New Assessment button removed */}
             </View>
@@ -289,7 +315,7 @@ export default function CoachDashboardScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Player</Text>
+              <Text style={styles.modalTitle}>Add New Student</Text>
               <TouchableOpacity onPress={() => setShowAddStudentModal(false)}>
                 <Ionicons name="close" size={24} color="#6B7280" />
               </TouchableOpacity>
@@ -328,7 +354,7 @@ export default function CoachDashboardScreen({ navigation }) {
                 {addingStudent ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.modalAddText}>Add Player</Text>
+                  <Text style={styles.modalAddText}>Add Student</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -366,21 +392,16 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#1F2937',
+    marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 16,
+    backgroundColor: '#F9FAFB',
     paddingHorizontal: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   searchIcon: {
     marginRight: 12,
@@ -448,6 +469,7 @@ const styles = StyleSheet.create({
   playerHeader: {
     flexDirection: 'row',
     marginBottom: 12,
+    alignItems: 'center',
   },
   playerAvatar: {
     width: 56,
@@ -471,6 +493,7 @@ const styles = StyleSheet.create({
   playerInfo: {
     flex: 1,
     justifyContent: 'center',
+    flexShrink: 1,
   },
   playerName: {
     fontSize: 18,
@@ -495,6 +518,20 @@ const styles = StyleSheet.create({
   lastAssessmentText: {
     fontSize: 12,
     color: '#9CA3AF',
+  },
+  scoreContainer: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    marginLeft: 16,
+    width: 140,
+    flexShrink: 0,
+  },
+  scoreText: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: PRIMARY_COLOR,
+    lineHeight: 42,
+    textAlign: 'right',
   },
   assessmentButton: {
     flexDirection: 'row',

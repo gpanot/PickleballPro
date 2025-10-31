@@ -56,9 +56,9 @@ const LogResultComponent = ({
     setShowResult(false);
     handleClose();
     if (navigation) {
-      navigation.navigate('Library');
+      navigation.navigate('Training2');
     } else {
-      Alert.alert('Great job!', 'Continue with your next exercise in the Library tab.');
+      Alert.alert('Great job!', 'Continue with your next exercise in the Program tab.');
     }
   };
 

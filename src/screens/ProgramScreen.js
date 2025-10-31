@@ -15,6 +15,15 @@ import {
   Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUser } from '../context/UserContext';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { generateAIProgram, validateUserForAIGeneration, saveAIProgram, syncUnsyncedAIPrograms } from '../lib/aiProgramGenerator';
+import { supabase, getPrograms, transformProgramData } from '../lib/supabase';
+import { usePreload } from '../context/PreloadContext';
+import WebIcon from '../components/WebIcon';
+import WebLinearGradient from '../components/WebLinearGradient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,18 +38,46 @@ const getThumbnailSize = (screenWidth, screenHeight) => {
   }
   return { width: 60, height: 100 }; // Default for phones
 };
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUser } from '../context/UserContext';
-import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
-import SkillsScreen from './SkillsScreen';
-import { generateAIProgram, validateUserForAIGeneration, saveAIProgram, syncUnsyncedAIPrograms } from '../lib/aiProgramGenerator';
-import { supabase } from '../lib/supabase';
+
+// Responsive design helper functions for Library tab (from ExploreTrainingScreen)
+const getColumnsForWidth = (screenWidth, screenHeight) => {
+  // Special handling for iPad portrait mode (768x1024)
+  if (screenWidth === 768 && screenHeight >= 1024) return 3; // iPad portrait - 3 columns
+  if (screenWidth >= 1024) return 4; // Large tablets landscape (iPad Pro, etc.)
+  if (screenWidth >= 768) return 3;  // iPad mini, standard tablets
+  if (screenWidth >= 480) return 2;  // Large phones, small tablets
+  return 2; // Default for phones
+};
+
+const getCardWidth = (screenWidth, screenHeight) => {
+  const columns = getColumnsForWidth(screenWidth, screenHeight);
+  // Optimized padding for iPad portrait mode
+  const padding = (screenWidth === 768 && screenHeight >= 1024) ? 24 : 16;
+  const margin = 12; // Slightly larger margin for better spacing
+  const totalHorizontalSpace = padding * 2 + margin * (columns - 1);
+  return (screenWidth - totalHorizontalSpace) / columns;
+};
+
+const getHorizontalCardWidth = (screenWidth, screenHeight) => {
+  const cardWidth = getCardWidth(screenWidth, screenHeight);
+  return cardWidth * 0.85; // Slightly smaller for horizontal scroll
+};
+
+// Enhanced thumbnail height calculation for portrait mode
+const getThumbnailHeight = (screenWidth, screenHeight) => {
+  const cardWidth = getCardWidth(screenWidth, screenHeight);
+  // For iPad portrait, use a better aspect ratio
+  if (screenWidth === 768 && screenHeight >= 1024) {
+    return Math.max(180, cardWidth * 0.8); // Taller thumbnails for portrait
+  }
+  return Math.max(160, cardWidth * 0.75);
+};
 
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
+  const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
   const insets = useSafeAreaInsets();
-  const [currentView, setCurrentView] = React.useState('programs'); // 'skills' or 'programs'
+  const [currentView, setCurrentView] = React.useState('programs'); // 'programs' or 'library'
   const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
@@ -51,6 +88,16 @@ export default function ProgramScreen({ navigation, route }) {
   const [isLoadingPrograms, setIsLoadingPrograms] = React.useState(true);
   const [aiGenerationStep, setAiGenerationStep] = React.useState(0);
   
+  // Library tab state (ExploreTrainingScreen content)
+  const [explorePrograms, setExplorePrograms] = React.useState([]);
+  const [libraryLoading, setLibraryLoading] = React.useState(true);
+  const [libraryError, setLibraryError] = React.useState(null);
+  const [libraryRefreshing, setLibraryRefreshing] = React.useState(false);
+  const [savedCategoryOrder, setSavedCategoryOrder] = React.useState([]);
+  
+  // Animation for library loading
+  const libraryRotateAnim = React.useRef(new Animated.Value(0)).current;
+  
   // Animation for rotating ball
   const rotateAnim = React.useRef(new Animated.Value(0)).current;
   const aiRotateAnim = React.useRef(new Animated.Value(0)).current;
@@ -60,7 +107,19 @@ export default function ProgramScreen({ navigation, route }) {
     console.log('🔄 [ProgramScreen] Component mounted, loading programs...');
     console.log('👤 [ProgramScreen] Current user:', user?.id);
     loadPrograms();
+    
+    // Always preload library data for faster access
+    fetchLibraryPrograms();
+    fetchCategoryOrder();
   }, [user?.id]);
+
+  // Reload library data when switching to Library tab (if not already loaded)
+  React.useEffect(() => {
+    if (currentView === 'library' && explorePrograms.length === 0 && !libraryLoading) {
+      fetchLibraryPrograms();
+      fetchCategoryOrder();
+    }
+  }, [currentView]);
 
   // Start rotation animation when loading
   React.useEffect(() => {
@@ -80,6 +139,25 @@ export default function ProgramScreen({ navigation, route }) {
       };
     }
   }, [isLoadingPrograms, rotateAnim]);
+
+  // Start library rotation animation when loading
+  React.useEffect(() => {
+    if (libraryLoading) {
+      const rotateAnimation = Animated.loop(
+        Animated.timing(libraryRotateAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      );
+      rotateAnimation.start();
+      
+      return () => {
+        rotateAnimation.stop();
+        libraryRotateAnim.setValue(0);
+      };
+    }
+  }, [libraryLoading, libraryRotateAnim]);
 
   // Start AI generation animation and progress steps
   React.useEffect(() => {
@@ -951,6 +1029,134 @@ export default function ProgramScreen({ navigation, route }) {
     }, 1000);
   }, []);
 
+  // Library tab functions (from ExploreTrainingScreen)
+  const fetchLibraryPrograms = async () => {
+    // Check if we have preloaded data first
+    const preloadedPrograms = getDataWithFallback('programs');
+    if (preloadedPrograms && preloadedPrograms.length > 0) {
+      console.log('🚀 ProgramScreen: Using preloaded programs data for Library - INSTANT LOAD!');
+      setExplorePrograms(preloadedPrograms);
+      setLibraryLoading(false);
+      setLibraryError(null);
+      return;
+    } else if (hasPreloadedData('programs')) {
+      // We have preloaded data but it's empty
+      console.log('📭 ProgramScreen: Preloaded programs data is empty for Library - INSTANT LOAD!');
+      setExplorePrograms([]);
+      setLibraryLoading(false);
+      setLibraryError(null);
+      return;
+    }
+
+    // No preloaded data, fetch normally
+    const fetchTimeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Fetch programs timeout after 20 seconds')), 20000)
+    );
+    
+    const fetchOperation = async () => {
+      try {
+        setLibraryLoading(true);
+        const { data, error } = await getPrograms();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (!data) {
+          setExplorePrograms([]);
+          setLibraryError(null);
+          return;
+        }
+        
+        if (Array.isArray(data) && data.length === 0) {
+          setExplorePrograms([]);
+          setLibraryError(null);
+          return;
+        }
+        
+        // Transform the data to match your current app structure
+        const transformedPrograms = transformProgramData(data);
+        setExplorePrograms(transformedPrograms);
+        setLibraryError(null);
+      } catch (err) {
+        setLibraryError(err.message || 'Failed to load programs');
+        setExplorePrograms([]);
+      } finally {
+        setLibraryLoading(false);
+      }
+    };
+    
+    try {
+      await Promise.race([fetchOperation(), fetchTimeout]);
+    } catch (timeoutError) {
+      setLibraryError('Request timed out. Please try again.');
+      setExplorePrograms([]);
+      setLibraryLoading(false);
+    }
+  };
+
+  const fetchCategoryOrder = async () => {
+    try {
+      const { data: orderData, error: orderError } = await supabase
+        .rpc('get_category_order');
+      
+      if (orderError) {
+        setSavedCategoryOrder([]);
+      } else {
+        setSavedCategoryOrder(orderData || []);
+      }
+    } catch (error) {
+      setSavedCategoryOrder([]);
+    }
+  };
+
+  const onLibraryRefresh = async () => {
+    setLibraryRefreshing(true);
+    try {
+      // Try to refresh from preload context first
+      const refreshedPrograms = await refreshData('programs');
+      if (refreshedPrograms) {
+        setExplorePrograms(refreshedPrograms);
+        setLibraryError(null);
+      } else {
+        // Fallback to direct API call
+        const { data, error } = await getPrograms();
+        
+        if (error) {
+          throw error;
+        }
+        
+        // Transform the data to match your current app structure
+        const transformedPrograms = transformProgramData(data);
+        setExplorePrograms(transformedPrograms);
+        setLibraryError(null);
+      }
+      
+      // Also refresh category order
+      await fetchCategoryOrder();
+    } catch (err) {
+      setLibraryError(err.message);
+    } finally {
+      setLibraryRefreshing(false);
+    }
+  };
+
+  const navigateToLibraryProgram = (program) => {
+    navigation.navigate('ProgramDetail', { 
+      program,
+      source: 'library' 
+    });
+  };
+
+  const getTotalExerciseCount = () => {
+    return explorePrograms.reduce((total, program) => {
+      const programExerciseCount = program.routines?.reduce((routineTotal, routine) => {
+        return routineTotal + (routine.exercises?.length || 0);
+      }, 0) || 0;
+      return total + programExerciseCount;
+    }, 0);
+  };
+
 
   // Check if user already has an AI-generated program
   const hasAIProgram = programs.some(program => program.is_ai_generated);
@@ -1052,6 +1258,203 @@ export default function ProgramScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+    );
+  };
+
+  // Render Library tab content (ExploreTrainingScreen content)
+  const renderLibraryContent = () => {
+    // Loading state
+    if (libraryLoading) {
+      const spin = libraryRotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+      });
+
+      return (
+        <View style={styles.loadingContainer}>
+          <Animated.Image
+            source={require('../../assets/images/icon_ball.png')}
+            style={[
+              styles.loadingBall,
+              {
+                transform: [{ rotate: spin }],
+              },
+            ]}
+          />
+          <Text style={styles.loadingText}>Loading programs...</Text>
+        </View>
+      );
+    }
+
+    // Error state
+    if (libraryError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load programs</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchLibraryPrograms}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // Get all unique categories from programs and sort them according to saved order
+    const uniqueCategories = [...new Set(explorePrograms.map(p => p.category).filter(Boolean))];
+    
+    // Sort categories according to saved order
+    let categories;
+    if (savedCategoryOrder && savedCategoryOrder.length > 0) {
+      // Create ordered list based on saved order
+      const orderedCategories = [];
+      
+      // Add categories in saved order
+      savedCategoryOrder.forEach(savedCat => {
+        if (uniqueCategories.includes(savedCat.name)) {
+          orderedCategories.push(savedCat.name);
+        }
+      });
+      
+      // Add any new categories that weren't in saved order
+      const savedCategoryNames = savedCategoryOrder.map(sc => sc.name);
+      const newCategories = uniqueCategories.filter(cat => !savedCategoryNames.includes(cat));
+      orderedCategories.push(...newCategories);
+      
+      categories = orderedCategories;
+    } else {
+      categories = uniqueCategories;
+    }
+    
+    // Define category icons for better visual appeal
+    const getCategoryIcon = (category) => {
+      switch (category.toLowerCase()) {
+        case 'pro training': return '🏆';
+        case 'fundamentals': return '📚';
+        case 'technique': return '🎯';
+        case 'fitness': return '💪';
+        case 'strategy': return '🧠';
+        case 'mental game': return '🧘';
+        case 'conditioning': return '🏃';
+        case 'drills': return '⚡';
+        default: return '🏓';
+      }
+    };
+
+    const exerciseCount = getTotalExerciseCount();
+
+    return (
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={libraryRefreshing}
+            onRefresh={onLibraryRefresh}
+            tintColor="#3B82F6"
+            colors={["#3B82F6"]}
+          />
+        }
+      >
+        {/* Library Header */}
+        <View style={styles.libraryHeaderContainer}>
+          <Text style={styles.libraryHeaderTitle}>Library</Text>
+          <Text style={styles.libraryExerciseCount}>{exerciseCount} exercises</Text>
+        </View>
+
+        {/* Dynamically render all categories */}
+        {categories.map((category) => {
+          const categoryPrograms = explorePrograms.filter(p => p.category === category);
+          
+          if (categoryPrograms.length === 0) return null;
+          
+          const useHorizontalScroll = categoryPrograms.length >= 2;
+          
+          return (
+            <View key={category} style={styles.libraryCategoriesSection}>
+              <Text style={styles.librarySectionTitle}>{category}</Text>
+              {useHorizontalScroll ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.libraryHorizontalScrollContent}
+                  style={styles.libraryHorizontalScroll}
+                >
+                  {categoryPrograms.map((program) => (
+                    <TouchableOpacity
+                      key={program.id}
+                      style={styles.libraryHorizontalProgramCard}
+                      onPress={() => navigateToLibraryProgram(program)}
+                    >
+                      <View style={styles.libraryThumbnailContainer}>
+                        {program.thumbnail ? (
+                          <Image 
+                            source={{ uri: program.thumbnail }} 
+                            style={styles.libraryProgramThumbnail}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.libraryPlaceholderThumbnail}>
+                            <Text style={styles.libraryPlaceholderText}>{getCategoryIcon(category)}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.libraryProgramDetails}>
+                        <Text style={styles.libraryProgramTitle}>{program.name}</Text>
+                        <View style={styles.libraryRatingContainer}>
+                          <WebIcon name="star" size={12} color="#FFB800" />
+                          <Text style={styles.libraryRatingText}>{program.rating}</Text>
+                          <Text style={styles.libraryAddedText}>• Added {program.addedCount.toLocaleString()} times</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.libraryProgramsGrid}>
+                  {categoryPrograms.map((program) => (
+                    <TouchableOpacity
+                      key={program.id}
+                      style={styles.libraryProgramCard}
+                      onPress={() => navigateToLibraryProgram(program)}
+                    >
+                      <View style={styles.libraryThumbnailContainer}>
+                        {program.thumbnail ? (
+                          <Image 
+                            source={{ uri: program.thumbnail }} 
+                            style={styles.libraryProgramThumbnail}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.libraryPlaceholderThumbnail}>
+                            <Text style={styles.libraryPlaceholderText}>{getCategoryIcon(category)}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.libraryProgramDetails}>
+                        <Text style={styles.libraryProgramTitle}>{program.name}</Text>
+                        <View style={styles.libraryRatingContainer}>
+                          <WebIcon name="star" size={12} color="#FFB800" />
+                          <Text style={styles.libraryRatingText}>{program.rating}</Text>
+                          <Text style={styles.libraryAddedText}>• Added {program.addedCount.toLocaleString()} times</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        {/* Empty state */}
+        {explorePrograms.length === 0 && !libraryLoading && !libraryError && (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No programs available</Text>
+          </View>
+        )}
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
     );
   };
 
@@ -1220,19 +1623,19 @@ export default function ProgramScreen({ navigation, route }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.tab}
-              onPress={() => setCurrentView('skills')}
+              onPress={() => setCurrentView('library')}
             >
-              <Text style={[styles.tabText, currentView === 'skills' && styles.activeTabText]}>
-                DUPR 2{'->'} 3
+              <Text style={[styles.tabText, currentView === 'library' && styles.activeTabText]}>
+                Library
               </Text>
-              {currentView === 'skills' && <View style={styles.activeTabIndicator} />}
+              {currentView === 'library' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
           </View>
         </View>
       </View>
       
-      {currentView === 'skills' ? (
-        <SkillsScreen navigation={navigation} />
+      {currentView === 'library' ? (
+        renderLibraryContent()
       ) : isLoadingPrograms ? (
         renderLoadingScreen()
       ) : (
@@ -1871,5 +2274,155 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#1F2937',
     borderRadius: 1,
+  },
+  // Library tab styles (from ExploreTrainingScreen)
+  libraryHeaderContainer: {
+    paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16,
+    paddingVertical: (width === 768 && height >= 1024) ? 20 : 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  libraryHeaderTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  libraryExerciseCount: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  libraryCategoriesSection: {
+    marginBottom: (width === 768 && height >= 1024) ? 28 : 32,
+    paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16,
+  },
+  librarySectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  libraryProgramsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  libraryHorizontalScroll: {
+    marginLeft: -16,
+  },
+  libraryHorizontalScrollContent: {
+    paddingRight: (width === 768 && height >= 1024) ? 24 : 16,
+  },
+  libraryProgramCard: {
+    width: getCardWidth(width, height),
+    marginRight: 12,
+    marginBottom: (width === 768 && height >= 1024) ? 20 : 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  libraryHorizontalProgramCard: {
+    width: getHorizontalCardWidth(width, height),
+    marginRight: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  libraryThumbnailContainer: {
+    width: '100%',
+    height: getThumbnailHeight(width, height),
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    overflow: 'hidden',
+  },
+  libraryProgramThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  libraryPlaceholderThumbnail: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  libraryPlaceholderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  libraryProgramDetails: {
+    padding: (width === 768 && height >= 1024) ? 14 : 12,
+  },
+  libraryProgramTitle: {
+    fontSize: (width === 768 && height >= 1024) ? 15 : 14,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 6,
+    lineHeight: (width === 768 && height >= 1024) ? 20 : 18,
+  },
+  libraryRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  libraryRatingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginLeft: 4,
+  },
+  libraryAddedText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginLeft: 4,
+    flexShrink: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

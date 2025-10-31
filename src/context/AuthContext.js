@@ -340,18 +340,25 @@ export const AuthProvider = ({ children }) => {
     console.log('AuthContext: handleUserSignedIn called with user:', authUser.email);
     
     // Set authenticated state immediately - never block UI
+    // Use a batch state update to ensure all states are updated together
     setUser(authUser);
     setIsAuthenticated(true);
     setLoading(false);
+    setInitializationComplete(true);
     console.log('AuthContext: ✅ Authentication state set immediately for user:', authUser.email);
     
-    // Get current session to backup
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      await backupSession(session);
-    }
+    // Get current session to backup (non-blocking)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        backupSession(session).catch(err => 
+          console.warn('Failed to backup session:', err)
+        );
+      }
+    }).catch(err => 
+      console.warn('Failed to get session for backup:', err)
+    );
     
-    // Fetch or create profile in background
+    // Fetch or create profile in background (non-blocking)
     fetchOrCreateUserProfile(authUser);
   };
 

@@ -240,6 +240,40 @@ export default function TabIcon({ name, focused, size = 24, color = '#000' }) {
           </View>
         );
         
+      case 'leaderboard':
+        return (
+          <View style={[styles.iconContainer, { width: size, height: size }]}>
+            <View style={[
+              styles.leaderboardIcon,
+              { 
+                backgroundColor: focused ? color : 'transparent',
+                borderColor: color,
+                width: size * 0.8,
+                height: size * 0.8,
+              }
+            ]}>
+              {/* Trophy cup */}
+              <View style={[
+                styles.leaderboardCup,
+                { 
+                  backgroundColor: focused ? 'white' : color,
+                  width: size * 0.4,
+                  height: size * 0.35,
+                }
+              ]} />
+              {/* Trophy base */}
+              <View style={[
+                styles.leaderboardBase,
+                { 
+                  backgroundColor: focused ? 'white' : color,
+                  width: size * 0.5,
+                  height: size * 0.1,
+                }
+              ]} />
+            </View>
+          </View>
+        );
+        
       default:
         return (
           <View style={[
@@ -374,6 +408,21 @@ const styles = StyleSheet.create({
   },
   dashboardLine3: {
     borderRadius: 2,
+  },
+  // Leaderboard icon (trophy)
+  leaderboardIcon: {
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 4,
+  },
+  leaderboardCup: {
+    borderRadius: 3,
+  },
+  leaderboardBase: {
+    borderRadius: 1,
   },
   // Default fallback
   defaultIcon: {

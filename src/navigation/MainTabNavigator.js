@@ -5,16 +5,16 @@ import TabIcon from '../components/TabIcon';
 import { useAuth } from '../context/AuthContext';
 import { checkCoachAccess, supabase } from '../lib/supabase';
 
-import ExploreTrainingScreen from '../screens/ExploreTrainingScreen';
 import ProgramScreen from '../screens/ProgramScreen';
 import CoachScreen from '../screens/CoachScreen';
 import LogbookScreen from '../screens/LogbookScreen';
+import LeaderboardScreen from '../screens/LeaderboardScreen';
 import CoachNavigator from './CoachNavigator';
 // import FeedbackScreen from '../screens/FeedbackScreen'; // Hidden for now
 
 const Tab = createBottomTabNavigator();
 
-export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Library' }) {
+export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2' }) {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const [isCoach, setIsCoach] = useState(false);
@@ -23,7 +23,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
   
   // Get props from route params if passed via initialParams
   const finalOnLogout = onLogout || route?.params?.onLogout;
-  const finalInitialRouteName = initialRouteName || route?.params?.initialRouteName || 'Library';
+  const finalInitialRouteName = initialRouteName || route?.params?.initialRouteName || 'Training2';
   
   useEffect(() => {
     checkIfCoach();
@@ -75,14 +75,14 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Library') {
-            iconName = 'search';
-          } else if (route.name === 'Training2') {
+          if (route.name === 'Training2') {
             iconName = 'training2';
           } else if (route.name === 'Coach') {
             iconName = 'coach';
           } else if (route.name === 'Dashboard') {
             iconName = 'dashboard';
+          } else if (route.name === 'Leaderboard') {
+            iconName = 'leaderboard';
           } else if (route.name === 'Logbook') {
             iconName = 'logbook';
           }
@@ -122,10 +122,6 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       })}
     >
       <Tab.Screen 
-        name="Library" 
-        component={ExploreTrainingScreen}
-      />
-      <Tab.Screen 
         name="Training2" 
         component={ProgramScreen}
         options={{ title: 'Program' }}
@@ -140,6 +136,10 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
           component={CoachNavigator}
         />
       )}
+      <Tab.Screen 
+        name="Leaderboard" 
+        component={LeaderboardScreen}
+      />
       <Tab.Screen 
         name="Logbook" 
         component={LogbookScreen}

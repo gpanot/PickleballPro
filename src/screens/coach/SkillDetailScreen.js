@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,14 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  PanResponder,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PRIMARY_COLOR = '#27AE60';
 const SECONDARY_COLOR = '#F4F5F7';
@@ -64,6 +68,65 @@ const ALL_SKILLS = [
   { id: 'game_play', name: 'Game Play / Scenarios' },
 ];
 
+// Custom Slider Component
+function CustomSlider({ value, onValueChange, min = 0, max = 10, color = PRIMARY_COLOR }) {
+  const [sliderWidth, setSliderWidth] = useState(0);
+  const [dragging, setDragging] = useState(false);
+
+  const normalizedValue = Math.max(min, Math.min(max, value));
+  const percentage = ((normalizedValue - min) / (max - min)) * 100;
+
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: (evt) => {
+      setDragging(true);
+      // Handle tap - update value immediately when user touches the slider
+      const { locationX } = evt.nativeEvent;
+      handleMove(locationX);
+    },
+    onPanResponderMove: (evt) => {
+      const { locationX } = evt.nativeEvent;
+      handleMove(locationX);
+    },
+    onPanResponderRelease: () => {
+      setDragging(false);
+    },
+  });
+
+  const handleMove = (x) => {
+    if (sliderWidth === 0) return;
+    const clampedX = Math.max(0, Math.min(sliderWidth, x));
+    const ratio = clampedX / sliderWidth;
+    const newValue = Math.round(min + ratio * (max - min));
+    onValueChange(newValue);
+  };
+
+  return (
+    <View style={styles.sliderWrapper}>
+      <View
+        style={styles.sliderTrack}
+        {...panResponder.panHandlers}
+        onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+      >
+        <View style={[styles.sliderFill, { width: `${percentage}%`, backgroundColor: color }]} />
+        <View
+          style={[
+            styles.sliderThumb,
+            { left: `${percentage}%`, backgroundColor: color },
+            dragging && styles.sliderThumbDragging,
+          ]}
+        />
+      </View>
+      <View style={styles.sliderLabels}>
+        <Text style={styles.sliderLabel}>{min}</Text>
+        <Text style={[styles.sliderLabel, styles.sliderLabelCenter]}>5</Text>
+        <Text style={styles.sliderLabel}>{max}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function SkillDetailScreen({ route, navigation }) {
   const { studentId, student, skillId, skillName, maxScore, assessmentKey } = route.params;
   const insets = useSafeAreaInsets();
@@ -72,9 +135,17 @@ export default function SkillDetailScreen({ route, navigation }) {
   const [scores, setScores] = useState({});
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
+  const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
     loadSavedScores();
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, []);
 
   const loadSavedScores = async () => {
@@ -140,7 +211,14 @@ export default function SkillDetailScreen({ route, navigation }) {
   const handleScoreChange = async (criterionId, value) => {
     const newScores = { ...scores, [criterionId]: Math.round(value) };
     setScores(newScores);
-    await saveScores(newScores, notes);
+    
+    // Debounce the save operation to prevent flickering
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveScores(newScores, notes);
+    }, 300);
   };
 
   const handleNotesChange = async (text) => {
@@ -180,35 +258,13 @@ export default function SkillDetailScreen({ route, navigation }) {
                   </Text>
                 </View>
               </View>
-              <View style={styles.sliderContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.sliderButton,
-                    score === 0 && [styles.sliderButtonActive, { backgroundColor: color }]
-                  ]}
-                  onPress={() => handleScoreChange(criterion.id, 0)}
-                >
-                  <Text style={[
-                    styles.sliderButtonText,
-                    score === 0 && styles.sliderButtonTextActive
-                  ]}>0</Text>
-                </TouchableOpacity>
-                {Array.from({ length: criterion.maxScore }, (_, i) => i + 1).map((value) => (
-                  <TouchableOpacity
-                    key={value}
-                    style={[
-                      styles.sliderButton,
-                      score === value && [styles.sliderButtonActive, { backgroundColor: color }]
-                    ]}
-                    onPress={() => handleScoreChange(criterion.id, value)}
-                  >
-                    <Text style={[
-                      styles.sliderButtonText,
-                      score === value && styles.sliderButtonTextActive
-                    ]}>{value}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <CustomSlider
+                value={score}
+                onValueChange={(value) => handleScoreChange(criterion.id, value)}
+                min={0}
+                max={criterion.maxScore}
+                color={color}
+              />
             </View>
           );
         })}
@@ -234,12 +290,7 @@ export default function SkillDetailScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity style={styles.footerBackButton} onPress={handleBackToOverview}>
-          <Ionicons name="arrow-back" size={20} color={PRIMARY_COLOR} />
-          <Text style={styles.footerBackButtonText}>Back to Overview</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Footer removed: back handled by top bar */}
     </View>
   );
 }
@@ -312,32 +363,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  sliderContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  sliderWrapper: {
     marginTop: 8,
   },
-  sliderButton: {
+  sliderTrack: {
+    height: 24,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  sliderFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    height: '100%',
+    borderRadius: 12,
+  },
+  sliderThumb: {
+    position: 'absolute',
+    top: -8,
     width: 40,
     height: 40,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: PRIMARY_COLOR,
+    transform: [{ translateX: -20 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sliderThumbDragging: {
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    marginTop: 8,
+    paddingHorizontal: 2,
   },
-  sliderButtonActive: {
-    borderColor: PRIMARY_COLOR,
+  sliderLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#9CA3AF',
   },
-  sliderButtonText: {
+  sliderLabelCenter: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  sliderButtonTextActive: {
-    color: 'white',
+    fontWeight: '700',
+    color: '#1F2937',
   },
   notesCard: {
     backgroundColor: 'white',

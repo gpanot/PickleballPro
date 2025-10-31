@@ -20,7 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import ModernIcon from '../components/ModernIcon';
 import { usePreload } from '../context/PreloadContext';
-import { getCoaches, transformCoachData } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { getCoaches, transformCoachData, supabase } from '../lib/supabase';
 
 export default function CoachScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,6 +29,7 @@ export default function CoachScreen() {
   const [sortBy, setSortBy] = useState('Rating');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const { getDataWithFallback, hasPreloadedData, refreshData } = usePreload();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   
   // API state
@@ -131,6 +133,65 @@ export default function CoachScreen() {
       });
       
       console.log('User location obtained:', location.coords);
+      
+      // Get and save city only if not already set
+      if (user?.id) {
+        try {
+          // Check if user already has a city set
+          const { data: userData, error: fetchError } = await supabase
+            .from('users')
+            .select('city')
+            .eq('id', user.id)
+            .single();
+          
+          if (fetchError) {
+            console.error('Error fetching user city:', fetchError);
+          }
+          
+          // Only get city if it's not already set
+          if (!userData?.city) {
+            const [reverseGeocode] = await Location.reverseGeocodeAsync({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            });
+            
+            const city = reverseGeocode?.city || reverseGeocode?.subregion || reverseGeocode?.region || 'Unknown';
+            console.log('User city obtained (first time):', city);
+            
+            // Update user's location and city in database
+            await supabase
+              .from('users')
+              .update({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                city: city,
+              })
+              .eq('id', user.id);
+            
+            console.log('User location and city saved to database');
+          } else {
+            console.log('City already set, only updating coordinates');
+            // City already exists, just update coordinates
+            await supabase
+              .from('users')
+              .update({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              })
+              .eq('id', user.id);
+          }
+        } catch (geocodeError) {
+          console.error('Error getting city from coordinates:', geocodeError);
+          // Still save coordinates even if city lookup fails
+          await supabase
+            .from('users')
+            .update({
+              latitude: location.coords.latitude,
+              longitude: location.coords.longitude,
+            })
+            .eq('id', user.id);
+        }
+      }
     } catch (error) {
       console.error('Error getting user location:', error);
       Alert.alert('Error', 'Failed to get your current location.');

@@ -159,8 +159,9 @@ function AppContent() {
   }
 
   // Don't render anything while auth is loading, but add a timeout fallback
-  if (authLoading && !showSplash && !authTimeout) {
-    console.log('⏳ Auth loading after splash - showing loading state');
+  // IMPORTANT: Only block on initial auth load, not on sign-in loading
+  if (authLoading && !showSplash && !authTimeout && !isAuthenticated) {
+    console.log('⏳ Initial auth loading after splash - showing loading state');
     return null; // Or return a loading component
   }
   
