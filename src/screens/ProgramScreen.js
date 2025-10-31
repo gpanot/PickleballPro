@@ -13,6 +13,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Animated,
+  Platform,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,10 +22,11 @@ import { useUser } from '../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { generateAIProgram, validateUserForAIGeneration, saveAIProgram, syncUnsyncedAIPrograms } from '../lib/aiProgramGenerator';
-import { supabase, getPrograms, transformProgramData } from '../lib/supabase';
+import { supabase, getPrograms, transformProgramData, getStudentCode } from '../lib/supabase';
 import { usePreload } from '../context/PreloadContext';
 import WebIcon from '../components/WebIcon';
 import WebLinearGradient from '../components/WebLinearGradient';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -77,7 +80,7 @@ export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
   const insets = useSafeAreaInsets();
-  const [currentView, setCurrentView] = React.useState('programs'); // 'programs' or 'library'
+  const [currentView, setCurrentView] = React.useState('coach'); // 'coach', 'programs' or 'library'
   const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
@@ -87,6 +90,17 @@ export default function ProgramScreen({ navigation, route }) {
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
   const [isLoadingPrograms, setIsLoadingPrograms] = React.useState(true);
   const [aiGenerationStep, setAiGenerationStep] = React.useState(0);
+  
+  // Coach Program tab state
+  const [coachPrograms, setCoachPrograms] = React.useState([]);
+  const [coachProgramsLoading, setCoachProgramsLoading] = React.useState(true);
+  const [coachProgramsError, setCoachProgramsError] = React.useState(null);
+  const [hasCoachRelationship, setHasCoachRelationship] = React.useState(false);
+  const [hasAssessment, setHasAssessment] = React.useState(false);
+  const [studentCode, setStudentCode] = React.useState(null);
+  const [coaches, setCoaches] = React.useState([]); // Store all coaches
+  const coachProgramsLoadedRef = React.useRef(false);
+  const coachRotateAnim = React.useRef(new Animated.Value(0)).current;
   
   // Library tab state (ExploreTrainingScreen content)
   const [explorePrograms, setExplorePrograms] = React.useState([]);
@@ -107,6 +121,7 @@ export default function ProgramScreen({ navigation, route }) {
     console.log('🔄 [ProgramScreen] Component mounted, loading programs...');
     console.log('👤 [ProgramScreen] Current user:', user?.id);
     loadPrograms();
+    loadCoachPrograms();
     
     // Always preload library data for faster access
     fetchLibraryPrograms();
@@ -120,6 +135,8 @@ export default function ProgramScreen({ navigation, route }) {
       fetchCategoryOrder();
     }
   }, [currentView]);
+
+  // Don't reload coach programs on tab switch - only load once on mount
 
   // Start rotation animation when loading
   React.useEffect(() => {
@@ -158,6 +175,25 @@ export default function ProgramScreen({ navigation, route }) {
       };
     }
   }, [libraryLoading, libraryRotateAnim]);
+
+  // Start coach programs rotation animation when loading
+  React.useEffect(() => {
+    if (coachProgramsLoading) {
+      const rotateAnimation = Animated.loop(
+        Animated.timing(coachRotateAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      );
+      rotateAnimation.start();
+      
+      return () => {
+        rotateAnimation.stop();
+        coachRotateAnim.setValue(0);
+      };
+    }
+  }, [coachProgramsLoading, coachRotateAnim]);
 
   // Start AI generation animation and progress steps
   React.useEffect(() => {
@@ -1029,6 +1065,289 @@ export default function ProgramScreen({ navigation, route }) {
     }, 1000);
   }, []);
 
+  // Coach Program tab functions
+  const loadCoachPrograms = async () => {
+    try {
+      console.log('📚 [ProgramScreen] Loading coach programs...');
+      setCoachProgramsLoading(true);
+      setCoachProgramsError(null);
+      
+      if (!user?.id) {
+        console.log('❌ [ProgramScreen] No user ID, skipping coach programs load');
+        setCoachProgramsLoading(false);
+        coachProgramsLoadedRef.current = true;
+        return;
+      }
+
+      // Load student code
+      try {
+        const { data: studentCodeData, error: studentCodeError } = await getStudentCode(user.id);
+        if (!studentCodeError && studentCodeData?.student_code) {
+          setStudentCode(studentCodeData.student_code);
+        }
+      } catch (error) {
+        console.error('❌ [ProgramScreen] Error loading student code:', error);
+      }
+
+      // First, check if user has a coach relationship - load ALL coaches
+      const { data: coachRelationships, error: relationshipError } = await supabase
+        .from('coach_students')
+        .select(`
+          id,
+          coach_id,
+          is_active,
+          coaches (
+            id,
+            name,
+            user_id,
+            avatar_url,
+            bio,
+            dupr_rating,
+            is_verified,
+            users:user_id (
+              avatar_url
+            )
+          )
+        `)
+        .eq('student_id', user.id)
+        .eq('is_active', true);
+
+      if (relationshipError) {
+        console.error('❌ [ProgramScreen] Error checking coach relationship:', relationshipError);
+        setHasCoachRelationship(false);
+        setCoaches([]);
+      } else if (coachRelationships && coachRelationships.length > 0) {
+        setHasCoachRelationship(true);
+        console.log('✅ [ProgramScreen] User has active coach relationships:', coachRelationships.length);
+        
+        // Store all coaches with their info
+        // Prioritize user avatar over coach avatar (same as AdminDashboard)
+        const coachesList = await Promise.all(coachRelationships.map(async (cr) => {
+            const coach = cr.coaches;
+            
+            // Debug: Log the coach data structure
+            console.log(`🔍 [ProgramScreen] Coach data for ${coach?.name}:`, {
+              hasCoach: !!coach,
+              coachAvatar: coach?.avatar_url,
+              hasUsers: !!coach?.users,
+              usersType: Array.isArray(coach?.users) ? 'array' : typeof coach?.users,
+              usersData: coach?.users
+            });
+            
+            // Get user avatar URL - handle both object and array cases from Supabase relationship
+            const userAvatarUrl = Array.isArray(coach?.users) 
+              ? coach.users[0]?.avatar_url 
+              : coach?.users?.avatar_url;
+            // Prioritize user avatar over coach avatar
+            let avatarUrl = userAvatarUrl || coach?.avatar_url;
+            
+            console.log(`🖼️ [ProgramScreen] Avatar resolution for ${coach?.name}:`, {
+              userAvatarUrl,
+              coachAvatarUrl: coach?.avatar_url,
+              finalAvatarUrl: avatarUrl
+            });
+            
+            // Convert storage path to public URL if needed (same logic as transformCoachData)
+            if (avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('blob:')) {
+              // It's likely a storage path, convert to public URL
+              try {
+                const { data: { publicUrl } } = supabase.storage
+                  .from('avatars')
+                  .getPublicUrl(avatarUrl);
+                console.log(`🖼️ [ProgramScreen] Converted coach avatar URL for ${coach?.name}: ${avatarUrl} -> ${publicUrl}`);
+                avatarUrl = publicUrl;
+              } catch (error) {
+                console.error('❌ [ProgramScreen] Error converting avatar URL:', error);
+                // Keep original URL if conversion fails
+              }
+            }
+            
+            return {
+              id: cr.coach_id,
+              relationshipId: cr.id,
+              name: coach?.name || 'Coach',
+              user_id: coach?.user_id,
+              avatar_url: avatarUrl, // Use prioritized and converted avatar
+              bio: coach?.bio,
+              dupr_rating: coach?.dupr_rating,
+              is_verified: coach?.is_verified
+            };
+          }));
+        
+        const filteredCoaches = coachesList.filter(c => c.id); // Filter out any null coaches
+        console.log('✅ [ProgramScreen] Coach avatars:', filteredCoaches.map(c => ({ name: c.name, hasAvatar: !!c.avatar_url, avatarUrl: c.avatar_url?.substring(0, 50) + '...' })));
+        
+        setCoaches(filteredCoaches);
+        console.log('✅ [ProgramScreen] Stored', filteredCoaches.length, 'coaches');
+        
+        // Check if user has assessments
+        const { data: assessments, error: assessmentError } = await supabase
+          .from('coach_assessments')
+          .select('id')
+          .eq('student_id', user.id)
+          .limit(1);
+
+        if (!assessmentError && assessments && assessments.length > 0) {
+          setHasAssessment(true);
+        }
+
+        // Load programs assigned by coaches
+        // Query programs created by coaches who have a relationship with this student
+        // Get user_ids from coaches (coaches.user_id is the actual user who created programs)
+        const coachUserIds = coachRelationships
+          .map(cr => cr.coaches?.user_id)
+          .filter(Boolean);
+        
+        if (coachUserIds.length > 0) {
+          const { data: dbCoachPrograms, error: dbError } = await supabase
+            .from('programs')
+            .select(`
+              *,
+              routines (
+                id,
+                name,
+                description,
+                order_index,
+                time_estimate_minutes,
+                is_published,
+                created_at
+              ),
+              creator:users!created_by(name)
+            `)
+            .in('created_by', coachUserIds)
+            .order('created_at', { ascending: false });
+
+          if (dbError) {
+            console.error('❌ [ProgramScreen] Error loading coach programs:', dbError);
+            setCoachProgramsError('Failed to load coach programs');
+            setCoachPrograms([]);
+          } else if (dbCoachPrograms && dbCoachPrograms.length > 0) {
+            console.log('✅ [ProgramScreen] Loaded', dbCoachPrograms.length, 'coach programs');
+            
+            // Transform programs similar to regular programs
+            const transformedCoachPrograms = await Promise.all(dbCoachPrograms.map(async (dbProgram) => {
+              // Load exercises for each routine
+              const routines = await Promise.all((dbProgram.routines || []).map(async (dbRoutine) => {
+                let exercises = [];
+                try {
+                  const { data: routineExercises, error: exerciseError } = await supabase
+                    .from('routine_exercises')
+                    .select(`
+                      id,
+                      order_index,
+                      is_optional,
+                      exercises (
+                        id,
+                        code,
+                        title,
+                        description,
+                        goal_text,
+                        skill_category,
+                        skill_categories_json,
+                        difficulty,
+                        target_type,
+                        target_value,
+                        target_unit,
+                        instructions,
+                        tips_json,
+                        estimated_minutes,
+                        demo_video_url,
+                        demo_image_url,
+                        thumbnail_url,
+                        tier_level,
+                        tags,
+                        is_published,
+                        created_at
+                      )
+                    `)
+                    .eq('routine_id', dbRoutine.id)
+                    .order('order_index', { ascending: true });
+                  
+                  if (!exerciseError && routineExercises) {
+                    exercises = routineExercises.map(re => ({
+                      ...re.exercises,
+                      name: re.exercises.title,
+                      routineExerciseId: re.id,
+                      routine_exercise_id: re.id,
+                      order_index: re.order_index,
+                      is_optional: re.is_optional,
+                      target: re.exercises.target_value && re.exercises.target_unit 
+                        ? `${re.exercises.target_value} ${re.exercises.target_unit}`
+                        : `${re.exercises.target_value || 10} attempts`
+                    }));
+                  }
+                } catch (error) {
+                  console.error('❌ [ProgramScreen] Error loading exercises for routine:', error);
+                }
+                
+                return {
+                  id: dbRoutine.id,
+                  name: dbRoutine.name,
+                  description: dbRoutine.description,
+                  exercises: exercises,
+                  createdAt: dbRoutine.created_at,
+                  order_index: dbRoutine.order_index,
+                  time_estimate_minutes: dbRoutine.time_estimate_minutes,
+                  is_published: dbRoutine.is_published
+                };
+              }));
+
+              return {
+                id: dbProgram.id,
+                name: dbProgram.name,
+                description: dbProgram.description,
+                thumbnail: dbProgram.thumbnail_url ? { uri: dbProgram.thumbnail_url } : null,
+                thumbnailUrl: dbProgram.thumbnail_url,
+                routines: routines,
+                createdAt: dbProgram.created_at,
+                category: dbProgram.category,
+                tier: dbProgram.tier,
+                isPublished: dbProgram.is_published,
+                program_type: dbProgram.program_type,
+                is_shareable: dbProgram.is_shareable,
+                visibility: dbProgram.visibility,
+                coach_name: dbProgram.creator?.name || 'Your Coach'
+              };
+            }));
+            
+            setCoachPrograms(transformedCoachPrograms);
+          } else {
+            console.log('📭 [ProgramScreen] No coach programs found');
+            setCoachPrograms([]);
+          }
+        }
+      } else {
+        setHasCoachRelationship(false);
+        setCoaches([]);
+        console.log('📭 [ProgramScreen] User does not have a coach relationship');
+      }
+    } catch (error) {
+      console.error('💥 [ProgramScreen] Unexpected error loading coach programs:', error);
+      setCoachProgramsError('Failed to load coach programs');
+      setCoachPrograms([]);
+    } finally {
+      setCoachProgramsLoading(false);
+      coachProgramsLoadedRef.current = true;
+    }
+  };
+
+  const navigateToCoachProgram = (program) => {
+    navigation.navigate('ProgramDetail', { 
+      program,
+      source: 'coach' 
+    });
+  };
+
+  const navigateToCoachProfile = (coach) => {
+    // Navigate to PlayerProfileScreen showing the student's own profile (read-only)
+    navigation.navigate('PlayerProfile', {
+      studentId: user.id,
+      student: user,
+      isStudentView: true, // Hide assessment creation/deletion
+      coachName: coach.name // Optional: pass coach name for context
+    });
+  };
+
   // Library tab functions (from ExploreTrainingScreen)
   const fetchLibraryPrograms = async () => {
     // Check if we have preloaded data first
@@ -1261,6 +1580,428 @@ export default function ProgramScreen({ navigation, route }) {
     );
   };
 
+  // Render Coach Program tab content
+  const renderCoachProgramsContent = () => {
+    // Loading state
+    if (coachProgramsLoading) {
+      const spin = coachRotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg'],
+      });
+
+      return (
+        <View style={styles.loadingContainer}>
+          <Animated.Image
+            source={require('../../assets/images/icon_ball.png')}
+            style={[
+              styles.loadingBall,
+              {
+                transform: [{ rotate: spin }],
+              },
+            ]}
+          />
+          <Text style={styles.loadingText}>Loading coach programs...</Text>
+        </View>
+      );
+    }
+
+    // Error state
+    if (coachProgramsError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load coach programs</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadCoachPrograms}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    // No coach relationship - show explanation
+    if (!hasCoachRelationship) {
+      return (
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.coachScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.coachEmptyContent}>
+            {studentCode && (
+              <View style={styles.studentCodeCard}>
+                <View style={styles.studentCodeHeader}>
+                  <Ionicons name="person-circle" size={24} color="#3B82F6" />
+                  <Text style={styles.studentCodeLabel}>Your Student Code</Text>
+                </View>
+                <View style={styles.studentCodeContainer}>
+                  <Text style={styles.studentCodeValue}>{studentCode}</Text>
+                  <TouchableOpacity
+                    style={styles.shareButton}
+                    onPress={async () => {
+                      try {
+                        if (Platform.OS !== 'web') {
+                          await Share.share({
+                            message: studentCode,
+                          });
+                        } else {
+                          // For web, try clipboard API
+                          if (navigator.clipboard) {
+                            await navigator.clipboard.writeText(studentCode);
+                            Alert.alert('Copied!', 'Student code copied to clipboard');
+                          } else {
+                            Alert.alert('Student Code', studentCode);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error sharing student code:', error);
+                        // Fallback: show alert with code
+                        Alert.alert('Your Student Code', studentCode);
+                      }
+                    }}
+                  >
+                    <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.shareButtonText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.stepsContainer}>
+              <View style={styles.stepCard}>
+                <View style={[styles.stepIcon, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="search" size={24} color="#3B82F6" />
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepNumber}>Step 1</Text>
+                  <Text style={styles.stepTitle}>
+                    {studentCode ? 'Share Your Code With Your Certified Coach' : 'Find a Coach'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.stepConnector} />
+
+              <View style={styles.stepCard}>
+                <View style={[styles.stepIcon, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="clipboard-outline" size={24} color="#F59E0B" />
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepNumber}>Step 2</Text>
+                  <Text style={styles.stepTitle}>Complete Assessment To Get Your Score</Text>
+                </View>
+              </View>
+
+              <View style={styles.stepConnector} />
+
+              <View style={styles.stepCard}>
+                <View style={[styles.stepIcon, { backgroundColor: '#D1FAE5' }]}>
+                  <Ionicons name="create-outline" size={24} color="#10B981" />
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepNumber}>Step 3</Text>
+                  <Text style={styles.stepTitle}>Get Your Program And Progress</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      );
+    }
+
+    // Has coach but no assessment yet
+    if (hasCoachRelationship && !hasAssessment) {
+      return (
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+        {/* Coach Cards Section */}
+        {coaches.length > 0 && (
+          <View style={styles.coachesSection}>
+            {coaches.map((coach) => (
+                <TouchableOpacity
+                  key={coach.id}
+                  style={styles.coachCard}
+                  onPress={() => navigateToCoachProfile(coach)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.coachCardContent}>
+                    {coach.avatar_url ? (
+                      <Image 
+                        source={{ uri: coach.avatar_url }} 
+                        style={styles.coachCardAvatar}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.coachCardAvatarFallback}>
+                        <Text style={styles.coachCardAvatarText}>
+                          {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.coachCardInfo}>
+                      <View style={styles.coachCardNameRow}>
+                        <Text style={styles.coachCardName}>{coach.name}</Text>
+                        {coach.is_verified && (
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                        )}
+                      </View>
+                      {coach.dupr_rating && (
+                        <Text style={styles.coachCardSubtext}>DUPR: {coach.dupr_rating}</Text>
+                      )}
+                      {coach.bio && (
+                        <Text style={styles.coachCardBio} numberOfLines={2}>{coach.bio}</Text>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.coachEmptyContent}>
+            <Text style={styles.coachEmptyTitle}>Complete Your Assessment</Text>
+            <Text style={styles.coachEmptyDescription}>
+              You're connected with a coach! Complete your skill assessment to receive personalized training programs.
+            </Text>
+
+            <View style={styles.quickInfoCards}>
+              <View style={styles.quickInfoCard}>
+                <Ionicons name="calendar-outline" size={32} color="#3B82F6" />
+                <Text style={styles.quickInfoTitle}>Schedule</Text>
+                <Text style={styles.quickInfoText}>Your coach will schedule an assessment session</Text>
+              </View>
+              <View style={styles.quickInfoCard}>
+                <Ionicons name="analytics-outline" size={32} color="#10B981" />
+                <Text style={styles.quickInfoTitle}>Evaluate</Text>
+                <Text style={styles.quickInfoText}>Your coach will evaluate your skills</Text>
+              </View>
+              <View style={styles.quickInfoCard}>
+                <Ionicons name="document-text-outline" size={32} color="#F59E0B" />
+                <Text style={styles.quickInfoTitle}>Create</Text>
+                <Text style={styles.quickInfoText}>Custom programs based on results</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      );
+    }
+
+    // Has coach and assessment but no programs yet - just show coaches and student code
+    if (coachPrograms.length === 0) {
+      return (
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Coach Cards Section */}
+          {coaches.length > 0 && (
+            <View style={styles.coachesSection}>
+              {coaches.map((coach) => (
+                <TouchableOpacity
+                  key={coach.id}
+                  style={styles.coachCard}
+                  onPress={() => navigateToCoachProfile(coach)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.coachCardContent}>
+                    {coach.avatar_url ? (
+                      <Image 
+                        source={{ uri: coach.avatar_url }} 
+                        style={styles.coachCardAvatar}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View style={styles.coachCardAvatarFallback}>
+                        <Text style={styles.coachCardAvatarText}>
+                          {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.coachCardInfo}>
+                      <View style={styles.coachCardNameRow}>
+                        <Text style={styles.coachCardName}>{coach.name}</Text>
+                        {coach.is_verified && (
+                          <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                        )}
+                      </View>
+                      {coach.dupr_rating && (
+                        <Text style={styles.coachCardSubtext}>DUPR: {coach.dupr_rating}</Text>
+                      )}
+                      {coach.bio && (
+                        <Text style={styles.coachCardBio} numberOfLines={2}>{coach.bio}</Text>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+              
+              {/* Student Code Display */}
+              {studentCode && (
+                <View style={styles.studentCodeCard}>
+                  <View style={styles.studentCodeHeader}>
+                    <Ionicons name="person-circle" size={24} color="#3B82F6" />
+                    <Text style={styles.studentCodeLabel}>Your Student Code</Text>
+                  </View>
+                  <View style={styles.studentCodeContainer}>
+                    <Text style={styles.studentCodeValue}>{studentCode}</Text>
+                    <TouchableOpacity
+                      style={styles.shareButton}
+                      onPress={async () => {
+                        try {
+                          if (Platform.OS !== 'web') {
+                            await Share.share({
+                              message: studentCode,
+                            });
+                          } else {
+                            // For web, try clipboard API
+                            if (navigator.clipboard) {
+                              await navigator.clipboard.writeText(studentCode);
+                              Alert.alert('Copied!', 'Student code copied to clipboard');
+                            } else {
+                              Alert.alert('Student Code', studentCode);
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error sharing student code:', error);
+                          // Fallback: show alert with code
+                          Alert.alert('Your Student Code', studentCode);
+                        }
+                      }}
+                    >
+                      <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                      <Text style={styles.shareButtonText}>Share</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+          
+          {/* No Programs Message */}
+          <View style={styles.coachEmptyContent}>
+            <Text style={styles.coachEmptyDescription}>
+              Tap on your coach above to view programs when they become available.
+            </Text>
+          </View>
+          
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      );
+    }
+
+    // Show coach programs
+    return (
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={loadCoachPrograms}
+            tintColor="#3B82F6"
+            colors={["#3B82F6"]}
+          />
+        }
+      >
+        {/* Coach Cards Section */}
+        {coaches.length > 0 && (
+          <View style={styles.coachesSection}>
+            {coaches.map((coach) => (
+              <TouchableOpacity
+                key={coach.id}
+                style={styles.coachCard}
+                onPress={() => navigateToCoachProfile(coach)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.coachCardContent}>
+                  {coach.avatar_url ? (
+                    <Image 
+                      source={{ uri: coach.avatar_url }} 
+                      style={styles.coachCardAvatar}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.coachCardAvatarFallback}>
+                      <Text style={styles.coachCardAvatarText}>
+                        {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.coachCardInfo}>
+                    <View style={styles.coachCardNameRow}>
+                      <Text style={styles.coachCardName}>{coach.name}</Text>
+                      {coach.is_verified && (
+                        <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                      )}
+                    </View>
+                    {coach.dupr_rating && (
+                      <Text style={styles.coachCardSubtext}>DUPR: {coach.dupr_rating}</Text>
+                    )}
+                    {coach.bio && (
+                      <Text style={styles.coachCardBio} numberOfLines={2}>{coach.bio}</Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </View>
+              </TouchableOpacity>
+            ))}
+            
+            {/* Student Code Display */}
+            {studentCode && (
+              <View style={styles.studentCodeCard}>
+                <View style={styles.studentCodeHeader}>
+                  <Ionicons name="person-circle" size={24} color="#3B82F6" />
+                  <Text style={styles.studentCodeLabel}>Your Student Code</Text>
+                </View>
+                <View style={styles.studentCodeContainer}>
+                  <Text style={styles.studentCodeValue}>{studentCode}</Text>
+                  <TouchableOpacity
+                    style={styles.shareButton}
+                    onPress={async () => {
+                      try {
+                        if (Platform.OS !== 'web') {
+                          await Share.share({
+                            message: studentCode,
+                          });
+                        } else {
+                          // For web, try clipboard API
+                          if (navigator.clipboard) {
+                            await navigator.clipboard.writeText(studentCode);
+                            Alert.alert('Copied!', 'Student code copied to clipboard');
+                          } else {
+                            Alert.alert('Student Code', studentCode);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error sharing student code:', error);
+                        // Fallback: show alert with code
+                        Alert.alert('Your Student Code', studentCode);
+                      }
+                    }}
+                  >
+                    <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                    <Text style={styles.shareButtonText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Programs are now shown in player profile when tapping a coach */}
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
+
   // Render Library tab content (ExploreTrainingScreen content)
   const renderLibraryContent = () => {
     // Loading state
@@ -1355,12 +2096,6 @@ export default function ProgramScreen({ navigation, route }) {
           />
         }
       >
-        {/* Library Header */}
-        <View style={styles.libraryHeaderContainer}>
-          <Text style={styles.libraryHeaderTitle}>Library</Text>
-          <Text style={styles.libraryExerciseCount}>{exerciseCount} exercises</Text>
-        </View>
-
         {/* Dynamically render all categories */}
         {categories.map((category) => {
           const categoryPrograms = explorePrograms.filter(p => p.category === category);
@@ -1463,11 +2198,12 @@ export default function ProgramScreen({ navigation, route }) {
       {programs.length === 0 ? (
         <View style={styles.emptyCustomList}>
           <Text style={styles.emptyCustomListIcon}>✨</Text>
-          <Text style={styles.emptyCustomListTitle}>Get Started with AI</Text>
+          <Text style={styles.emptyCustomListTitle}>Get Started</Text>
           <Text style={styles.emptyCustomListDescription}>
-            Let our AI create a personalized training program based on your DUPR rating and focus areas. Get started in seconds!
+            Create your first custom training program to get started!
           </Text>
-          <TouchableOpacity
+          {/* AI Generation temporarily hidden */}
+          {/* <TouchableOpacity
             style={styles.aiGenerateButtonLarge}
             onPress={generateAIProgramHandler}
             disabled={isGeneratingAI}
@@ -1475,13 +2211,13 @@ export default function ProgramScreen({ navigation, route }) {
             <Text style={styles.aiGenerateButtonLargeText}>
               {isGeneratingAI ? 'Creating Your Program...' : 'Generate Your AI Program'}
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           
           <TouchableOpacity
             style={styles.addFirstProgramButtonSecondary}
             onPress={() => setShowCreateProgramModal(true)}
           >
-            <Text style={styles.addFirstProgramButtonSecondaryText}>Or create custom program</Text>
+            <Text style={styles.addFirstProgramButtonSecondaryText}>Create your first program</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -1566,7 +2302,8 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
           ))}
 
-          {!hasAIProgram ? (
+          {/* AI Generation buttons temporarily hidden */}
+          {/* {!hasAIProgram ? (
             <TouchableOpacity
               style={styles.aiGenerateButton}
               onPress={generateAIProgramHandler}
@@ -1588,7 +2325,7 @@ export default function ProgramScreen({ navigation, route }) {
                 {isGeneratingAI ? 'Updating...' : 'Update Your AI Program'}
               </Text>
             </TouchableOpacity>
-          )}
+          )} */}
 
           <TouchableOpacity
             style={styles.addMoreProgramsButton}
@@ -1614,6 +2351,15 @@ export default function ProgramScreen({ navigation, route }) {
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={styles.tab}
+              onPress={() => setCurrentView('coach')}
+            >
+              <Text style={[styles.tabText, currentView === 'coach' && styles.activeTabText]}>
+                Coach Program
+              </Text>
+              {currentView === 'coach' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tab}
               onPress={() => setCurrentView('programs')}
             >
               <Text style={[styles.tabText, currentView === 'programs' && styles.activeTabText]}>
@@ -1634,7 +2380,9 @@ export default function ProgramScreen({ navigation, route }) {
         </View>
       </View>
       
-      {currentView === 'library' ? (
+      {currentView === 'coach' ? (
+        renderCoachProgramsContent()
+      ) : currentView === 'library' ? (
         renderLibraryContent()
       ) : isLoadingPrograms ? (
         renderLoadingScreen()
@@ -1936,21 +2684,33 @@ const styles = StyleSheet.create({
   programThumbnailContainer: {
     width: getThumbnailSize(width, height).width,
     height: getThumbnailSize(width, height).height,
-    borderRadius: 8,
+    borderRadius: 12,
     marginRight: (width === 768 && height >= 1024) ? 20 : 16, // More spacing for iPad portrait
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   programThumbnail: {
     width: '100%',
     height: '100%',
+    borderRadius: 12,
   },
   programPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
   },
   programInfo: {
     flex: 1,
@@ -2345,6 +3105,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   libraryProgramThumbnail: {
     width: '100%',
@@ -2353,9 +3116,12 @@ const styles = StyleSheet.create({
   libraryPlaceholderThumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F9FAFB',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
   },
   libraryPlaceholderText: {
     fontSize: 14,
@@ -2424,5 +3190,326 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  // Coach Program tab styles
+  coachScrollContent: {
+    flexGrow: 1,
+    paddingTop: 19, // Reduced by 40% from 32
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+  },
+  coachEmptyContent: {
+    paddingHorizontal: 32,
+    paddingTop: 14, // Reduced by 40% from 24
+    paddingBottom: 24,
+    alignItems: 'center',
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  coachEmptyIcon: {
+    fontSize: 64,
+    marginBottom: 24,
+  },
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  coachEmptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  coachEmptyDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  // Steps visual guide
+  stepsContainer: {
+    width: '100%',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  stepCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  stepIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepNumber: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  stepTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  stepConnector: {
+    width: 2,
+    height: 16,
+    backgroundColor: '#E5E7EB',
+    marginLeft: 28,
+    marginBottom: 4,
+  },
+  // Quick info cards
+  quickInfoCards: {
+    width: '100%',
+    marginTop: 24,
+    gap: 12,
+  },
+  quickInfoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  quickInfoTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  quickInfoText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Status indicator
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3B82F6',
+    marginRight: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  coachProgramsHeader: {
+    paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  coachProgramsTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  coachProgramsSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  coachProgramHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  coachBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  coachBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  // Student code card styles
+  studentCodeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  studentCodeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  studentCodeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  studentCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  studentCodeValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1F2937',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    letterSpacing: 4,
+  },
+  shareButton: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minWidth: 80,
+  },
+  shareButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // Coaches section styles
+  coachesSection: {
+    paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16,
+    paddingTop: 24,
+    paddingBottom: 16,
+    marginBottom: 8,
+  },
+  coachesSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  coachCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  coachCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  coachCardAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  coachCardAvatarFallback: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coachCardAvatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  coachCardInfo: {
+    flex: 1,
+  },
+  coachCardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  coachCardName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  coachCardSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  coachCardBio: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginTop: 4,
   },
 });

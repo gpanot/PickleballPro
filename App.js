@@ -39,6 +39,7 @@ import SplashScreen from './src/screens/SplashScreen';
 import AdminRoute from './src/components/AdminRoute';
 import AppSettingsScreen from './src/screens/AppSettingsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
+import PlayerProfileScreen from './src/screens/coach/PlayerProfileScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -213,6 +214,11 @@ function AppContent() {
             <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
             <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
             <Stack.Screen 
+              name="PlayerProfile" 
+              component={PlayerProfileScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
               options={{ headerShown: false }}
@@ -308,6 +314,11 @@ function AppContent() {
                 <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
                 <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
                 <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
+                <Stack.Screen 
+                  name="PlayerProfile" 
+                  component={PlayerProfileScreen}
+                  options={{ headerShown: false }}
+                />
                 <Stack.Screen 
                   name="Profile" 
                   component={ProfileScreen}

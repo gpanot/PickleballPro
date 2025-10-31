@@ -681,30 +681,34 @@ export default function CoachScreen() {
     </View>
   );
 
-  const renderCoachCard = (coach) => (
+  const renderCoachCard = (coach) => {
+    // Check if coach has a valid image URL
+    const hasValidImage = coach.image && 
+      (coach.image.startsWith('http') || coach.image.startsWith('blob:'));
+    
+    return (
       <View key={coach.id} style={styles.coachCard}>
         <View style={styles.coachHeader}>
           <TouchableOpacity 
-          style={styles.coachAvatar}
-          onPress={() => handleAvatarPress(coach)}
-          activeOpacity={0.7}
-        >
-            {coach.image ? (
-            <Image 
-              source={{ uri: coach.image }} 
-              style={styles.coachAvatarImage}
-              resizeMode="cover"
-              onError={(error) => {
-                console.log('Failed to load coach avatar:', coach.image, error);
-              }}
-              defaultSource={require('../../assets/images/icon.png')} // Fallback image
-            />
-          ) : (
-            <Text style={styles.coachAvatarText}>
-              {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-            </Text>
-          )}
-        </TouchableOpacity>
+            style={styles.coachAvatar}
+            onPress={() => handleAvatarPress(coach)}
+            activeOpacity={0.7}
+          >
+            {hasValidImage ? (
+              <Image 
+                source={{ uri: coach.image }} 
+                style={styles.coachAvatarImage}
+                resizeMode="cover"
+                onError={(error) => {
+                  console.log('❌ Failed to load coach avatar:', coach.name, coach.image, error);
+                }}
+              />
+            ) : (
+              <Text style={styles.coachAvatarText}>
+                {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+              </Text>
+            )}
+          </TouchableOpacity>
         
         <View style={styles.coachInfo}>
           <View style={styles.coachNameRow}>
@@ -779,10 +783,15 @@ export default function CoachScreen() {
         <Text style={styles.contactButtonText}>Contact Coach</Text>
       </TouchableOpacity>
     </View>
-  );
+    );
+  };
 
   const renderAvatarModal = () => {
     if (!selectedAvatarCoach) return null;
+    
+    // Check if coach has a valid image URL
+    const hasValidImage = selectedAvatarCoach.image && 
+      (selectedAvatarCoach.image.startsWith('http') || selectedAvatarCoach.image.startsWith('blob:'));
     
     return (
       <Modal
@@ -806,13 +815,13 @@ export default function CoachScreen() {
               </TouchableOpacity>
               
               <View style={styles.avatarModalContent}>
-                {selectedAvatarCoach.image ? (
+                {hasValidImage ? (
                   <Image 
                     source={{ uri: selectedAvatarCoach.image }} 
                     style={styles.avatarModalImage}
                     resizeMode="contain"
                     onError={(error) => {
-                      console.log('Failed to load coach avatar in modal:', selectedAvatarCoach.image, error);
+                      console.log('❌ Failed to load coach avatar in modal:', selectedAvatarCoach.name, selectedAvatarCoach.image, error);
                     }}
                   />
                 ) : (

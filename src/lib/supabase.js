@@ -369,7 +369,12 @@ export const getCoaches = async (filters = {}) => {
   try {
     let query = supabase
       .from('coaches')
-      .select('*')
+      .select(`
+        *,
+        users:user_id (
+          avatar_url
+        )
+      `)
       .eq('is_active', true);
     
     if (filters.location) {
@@ -681,31 +686,61 @@ export const transformProgramData = (programs) => {
 
 // Helper function to transform coach data to match your current app structure
 export const transformCoachData = (coaches) => {
-  return coaches.map(coach => ({
-    id: coach.id,
-    name: coach.name,
-    bio: coach.bio,
-    duprRating: coach.dupr_rating,
-    hourlyRate: coach.hourly_rate ? 
-      (coach.currency === 'VND' ? coach.hourly_rate : coach.hourly_rate / 100) : 0, // VND as-is, USD from cents
-    currency: coach.currency || 'USD', // Default to USD if not specified
-    rating: coach.rating_avg,
-    reviewCount: coach.rating_count,
-    specialties: coach.specialties,
-    location: coach.latitude && coach.longitude 
-      ? `${coach.location} (${coach.latitude},${coach.longitude})`
-      : coach.location,
-    latitude: coach.latitude,
-    longitude: coach.longitude,
-    verified: coach.is_verified,
-    image: coach.avatar_url,
-    phone: coach.phone,
-    messagingPreferences: coach.messaging_preferences || {
-      whatsapp: false,
-      imessage: false,
-      zalo: false
+  return coaches.map(coach => {
+    // Get user avatar URL - prioritize user avatar over coach avatar (same as AdminDashboard)
+    // Handle both object and array cases from Supabase relationship
+    const userAvatarUrl = Array.isArray(coach.users) 
+      ? coach.users[0]?.avatar_url 
+      : coach.users?.avatar_url;
+    
+    // Prioritize user avatar over coach avatar
+    let avatarUrl = userAvatarUrl || coach.avatar_url;
+    
+    // Convert storage path to public URL if needed
+    if (avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('blob:')) {
+      // It's likely a storage path, convert to public URL
+      try {
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(avatarUrl);
+        console.log(`🖼️ Converted coach avatar URL for ${coach.name}: ${avatarUrl} -> ${publicUrl}`);
+        avatarUrl = publicUrl;
+      } catch (error) {
+        console.error('❌ Error converting avatar URL:', error);
+        // Keep original URL if conversion fails
+      }
+    } else if (avatarUrl) {
+      console.log(`🖼️ Coach ${coach.name} has avatar URL: ${avatarUrl}`);
+    } else {
+      console.log(`⚠️ Coach ${coach.name} has no avatar_url`);
     }
-  }));
+    
+    return {
+      id: coach.id,
+      name: coach.name,
+      bio: coach.bio,
+      duprRating: coach.dupr_rating,
+      hourlyRate: coach.hourly_rate ? 
+        (coach.currency === 'VND' ? coach.hourly_rate : coach.hourly_rate / 100) : 0, // VND as-is, USD from cents
+      currency: coach.currency || 'USD', // Default to USD if not specified
+      rating: coach.rating_avg,
+      reviewCount: coach.rating_count,
+      specialties: coach.specialties,
+      location: coach.latitude && coach.longitude 
+        ? `${coach.location} (${coach.latitude},${coach.longitude})`
+        : coach.location,
+      latitude: coach.latitude,
+      longitude: coach.longitude,
+      verified: coach.is_verified,
+      image: avatarUrl,
+      phone: coach.phone,
+      messagingPreferences: coach.messaging_preferences || {
+        whatsapp: false,
+        imessage: false,
+        zalo: false
+      }
+    };
+  });
 };
 
 // Coach functions

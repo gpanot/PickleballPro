@@ -20,7 +20,7 @@ const PRIMARY_COLOR = '#27AE60';
 const SECONDARY_COLOR = '#F4F5F7';
 
 export default function PlayerProfileScreen({ route, navigation }) {
-  const { studentId, student } = route.params;
+  const { studentId, student, isStudentView } = route.params || {};
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   
@@ -458,9 +458,11 @@ function SparkLine({ values, color, height = 64, style }) {
                 <View style={styles.emptyState}>
                   <Ionicons name="document-outline" size={48} color="#D1D5DB" />
                   <Text style={styles.emptyText}>No assessments yet</Text>
-                  <TouchableOpacity style={styles.emptyButton} onPress={handleStartAssessment}>
-                    <Text style={styles.emptyButtonText}>Start First Assessment</Text>
-                  </TouchableOpacity>
+                  {!isStudentView && (
+                    <TouchableOpacity style={styles.emptyButton} onPress={handleStartAssessment}>
+                      <Text style={styles.emptyButtonText}>Start First Assessment</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : (
                 <>
@@ -469,7 +471,7 @@ function SparkLine({ values, color, height = 64, style }) {
                       key={assessment.id}
                       style={styles.assessmentCard}
                       onPress={() => handleViewAssessment(assessment)}
-                      onLongPress={() => confirmDeleteAssessment(assessment)}
+                      onLongPress={!isStudentView ? () => confirmDeleteAssessment(assessment) : undefined}
                       delayLongPress={400}
                     >
                       <View style={styles.assessmentHeader}>
@@ -492,12 +494,14 @@ function SparkLine({ values, color, height = 64, style }) {
                       )}
                     </TouchableOpacity>
                   ))}
-                  <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
-                    <TouchableOpacity style={styles.primaryButton} onPress={handleStartAssessment}>
-                      <Ionicons name="clipboard-outline" size={20} color="white" />
-                      <Text style={styles.primaryButtonText}>Start New Assessment</Text>
-                    </TouchableOpacity>
-                  </View>
+                  {!isStudentView && (
+                    <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+                      <TouchableOpacity style={styles.primaryButton} onPress={handleStartAssessment}>
+                        <Ionicons name="clipboard-outline" size={20} color="white" />
+                        <Text style={styles.primaryButtonText}>Start New Assessment</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </>
               )}
             </View>

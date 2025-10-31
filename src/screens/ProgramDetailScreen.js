@@ -673,8 +673,8 @@ export default function ProgramDetailScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
 
-          {/* Sharing Section - Only show for owned programs (not from explore) */}
-          {source !== 'explore' && (
+          {/* Sharing Section - Only show for owned programs (not from explore or library) */}
+          {source !== 'explore' && source !== 'library' && (
             <View style={styles.sharingSection}>
               <TouchableOpacity 
                 style={styles.sharingSectionHeader}

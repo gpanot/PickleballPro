@@ -111,6 +111,8 @@ export default function AdminDashboard({ navigation }) {
   const [selectedUserForLogbook, setSelectedUserForLogbook] = useState(null);
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [coachToDelete, setCoachToDelete] = useState(null);
+  const [showDeleteCoachConfirmation, setShowDeleteCoachConfirmation] = useState(false);
   
 
   // Web responsiveness
@@ -358,11 +360,31 @@ export default function AdminDashboard({ navigation }) {
     try {
       const { data, error } = await supabase
         .from('coaches')
-        .select('*')
+        .select(`
+          *,
+          users:user_id (
+            id,
+            avatar_url
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCoaches(data || []);
+      
+      // Filter out reset coaches (coaches that have been "deleted" - reset to new profile state)
+      // A reset coach is one where name is null/empty or is_active is explicitly false
+      const activeCoaches = (data || []).filter(coach => {
+        // Must have a valid name
+        const hasName = coach.name && typeof coach.name === 'string' && coach.name.trim() !== '';
+        // Must be explicitly active (not false, null, or undefined)
+        const isActive = coach.is_active === true;
+        // Only include coaches that have both a name and are active
+        return hasName && isActive;
+      });
+      
+      console.log(`📊 Filtered coaches: ${(data || []).length} total, ${activeCoaches.length} active`);
+      
+      setCoaches(activeCoaches);
 
       // Calculate coach stats
       if (data) {
@@ -2006,15 +2028,24 @@ export default function AdminDashboard({ navigation }) {
         <View style={[styles.modernTableCell, { flex: 2 }]}>
           <View style={styles.coachInfoContainer}>
             <View style={styles.coachAvatar}>
-              {coach.avatar_url ? (
-                <Image 
-                  source={{ uri: coach.avatar_url }} 
-                  style={styles.coachAvatarImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={styles.coachAvatarText}>{getCoachInitials(coach.name)}</Text>
-              )}
+              {(() => {
+                // Get user avatar URL - prioritize user avatar over coach avatar
+                // Handle both object and array cases from Supabase relationship
+                const userAvatarUrl = Array.isArray(coach.users) 
+                  ? coach.users[0]?.avatar_url 
+                  : coach.users?.avatar_url;
+                const avatarUrl = userAvatarUrl || coach.avatar_url;
+                
+                return avatarUrl ? (
+                  <Image 
+                    source={{ uri: avatarUrl }} 
+                    style={styles.coachAvatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.coachAvatarText}>{getCoachInitials(coach.name)}</Text>
+                );
+              })()}
               {coach.is_verified && (
                 <View style={styles.verifiedIcon}>
                   <Ionicons name="checkmark" size={10} color="#FFFFFF" />
@@ -2112,9 +2143,32 @@ export default function AdminDashboard({ navigation }) {
             >
               <Ionicons name="create-outline" size={16} color="#6B7280" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.modernActionButton}>
-              <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
-            </TouchableOpacity>
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity 
+                style={styles.modernActionButton}
+                onPress={() => {
+                  const newDropdown = activeDropdown === `coach_${coach.id}` ? null : `coach_${coach.id}`;
+                  console.log('⋯ Three dots clicked for coach:', coach.name, 'Setting dropdown to:', newDropdown);
+                  setActiveDropdown(newDropdown);
+                }}
+              >
+                <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
+              </TouchableOpacity>
+              {activeDropdown === `coach_${coach.id}` && (
+                <View style={styles.dropdownMenu}>
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      console.log('🗑️ Delete button clicked for coach:', coach.name, coach.id);
+                      handleDeleteCoach(coach);
+                    }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    <Text style={styles.dropdownItemTextDelete}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -2739,6 +2793,158 @@ export default function AdminDashboard({ navigation }) {
     console.log('❌ User cancelled exercise delete');
     setShowDeleteExerciseConfirmation(false);
     setExerciseToDelete(null);
+  };
+
+  const handleDeleteCoach = (coach) => {
+    console.log('🗑️ Delete coach clicked:', coach.name, coach.id);
+    setCoachToDelete(coach);
+    setShowDeleteCoachConfirmation(true);
+    setActiveDropdown(null);
+  };
+
+  const handleConfirmDeleteCoach = async () => {
+    if (!coachToDelete) return;
+    
+    console.log('✅ User confirmed coach delete - starting reset process');
+    
+    try {
+      console.log('🔄 Setting loading to true');
+      setLoading(true);
+      setShowDeleteCoachConfirmation(false);
+      
+      console.log('🎯 Coach details:', {
+        id: coachToDelete.id,
+        name: coachToDelete.name,
+        type: typeof coachToDelete.id
+      });
+      
+      console.log('👤 Current user check:', user?.id);
+      
+      // Check user admin status first
+      console.log('🔍 Checking user admin status...');
+      const { data: userProfile, error: userError } = await supabase
+        .from('users')
+        .select('is_admin, id, email')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('👥 User profile check result:', { userProfile, userError });
+      
+      if (userError) {
+        console.error('❌ Error checking user profile:', userError);
+        throw new Error(`User profile check failed: ${userError.message}`);
+      }
+      
+      if (!userProfile?.is_admin) {
+        console.error('❌ User is not admin:', userProfile);
+        throw new Error('You do not have admin privileges');
+      }
+      
+      console.log('✅ User is admin, proceeding with coach reset');
+      
+      // Reset all coach fields to default/null values (like a new profile)
+      // Start with is_active = false to hide from view, then clear other fields
+      console.log('🚀 Resetting coach profile...');
+      
+      // First, set is_active to false to immediately hide from the list
+      const updatePayload = {
+        email: null,
+        bio: null,
+        avatar_url: null,
+        location: null,
+        specialties: null,
+        hourly_rate: null,
+        rating_avg: null,
+        rating_count: null,
+        dupr_rating: null,
+        is_verified: false,
+        is_active: false, // This is the critical field - must be false
+        updated_at: new Date().toISOString(),
+        name: '' // Try to clear name (may fail if NOT NULL constraint exists)
+      };
+      
+      const { data: updateData, error: resetError } = await supabase
+        .from('coaches')
+        .update(updatePayload)
+        .eq('id', coachToDelete.id)
+        .select(); // Select to verify the update
+
+      console.log('📥 Reset result:', { updateData, resetError });
+
+      if (resetError) {
+        console.error('❌ Reset error:', resetError);
+        // If name constraint is the issue, try again without clearing name
+        if (resetError.message?.includes('name') || resetError.message?.includes('NOT NULL')) {
+          console.log('⚠️ Name field has constraint, retrying without clearing name...');
+          const { name, ...retryPayload } = updatePayload; // Remove name from retry
+          const { data: retryData, error: retryError } = await supabase
+            .from('coaches')
+            .update(retryPayload)
+            .eq('id', coachToDelete.id)
+            .select();
+            
+          if (retryError) {
+            throw retryError;
+          }
+          
+          console.log('✅ Retry successful:', retryData);
+          const updatedCoach = retryData[0];
+          console.log('✅ Coach reset verification:', {
+            id: updatedCoach.id,
+            name: updatedCoach.name,
+            is_active: updatedCoach.is_active
+          });
+          
+          Alert.alert('Success', `Coach "${coachToDelete.name}" has been reset and removed from the management view.`);
+          fetchCoaches();
+          return;
+        }
+        throw resetError;
+      }
+
+      // Verify the update was successful
+      if (!updateData || updateData.length === 0) {
+        throw new Error('Coach reset failed - no rows were updated');
+      }
+
+      const updatedCoach = updateData[0];
+      console.log('✅ Coach reset verification:', {
+        id: updatedCoach.id,
+        name: updatedCoach.name || '(cleared)',
+        is_active: updatedCoach.is_active
+      });
+      
+      // Double-check that is_active was set to false
+      if (updatedCoach.is_active !== false) {
+        console.error('⚠️ Warning: is_active was not set to false!', updatedCoach);
+        // Force it to false in another update
+        await supabase
+          .from('coaches')
+          .update({ is_active: false })
+          .eq('id', coachToDelete.id);
+      }
+
+      console.log('🎉 Coach reset successful');
+      Alert.alert('Success', `Coach "${coachToDelete.name}" has been reset and removed from the management view.`);
+      
+      console.log('🔄 Refreshing coaches list...');
+      fetchCoaches();
+      
+    } catch (error) {
+      console.error('💥 Error in reset process:', error);
+      console.error('💥 Error stack:', error.stack);
+      Alert.alert('Error', `Failed to reset coach: ${error.message}`);
+    } finally {
+      console.log('🏁 Cleaning up - setting loading false and resetting states');
+      setLoading(false);
+      setCoachToDelete(null);
+    }
+  };
+
+  const handleCancelDeleteCoach = () => {
+    console.log('❌ User cancelled coach delete');
+    setShowDeleteCoachConfirmation(false);
+    setCoachToDelete(null);
   };
 
   const handleCoachCreated = () => {
@@ -3500,6 +3706,45 @@ export default function AdminDashboard({ navigation }) {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.deleteModalConfirmText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Delete Coach Confirmation Modal */}
+      {showDeleteCoachConfirmation && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={24} color="#EF4444" />
+              <Text style={styles.deleteModalTitle}>Delete Coach</Text>
+            </View>
+            
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to reset "{coachToDelete?.name}"? 
+              {'\n\n'}
+              This will reset all coach information to a new profile state. The coach will no longer be visible in Coach Management. This action cannot be undone.
+            </Text>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity 
+                style={styles.deleteModalCancelButton}
+                onPress={handleCancelDeleteCoach}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.deleteModalConfirmButton}
+                onPress={handleConfirmDeleteCoach}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.deleteModalConfirmText}>Reset Coach</Text>
                 )}
               </TouchableOpacity>
             </View>
