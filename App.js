@@ -40,6 +40,11 @@ import AdminRoute from './src/components/AdminRoute';
 import AppSettingsScreen from './src/screens/AppSettingsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import PlayerProfileScreen from './src/screens/coach/PlayerProfileScreen';
+import EvaluationSummaryScreen from './src/screens/coach/EvaluationSummaryScreen';
+import GamePlayedListScreen from './src/screens/GamePlayedListScreen';
+import DoublesSetupScreen from './src/screens/DoublesSetupScreen';
+import SixPointTrackerScreen from './src/screens/6PointTrackerScreen';
+import SixPointSummaryScreen from './src/screens/6PointSummaryScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -219,6 +224,11 @@ function AppContent() {
               options={{ headerShown: false }}
             />
             <Stack.Screen 
+              name="EvaluationSummary" 
+              component={EvaluationSummaryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
               options={{ headerShown: false }}
@@ -246,6 +256,26 @@ function AppContent() {
             <Stack.Screen 
               name="HelpSupport" 
               component={HelpSupportScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="GamePlayedList" 
+              component={GamePlayedListScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="DoublesSetup" 
+              component={DoublesSetupScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="SixPointTracker" 
+              component={SixPointTrackerScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="SixPointSummary" 
+              component={SixPointSummaryScreen}
               options={{ headerShown: false }}
             />
           </>
@@ -320,6 +350,11 @@ function AppContent() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen 
+                  name="EvaluationSummary" 
+                  component={EvaluationSummaryScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
                   name="Profile" 
                   component={ProfileScreen}
                   options={{ headerShown: false }}
@@ -337,6 +372,26 @@ function AppContent() {
                 <Stack.Screen 
                   name="HelpSupport" 
                   component={HelpSupportScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="GamePlayedList" 
+                  component={GamePlayedListScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="DoublesSetup" 
+                  component={DoublesSetupScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="SixPointTracker" 
+                  component={SixPointTrackerScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="SixPointSummary" 
+                  component={SixPointSummaryScreen}
                   options={{ headerShown: false }}
                 />
               </>

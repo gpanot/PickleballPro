@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
-import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase } from '../../lib/supabase';
+import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase, transformProgramData } from '../../lib/supabase';
 
 const PRIMARY_COLOR = '#27AE60';
 const SECONDARY_COLOR = '#F4F5F7';
@@ -36,6 +36,14 @@ export default function CoachDashboardScreen({ navigation }) {
   const [studentCodeInput, setStudentCodeInput] = useState('');
   const [addingStudent, setAddingStudent] = useState(false);
   
+  // Tab state
+  const [activeTab, setActiveTab] = useState('students'); // 'students' or 'programs'
+  
+  // Programs state
+  const [coachPrograms, setCoachPrograms] = useState([]);
+  const [programsLoading, setProgramsLoading] = useState(false);
+  const [programsError, setProgramsError] = useState(null);
+  
   // Removed stats state (Active programs / Avg skill / Upcoming assessments)
 
   useEffect(() => {
@@ -47,6 +55,13 @@ export default function CoachDashboardScreen({ navigation }) {
     if (!isFocused) return;
     checkCoachAndLoadData(); // Always refresh and verify when focused
   }, [isFocused]);
+
+  // Load programs when switching to Programs tab if not already loaded
+  useEffect(() => {
+    if (activeTab === 'programs' && coachPrograms.length === 0 && !programsLoading && coachId) {
+      loadCoachPrograms();
+    }
+  }, [activeTab, coachId]);
 
   const checkCoachAndLoadData = async () => {
     if (!authUser?.id) return;
@@ -60,7 +75,10 @@ export default function CoachDashboardScreen({ navigation }) {
       }
       
       setCoachId(id);
-      await loadStudents(id);
+      await Promise.all([
+        loadStudents(id),
+        loadCoachPrograms()
+      ]);
     } catch (error) {
       console.error('Error checking coach access:', error);
       Alert.alert('Error', 'Failed to load coach dashboard.');
@@ -97,13 +115,20 @@ export default function CoachDashboardScreen({ navigation }) {
       if (studentIds.length > 0) {
         const { data: assessmentsData, error: assessErr } = await supabase
           .from('coach_assessments')
-          .select('id, student_id, total_score, max_score, created_at')
+          .select('id, student_id, total_score, max_score, created_at, skills_data')
           .in('student_id', studentIds)
           .eq('coach_id', currentCoachId)
           .order('created_at', { ascending: false });
         if (!assessErr && assessmentsData) {
+          // Helper function to check if an assessment is a First Time Assessment
+          const isFirstTimeAssessment = (assessment) => {
+            return assessment?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
+          };
+          
+          // Filter out First Time Assessments and get latest for each student
+          const filteredAssessments = assessmentsData.filter(a => !isFirstTimeAssessment(a));
           const latestByStudent = new Map();
-          for (const row of assessmentsData) {
+          for (const row of filteredAssessments) {
             if (!latestByStudent.has(row.student_id)) {
               latestByStudent.set(row.student_id, row);
             }
@@ -128,6 +153,65 @@ export default function CoachDashboardScreen({ navigation }) {
   };
 
   // Removed loadStats function and related queries
+
+  const loadCoachPrograms = async () => {
+    try {
+      // Don't set loading if already refreshing (to avoid double spinners)
+      if (!refreshing) {
+        setProgramsLoading(true);
+      }
+      setProgramsError(null);
+      
+      const { data, error } = await supabase
+        .from('programs')
+        .select(`
+          id,
+          name,
+          description,
+          category,
+          tier,
+          thumbnail_url,
+          rating,
+          added_count,
+          order_index,
+          created_at,
+          routines (
+            id,
+            name,
+            description,
+            order_index,
+            time_estimate_minutes,
+            routine_exercises (
+              order_index,
+              custom_target_value,
+              is_optional,
+              exercises (*)
+            )
+          )
+        `)
+        .eq('is_published', true)
+        .eq('is_coach_program', true) // Only coach-only programs
+        .order('category', { ascending: true })
+        .order('order_index', { ascending: true });
+      
+      if (error) throw error;
+      
+      const transformedPrograms = data ? transformProgramData(data) : [];
+      setCoachPrograms(transformedPrograms);
+      setProgramsError(null);
+    } catch (error) {
+      console.error('Error loading coach programs:', error);
+      setProgramsError(error.message || 'Failed to load programs');
+      // Don't clear programs on error during refresh, just show error
+      if (!refreshing) {
+        setCoachPrograms([]);
+      }
+    } finally {
+      if (!refreshing) {
+        setProgramsLoading(false);
+      }
+    }
+  };
 
   const handleAddStudent = async () => {
     if (!studentCodeInput.trim() || studentCodeInput.length !== 4) {
@@ -168,9 +252,30 @@ export default function CoachDashboardScreen({ navigation }) {
   );
 
   const onRefresh = async () => {
-    setRefreshing(true);
-    await loadStudents();
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      
+      // Refresh based on active tab
+      if (activeTab === 'students') {
+        if (coachId) {
+          await loadStudents(coachId);
+        }
+      } else if (activeTab === 'programs') {
+        await loadCoachPrograms();
+      }
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      // Don't show alert on pull-to-refresh, just log the error
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  
+  const handleProgramPress = (program) => {
+    navigation.navigate('ProgramDetail', {
+      program,
+      source: 'coach'
+    });
   };
 
   const getRelativeTime = (dateString) => {
@@ -208,11 +313,41 @@ export default function CoachDashboardScreen({ navigation }) {
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.headerTitle}>Coach Dashboard</Text>
         
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'students' && styles.activeTab]}
+            onPress={() => setActiveTab('students')}
+          >
+            <Ionicons 
+              name="people" 
+              size={20} 
+              color={activeTab === 'students' ? PRIMARY_COLOR : '#9CA3AF'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'students' && styles.activeTabText]}>
+              Students
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'programs' && styles.activeTab]}
+            onPress={() => setActiveTab('programs')}
+          >
+            <Ionicons 
+              name="library" 
+              size={20} 
+              color={activeTab === 'programs' ? PRIMARY_COLOR : '#9CA3AF'} 
+            />
+            <Text style={[styles.tabText, activeTab === 'programs' && styles.activeTabText]}>
+              Programs
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search player by name or ID"
+            placeholder={activeTab === 'students' ? 'Search player by name or ID' : 'Search programs'}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -222,7 +357,7 @@ export default function CoachDashboardScreen({ navigation }) {
 
       {/* Stats Summary removed per requirements */}
 
-      {/* Students List */}
+      {/* Content based on active tab */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -230,80 +365,154 @@ export default function CoachDashboardScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY_COLOR} />
         }
       >
-        <Text style={styles.sectionTitle}>
-          Students ({filteredStudents.length})
-        </Text>
-        
-        {filteredStudents.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'No students match your search' : 'No students added yet'}
+        {activeTab === 'students' ? (
+          <>
+            <Text style={styles.sectionTitle}>
+              Students ({filteredStudents.length})
             </Text>
-            {!searchQuery && (
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={() => setShowAddStudentModal(true)}
-              >
-                <Text style={styles.emptyButtonText}>Add Your First Player</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          filteredStudents.map((student) => (
-            <View key={student.id} style={styles.playerCard}>
-              <TouchableOpacity
-                style={styles.playerHeader}
-                onPress={() => handleStudentPress(student)}
-              >
-                <View style={styles.playerAvatar}>
-                  {student.avatarUrl ? (
-                    <Image source={{ uri: student.avatarUrl }} style={styles.avatarImage} />
-                  ) : (
-                    <Text style={styles.avatarText}>
-                      {student.name.charAt(0).toUpperCase()}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>{student.name}</Text>
-                  <View style={styles.playerMeta}>
-                    {student.duprRating && (
-                      <Text style={styles.duprText}>DUPR: {student.duprRating}</Text>
-                    )}
-                    {student.tier && (
-                      <Text style={styles.tierText}>• {student.tier}</Text>
-                    )}
-                  </View>
-                  {student.lastAssessmentDate ? (
-                    <Text style={styles.lastAssessmentText}>
-                      Last: {getRelativeTime(student.lastAssessmentDate)}
-                    </Text>
-                  ) : (
-                    <Text style={styles.lastAssessmentText}>No assessment</Text>
-                  )}
-                </View>
-                {student.lastAssessmentScore !== null && (
-                  <View style={styles.scoreContainer}>
-                    <Text style={styles.scoreText} numberOfLines={1}>
-                      {String(student.lastAssessmentScore)}
-                    </Text>
-                  </View>
+            
+            {filteredStudents.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyText}>
+                  {searchQuery ? 'No students match your search' : 'No students added yet'}
+                </Text>
+                {!searchQuery && (
+                  <TouchableOpacity
+                    style={styles.emptyButton}
+                    onPress={() => setShowAddStudentModal(true)}
+                  >
+                    <Text style={styles.emptyButtonText}>Add Your First Player</Text>
+                  </TouchableOpacity>
                 )}
-              </TouchableOpacity>
-              {/* Start New Assessment button removed */}
-            </View>
-          ))
+              </View>
+            ) : (
+              filteredStudents.map((student) => (
+                <View key={student.id} style={styles.playerCard}>
+                  <TouchableOpacity
+                    style={styles.playerHeader}
+                    onPress={() => handleStudentPress(student)}
+                  >
+                    <View style={styles.playerAvatar}>
+                      {student.avatarUrl ? (
+                        <Image source={{ uri: student.avatarUrl }} style={styles.avatarImage} />
+                      ) : (
+                        <Text style={styles.avatarText}>
+                          {student.name.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={styles.playerInfo}>
+                      <Text style={styles.playerName}>{student.name}</Text>
+                      <View style={styles.playerMeta}>
+                        {student.duprRating && (
+                          <Text style={styles.duprText}>DUPR: {student.duprRating}</Text>
+                        )}
+                        {student.tier && (
+                          <Text style={styles.tierText}>• {student.tier}</Text>
+                        )}
+                      </View>
+                      {student.lastAssessmentDate ? (
+                        <Text style={styles.lastAssessmentText}>
+                          Last: {getRelativeTime(student.lastAssessmentDate)}
+                        </Text>
+                      ) : (
+                        <Text style={styles.lastAssessmentText}>No assessment</Text>
+                      )}
+                    </View>
+                    {student.lastAssessmentScore !== null && (
+                      <View style={styles.scoreContainer}>
+                        <Text style={styles.scoreText} numberOfLines={1}>
+                          {String(student.lastAssessmentScore)}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  {/* Start New Assessment button removed */}
+                </View>
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>
+              Coach Programs ({coachPrograms.filter(p => 
+                p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length})
+            </Text>
+            
+            {programsLoading ? (
+              <View style={styles.emptyContainer}>
+                <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+                <Text style={styles.emptyText}>Loading programs...</Text>
+              </View>
+            ) : programsError ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+                <Text style={styles.emptyText}>{programsError}</Text>
+              </View>
+            ) : coachPrograms.filter(p => 
+              p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="library-outline" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyText}>
+                  {searchQuery ? 'No programs match your search' : 'No coach programs available'}
+                </Text>
+              </View>
+            ) : (
+              coachPrograms
+                .filter(p => 
+                  p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  p.description?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((program) => (
+                  <TouchableOpacity
+                    key={program.id}
+                    style={styles.programCard}
+                    onPress={() => handleProgramPress(program)}
+                  >
+                    {program.thumbnail_url && (
+                      <Image 
+                        source={{ uri: program.thumbnail_url }} 
+                        style={styles.programThumbnail}
+                      />
+                    )}
+                    <View style={styles.programInfo}>
+                      <Text style={styles.programName}>{program.name}</Text>
+                      {program.description && (
+                        <Text style={styles.programDescription} numberOfLines={2}>
+                          {program.description}
+                        </Text>
+                      )}
+                      <View style={styles.programMeta}>
+                        {program.category && (
+                          <Text style={styles.programCategory}>{program.category}</Text>
+                        )}
+                        {program.tier && (
+                          <Text style={styles.programTier}>• {program.tier}</Text>
+                        )}
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+                ))
+            )}
+          </>
         )}
       </ScrollView>
 
-      {/* Floating Add Button */}
-      <TouchableOpacity
-        style={[styles.addButton, { bottom: insets.bottom + 16 }]}
-        onPress={() => setShowAddStudentModal(true)}
-      >
-        <Ionicons name="add" size={28} color="white" />
-      </TouchableOpacity>
+      {/* Floating Add Button - only show on Students tab */}
+      {activeTab === 'students' && (
+        <TouchableOpacity
+          style={[styles.addButton, { bottom: insets.bottom + 16 }]}
+          onPress={() => setShowAddStudentModal(true)}
+        >
+          <Ionicons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      )}
 
       {/* Add Student Modal */}
       <Modal
@@ -411,6 +620,84 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1F2937',
     paddingVertical: 16,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    gap: 8,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  activeTab: {
+    backgroundColor: PRIMARY_COLOR + '10',
+    borderColor: PRIMARY_COLOR,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  activeTabText: {
+    color: PRIMARY_COLOR,
+  },
+  programCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  programThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  programInfo: {
+    flex: 1,
+  },
+  programName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  programDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  programMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  programCategory: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginRight: 4,
+  },
+  programTier: {
+    fontSize: 12,
+    color: '#6B7280',
   },
   statsContainer: {
     flexDirection: 'row',

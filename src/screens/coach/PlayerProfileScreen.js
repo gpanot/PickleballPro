@@ -26,6 +26,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
   
   const [player, setPlayer] = useState(student || null);
   const [loading, setLoading] = useState(!student);
+  const [loadingAssessments, setLoadingAssessments] = useState(true);
   const [activeTab, setActiveTab] = useState('Assessments');
   const [assessments, setAssessments] = useState([]);
   const [programs, setPrograms] = useState([]);
@@ -36,6 +37,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const [expandedSkill, setExpandedSkill] = useState(null); // for large modal view
   const [avgSkillScores, setAvgSkillScores] = useState(null);
   const [skillOverviewExpanded, setSkillOverviewExpanded] = useState(true);
+  const [hasFirstTimeAssessment, setHasFirstTimeAssessment] = useState(false);
 
   // Include all assessed skills
   const PROGRESS_SKILLS = [
@@ -84,31 +86,49 @@ export default function PlayerProfileScreen({ route, navigation }) {
 
   const loadAssessments = async () => {
     try {
+      setLoadingAssessments(true);
       const { data, error } = await supabase
         .from('coach_assessments')
-        .select('id, created_at, total_score, max_score, skills_data')
+        .select('id, created_at, total_score, max_score, skills_data, notes')
         .eq('student_id', studentId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       const list = data || [];
       setAssessments(list);
+      
+      // Check if First Time Assessment exists
+      const firstTimeExists = list.some(
+        assessment => assessment.skills_data?.newbie_assessment?.type === 'first_time_assessment'
+      );
+      setHasFirstTimeAssessment(firstTimeExists);
+      
       computeProgress(list);
       computeSkillAverages(list);
     } catch (error) {
       console.error('Error loading assessments:', error);
+    } finally {
+      setLoadingAssessments(false);
     }
   };
 
+  // Helper function to check if an assessment is a First Time Assessment
+  const isFirstTimeAssessment = (assessment) => {
+    return assessment?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
+  };
+
   const computeProgress = (list) => {
-    if (!list || list.length === 0) {
+    // Filter out First Time Assessments
+    const filteredList = (list || []).filter(a => !isFirstTimeAssessment(a));
+    
+    if (!filteredList || filteredList.length === 0) {
       setProgressSeries(null);
       setProgressDeltas(null);
       setLatestSummary(null);
       return;
     }
     // Take last 5 assessments in chronological order
-    const lastFive = [...list].slice(0, 5).reverse();
+    const lastFive = [...filteredList].slice(0, 5).reverse();
     const labels = lastFive.map((a, idx) => `A${lastFive.length - idx}`); // A1..A5
     const dates = lastFive.map((a) => a.created_at); // Store actual dates
 
@@ -122,9 +142,9 @@ export default function PlayerProfileScreen({ route, navigation }) {
 
     // Deltas between last two assessments (if available)
     let deltas = null;
-    if (list.length >= 2) {
-      const latest = list[0];
-      const prev = list[1];
+    if (filteredList.length >= 2) {
+      const latest = filteredList[0];
+      const prev = filteredList[1];
       deltas = PROGRESS_SKILLS.map((skill) => {
         const lastVal = latest.skills_data?.[skill.id]?.total ?? 0;
         const prevVal = prev.skills_data?.[skill.id]?.total ?? 0;
@@ -136,7 +156,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
     setProgressDeltas(deltas);
 
     // Latest evaluation summary (most recent assessment)
-    const latest = list[0];
+    const latest = filteredList[0];
     if (latest && latest.skills_data) {
       const summary = PROGRESS_SKILLS.map((skill) => {
         const sd = latest.skills_data?.[skill.id];
@@ -153,7 +173,10 @@ export default function PlayerProfileScreen({ route, navigation }) {
   };
 
   const computeSkillAverages = (list) => {
-    if (!list || list.length === 0) {
+    // Filter out First Time Assessments
+    const filteredList = (list || []).filter(a => !isFirstTimeAssessment(a));
+    
+    if (!filteredList || filteredList.length === 0) {
       setAvgSkillScores(null);
       return;
     }
@@ -163,7 +186,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
       sums[s.id] = 0;
       counts[s.id] = 0;
     });
-    list.forEach((a) => {
+    filteredList.forEach((a) => {
       PROGRESS_SKILLS.forEach((skill) => {
         const v = a.skills_data?.[skill.id]?.total;
         if (v !== undefined && v !== null) {
@@ -264,8 +287,29 @@ export default function PlayerProfileScreen({ route, navigation }) {
     }
   };
 
+  const handleFirstTimeAssessment = () => {
+    navigation.navigate('FirstTimeAssessment', { 
+      studentId, 
+      student: player,
+    });
+  };
+
   const handleViewAssessment = (assessment) => {
-    navigation.navigate('EvaluationSummary', { assessmentId: assessment.id, student: player });
+    // Check if this is a First Time Assessment
+    const isFirstTime = isFirstTimeAssessment(assessment);
+    
+    if (isFirstTime) {
+      navigation.navigate('FirstTimeAssessmentSummary', { 
+        assessmentId: assessment.id, 
+        student: player,
+      });
+    } else {
+      navigation.navigate('EvaluationSummary', { 
+        assessmentId: assessment.id, 
+        student: player,
+        isStudentView: isStudentView // Pass student view flag
+      });
+    }
   };
 
 // Helpers for chart
@@ -341,57 +385,88 @@ function SparkLine({ values, color, height = 64, style }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <View style={styles.placeholder} />
+        {isStudentView ? (
+          <View style={styles.headerCenter}>
+            {player?.tier && (
+              <View style={styles.headerChip}>
+                <Text style={styles.headerChipLabel}>Tier</Text>
+                <Text style={styles.headerChipValue}>{player.tier}</Text>
+              </View>
+            )}
+            {(() => {
+              // Find the latest non-First Time Assessment
+              const latestRealAssessment = assessments.find(a => !isFirstTimeAssessment(a));
+              return latestRealAssessment && (
+                <View style={styles.headerScore}>
+                  <Text style={styles.headerScoreLabel}>Score</Text>
+                  <Text style={styles.headerScoreValue}>
+                    {String(Number(latestRealAssessment.total_score) || 0)}
+                  </Text>
+                </View>
+              );
+            })()}
+          </View>
+        ) : (
+          <View style={styles.headerTitle}>
+            <Text style={styles.headerTitleText}>Player Profile</Text>
+          </View>
+        )}
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.scrollView}>
         {/* Merged Player Header with Skill Overview */}
         <View style={styles.mergedPlayerSection}>
-          {/* Player Info Row */}
-          <View style={styles.playerInfoRow}>
-            {player?.avatar_url ? (
-              <Image source={{ uri: player.avatar_url }} style={styles.compactAvatar} />
-            ) : (
-              <View style={styles.compactAvatarFallback}>
-                <Text style={styles.compactAvatarText}>
-                  {player?.name?.charAt(0).toUpperCase() || 'P'}
+          {/* Player Info Row - Hidden in student view */}
+          {!isStudentView && (
+            <View style={styles.playerInfoRow}>
+              {player?.avatar_url ? (
+                <Image source={{ uri: player.avatar_url }} style={styles.compactAvatar} />
+              ) : (
+                <View style={styles.compactAvatarFallback}>
+                  <Text style={styles.compactAvatarText}>
+                    {player?.name?.charAt(0).toUpperCase() || 'P'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.compactInfo}>
+                <Text style={styles.compactName} numberOfLines={1}>
+                  {player?.name || 'Player'}
                 </Text>
+                <View style={styles.compactChips}>
+                  {player?.dupr_rating && (
+                    <View style={styles.chip}>
+                      <Text style={styles.chipLabel}>DUPR</Text>
+                      <Text style={styles.chipValue}>{player.dupr_rating}</Text>
+                    </View>
+                  )}
+                  {player?.tier && (
+                    <View style={styles.chip}>
+                      <Text style={styles.chipLabel}>Tier</Text>
+                      <Text style={styles.chipValue}>{player.tier}</Text>
+                    </View>
+                  )}
+                  {player?.preferred_side && (
+                    <View style={styles.chip}>
+                      <Text style={styles.chipLabel}>Side</Text>
+                      <Text style={styles.chipValue}>{player.preferred_side}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            )}
-            <View style={styles.compactInfo}>
-              <Text style={styles.compactName} numberOfLines={1}>
-                {player?.name || 'Player'}
-              </Text>
-              <View style={styles.compactChips}>
-                {player?.dupr_rating && (
-                  <View style={styles.chip}>
-                    <Text style={styles.chipLabel}>DUPR</Text>
-                    <Text style={styles.chipValue}>{player.dupr_rating}</Text>
+              {(() => {
+                // Find the latest non-First Time Assessment
+                const latestRealAssessment = assessments.find(a => !isFirstTimeAssessment(a));
+                return latestRealAssessment && (
+                  <View style={styles.latestScoreContainer}>
+                    <Text style={styles.latestScoreValue} numberOfLines={1}>
+                      {String(Number(latestRealAssessment.total_score) || 0)}
+                    </Text>
                   </View>
-                )}
-                {player?.tier && (
-                  <View style={styles.chip}>
-                    <Text style={styles.chipLabel}>Tier</Text>
-                    <Text style={styles.chipValue}>{player.tier}</Text>
-                  </View>
-                )}
-                {player?.preferred_side && (
-                  <View style={styles.chip}>
-                    <Text style={styles.chipLabel}>Side</Text>
-                    <Text style={styles.chipValue}>{player.preferred_side}</Text>
-                  </View>
-                )}
-              </View>
+                );
+              })()}
             </View>
-            {assessments.length > 0 && (
-              <View style={styles.latestScoreContainer}>
-                <Text style={styles.latestScoreValue} numberOfLines={1}>
-                  {String(Number(assessments[0].total_score) || 0)}
-                </Text>
-              </View>
-            )}
-          </View>
+          )}
 
           {/* Skill Overview Header (Collapsible) */}
           <TouchableOpacity 
@@ -454,54 +529,105 @@ function SparkLine({ values, color, height = 64, style }) {
         <View style={styles.tabContent}>
           {activeTab === 'Assessments' && (
             <View>
-              {assessments.length === 0 ? (
+              {loadingAssessments ? (
+                <View style={styles.emptyState}>
+                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+                  <Text style={styles.emptyText}>Loading assessments...</Text>
+                </View>
+              ) : assessments.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="document-outline" size={48} color="#D1D5DB" />
                   <Text style={styles.emptyText}>No assessments yet</Text>
-                  {!isStudentView && (
-                    <TouchableOpacity style={styles.emptyButton} onPress={handleStartAssessment}>
-                      <Text style={styles.emptyButtonText}>Start First Assessment</Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={styles.emptyButtonsContainer}>
+                    {!hasFirstTimeAssessment && (
+                      <TouchableOpacity style={styles.emptyButton} onPress={handleFirstTimeAssessment}>
+                        <Ionicons name="sparkles" size={20} color="white" />
+                        <Text style={styles.emptyButtonText}>First Time Assessment</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isStudentView && (
+                      <TouchableOpacity style={styles.emptyButtonSecondary} onPress={handleStartAssessment}>
+                        <Ionicons name="clipboard-outline" size={20} color={PRIMARY_COLOR} />
+                        <Text style={styles.emptyButtonTextSecondary}>Full Assessment</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               ) : (
                 <>
-                  {assessments.map((assessment) => (
-                    <TouchableOpacity
-                      key={assessment.id}
-                      style={styles.assessmentCard}
-                      onPress={() => handleViewAssessment(assessment)}
-                      onLongPress={!isStudentView ? () => confirmDeleteAssessment(assessment) : undefined}
-                      delayLongPress={400}
-                    >
-                      <View style={styles.assessmentHeader}>
-                        <Text style={styles.assessmentDate}>
-                          {new Date(assessment.created_at).toLocaleDateString()}
-                        </Text>
-                        <View style={styles.assessmentScore}>
-                          <Text style={styles.scoreValue}>
-                            {String(Number(assessment.total_score) || 0)}/{String(Number(assessment.max_score) || 0)}
-                          </Text>
-                          <Text style={styles.scorePercent}>
-                            ({Math.round(((Number(assessment.total_score) || 0) / (Number(assessment.max_score) || 1)) * 100)}%)
-                          </Text>
+                  {assessments.map((assessment) => {
+                    const isFirstTime = isFirstTimeAssessment(assessment);
+                    
+                    // Get the dynamic message for First Time Assessment based on Question 1 answer
+                    let firstTimeMessage = null;
+                    if (isFirstTime) {
+                      const question1Answer = assessment.skills_data?.newbie_assessment?.answers?.[1];
+                      if (question1Answer === 'none') {
+                        firstTimeMessage = "Your Level 'BEGINNER'";
+                      } else if (question1Answer !== undefined && question1Answer !== null) {
+                        firstTimeMessage = "Do the SKILL ASSESSMENT with your Coach";
+                      }
+                    }
+                    
+                    return (
+                      <TouchableOpacity
+                        key={assessment.id}
+                        style={styles.assessmentCard}
+                        onPress={() => handleViewAssessment(assessment)}
+                        onLongPress={!isStudentView ? () => confirmDeleteAssessment(assessment) : undefined}
+                        delayLongPress={400}
+                      >
+                        <View style={styles.assessmentHeader}>
+                          <View style={styles.assessmentHeaderLeft}>
+                            <Text style={styles.assessmentDate}>
+                              {new Date(assessment.created_at).toLocaleDateString()}
+                            </Text>
+                            {isFirstTime && (
+                              <View style={styles.firstTimeBadge}>
+                                <Ionicons name="sparkles" size={12} color={PRIMARY_COLOR} />
+                                <Text style={styles.firstTimeBadgeText}>First Time</Text>
+                              </View>
+                            )}
+                          </View>
+                          {!isFirstTime ? (
+                            <View style={styles.assessmentScore}>
+                              <Text style={styles.scoreValue}>
+                                {String(Number(assessment.total_score) || 0)}/{String(Number(assessment.max_score) || 0)}
+                              </Text>
+                              <Text style={styles.scorePercent}>
+                                ({Math.round(((Number(assessment.total_score) || 0) / (Number(assessment.max_score) || 1)) * 100)}%)
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.assessmentTypeLabel}>Q&A Session</Text>
+                          )}
                         </View>
-                      </View>
-                      {assessment.notes && (
-                        <Text style={styles.assessmentNotes} numberOfLines={2}>
-                          {assessment.notes}
-                        </Text>
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                  {!isStudentView && (
-                    <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
-                      <TouchableOpacity style={styles.primaryButton} onPress={handleStartAssessment}>
-                        <Ionicons name="clipboard-outline" size={20} color="white" />
-                        <Text style={styles.primaryButtonText}>Start New Assessment</Text>
+                        {isFirstTime && firstTimeMessage ? (
+                          <Text style={styles.assessmentNotes} numberOfLines={2}>
+                            {firstTimeMessage}
+                          </Text>
+                        ) : assessment.notes && !isFirstTime ? (
+                          <Text style={styles.assessmentNotes} numberOfLines={2}>
+                            {assessment.notes}
+                          </Text>
+                        ) : null}
                       </TouchableOpacity>
-                    </View>
-                  )}
+                    );
+                  })}
+                  <View style={{ paddingHorizontal: 16, marginTop: 12, gap: 12 }}>
+                    {!hasFirstTimeAssessment && (
+                      <TouchableOpacity style={styles.primaryButton} onPress={handleFirstTimeAssessment}>
+                        <Ionicons name="sparkles" size={20} color="white" />
+                        <Text style={styles.primaryButtonText}>First Time Assessment</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isStudentView && (
+                      <TouchableOpacity style={styles.secondaryButton} onPress={handleStartAssessment}>
+                        <Ionicons name="clipboard-outline" size={20} color={PRIMARY_COLOR} />
+                        <Text style={styles.secondaryButtonText}>Full Assessment</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </>
               )}
             </View>
@@ -700,9 +826,54 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitleText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
+  },
+  headerCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  headerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  headerChipLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  headerChipValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  headerScore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerScoreLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  headerScoreValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PRIMARY_COLOR,
   },
   placeholder: {
     width: 40,
@@ -867,9 +1038,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  assessmentHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   assessmentDate: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  firstTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PRIMARY_COLOR + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  firstTimeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: PRIMARY_COLOR,
+  },
+  assessmentTypeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    fontStyle: 'italic',
   },
   assessmentScore: {
     flexDirection: 'row',
@@ -1142,16 +1338,42 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 24,
   },
+  emptyButtonsContainer: {
+    width: '100%',
+    gap: 12,
+    paddingHorizontal: 16,
+  },
   emptyButton: {
     backgroundColor: PRIMARY_COLOR,
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   emptyButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  emptyButtonSecondary: {
+    backgroundColor: 'white',
+    borderWidth: 2,
+    borderColor: PRIMARY_COLOR,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyButtonTextSecondary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: PRIMARY_COLOR,
   },
   modalOverlayCenter: {
     flex: 1,

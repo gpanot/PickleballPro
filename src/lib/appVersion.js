@@ -1,9 +1,8 @@
 // App Version Management
 // This file helps manage app versions for authentication persistence
 
-import { version } from '../../package.json';
-
-export const APP_VERSION = version;
+// Hardcoded version to match package.json (v1.0.0)
+export const APP_VERSION = '1.0.0';
 
 // Helper function to check if this is a major version update
 export const isMajorVersionUpdate = (oldVersion, newVersion) => {

@@ -71,7 +71,7 @@ const SKILLS = [
 ];
 
 export default function EvaluationSummaryScreen({ route, navigation }) {
-  const { studentId, student, assessmentKey, assessmentId } = route.params;
+  const { studentId, student, assessmentKey, assessmentId, isStudentView } = route.params || {};
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   
@@ -391,8 +391,8 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Sticky Footer */}
-      {!assessmentId && (
+      {/* Sticky Footer - Only show for coaches, not for students */}
+      {!assessmentId && !isStudentView && (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity style={styles.secondaryButton} onPress={handleSaveOnly} disabled={saving}>
             <Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save Assessment Only'}</Text>

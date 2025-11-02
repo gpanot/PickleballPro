@@ -93,14 +93,22 @@ export default function LeaderboardScreen({ navigation }) {
       // Get all coach assessments ordered by date (latest first)
       const { data: assessments, error: assessmentsError } = await supabase
         .from('coach_assessments')
-        .select('student_id, total_score, assessment_date, created_at')
+        .select('student_id, total_score, assessment_date, created_at, skills_data')
         .order('created_at', { ascending: false });
 
       if (assessmentsError) throw assessmentsError;
 
+      // Helper function to check if an assessment is a First Time Assessment
+      const isFirstTimeAssessment = (assessment) => {
+        return assessment?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
+      };
+
+      // Filter out First Time Assessments
+      const filteredAssessments = (assessments || []).filter(a => !isFirstTimeAssessment(a));
+
       // Get the latest score for each user
       const userScores = {};
-      assessments.forEach(assessment => {
+      filteredAssessments.forEach(assessment => {
         // Only store the first (latest) assessment for each user
         if (!userScores[assessment.student_id]) {
           userScores[assessment.student_id] = assessment.total_score || 0;

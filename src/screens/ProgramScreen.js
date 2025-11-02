@@ -80,7 +80,7 @@ export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
   const insets = useSafeAreaInsets();
-  const [currentView, setCurrentView] = React.useState('coach'); // 'coach', 'programs' or 'library'
+  const [currentView, setCurrentView] = React.useState('coach'); // 'coach', 'programs', 'library' or 'fun'
   const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
@@ -889,7 +889,7 @@ export default function ProgramScreen({ navigation, route }) {
             newProgram.is_published = programData.is_published;
             console.log('✅ [ProgramScreen] Program object updated with database UUID');
           } else {
-            console.log('⚠️ [ProgramScreen] No program data returned from database function');
+            console.log('⚠️ [ProgramScreen] data returned from database function');
           }
         }
       } catch (dbError) {
@@ -1465,6 +1465,37 @@ export default function ProgramScreen({ navigation, route }) {
       program,
       source: 'library' 
     });
+  };
+
+  // Render Fun tab content
+  const renderFunContent = () => {
+    return (
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.funContainer}>
+          <TouchableOpacity
+            style={styles.doubleChallengeCard}
+            onPress={() => navigation.navigate('GamePlayedList')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.doubleChallengeIcon}>
+              <Ionicons name="trophy" size={48} color="#FFB800" />
+            </View>
+            <Text style={styles.doubleChallengeTitle}>Double Challenge Game</Text>
+            <Text style={styles.doubleChallengeDescription}>
+              Play 6-point doubles games with friends. Track your matches and improve together!
+            </Text>
+            <View style={styles.doubleChallengeArrow}>
+              <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
+            </View>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
   };
 
   const getTotalExerciseCount = () => {
@@ -2376,6 +2407,15 @@ export default function ProgramScreen({ navigation, route }) {
               </Text>
               {currentView === 'library' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tab}
+              onPress={() => setCurrentView('fun')}
+            >
+              <Text style={[styles.tabText, currentView === 'fun' && styles.activeTabText]}>
+                Fun
+              </Text>
+              {currentView === 'fun' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -2384,6 +2424,8 @@ export default function ProgramScreen({ navigation, route }) {
         renderCoachProgramsContent()
       ) : currentView === 'library' ? (
         renderLibraryContent()
+      ) : currentView === 'fun' ? (
+        renderFunContent()
       ) : isLoadingPrograms ? (
         renderLoadingScreen()
       ) : (
@@ -3511,5 +3553,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9CA3AF',
     marginTop: 4,
+  },
+  // Fun tab styles
+  funContainer: {
+    padding: 16,
+  },
+  doubleChallengeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    position: 'relative',
+  },
+  doubleChallengeIcon: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  doubleChallengeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  doubleChallengeDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  doubleChallengeArrow: {
+    position: 'absolute',
+    right: 24,
+    top: '50%',
+    marginTop: -10,
   },
 });
