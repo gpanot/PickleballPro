@@ -29,6 +29,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
   const [showCustomCategory, setShowCustomCategory] = useState(false);
   const [exploreCategories, setExploreCategories] = useState([]);
   const [status, setStatus] = useState('draft');
+  const [isCoachProgram, setIsCoachProgram] = useState(false);
 
   const isEditing = !!editingProgram;
 
@@ -46,6 +47,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         setRating(editingProgram.rating || 4.0);
         setUserCount(editingProgram.added_count || 0);
         setStatus(editingProgram.is_published ? 'published' : 'draft');
+        setIsCoachProgram(editingProgram.is_coach_program || false);
         if (editingProgram.thumbnail_url) {
           setThumbnail(editingProgram.thumbnail_url);
         }
@@ -57,6 +59,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         setRating(4.0);
         setUserCount(0);
         setStatus('draft');
+        setIsCoachProgram(false);
         setThumbnail(null);
         setCustomCategory('');
         setShowCustomCategory(false);
@@ -294,6 +297,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         added_count: userCount,
         is_published: status === 'published',
         thumbnail_url: thumbnailUrl,
+        is_coach_program: isCoachProgram,
       };
 
       // Add created_by only for new programs
@@ -315,7 +319,8 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_rating: programData.rating,
             program_added_count: programData.added_count,
             program_is_published: programData.is_published,
-            program_thumbnail_url: programData.thumbnail_url
+            program_thumbnail_url: programData.thumbnail_url,
+            program_is_coach_program: programData.is_coach_program
           });
         data = result.data;
         error = result.error;
@@ -330,7 +335,8 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_rating: programData.rating,
             program_added_count: programData.added_count,
             program_is_published: programData.is_published,
-            program_thumbnail_url: programData.thumbnail_url
+            program_thumbnail_url: programData.thumbnail_url,
+            program_is_coach_program: programData.is_coach_program
           });
         data = result.data;
         error = result.error;
@@ -584,6 +590,24 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
                 )}
               </TouchableOpacity>
             </View>
+
+            <Text style={styles.modalLabel}>Coach Program Only</Text>
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={() => setIsCoachProgram(!isCoachProgram)}
+            >
+              <View style={[styles.checkbox, isCoachProgram && styles.checkboxChecked]}>
+                {isCoachProgram && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </View>
+              <View style={styles.checkboxLabelContainer}>
+                <Text style={styles.checkboxLabel}>This program is for coaches only</Text>
+                <Text style={styles.checkboxDescription}>
+                  Coach programs will be separated from student programs to keep content organized
+                </Text>
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
@@ -889,5 +913,44 @@ const styles = StyleSheet.create({
   },
   statusOptionDescriptionSelectedPublished: {
     color: '#059669',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderRadius: 4,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxChecked: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  checkboxLabelContainer: {
+    flex: 1,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  checkboxDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 18,
   },
 });

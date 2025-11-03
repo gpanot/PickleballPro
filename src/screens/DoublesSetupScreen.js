@@ -12,12 +12,13 @@ import {
   Animated,
   Image,
   Share,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-import { CameraView } from 'expo-camera';
 import { useUser } from '../context/UserContext';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const scanMode = route?.params?.scanMode || false;
+  const [permission, requestPermission] = useCameraPermissions();
   const [joinCode] = useState(generateJoinCode());
   const [players, setPlayers] = useState({
     A1: null,
@@ -48,83 +50,72 @@ export default function DoublesSetupScreen({ navigation, route }) {
   const [draggedPlayer, setDraggedPlayer] = useState(null);
   const [scannedCode, setScannedCode] = useState(null);
   const [isScanning, setIsScanning] = useState(scanMode);
-  const [hasPermission, setHasPermission] = useState(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualCode, setManualCode] = useState('');
 
-  // Request camera permission using native APIs
-  const requestPermission = async () => {
+  // Handle manual code entry
+  const handleManualCodeSubmit = () => {
+    if (!manualCode.trim()) {
+      Alert.alert('Invalid Code', 'Please enter a valid 6-character code.');
+      return;
+    }
+    
+    const code = manualCode.trim().toUpperCase();
+    handleJoinCode(code);
+  };
+
+  // Handle QR code scan or manual code entry
+  const handleJoinCode = (code) => {
+    // Prevent multiple scans
+    if (scannedCode) return;
+    
     try {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: 'Camera Permission',
-            message: 'PicklePro needs access to your camera to scan QR codes',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
+      // Validate the code
+      if (code && code.length === 6) {
+        setScannedCode(code);
+        setIsScanning(false);
+        setShowManualEntry(false);
+        // TODO: Join the game session using the code
+        // For now, show an alert
+        Alert.alert(
+          'Game Found',
+          `Would you like to join game ${code}?`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => {
+              setScannedCode(null);
+              setIsScanning(false);
+            }},
+            { 
+              text: 'Join', 
+              onPress: () => {
+                // Navigate to join flow
+                // You can implement the join logic here
+                console.log('Joining game:', code);
+                setScannedCode(null);
+                setIsScanning(false);
+                // For now, just close scanner - join logic can be added later
+              }
+            }
+          ]
         );
-        setHasPermission(granted === PermissionsAndroid.RESULTS.GRANTED);
       } else {
-        // iOS - CameraView handles permissions automatically
-        setHasPermission(true);
+        Alert.alert('Invalid Code', 'Please enter a valid 6-character code.');
       }
     } catch (error) {
-      console.error('Error requesting camera permission:', error);
-      setHasPermission(false);
+      console.error('Error processing code:', error);
+      Alert.alert('Error', 'Failed to process join code.');
     }
   };
 
-  // Check camera permission if in scan mode
-  useEffect(() => {
-    if (scanMode) {
-      (async () => {
-        if (Platform.OS === 'android') {
-          const checkPermission = await PermissionsAndroid.check(
-            PermissionsAndroid.PERMISSIONS.CAMERA
-          );
-          if (!checkPermission) {
-            await requestPermission();
-          } else {
-            setHasPermission(true);
-          }
-        } else {
-          // iOS - CameraView handles permissions automatically
-          setHasPermission(true);
-        }
-      })();
-    }
-  }, [scanMode]);
-
   // Handle QR code scan
-  const handleBarCodeScanned = ({ type, data }) => {
+  const handleBarCodeScanned = ({ data }) => {
+    if (scannedCode) return;
+    
     try {
       // Parse the deep link: pickleballhero://doubles/join/CODE
-      if (data.startsWith('pickleballhero://doubles/join/')) {
+      if (data && data.startsWith('pickleballhero://doubles/join/')) {
         const code = data.split('/').pop();
-        if (code && code.length === 6) {
-          setScannedCode(code);
-          setIsScanning(false);
-          // TODO: Join the game session using the code
-          // For now, show an alert
-          Alert.alert(
-            'Game Found',
-            `Would you like to join game ${code}?`,
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => setIsScanning(false) },
-              { 
-                text: 'Join', 
-                onPress: () => {
-                  // Navigate to join flow
-                  // You can implement the join logic here
-                  console.log('Joining game:', code);
-                  setIsScanning(false);
-                  // For now, just close scanner - join logic can be added later
-                }
-              }
-            ]
-          );
-        }
+        handleJoinCode(code);
       } else {
         Alert.alert('Invalid QR Code', 'Please scan a valid game QR code.');
       }
@@ -134,24 +125,6 @@ export default function DoublesSetupScreen({ navigation, route }) {
     }
   };
 
-  // Request camera permission if in scan mode
-  useEffect(() => {
-    if (scanMode) {
-      (async () => {
-        try {
-          const { status } = await Camera.getCameraPermissionsAsync();
-          setHasPermission(status === 'granted');
-          setPermission({ granted: status === 'granted' });
-          if (status !== 'granted') {
-            await requestPermission();
-          }
-        } catch (error) {
-          console.error('Error getting camera permissions:', error);
-          setPermission({ granted: false });
-        }
-      })();
-    }
-  }, [scanMode]);
 
   // Generate random serve order
   const generateRandomServeOrder = () => {
@@ -273,14 +246,15 @@ export default function DoublesSetupScreen({ navigation, route }) {
       return;
     }
 
-    // Navigate to 6-Point Tracker
-    navigation.navigate('SixPointTracker', { players });
+    // Navigate to UITestGame (6-Point Tracker)
+    navigation.navigate('UITestGame', { players });
   };
 
   const renderSlot = (slot, isTeamA) => {
     const player = players[slot];
     const isDragged = draggedPlayer?.fromSlot === slot;
     const canDrop = draggedPlayer && draggedPlayer.fromSlot !== slot;
+    const isStartServer = startServer === slot;
 
     return (
       <TouchableOpacity
@@ -311,6 +285,9 @@ export default function DoublesSetupScreen({ navigation, route }) {
             <Text style={styles.playerName} numberOfLines={1}>
               {player.name}
             </Text>
+            {isStartServer && (
+              <Text style={styles.startingServerBadge}>Starting Server</Text>
+            )}
           </>
         ) : (
           <>
@@ -329,7 +306,8 @@ export default function DoublesSetupScreen({ navigation, route }) {
 
   // Render scanner view
   if (isScanning) {
-    if (hasPermission === null) {
+    // Check permissions
+    if (!permission) {
       return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.header}>
@@ -351,7 +329,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
       );
     }
 
-    if (hasPermission === false) {
+    if (!permission.granted) {
       return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
           <View style={styles.header}>
@@ -380,6 +358,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
       );
     }
 
+    // Render camera scanner
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={[styles.header, styles.scannerHeader]}>
@@ -387,35 +366,81 @@ export default function DoublesSetupScreen({ navigation, route }) {
             style={styles.backButton}
             onPress={() => {
               setIsScanning(false);
+              setShowManualEntry(false);
               navigation.goBack();
             }}
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, styles.scannerHeaderTitle]}>Scan to Join Game</Text>
+          {!showManualEntry && (
+            <TouchableOpacity
+              style={styles.manualEntryButton}
+              onPress={() => setShowManualEntry(true)}
+            >
+              <Ionicons name="create-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
-        <View style={styles.scannerWrapper}>
-          <CameraView
-            style={styles.camera}
-            facing="back"
-            onBarcodeScanned={handleBarCodeScanned}
-            barcodeScannerSettings={{
-              barcodeTypes: ['qr'],
-            }}
-          >
-            <View style={styles.scannerOverlay}>
-              <View style={styles.scannerFrame}>
-                <View style={[styles.scannerCorner, styles.scannerCornerTopLeft]} />
-                <View style={[styles.scannerCorner, styles.scannerCornerTopRight]} />
-                <View style={[styles.scannerCorner, styles.scannerCornerBottomLeft]} />
-                <View style={[styles.scannerCorner, styles.scannerCornerBottomRight]} />
+        {!showManualEntry ? (
+          <View style={styles.scannerWrapper}>
+            <CameraView
+              style={styles.camera}
+              onBarcodeScanned={scannedCode ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ['qr'],
+              }}
+            >
+              <View style={styles.scannerOverlay}>
+                <View style={styles.scannerFrame}>
+                  <View style={[styles.scannerCorner, styles.scannerCornerTopLeft]} />
+                  <View style={[styles.scannerCorner, styles.scannerCornerTopRight]} />
+                  <View style={[styles.scannerCorner, styles.scannerCornerBottomLeft]} />
+                  <View style={[styles.scannerCorner, styles.scannerCornerBottomRight]} />
+                </View>
+                <Text style={styles.scannerHint}>
+                  Position the QR code within the frame
+                </Text>
               </View>
-              <Text style={styles.scannerHint}>
-                Position the QR code within the frame
+            </CameraView>
+          </View>
+        ) : (
+          <View style={styles.manualEntryContainer}>
+            <View style={styles.manualEntryCard}>
+              <Text style={styles.manualEntryTitle}>Enter Join Code</Text>
+              <Text style={styles.manualEntrySubtext}>
+                Enter the 6-character game code manually
               </Text>
+              <TextInput
+                style={styles.manualEntryInput}
+                value={manualCode}
+                onChangeText={setManualCode}
+                placeholder="ABCD12"
+                placeholderTextColor="#9CA3AF"
+                maxLength={6}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <View style={styles.manualEntryButtons}>
+                <TouchableOpacity
+                  style={[styles.manualEntryButtonAction, styles.manualEntryButtonCancel]}
+                  onPress={() => {
+                    setShowManualEntry(false);
+                    setManualCode('');
+                  }}
+                >
+                  <Text style={styles.manualEntryButtonCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.manualEntryButtonAction, styles.manualEntryButtonSubmit]}
+                  onPress={handleManualCodeSubmit}
+                >
+                  <Text style={styles.manualEntryButtonSubmitText}>Join Game</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </CameraView>
-        </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -427,7 +452,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Doubles 6-Point Setup</Text>
@@ -504,20 +529,6 @@ export default function DoublesSetupScreen({ navigation, route }) {
             </View>
           </View>
         </View>
-
-        {/* Suggested Serve Order */}
-        <View style={styles.serveOrderContainer}>
-          <Text style={styles.serveOrderTitle}>Suggested Serve Order</Text>
-          <View style={styles.suggestedServerContainer}>
-            <Text style={styles.suggestedServerLabel}>Starting Server:</Text>
-            <View style={[
-              styles.suggestedServerChip,
-              startServer.startsWith('A') ? styles.teamAChip : styles.teamBChip
-            ]}>
-              <Text style={styles.suggestedServerText}>{startServer}</Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
 
       {/* Footer CTA */}
@@ -540,23 +551,30 @@ export default function DoublesSetupScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F5F7',
+    backgroundColor: '#0A0E1A',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#1E293B',
   },
   scannerHeader: {
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderBottomWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   scannerHeaderTitle: {
     color: '#FFFFFF',
+    flex: 1,
+  },
+  manualEntryButton: {
+    padding: 4,
   },
   backButton: {
     marginRight: 12,
@@ -568,12 +586,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   headerSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#94A3B8',
   },
   scrollView: {
     flex: 1,
@@ -589,20 +607,17 @@ const styles = StyleSheet.create({
   },
   qrCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   qrLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#94A3B8',
     marginTop: 12,
     marginBottom: 8,
   },
@@ -610,35 +625,32 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#1E293B',
     borderRadius: 6,
   },
   simulateJoinButtonText: {
     fontSize: 10,
-    color: '#6B7280',
+    color: '#94A3B8',
     fontWeight: '500',
   },
   codeCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     borderRadius: 16,
     padding: 16,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   codeLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#94A3B8',
     marginBottom: 8,
   },
   codeValue: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#FFFFFF',
     letterSpacing: 2,
     marginBottom: 12,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
@@ -658,20 +670,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   courtContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: '#0F172A',
+    borderRadius: 20,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   courtTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -683,13 +692,13 @@ const styles = StyleSheet.create({
   },
   netLine: {
     flex: 1,
-    height: 3,
-    backgroundColor: '#9CA3AF',
+    height: 2,
+    backgroundColor: '#334155',
   },
   netText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#64748B',
     marginHorizontal: 16,
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -706,7 +715,7 @@ const styles = StyleSheet.create({
   slotCard: {
     flex: 1,
     minHeight: 100,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#0A0E1A',
     borderRadius: 16,
     padding: 12,
     alignItems: 'center',
@@ -715,16 +724,16 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   teamASlot: {
-    borderColor: '#27AE60',
+    borderColor: '#14B8A6',
   },
   teamBSlot: {
-    borderColor: '#2D9CDB',
+    borderColor: '#3B82F6',
   },
   slotDragged: {
     opacity: 0.5,
   },
   slotDropTarget: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
     borderColor: '#3B82F6',
     borderStyle: 'solid',
   },
@@ -737,13 +746,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   teamACircle: {
-    backgroundColor: '#27AE60',
+    backgroundColor: '#14B8A6',
   },
   teamBCircle: {
-    backgroundColor: '#2D9CDB',
+    backgroundColor: '#3B82F6',
   },
   emptySlotCircle: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#1E293B',
   },
   slotCircleText: {
     fontSize: 20,
@@ -753,83 +762,39 @@ const styles = StyleSheet.create({
   emptySlotCircleText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#6B7280',
+    color: '#64748B',
   },
   playerName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#E2E8F0',
     marginBottom: 4,
     textAlign: 'center',
   },
   emptySlotText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#64748B',
     marginBottom: 4,
     textAlign: 'center',
   },
-  serveOrderContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  serveOrderTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  suggestedServerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  suggestedServerLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  suggestedServerChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 20,
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  suggestedServerText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  teamAChip: {
-    backgroundColor: '#D1FAE5',
-  },
-  teamBChip: {
-    backgroundColor: '#DBEAFE',
+  startingServerBadge: {
+    fontSize: 10,
+    color: '#14B8A6',
+    fontWeight: '600',
+    marginTop: 4,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   footer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     paddingHorizontal: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 8,
+    borderTopColor: '#1E293B',
   },
   startGameButton: {
     backgroundColor: '#3B82F6',
@@ -860,18 +825,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-    backgroundColor: '#F4F5F7',
+    backgroundColor: '#0A0E1A',
   },
   permissionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
   },
   permissionSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#94A3B8',
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -901,7 +866,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: '#27AE60',
+    borderColor: '#14B8A6',
     borderWidth: 3,
   },
   scannerCornerTopLeft: {
@@ -938,6 +903,76 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
+  },
+  manualEntryContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    backgroundColor: '#0A0E1A',
+  },
+  manualEntryCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  manualEntryTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  manualEntrySubtext: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginBottom: 24,
+  },
+  manualEntryInput: {
+    borderWidth: 2,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: 8,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    marginBottom: 24,
+    backgroundColor: '#0A0E1A',
+  },
+  manualEntryButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  manualEntryButtonAction: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manualEntryButtonCancel: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  manualEntryButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#E2E8F0',
+  },
+  manualEntryButtonSubmit: {
+    backgroundColor: '#3B82F6',
+  },
+  manualEntryButtonSubmitText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

@@ -317,6 +317,7 @@ export const getPrograms = async () => {
         )
       `)
       .eq('is_published', true)
+      .or('is_coach_program.is.null,is_coach_program.eq.false') // Exclude coach-only programs from Library
       .order('category', { ascending: true })
       .order('order_index', { ascending: true })
       .order('is_featured', { ascending: false });
@@ -866,5 +867,24 @@ export const getCoachStudents = async (coachId) => {
   } catch (error) {
     console.error('Error getting coach students:', error);
     return { data: null, error };
+  }
+};
+
+// Get coach_id for a student
+export const getStudentCoach = async (studentId) => {
+  try {
+    const { data, error } = await supabase
+      .from('coach_students')
+      .select('coach_id')
+      .eq('student_id', studentId)
+      .eq('is_active', true)
+      .single();
+
+    if (error) throw error;
+
+    return { coachId: data?.coach_id, error: null };
+  } catch (error) {
+    console.error('Error getting student coach:', error);
+    return { coachId: null, error };
   }
 };

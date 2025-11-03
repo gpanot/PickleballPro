@@ -85,9 +85,10 @@ CREATE OR REPLACE FUNCTION create_program_as_admin(
   program_rating DECIMAL DEFAULT 4.0,
   program_added_count INTEGER DEFAULT 0,
   program_is_published BOOLEAN DEFAULT FALSE,
-  program_thumbnail_url TEXT DEFAULT NULL
+  program_thumbnail_url TEXT DEFAULT NULL,
+  program_is_coach_program BOOLEAN DEFAULT FALSE
 )
-RETURNS TABLE(id UUID, name TEXT, description TEXT, category TEXT, tier TEXT, rating DECIMAL, added_count INTEGER, is_published BOOLEAN, thumbnail_url TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, created_by UUID)
+RETURNS TABLE(id UUID, name TEXT, description TEXT, category TEXT, tier TEXT, rating DECIMAL, added_count INTEGER, is_published BOOLEAN, thumbnail_url TEXT, is_coach_program BOOLEAN, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, created_by UUID)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -112,6 +113,7 @@ BEGIN
     added_count, 
     is_published, 
     thumbnail_url,
+    is_coach_program,
     created_by
   ) VALUES (
     program_name,
@@ -122,9 +124,10 @@ BEGIN
     program_added_count,
     program_is_published,
     program_thumbnail_url,
+    program_is_coach_program,
     auth.uid()
   )
-  RETURNING programs.id, programs.name, programs.description, programs.category, programs.tier, programs.rating, programs.added_count, programs.is_published, programs.thumbnail_url, programs.created_at, programs.updated_at, programs.created_by;
+  RETURNING programs.id, programs.name, programs.description, programs.category, programs.tier, programs.rating, programs.added_count, programs.is_published, programs.thumbnail_url, programs.is_coach_program, programs.created_at, programs.updated_at, programs.created_by;
 END;
 $$;
 
@@ -138,9 +141,10 @@ CREATE OR REPLACE FUNCTION update_program_as_admin(
   program_rating DECIMAL DEFAULT NULL,
   program_added_count INTEGER DEFAULT NULL,
   program_is_published BOOLEAN DEFAULT NULL,
-  program_thumbnail_url TEXT DEFAULT NULL
+  program_thumbnail_url TEXT DEFAULT NULL,
+  program_is_coach_program BOOLEAN DEFAULT NULL
 )
-RETURNS TABLE(id UUID, name TEXT, description TEXT, category TEXT, tier TEXT, rating DECIMAL, added_count INTEGER, is_published BOOLEAN, thumbnail_url TEXT, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, created_by UUID)
+RETURNS TABLE(id UUID, name TEXT, description TEXT, category TEXT, tier TEXT, rating DECIMAL, added_count INTEGER, is_published BOOLEAN, thumbnail_url TEXT, is_coach_program BOOLEAN, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ, created_by UUID)
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -165,9 +169,10 @@ BEGIN
     added_count = COALESCE(program_added_count, programs.added_count),
     is_published = COALESCE(program_is_published, programs.is_published),
     thumbnail_url = COALESCE(program_thumbnail_url, programs.thumbnail_url),
+    is_coach_program = COALESCE(program_is_coach_program, programs.is_coach_program),
     updated_at = NOW()
   WHERE programs.id = program_id
-  RETURNING programs.id, programs.name, programs.description, programs.category, programs.tier, programs.rating, programs.added_count, programs.is_published, programs.thumbnail_url, programs.created_at, programs.updated_at, programs.created_by;
+  RETURNING programs.id, programs.name, programs.description, programs.category, programs.tier, programs.rating, programs.added_count, programs.is_published, programs.thumbnail_url, programs.is_coach_program, programs.created_at, programs.updated_at, programs.created_by;
 END;
 $$;
 

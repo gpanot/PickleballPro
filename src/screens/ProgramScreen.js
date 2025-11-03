@@ -85,6 +85,7 @@ export default function ProgramScreen({ navigation, route }) {
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
   const [selectedImage, setSelectedImage] = React.useState(null);
+  const [isCoachProgram, setIsCoachProgram] = React.useState(false);
   const [isProcessingImage, setIsProcessingImage] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
@@ -862,7 +863,8 @@ export default function ProgramScreen({ navigation, route }) {
           program_category: 'Custom',
           program_tier: 'Beginner',
           program_is_published: false,
-          program_thumbnail_url: thumbnailUrl // Now properly handling image upload!
+          program_thumbnail_url: thumbnailUrl, // Now properly handling image upload!
+          program_is_coach_program: isCoachProgram
         });
         
         if (saveError) {
@@ -921,6 +923,7 @@ export default function ProgramScreen({ navigation, route }) {
       console.log('🧹 [ProgramScreen] Clearing form...');
       setNewProgramName('');
       setSelectedImage(null);
+      setIsCoachProgram(false);
       setShowCreateProgramModal(false);
       
       console.log('✅ [ProgramScreen] Program creation completed successfully');
@@ -2461,6 +2464,7 @@ export default function ProgramScreen({ navigation, route }) {
           setShowCreateProgramModal(false);
           setNewProgramName('');
           setSelectedImage(null);
+          setIsCoachProgram(false);
         }}
       >
         <View style={styles.modalContainer}>
@@ -2471,6 +2475,7 @@ export default function ProgramScreen({ navigation, route }) {
                 setShowCreateProgramModal(false);
                 setNewProgramName('');
                 setSelectedImage(null);
+                setIsCoachProgram(false);
               }}
             >
               <Text style={styles.modalCancelText}>Cancel</Text>
@@ -2530,6 +2535,24 @@ export default function ProgramScreen({ navigation, route }) {
                   </TouchableOpacity>
                 )}
               </View>
+              
+              <Text style={styles.modalLabel}>Coach Program Only</Text>
+              <TouchableOpacity
+                style={styles.checkboxContainer}
+                onPress={() => setIsCoachProgram(!isCoachProgram)}
+              >
+                <View style={[styles.checkbox, isCoachProgram && styles.checkboxChecked]}>
+                  {isCoachProgram && (
+                    <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                  )}
+                </View>
+                <View style={styles.checkboxLabelContainer}>
+                  <Text style={styles.checkboxLabel}>This program is for coaches only</Text>
+                  <Text style={styles.checkboxDescription}>
+                    Coach programs will be separated from student programs to keep content organized
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
@@ -3594,5 +3617,45 @@ const styles = StyleSheet.create({
     right: 24,
     top: '50%',
     marginTop: -10,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    borderRadius: 4,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxChecked: {
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
+  },
+  checkboxLabelContainer: {
+    flex: 1,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  checkboxDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 18,
   },
 });

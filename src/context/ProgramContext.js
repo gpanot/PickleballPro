@@ -135,7 +135,8 @@ export const ProgramProvider = ({ children }) => {
         program_tier: programData.tier || 'Beginner',
         program_is_shareable: programData.is_shareable !== false,
         program_visibility: programData.visibility || 'private',
-        program_thumbnail_url: programData.thumbnail_url
+        program_thumbnail_url: programData.thumbnail_url,
+        program_is_coach_program: programData.is_coach_program || false
       });
 
       if (savedProgram && savedProgram.length > 0 && !error) {

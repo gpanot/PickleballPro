@@ -441,18 +441,41 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                     <Text style={styles.exerciseTarget}>{exercise.target}</Text>
                     
                     {/* Tags Section */}
-                    {(exercise.skill_categories_json || exercise.tags) && (
-                      <View style={styles.tagsContainer}>
-                        <Text style={styles.tagsLabel}>Tags: </Text>
-                        <View style={styles.tagsRow}>
-                          {(exercise.skill_categories_json || exercise.tags || []).map((tag, tagIndex) => (
-                            <Text key={tagIndex} style={styles.tagText}>
-                              {tag}{tagIndex < (exercise.skill_categories_json || exercise.tags || []).length - 1 ? ' • ' : ''}
-                            </Text>
-                          ))}
+                    {(() => {
+                      // Helper function to normalize tags/categories to an array
+                      const normalizeToArray = (value) => {
+                        if (!value) return [];
+                        if (Array.isArray(value)) return value;
+                        if (typeof value === 'string') {
+                          try {
+                            // Try to parse as JSON first
+                            const parsed = JSON.parse(value);
+                            return Array.isArray(parsed) ? parsed : [];
+                          } catch (e) {
+                            // If not JSON, treat as comma-separated string
+                            return value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                          }
+                        }
+                        return [];
+                      };
+                      
+                      const tags = normalizeToArray(exercise.skill_categories_json || exercise.tags);
+                      
+                      if (tags.length === 0) return null;
+                      
+                      return (
+                        <View style={styles.tagsContainer}>
+                          <Text style={styles.tagsLabel}>Tags: </Text>
+                          <View style={styles.tagsRow}>
+                            {tags.map((tag, tagIndex) => (
+                              <Text key={tagIndex} style={styles.tagText}>
+                                {tag}{tagIndex < tags.length - 1 ? ' • ' : ''}
+                              </Text>
+                            ))}
+                          </View>
                         </View>
-                      </View>
-                    )}
+                      );
+                    })()}
                     
                     {/* DUPR Range Section */}
                     {exercise.dupr_range_min && exercise.dupr_range_max && (

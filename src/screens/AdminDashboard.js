@@ -113,6 +113,8 @@ export default function AdminDashboard({ navigation }) {
   const [editingCategoryName, setEditingCategoryName] = useState('');
   const [coachToDelete, setCoachToDelete] = useState(null);
   const [showDeleteCoachConfirmation, setShowDeleteCoachConfirmation] = useState(false);
+  const [programSortField, setProgramSortField] = useState(null);
+  const [programSortDirection, setProgramSortDirection] = useState('asc');
   
 
   // Web responsiveness
@@ -1228,10 +1230,23 @@ export default function AdminDashboard({ navigation }) {
   );
 
   const renderProgramsTable = () => {
-    const filteredPrograms = programs.filter(program => 
+    let filteredPrograms = programs.filter(program => 
       program.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       program.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    // Sort programs if sort field is set
+    if (programSortField === 'coach_program') {
+      filteredPrograms = [...filteredPrograms].sort((a, b) => {
+        const aValue = a.is_coach_program ? 1 : 0;
+        const bValue = b.is_coach_program ? 1 : 0;
+        if (programSortDirection === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      });
+    }
 
     return (
       <View style={styles.contentSection}>
@@ -1251,6 +1266,28 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Program</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Category</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Tier</Text>
+              <TouchableOpacity 
+                style={{ flex: 1 }}
+                onPress={() => {
+                  if (programSortField === 'coach_program') {
+                    setProgramSortDirection(programSortDirection === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setProgramSortField('coach_program');
+                    setProgramSortDirection('asc');
+                  }
+                }}
+              >
+                <View style={styles.sortableHeader}>
+                  <Text style={styles.modernTableHeaderText}>COACH Program</Text>
+                  {programSortField === 'coach_program' && (
+                    <Ionicons 
+                      name={programSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'} 
+                      size={14} 
+                      color="#3B82F6" 
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Content</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Users</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
@@ -1298,6 +1335,17 @@ export default function AdminDashboard({ navigation }) {
                   </View>
                   <View style={[styles.modernTableCell, { flex: 1 }]}>
                     <Text style={styles.tierText}>{program.tier || 'Beginner'}</Text>
+                  </View>
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <View style={[styles.modernStatusChip, 
+                      program.is_coach_program ? styles.coachProgramChip : styles.studentProgramChip
+                    ]}>
+                      <Text style={[styles.modernStatusText,
+                        program.is_coach_program ? styles.coachProgramText : styles.studentProgramText
+                      ]}>
+                        {program.is_coach_program ? 'Coach' : 'Student'}
+                      </Text>
+                    </View>
                   </View>
                   <View style={[styles.modernTableCell, { flex: 1.5 }]}>
                     <Text style={styles.contentText}>
@@ -4672,6 +4720,23 @@ const styles = StyleSheet.create({
   },
   draftStatusText: {
     color: '#71717a', // zinc-500
+  },
+  coachProgramChip: {
+    backgroundColor: '#DBEAFE', // blue-100
+  },
+  studentProgramChip: {
+    backgroundColor: '#F3F4F6', // gray-100
+  },
+  coachProgramText: {
+    color: '#1E40AF', // blue-800
+  },
+  studentProgramText: {
+    color: '#6B7280', // gray-500
+  },
+  sortableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 
   // Rating

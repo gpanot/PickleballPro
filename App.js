@@ -41,10 +41,12 @@ import AppSettingsScreen from './src/screens/AppSettingsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
 import PlayerProfileScreen from './src/screens/coach/PlayerProfileScreen';
 import EvaluationSummaryScreen from './src/screens/coach/EvaluationSummaryScreen';
+import FirstTimeAssessmentScreen from './src/screens/coach/FirstTimeAssessmentScreen';
+import FirstTimeAssessmentSummaryScreen from './src/screens/coach/FirstTimeAssessmentSummaryScreen';
 import GamePlayedListScreen from './src/screens/GamePlayedListScreen';
 import DoublesSetupScreen from './src/screens/DoublesSetupScreen';
-import SixPointTrackerScreen from './src/screens/6PointTrackerScreen';
 import SixPointSummaryScreen from './src/screens/6PointSummaryScreen';
+import UITestGameScreen from './src/screens/UITestGameScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -229,6 +231,16 @@ function AppContent() {
               options={{ headerShown: false }}
             />
             <Stack.Screen 
+              name="FirstTimeAssessment" 
+              component={FirstTimeAssessmentScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="FirstTimeAssessmentSummary" 
+              component={FirstTimeAssessmentSummaryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
               options={{ headerShown: false }}
@@ -269,13 +281,13 @@ function AppContent() {
               options={{ headerShown: false }}
             />
             <Stack.Screen 
-              name="SixPointTracker" 
-              component={SixPointTrackerScreen}
+              name="SixPointSummary" 
+              component={SixPointSummaryScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen 
-              name="SixPointSummary" 
-              component={SixPointSummaryScreen}
+              name="UITestGame" 
+              component={UITestGameScreen}
               options={{ headerShown: false }}
             />
           </>
@@ -355,7 +367,17 @@ function AppContent() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen 
-                  name="Profile" 
+                  name="FirstTimeAssessment" 
+                  component={FirstTimeAssessmentScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="FirstTimeAssessmentSummary" 
+                  component={FirstTimeAssessmentSummaryScreen}
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen 
+                  name="Profile"
                   component={ProfileScreen}
                   options={{ headerShown: false }}
                 />
@@ -382,11 +404,6 @@ function AppContent() {
                 <Stack.Screen 
                   name="DoublesSetup" 
                   component={DoublesSetupScreen}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen 
-                  name="SixPointTracker" 
-                  component={SixPointTrackerScreen}
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen 

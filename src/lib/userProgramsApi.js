@@ -24,7 +24,8 @@ export const createProgramAsUser = async (programData) => {
       program_is_published: programData.is_published || false,
       program_thumbnail_url: programData.thumbnail_url || null,
       program_is_shareable: programData.is_shareable !== false,
-      program_visibility: programData.visibility || 'private'
+      program_visibility: programData.visibility || 'private',
+      program_is_coach_program: programData.is_coach_program || false
     });
 
     if (error) throw error;
@@ -51,7 +52,8 @@ export const updateProgramAsUser = async (programId, updates) => {
       program_is_published: updates.is_published,
       program_thumbnail_url: updates.thumbnail_url,
       program_is_shareable: updates.is_shareable,
-      program_visibility: updates.visibility
+      program_visibility: updates.visibility,
+      program_is_coach_program: updates.is_coach_program
     });
 
     if (error) throw error;

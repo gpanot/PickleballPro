@@ -33,16 +33,20 @@ export default function SixPointSummaryScreen({ navigation, route }) {
     points, 
     allPoints, 
     teamAScore = 0, 
-    teamBScore = 0 
+    teamBScore = 0,
+    gameData // If gameData exists, this is a loaded game (not a new one)
   } = route.params || { players: {}, points: [], allPoints: [], teamAScore: 0, teamBScore: 0 };
   
   const [isSaving, setIsSaving] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [isSaved, setIsSaved] = useState(!!gameData); // If gameData exists, it's already saved
   
   // Calculate stats
   const teamAWins = allPoints.filter(p => p.winnerTeam === 'A').length;
   const teamBWins = allPoints.filter(p => p.winnerTeam === 'B').length;
-  const duration = Math.round((allPoints[allPoints.length - 1]?.timestamp - allPoints[0]?.timestamp || 0) / 1000 / 60);
+  
+  // Use duration from gameData if available, otherwise calculate
+  const duration = gameData?.duration_minutes || 
+    Math.round((allPoints[allPoints.length - 1]?.timestamp - allPoints[0]?.timestamp || 0) / 1000 / 60);
   
   // Calculate top player
   const playerStats = {};
@@ -70,31 +74,90 @@ export default function SixPointSummaryScreen({ navigation, route }) {
   });
   const commonMistake = Object.entries(mistakeCounts).sort((a, b) => b[1] - a[1])[0];
   
-  // Auto-save game data on mount
+  // Auto-save game data on mount (only for new games, not loaded ones)
   useEffect(() => {
-    if (user?.id && allPoints.length > 0) {
+    if (user?.id && allPoints.length > 0 && !gameData) {
       saveGameData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
+  // Helper function to validate UUID format
+  const isValidUUID = (str) => {
+    if (!str || typeof str !== 'string') return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
+  // Helper function to sanitize player data - remove invalid UUIDs
+  const sanitizePlayer = (player) => {
+    if (!player) return null;
+    // If player has an id but it's not a valid UUID, remove it or set to null
+    if (player.id && !isValidUUID(player.id)) {
+      const { id, ...playerWithoutId } = player;
+      return { ...playerWithoutId, id: null };
+    }
+    return player;
+  };
+
   const saveGameData = async () => {
-    if (isSaving || isSaved || !user?.id || allPoints.length === 0) return;
+    // Don't save if already saved or if this is a loaded game
+    if (isSaving || isSaved || !user?.id || allPoints.length === 0 || gameData) return;
     
     setIsSaving(true);
     try {
-      const gameData = {
-        id: `game_${Date.now()}`,
+      // Sanitize player data to ensure only valid UUIDs are saved
+      const sanitizedTeamAPlayers = {
+        A1: sanitizePlayer(players.A1),
+        A2: sanitizePlayer(players.A2),
+      };
+      const sanitizedTeamBPlayers = {
+        B1: sanitizePlayer(players.B1),
+        B2: sanitizePlayer(players.B2),
+      };
+
+      // Save to Supabase database first to get the generated ID
+      let dbGameId = null;
+      try {
+        const { data: dbData, error: dbError } = await supabase
+          .from('doubles_games')
+          .insert({
+            created_by: user.id,
+            date: new Date().toISOString().split('T')[0],
+            team_a_players: sanitizedTeamAPlayers,
+            team_b_players: sanitizedTeamBPlayers,
+            team_a_score: teamAScore,
+            team_b_score: teamBScore,
+            winner: teamAScore >= 6 ? 'A' : 'B',
+            points: allPoints,
+            duration_minutes: duration,
+            top_player: topPlayerSlot || null,
+            common_mistake: commonMistake?.[0] || null,
+          })
+          .select()
+          .single();
+
+        if (dbError) {
+          console.error('Error saving to database:', dbError);
+          // Use fallback ID if DB save fails
+          dbGameId = `game_${Date.now()}`;
+        } else {
+          // Use the database-generated ID
+          dbGameId = dbData.id;
+        }
+      } catch (dbError) {
+        console.error('Error saving to database:', dbError);
+        // Use fallback ID if DB save fails
+        dbGameId = `game_${Date.now()}`;
+      }
+
+      // Save to local storage with the same ID from database
+      const newGameData = {
+        id: dbGameId,
         created_by: user.id,
         date: new Date().toISOString().split('T')[0],
-        team_a_players: {
-          A1: players.A1,
-          A2: players.A2,
-        },
-        team_b_players: {
-          B1: players.B1,
-          B2: players.B2,
-        },
+        team_a_players: sanitizedTeamAPlayers,
+        team_b_players: sanitizedTeamBPlayers,
         team_a_score: teamAScore,
         team_b_score: teamBScore,
         winner: teamAScore >= 6 ? 'A' : 'B',
@@ -105,43 +168,15 @@ export default function SixPointSummaryScreen({ navigation, route }) {
         created_at: new Date().toISOString(),
       };
 
-      // Save to local storage first
       try {
         const existingGames = await AsyncStorage.getItem(`@user_doubles_games_${user.id}`);
         const games = existingGames ? JSON.parse(existingGames) : [];
-        games.unshift(gameData);
+        games.unshift(newGameData);
         // Keep only last 50 games locally
         const limitedGames = games.slice(0, 50);
         await AsyncStorage.setItem(`@user_doubles_games_${user.id}`, JSON.stringify(limitedGames));
       } catch (localError) {
         console.error('Error saving to local storage:', localError);
-      }
-
-      // Save to Supabase database
-      try {
-        const { error: dbError } = await supabase
-          .from('doubles_games')
-          .insert({
-            created_by: user.id,
-            date: gameData.date,
-            team_a_players: gameData.team_a_players,
-            team_b_players: gameData.team_b_players,
-            team_a_score: gameData.team_a_score,
-            team_b_score: gameData.team_b_score,
-            winner: gameData.winner,
-            points: gameData.points,
-            duration_minutes: gameData.duration_minutes,
-            top_player: gameData.top_player,
-            common_mistake: gameData.common_mistake,
-          });
-
-        if (dbError) {
-          console.error('Error saving to database:', dbError);
-          // Continue even if DB save fails - local save succeeded
-        }
-      } catch (dbError) {
-        console.error('Error saving to database:', dbError);
-        // Continue even if DB save fails - local save succeeded
       }
 
       setIsSaved(true);
@@ -170,19 +205,39 @@ export default function SixPointSummaryScreen({ navigation, route }) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
+        {gameData && (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
+          </TouchableOpacity>
+        )}
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>6-Point Summary</Text>
           <Text style={styles.headerSubtext}>Quick outcome overview</Text>
         </View>
+        {isSaved && !gameData && (
+          <View style={styles.savedIndicatorHeader}>
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            <Text style={styles.savedTextHeader}>Saved</Text>
+          </View>
+        )}
+        {isSaving && !gameData && (
+          <Text style={styles.savingTextHeader}>💾 Saving...</Text>
+        )}
+        {!gameData && !isSaved && !isSaving && <View style={styles.headerSpacer} />}
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={[
+          styles.scrollContent,
+          !gameData && { paddingBottom: 120 }, // Padding for footer buttons
+          gameData && { paddingBottom: 40 } // Less padding for past games without footer
+        ]}
+        showsVerticalScrollIndicator={true}
+      >
         {/* Top Stats Row */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
@@ -280,36 +335,26 @@ export default function SixPointSummaryScreen({ navigation, route }) {
         </View>
       </ScrollView>
 
-      {/* Sticky Footer Buttons */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        {isSaving && (
-          <View style={styles.savingIndicator}>
-            <Text style={styles.savingText}>💾 Saving game...</Text>
-          </View>
-        )}
-        {isSaved && (
-          <View style={styles.savedIndicator}>
-            <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-            <Text style={styles.savedText}>Saved</Text>
-          </View>
-        )}
-        
-        <TouchableOpacity
-          style={[styles.footerButton, styles.footerButtonRevenge]}
-          onPress={handleRevenge}
-        >
-          <Ionicons name="flame" size={20} color="#FFFFFF" />
-          <Text style={styles.footerButtonText}>Revenge 6 Points</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.footerButton, styles.footerButtonClose]}
-          onPress={handleCloseGame}
-        >
-          <Ionicons name="close" size={20} color="#FFFFFF" />
-          <Text style={styles.footerButtonText}>Close Game</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Sticky Footer Buttons - Only show for new games, not past games */}
+      {!gameData && (
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+          <TouchableOpacity
+            style={[styles.footerButton, styles.footerButtonRevenge]}
+            onPress={handleRevenge}
+          >
+            <Ionicons name="flame" size={20} color="#FFFFFF" />
+            <Text style={styles.footerButtonText}>Revenge 6 Points</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.footerButton, styles.footerButtonClose]}
+            onPress={handleCloseGame}
+          >
+            <Ionicons name="close" size={20} color="#FFFFFF" />
+            <Text style={styles.footerButtonText}>Close Game</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -322,6 +367,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
@@ -334,6 +380,24 @@ const styles = StyleSheet.create({
   },
   headerTitleContainer: {
     flex: 1,
+  },
+  headerSpacer: {
+    width: 40, // Match back button width for alignment
+  },
+  savedIndicatorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  savedTextHeader: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  savingTextHeader: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   headerTitle: {
     fontSize: 20,
@@ -350,7 +414,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 20, // Base padding
   },
   statsRow: {
     flexDirection: 'row',
@@ -507,7 +571,7 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     shadowColor: '#000',
@@ -516,39 +580,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  savingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  savingText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  savedIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    marginBottom: 8,
-    gap: 6,
-  },
-  savedText: {
-    fontSize: 12,
-    color: '#10B981',
-    fontWeight: '600',
-  },
   footerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
-    minHeight: 50,
+    minHeight: 44,
     marginBottom: 8,
   },
   footerButtonRevenge: {
