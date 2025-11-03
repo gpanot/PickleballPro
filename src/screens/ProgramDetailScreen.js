@@ -24,10 +24,17 @@ import { supabase } from '../lib/supabase';
 import { useUser } from '../context/UserContext';
 
 export default function ProgramDetailScreen({ navigation, route }) {
-  const { program: initialProgram, onUpdateProgram, source } = route.params;
+  const { program: initialProgram, onUpdateProgram, source, studentId, studentName, onAssign, isStudentView } = route.params;
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [program, setProgram] = React.useState(initialProgram);
+  
+  // Ensure program has routines array
+  const normalizedProgram = {
+    ...initialProgram,
+    routines: initialProgram?.routines || []
+  };
+  
+  const [program, setProgram] = React.useState(normalizedProgram);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = React.useState(false);
   const [newRoutineName, setNewRoutineName] = React.useState('');
   const [showEditProgramModal, setShowEditProgramModal] = React.useState(false);
@@ -255,10 +262,41 @@ export default function ProgramDetailScreen({ navigation, route }) {
   };
 
   const navigateToRoutine = (routine) => {
+    console.log('🔍 [ProgramDetailScreen] Navigating to routine:', routine.name);
+    console.log('📦 [ProgramDetailScreen] Routine data structure:', {
+      id: routine.id,
+      name: routine.name,
+      hasRoutineExercises: !!routine.routine_exercises,
+      routineExercisesCount: routine.routine_exercises?.length || 0,
+      hasExercises: !!routine.exercises,
+      exercisesCount: routine.exercises?.length || 0
+    });
+    
+    // Transform routine_exercises to flat exercises array if needed
+    const transformedRoutine = {
+      ...routine,
+      exercises: routine.exercises || (routine.routine_exercises || []).map((re, index) => ({
+        ...re.exercises,
+        name: re.exercises?.title || re.exercises?.name,
+        routineExerciseId: re.id || `temp_${index}`,
+        routine_exercise_id: re.id,
+        order_index: re.order_index,
+        is_optional: re.is_optional,
+        custom_target_value: re.custom_target_value,
+        // Add target formatting for compatibility
+        target: re.exercises?.target_value && re.exercises?.target_unit 
+          ? `${re.exercises.target_value} ${re.exercises.target_unit}`
+          : (re.exercises?.target_value ? `${re.exercises.target_value} attempts` : '10 attempts')
+      }))
+    };
+    
+    console.log('✅ [ProgramDetailScreen] Transformed exercises count:', transformedRoutine.exercises?.length || 0);
+    
     navigation.navigate('RoutineDetail', { 
       program,
-      routine,
+      routine: transformedRoutine,
       source,
+      isStudentView: isStudentView, // Pass student view flag to RoutineDetail
       onUpdateRoutine: (updatedRoutine) => {
         setProgram(prev => ({
           ...prev,
@@ -603,7 +641,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
               : 'Create your first routine to organize exercises within this program.'
             }
           </Text>
-          {source !== 'explore' && (
+          {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
               style={styles.addFirstRoutineButton}
               onPress={() => setShowCreateRoutineModal(true)}
@@ -657,7 +695,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
             </View>
           ))}
 
-          {source !== 'explore' && (
+          {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
               style={styles.addMoreRoutinesButton}
               onPress={() => setShowCreateRoutineModal(true)}
@@ -673,8 +711,8 @@ export default function ProgramDetailScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
 
-          {/* Sharing Section - Only show for owned programs (not from explore or library) */}
-          {source !== 'explore' && source !== 'library' && (
+          {/* Sharing Section - Only show for owned programs (not from explore, library, coach, or coach_assignment) */}
+          {source !== 'explore' && source !== 'library' && source !== 'coach' && source !== 'coach_assignment' && (
             <View style={styles.sharingSection}>
               <TouchableOpacity 
                 style={styles.sharingSectionHeader}
@@ -783,7 +821,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
             ) : null}
           </View>
           
-          {source !== 'explore' && (
+          {(source !== 'explore' && source !== 'coach_assignment') && (
             <TouchableOpacity
               style={styles.menuButton}
               onPress={() => {
@@ -814,7 +852,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
         style={styles.scrollView} 
         contentContainerStyle={[
           styles.scrollContent,
-          source === 'explore' && styles.scrollContentWithFixedButton
+          (source === 'explore' || source === 'coach_assignment') && styles.scrollContentWithFixedButton
         ]}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
@@ -838,6 +876,74 @@ export default function ProgramDetailScreen({ navigation, route }) {
             />
             <Text style={styles.fixedAddToProgramButtonText}>
               Add to my Program List
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* Fixed Assign Button for Coach Assignment Mode */}
+      {source === 'coach_assignment' && (
+        <View style={[styles.fixedButtonContainer, { paddingBottom: insets.bottom }]}>
+          <TouchableOpacity
+            style={styles.fixedAssignButton}
+            onPress={async () => {
+              try {
+                console.log('🎯 Assigning program to student:', { studentId, programId: program.id, programName: program.name });
+                
+                // Check if program is already assigned
+                const { data: existing, error: checkError } = await supabase
+                  .from('user_programs')
+                  .select('id')
+                  .eq('user_id', studentId)
+                  .eq('program_id', program.id)
+                  .single();
+                
+                if (existing) {
+                  console.log('⚠️ Program already assigned');
+                  Alert.alert('Already Assigned', 'This program is already assigned to the student.');
+                  return;
+                }
+                
+                // Assign program to student
+                console.log('📝 Inserting program assignment...');
+                const { error } = await supabase
+                  .from('user_programs')
+                  .insert({
+                    user_id: studentId,
+                    program_id: program.id,
+                    access_type: 'shared'
+                  });
+                
+                if (error) {
+                  console.error('❌ Error inserting program:', error);
+                  throw error;
+                }
+                
+                console.log('✅ Program assigned successfully');
+                
+                Alert.alert('Success', `Assigned "${program.name}" to ${studentName || 'student'}.`, [
+                  { 
+                    text: 'OK',
+                    onPress: () => {
+                      console.log('🔙 Navigating back to PlayerProfile...');
+                      // Navigate back to PlayerProfile (2 screens back)
+                      navigation.pop(2);
+                    }
+                  }
+                ]);
+              } catch (error) {
+                console.error('💥 Error assigning program:', error);
+                Alert.alert('Error', 'Failed to assign program. Please try again.');
+              }
+            }}
+          >
+            <Ionicons 
+              name="person-add" 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.fixedAssignButtonText}>
+              Assign to {studentName || 'Student'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1451,6 +1557,26 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fixedAddToProgramButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  fixedAssignButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#27AE60',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    shadowColor: '#27AE60',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  fixedAssignButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: 'white',

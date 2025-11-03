@@ -455,7 +455,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Doubles 6-Point Setup</Text>
+          <Text style={styles.headerTitle}>Doubles 15-Point Setup</Text>
           <Text style={styles.headerSubtext}>
             Scan or enter code to join. Drag players to slots.
           </Text>
@@ -541,7 +541,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
           onPress={handleStartGame}
           disabled={!players.A1 || !players.A2 || !players.B1 || !players.B2}
         >
-          <Text style={styles.startGameButtonText}>Start 6-Point Game</Text>
+          <Text style={styles.startGameButtonText}>Start 15-Point Game</Text>
         </TouchableOpacity>
       </View>
     </View>

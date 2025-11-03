@@ -1489,11 +1489,9 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
             <Text style={styles.doubleChallengeTitle}>Double Challenge Game</Text>
             <Text style={styles.doubleChallengeDescription}>
-              Play 6-point doubles games with friends. Track your matches and improve together!
+              Play 15-point doubles games with friends. Track your matches and improve together!
             </Text>
-            <View style={styles.doubleChallengeArrow}>
-              <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
-            </View>
+
           </TouchableOpacity>
         </View>
         <View style={styles.bottomSpacing} />

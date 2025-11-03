@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
+import { supabase, transformProgramData } from '../../lib/supabase';
 import { Modal } from 'react-native';
 
 const PRIMARY_COLOR = '#27AE60';
@@ -65,7 +65,16 @@ export default function PlayerProfileScreen({ route, navigation }) {
   useEffect(() => {
     if (!isFocused) return;
     loadAssessments();
+    loadPrograms();
   }, [isFocused]);
+
+  // Refresh programs when Programs tab is selected
+  useEffect(() => {
+    if (activeTab === 'Programs') {
+      console.log('📚 Programs tab selected, refreshing programs...');
+      loadPrograms();
+    }
+  }, [activeTab]);
 
   const loadPlayerData = async () => {
     try {
@@ -235,17 +244,92 @@ export default function PlayerProfileScreen({ route, navigation }) {
 
   const loadPrograms = async () => {
     try {
+      console.log('📚 Loading programs for student:', studentId);
+      
       const { data, error } = await supabase
         .from('user_programs')
-        .select('*, programs(*)')
+        .select(`
+          *,
+          programs(
+            *,
+            routines(
+              id,
+              name,
+              description,
+              order_index,
+              time_estimate_minutes,
+              routine_exercises(
+                order_index,
+                custom_target_value,
+                is_optional,
+                exercises(*)
+              )
+            )
+          )
+        `)
         .eq('user_id', studentId)
         .eq('is_completed', false);
 
-      if (error) throw error;
-      setPrograms(data || []);
+      if (error) {
+        console.error('❌ Error loading programs:', error);
+        throw error;
+      }
+      
+      console.log('✅ Loaded programs:', data?.length || 0, 'programs');
+      console.log('📦 Programs data:', JSON.stringify(data, null, 2));
+      
+      // Filter out any programs where the related program data is missing
+      const validPrograms = (data || []).filter(p => p && p.programs);
+      if (validPrograms.length !== (data || []).length) {
+        console.warn('⚠️ Some programs had missing data and were filtered out');
+      }
+      
+      setPrograms(validPrograms);
     } catch (error) {
-      console.error('Error loading programs:', error);
+      console.error('💥 Error loading programs:', error);
+      setPrograms([]); // Set empty array on error to prevent undefined errors
     }
+  };
+  
+  const handleAssignProgramPress = () => {
+    // Get list of already assigned program IDs
+    const assignedProgramIds = programs.map(p => p.program_id);
+    
+    navigation.navigate('AssignProgramList', {
+      studentId,
+      studentName: player?.name,
+      assignedProgramIds
+    });
+  };
+  
+  const handleRemoveProgram = (program) => {
+    Alert.alert(
+      'Remove Program?',
+      `Are you sure you want to remove "${program.programs?.name || 'this program'}" from the student?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('user_programs')
+                .delete()
+                .eq('id', program.id);
+
+      if (error) throw error;
+              
+              Alert.alert('Success', 'Program removed successfully.');
+              await loadPrograms();
+    } catch (error) {
+              console.error('Error removing program:', error);
+              Alert.alert('Error', 'Failed to remove program.');
+    }
+          },
+        },
+      ]
+    );
   };
 
   const loadProgress = async () => {
@@ -635,17 +719,69 @@ function SparkLine({ values, color, height = 64, style }) {
 
           {activeTab === 'Programs' && (
             <View>
+              {/* Assign Program Button - Coach View Only */}
+              {!isStudentView && (
+                <TouchableOpacity
+                  style={styles.assignProgramButton}
+                  onPress={handleAssignProgramPress}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={PRIMARY_COLOR} />
+                  <Text style={styles.assignProgramButtonText}>Assign Program</Text>
+                </TouchableOpacity>
+              )}
+              
               {programs.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="list-outline" size={48} color="#D1D5DB" />
                   <Text style={styles.emptyText}>No active programs</Text>
                 </View>
               ) : (
-                programs.map((program) => (
-                  <View key={program.id} style={styles.programCard}>
+                programs
+                  .filter(program => program && program.programs) // Filter out invalid programs
+                  .map((program) => (
+                    <TouchableOpacity
+                      key={program.id}
+                      style={styles.programCard}
+                      onPress={() => {
+                        // Navigate to program detail to view sessions/exercises
+                        navigation.navigate('ProgramDetail', {
+                          program: program.programs,
+                          source: 'coach',
+                          isStudentView: isStudentView // Pass student view flag
+                        });
+                      }}
+                      onLongPress={!isStudentView ? () => handleRemoveProgram(program) : undefined}
+                      delayLongPress={500}
+                    >
+                      <View style={styles.programCardContent}>
+                        {program.programs?.thumbnail_url && (
+                          <Image 
+                            source={{ uri: program.programs.thumbnail_url }} 
+                            style={styles.programThumbnail}
+                          />
+                        )}
+                        <View style={styles.programCardInfo}>
                     <Text style={styles.programName}>{program.programs?.name || 'Program'}</Text>
+                          {program.programs?.description && (
+                            <Text style={styles.programDescription} numberOfLines={2}>
+                              {program.programs.description}
+                            </Text>
+                          )}
+                          <View style={styles.programMeta}>
+                            {program.programs?.category && (
+                              <Text style={styles.programCategory}>{program.programs.category}</Text>
+                            )}
+                            {program.programs?.tier && (
+                              <Text style={styles.programTier}>• {program.programs.tier}</Text>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.programCardRight}>
                     <Text style={styles.programStatus}>Active</Text>
+                        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                   </View>
+                    </TouchableOpacity>
                 ))
               )}
             </View>
@@ -1094,17 +1230,86 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  programCardContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  programCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  programThumbnail: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  programCardInfo: {
+    flex: 1,
   },
   programName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
+    marginBottom: 4,
+  },
+  programDescription: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 4,
+    lineHeight: 16,
+  },
+  programMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  programCategory: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginRight: 4,
+  },
+  programTier: {
+    fontSize: 11,
+    color: '#6B7280',
   },
   programStatus: {
     fontSize: 12,
     fontWeight: '600',
     color: PRIMARY_COLOR,
     textTransform: 'uppercase',
+  },
+  assignProgramButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: PRIMARY_COLOR,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  assignProgramButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: PRIMARY_COLOR,
   },
   progressCard: {
     backgroundColor: 'white',

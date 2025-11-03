@@ -19,10 +19,44 @@ import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
 
 export default function RoutineDetailScreen({ navigation, route }) {
-  const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source } = route.params;
+  const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source, isStudentView } = route.params;
   const { user } = useUser();
   const insets = useSafeAreaInsets();
-  const [routine, setRoutine] = React.useState(initialRoutine);
+  
+  // Ensure routine has exercises array, transform routine_exercises if needed
+  const normalizedRoutine = React.useMemo(() => {
+    console.log('🔧 [RoutineDetailScreen] Normalizing routine:', initialRoutine?.name);
+    console.log('📦 [RoutineDetailScreen] Initial routine structure:', {
+      hasRoutineExercises: !!initialRoutine?.routine_exercises,
+      routineExercisesCount: initialRoutine?.routine_exercises?.length || 0,
+      hasExercises: !!initialRoutine?.exercises,
+      exercisesCount: initialRoutine?.exercises?.length || 0
+    });
+    
+    // If exercises already exists, use it; otherwise transform routine_exercises
+    const exercises = initialRoutine?.exercises || 
+      (initialRoutine?.routine_exercises || []).map((re, index) => ({
+        ...re.exercises,
+        name: re.exercises?.title || re.exercises?.name,
+        routineExerciseId: re.id || `temp_${index}`,
+        routine_exercise_id: re.id,
+        order_index: re.order_index,
+        is_optional: re.is_optional,
+        custom_target_value: re.custom_target_value,
+        target: re.exercises?.target_value && re.exercises?.target_unit 
+          ? `${re.exercises.target_value} ${re.exercises.target_unit}`
+          : (re.exercises?.target_value ? `${re.exercises.target_value} attempts` : '10 attempts')
+      })) || [];
+    
+    console.log('✅ [RoutineDetailScreen] Normalized exercises count:', exercises.length);
+    
+    return {
+      ...initialRoutine,
+      exercises
+    };
+  }, [initialRoutine]);
+  
+  const [routine, setRoutine] = React.useState(normalizedRoutine);
   const { addLogbookEntry } = useLogbook();
   
   // Debouncing state to prevent multiple rapid taps
@@ -752,7 +786,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
               : 'Add exercises to this routine to create your training plan.'
             }
           </Text>
-          {source !== 'explore' && (
+          {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
               style={styles.addFirstExerciseButton}
               onPress={openExercisePicker}
@@ -770,7 +804,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <View style={styles.exercisesHeader}>
             <View style={styles.exercisesHeaderTop}>
               <Text style={styles.exercisesTitle}>Exercises ({exercises.length})</Text>
-              {source !== 'explore' && (
+              {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
                 <TouchableOpacity
                   style={styles.addExerciseHeaderButton}
                   onPress={openExercisePicker}
@@ -787,7 +821,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
           
           {exercises.map((exercise, index) => (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
-              {source !== 'explore' && (
+              {source !== 'explore' && !isStudentView && (
                 <View style={styles.exerciseReorderHandle}>
                   <TouchableOpacity
                     style={styles.reorderButton}
@@ -829,7 +863,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
                 </View>
                 
-                {source !== 'explore' && (
+                {source !== 'explore' && !isStudentView && (
                   <View style={styles.exerciseActions}>
                     <View style={styles.exerciseButtonsContainer}>
                       <View style={[
@@ -874,7 +908,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
   );
 
   const renderSessionControls = () => {
-    if (exercises.length === 0 || source === 'explore') {
+    if (exercises.length === 0 || source === 'explore' || isStudentView) {
       return null;
     }
 
@@ -927,7 +961,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
               : 'Add exercises to this routine to create your training plan.'
             }
           </Text>
-          {source !== 'explore' && (
+          {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
               style={styles.addFirstExerciseButton}
               onPress={openExercisePicker}
@@ -955,7 +989,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <View style={styles.exercisesHeader}>
             <View style={styles.exercisesHeaderTop}>
               <Text style={styles.exercisesTitle}>Exercises ({exercises.length})</Text>
-              {source !== 'explore' && (
+              {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
                 <TouchableOpacity
                   style={styles.addExerciseHeaderButton}
                   onPress={openExercisePicker}
@@ -972,7 +1006,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
           
           {exercises.map((exercise, index) => (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
-              {source !== 'explore' && (
+              {source !== 'explore' && !isStudentView && (
                 <View style={styles.exerciseReorderHandle}>
                   <TouchableOpacity
                     style={styles.reorderButton}
@@ -1014,7 +1048,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
                 </View>
                 
-                {source !== 'explore' && (
+                {source !== 'explore' && !isStudentView && (
                   <View style={styles.exerciseActions}>
                     <View style={styles.exerciseButtonsContainer}>
                       <View style={[

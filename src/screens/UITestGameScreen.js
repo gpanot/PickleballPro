@@ -7,9 +7,12 @@ import {
   Dimensions,
   Animated,
   PanResponder,
+  Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import GameExplainerScreen from './GameExplainerScreen';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,19 +27,20 @@ export default function UITestGameScreen({ navigation, route }) {
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [history, setHistory] = useState([]);
-  const [showUndo, setShowUndo] = useState(false);
   const [lastBackAction, setLastBackAction] = useState(null); // Stores the last back action for redo
   const [draggedItem, setDraggedItem] = useState(null); // { playerId, zone }
   const [currentDragPosition, setCurrentDragPosition] = useState({ x: 0, y: 0 });
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [currentShotOptions, setCurrentShotOptions] = useState(BACK_SHOT_OPTIONS);
   const [pendingWinShot, setPendingWinShot] = useState(null); // Stores step 1 selection
+  const [showExplainer, setShowExplainer] = useState(false);
   const shotOptionsRefs = useRef({});
   const shotOptionsLayouts = useRef({});
   const zoneLayouts = useRef({});
   const zoneRefs = useRef({});
   const animatedValues = useRef({});
   const panResponders = useRef({});
+  const shotOptionsRotateAnimations = useRef({}); // For flip animations
 
   // Transform players from route params (A1, A2, B1, B2 format) to internal format
   const players = routePlayers ? [
@@ -69,6 +73,13 @@ export default function UITestGameScreen({ navigation, route }) {
 
   // Remeasure shot options and zones when layout settles or options change
   useEffect(() => {
+    // Initialize flip animations for shot options when options change
+    currentShotOptions.forEach((shotType) => {
+      if (!shotOptionsRotateAnimations.current[shotType]) {
+        shotOptionsRotateAnimations.current[shotType] = new Animated.Value(0);
+      }
+    });
+
     // Clear old shot option layouts when options change
     shotOptionsLayouts.current = {};
     
@@ -100,6 +111,23 @@ export default function UITestGameScreen({ navigation, route }) {
     const timer = setTimeout(remeasureAll, 800);
     return () => clearTimeout(timer);
   }, [currentShotOptions]);
+
+  // Check if explainer should be shown on mount
+  useEffect(() => {
+    const checkExplainerStatus = async () => {
+      try {
+        const hasSeenExplainer = await AsyncStorage.getItem('hasSeenGameExplainer');
+        if (!hasSeenExplainer) {
+          setShowExplainer(true);
+        }
+      } catch (error) {
+        console.error('Error checking explainer status:', error);
+        // Show explainer on error to be safe
+        setShowExplainer(true);
+      }
+    };
+    checkExplainerStatus();
+  }, []);
 
   const handlePointLogged = (playerId, zone, shotType) => {
     const player = players.find(p => p.id === playerId);
@@ -156,22 +184,21 @@ export default function UITestGameScreen({ navigation, route }) {
       // Reset to step 1
       setPendingWinShot(null);
       setStep(1);
+      
+      // Trigger flip animation for shot cards
+      flipShotCards();
 
-    // Show undo toast
-    setShowUndo(true);
-    setTimeout(() => setShowUndo(false), 2000);
-
-      // Check if game is over (6 points)
-      if (newScoreA >= 6 || newScoreB >= 6) {
+      // Check if game is over (15 points)
+      if (newScoreA >= 15 || newScoreB >= 15) {
         setTimeout(() => {
           navigateToSummary(newHistory, newScoreA, newScoreB);
-        }, 1500); // Give time for the undo toast to show
+        }, 500);
       }
     }
   };
 
   const navigateToSummary = (finalHistory, finalScoreA, finalScoreB) => {
-    // Transform history into format expected by 6PointSummaryScreen
+    // Transform history into format expected by summary screen
     const allPoints = finalHistory.map((point, index) => {
       const winPlayer = players.find(p => p.id === point.win.player);
       const errorPlayer = players.find(p => p.id === point.error.player);
@@ -208,7 +235,7 @@ export default function UITestGameScreen({ navigation, route }) {
 
     navigation.navigate('SixPointSummary', {
       players: playersMap,
-      points: allPoints.slice(0, 6), // First 6 points
+      points: allPoints.slice(0, 15), // First 15 points
       allPoints: allPoints,
       teamAScore: finalScoreA,
       teamBScore: finalScoreB,
@@ -270,7 +297,6 @@ export default function UITestGameScreen({ navigation, route }) {
     });
     setStep(2);
     setHistory(prev => prev.slice(0, -1));
-    setShowUndo(false);
   };
 
   const handleRedo = () => {
@@ -297,6 +323,61 @@ export default function UITestGameScreen({ navigation, route }) {
     }
 
     setLastBackAction(null);
+  };
+
+  const handleExitGame = () => {
+    Alert.alert(
+      'Quit Game?',
+      'Do you really want to quit and terminate the game?\n(Game data will be lost)',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Quit',
+          style: 'destructive',
+          onPress: () => navigation.goBack(),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const flipShotCards = () => {
+    // Create animated sequences for each shot option
+    const animations = currentShotOptions.map((shotType) => {
+      const animValue = shotOptionsRotateAnimations.current[shotType];
+      if (!animValue) return null;
+
+      return Animated.sequence([
+        Animated.timing(animValue, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animValue, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]);
+    }).filter(Boolean);
+
+    // Stagger the animations for a cascading flip effect
+    Animated.stagger(50, animations).start();
+  };
+
+  const handleCloseExplainer = () => {
+    setShowExplainer(false);
+  };
+
+  const handleDontShowExplainer = async () => {
+    try {
+      await AsyncStorage.setItem('hasSeenGameExplainer', 'true');
+    } catch (error) {
+      console.error('Error saving explainer status:', error);
+    }
   };
 
   const isPointInShotOption = (x, y) => {
@@ -372,7 +453,7 @@ export default function UITestGameScreen({ navigation, route }) {
         const hoveredShot = isPointInShotOption(pageX, pageY);
         if (hoveredShot) {
           const prefix = step === 2 ? 'Bad ' : '';
-          setFeedbackMessage(`✨ ${prefix}${hoveredShot}!`);
+          setFeedbackMessage(`✨ Did a ${prefix}${hoveredShot}!`);
         } else {
           const stepLabel = step === 1 ? 'Win' : 'Error';
           setFeedbackMessage(`[${stepLabel}] Dragging ${player?.name ?? 'Player'} ${zone === 'volley' ? 'Volley' : 'Baseline'}...`);
@@ -443,25 +524,21 @@ export default function UITestGameScreen({ navigation, route }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header with Score */}
+      <View style={styles.headerWithScore}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={handleExitGame}
         >
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>6-Point Game</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Score Bar */}
-      <View style={styles.scoreBar}>
-        <Text style={[styles.scoreTeamText, { color: '#14B8A6' }]}>Team A</Text>
-        <Text style={[styles.scoreValue, { color: '#FFFFFF' }]}>{scoreA}</Text>
-        <Text style={styles.scoreDivider}> - </Text>
-        <Text style={[styles.scoreValue, { color: '#FFFFFF' }]}>{scoreB}</Text>
-        <Text style={[styles.scoreTeamText, { color: '#3B82F6' }]}>Team B</Text>
+        <View style={styles.scoreContainer}>
+          <Text style={[styles.scoreTeamText, { color: '#14B8A6' }]}>Team A</Text>
+          <Text style={[styles.scoreValue, { color: '#FFFFFF' }]}>{scoreA}</Text>
+          <Text style={styles.scoreDivider}> - </Text>
+          <Text style={[styles.scoreValue, { color: '#FFFFFF' }]}>{scoreB}</Text>
+          <Text style={[styles.scoreTeamText, { color: '#3B82F6' }]}>Team B</Text>
+        </View>
       </View>
 
       {/* Step Instructions */}
@@ -569,9 +646,16 @@ export default function UITestGameScreen({ navigation, route }) {
               const label = step === 2 ? `Bad ${shotType}` : shotType;
               const stepColor = step === 1 ? 'rgba(139, 92, 246, 0.4)' : 'rgba(239, 68, 68, 0.4)'; // Purple for win, Red for error - with transparency
               const stepColorHover = step === 1 ? '#8B5CF6' : '#EF4444'; // Solid colors for hover
+              const rotateAnim = shotOptionsRotateAnimations.current[shotType];
+
+              // Create rotation interpolation for flip effect
+              const rotate = rotateAnim?.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '360deg'],
+              }) || '0deg';
 
               return (
-                <View
+                <Animated.View
                   key={shotType}
                   ref={ref => {
                     if (ref) {
@@ -592,6 +676,7 @@ export default function UITestGameScreen({ navigation, route }) {
                     styles.shotOption,
                     { borderColor: stepColor },
                     isHovered && { backgroundColor: stepColorHover, borderColor: stepColorHover },
+                    { transform: [{ rotate }] },
                   ]}
                 >
                   <Text
@@ -602,7 +687,7 @@ export default function UITestGameScreen({ navigation, route }) {
                   >
                     {label}
                   </Text>
-                </View>
+                </Animated.View>
               );
             })}
           </View>
@@ -709,39 +794,36 @@ export default function UITestGameScreen({ navigation, route }) {
       )}
 
       {/* Floating Action Buttons */}
-      <View style={styles.fabContainer}>
+      <View style={[styles.fabContainer, { bottom: 24 + insets.bottom }]}>
         <TouchableOpacity
           style={[
-            styles.fab, 
-            styles.fabBack,
-            (step === 1 && history.length === 0 || (step === 2 && !pendingWinShot)) && styles.fabDisabled
+            styles.actionButton,
+            (step === 1 && history.length === 0 || (step === 2 && !pendingWinShot)) && styles.actionButtonDisabled
           ]}
           onPress={handleBack}
           disabled={step === 1 && history.length === 0 || (step === 2 && !pendingWinShot)}
         >
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-undo" size={16} color="#94A3B8" />
+          <Text style={styles.actionButtonText}>Undo</Text>
         </TouchableOpacity>
 
         {lastBackAction && (
         <TouchableOpacity
-            style={[styles.fab, styles.fabRedo]}
+            style={styles.actionButton}
             onPress={handleRedo}
         >
-            <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-redo" size={16} color="#94A3B8" />
+            <Text style={styles.actionButtonText}>Redo</Text>
         </TouchableOpacity>
         )}
       </View>
 
-      {/* Undo Toast */}
-      {showUndo && (
-        <TouchableOpacity
-          style={styles.undoToast}
-          onPress={handleUndo}
-        >
-          <Ionicons name="arrow-undo" size={16} color="#FFFFFF" />
-          <Text style={styles.undoToastText}>Tap to Undo</Text>
-        </TouchableOpacity>
-      )}
+      {/* Explainer Modal */}
+      <GameExplainerScreen
+        visible={showExplainer}
+        onClose={handleCloseExplainer}
+        onDontShowAgain={handleDontShowExplainer}
+      />
     </View>
   );
 }
@@ -751,7 +833,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0A0E1A',
   },
-  header: {
+  headerWithScore: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -767,15 +849,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
   },
-  headerSpacer: {
-    width: 40,
+  scoreTeamText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  scoreValue: {
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  scoreDivider: {
+    fontSize: 20,
+    color: '#94A3B8',
+    fontWeight: '600',
   },
   stepInstructionsBar: {
     backgroundColor: '#0F172A',
@@ -783,34 +875,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
+    marginTop: 8,
   },
   stepInstructionsText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#E2E8F0',
     textAlign: 'center',
-  },
-  scoreBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0F172A',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  scoreTeamText: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  scoreValue: {
-    fontSize: 36,
-    fontWeight: '800',
-  },
-  scoreDivider: {
-    fontSize: 24,
-    color: '#94A3B8',
-    fontWeight: '600',
   },
   playersContainer: {
     flex: 1,
@@ -885,32 +956,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     pointerEvents: 'box-none',
   },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabBack: {
-    backgroundColor: '#F59E0B',
-  },
-  fabRedo: {
-    backgroundColor: '#10B981',
-  },
-  fabDisabled: {
-    backgroundColor: '#475569',
-    opacity: 0.5,
-  },
-  undoToast: {
-    position: 'absolute',
-    bottom: 96,
-    left: width / 2 - 80,
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -921,8 +967,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
   },
-  undoToastText: {
-    color: '#FFFFFF',
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+  actionButtonText: {
+    color: '#94A3B8',
     fontSize: 14,
     fontWeight: '500',
   },
