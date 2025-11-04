@@ -136,7 +136,6 @@ export default function StudentLogbookScreen({ route, navigation }) {
     let targetAccomplishment = null;
     if (exercisesWithNumericResults.length > 0) {
       let totalMetOrExceeded = 0;
-      let totalSum = 0;
       
       exercisesWithNumericResults.forEach(entry => {
         const target = parseInt(entry.exerciseDetails.target);
@@ -145,17 +144,12 @@ export default function StudentLogbookScreen({ route, navigation }) {
         if (result >= target) {
           totalMetOrExceeded++;
         }
-        
-        // Calculate percentage of target achieved
-        totalSum += (result / target) * 100;
       });
 
       const successRate = Math.round((totalMetOrExceeded / exercisesWithNumericResults.length) * 100);
-      const averageAchievement = Math.round(totalSum / exercisesWithNumericResults.length);
 
       targetAccomplishment = {
         successRate, // % of exercises that met or exceeded target
-        averageAchievement, // Average % of target achieved
         totalExercises: exercisesWithNumericResults.length,
       };
     }
@@ -276,27 +270,15 @@ export default function StudentLogbookScreen({ route, navigation }) {
           {/* Target Accomplishment Stats */}
           {summary.targetAccomplishment && (
             <View style={styles.accomplishmentCard}>
-              <Text style={styles.accomplishmentTitle}>Target Accomplishment</Text>
+              <Text style={styles.accomplishmentTitle}>TARGET ACCOMPLISHMENT</Text>
               <View style={styles.accomplishmentStats}>
                 <View style={styles.accomplishmentStatItem}>
                   <Text style={styles.accomplishmentStatValue}>
                     {summary.targetAccomplishment.successRate}%
                   </Text>
                   <Text style={styles.accomplishmentStatLabel}>Success Rate</Text>
-                  <Text style={styles.accomplishmentStatSubtext}>Met or exceeded target</Text>
-                </View>
-                <View style={styles.accomplishmentDivider} />
-                <View style={styles.accomplishmentStatItem}>
-                  <Text style={styles.accomplishmentStatValue}>
-                    {summary.targetAccomplishment.averageAchievement}%
-                  </Text>
-                  <Text style={styles.accomplishmentStatLabel}>Average Achievement</Text>
-                  <Text style={styles.accomplishmentStatSubtext}>Of target completed</Text>
                 </View>
               </View>
-              <Text style={styles.accomplishmentFooter}>
-                Based on {summary.targetAccomplishment.totalExercises} exercises
-              </Text>
             </View>
           )}
         </>
@@ -591,26 +573,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    minHeight: 88,
+    justifyContent: 'center',
   },
   accomplishmentTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 12,
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
     textAlign: 'center',
   },
   accomplishmentStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: 12,
   },
   accomplishmentStatItem: {
-    flex: 1,
     alignItems: 'center',
   },
   accomplishmentStatValue: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: PRIMARY_COLOR,
   },
@@ -618,27 +598,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#1F2937',
-    marginTop: 4,
-  },
-  accomplishmentStatSubtext: {
-    fontSize: 10,
-    fontWeight: '400',
-    color: '#6B7280',
     marginTop: 2,
-    textAlign: 'center',
-  },
-  accomplishmentDivider: {
-    width: 1,
-    height: 50,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 12,
-  },
-  accomplishmentFooter: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'center',
-    fontStyle: 'italic',
   },
   // Entries styles
   entriesContainer: {

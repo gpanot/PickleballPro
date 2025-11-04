@@ -31,67 +31,21 @@ The 6-Point Tracker uses a **4-step workflow** to capture each point:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Step 1: Point Maker Selection                              │
+│  Step 1 (Win): Point maker and Winning Shot Maker Selection                              │
 │  "Who made the winning shot?"                               │
-│  → Tap player zone (Back or Volley)                        │
-│  → Or long-press for radial menu (advanced)                │
+│  → Tap, hold and drag player to the shot options             │
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  Step 2: Winning Shot Type Selection                        │
-│  "Winning Shot Type"                                        │
-│  → Select from available shot types                         │
-│  → Available shots filtered by zone (back/volley)           │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│  Step 3: Error Maker Selection                              │
+│  Step 2 (Error): Error Maker and Error Shot Type Selection                            │
 │  "Who made the error?"                                      │
-│  → Tap opposing team player zone                            │
-│  → Only losing team players are selectable                  │
-└─────────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│  Step 4: Error Shot Type Selection                          │
-│  "Error Type"                                               │
-│  → Select from available error types                        │
+│  → Tap, hold and drag player to the shot options                          │
 │  → Auto-confirms point once selected                        │
 └─────────────────────────────────────────────────────────────┘
                           ↓
                   Point Recorded ✓
 ```
 
-### Step Details
-
-#### Step 1: Point Maker Selection
-- **Action**: Tap the zone (Back or Volley) of the player who made the winning shot
-- **Advanced**: Long-press for radial menu to directly select shot type
-- **Effect**: 
-  - Flashes GREEN on the selected player zone
-  - Automatically determines winning team
-  - Moves to Step 2
-
-#### Step 2: Winning Shot Type Selection
-- **Action**: Select the type of shot that won the point
-- **Constraints**: Only shots valid for the selected zone are shown
-- **Flexibility**: Can change the point maker if needed (same team only)
-- **Effect**: Records winning shot type and moves to Step 3
-
-#### Step 3: Error Maker Selection
-- **Action**: Tap the zone (Back or Volley) of the player who made the error
-- **Constraints**: Only opposing team players are selectable
-- **Effect**: 
-  - Flashes RED on the selected player zone
-  - Moves to Step 4
-
-#### Step 4: Error Shot Type Selection
-- **Action**: Select the type of error that lost the point
-- **Constraints**: Only errors valid for the selected zone are shown
-- **Flexibility**: Can change the error maker if needed (opposite team only)
-- **Effect**: 
-  - Auto-confirms the point
-  - Updates score
-  - Resets for next point (or ends game if 6 points reached)
 
 ### Special Case: Bad Serve Shortcut
 
@@ -189,42 +143,6 @@ When on Step 1 with points already recorded:
 
 ---
 
-## Data Captured
-
-Each point records the following information:
-
-```javascript
-{
-  pointNumber: 1-6,              // Sequential point number
-  winnerTeam: 'A' | 'B',         // Team that won the point
-  pointMaker: 'A1' | 'A2' | 'B1' | 'B2' | null,  // Player who made winning shot
-  pointMakerZone: 'back' | 'volley' | null,      // Zone of winning shot
-  pointShotType: string | null,                   // ID of winning shot type
-  pointShotTypeLabel: string | null,              // Display label of winning shot
-  errorMaker: 'A1' | 'A2' | 'B1' | 'B2',         // Player who made error
-  errorMakerZone: 'back' | 'volley',             // Zone of error
-  errorShotType: string,                          // ID of error type
-  errorShotTypeLabel: string,                     // Display label of error
-  timestamp: number                               // Unix timestamp
-}
-```
-
-**Note**: For bad serve points, `pointMaker` and related winning shot fields are `null`.
-
----
-
-## Game Completion
-
-### End Conditions
-- Game ends when either team reaches **6 points**
-- Automatically navigates to **6-Point Summary Screen**
-
-### Summary Screen Data
-The summary screen receives:
-- Complete array of all points
-- Player information
-- Final scores (Team A and Team B)
-- Detailed analytics and statistics
 
 ---
 

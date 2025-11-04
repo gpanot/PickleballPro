@@ -454,7 +454,8 @@ export const createLogbookEntry = async (entryData, userId = null) => {
         difficulty: entryData.difficulty,
         feeling: entryData.feeling,
         notes: entryData.notes,
-        location: entryData.location
+        location: entryData.location,
+        exercise_details: entryData.exerciseDetails || null
       })
       .select()
       .single();
@@ -530,7 +531,8 @@ export const updateLogbookEntry = async (id, entryData, userId = null) => {
         difficulty: entryData.difficulty,
         feeling: entryData.feeling,
         notes: entryData.notes,
-        location: entryData.location
+        location: entryData.location,
+        exercise_details: entryData.exerciseDetails || null
       })
       .eq('id', id)
       .select()

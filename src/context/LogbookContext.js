@@ -89,7 +89,8 @@ export const LogbookProvider = ({ children }) => {
             feeling: entry.feeling,
             notes: entry.notes,
             location: entry.location,
-            createdAt: entry.created_at
+            createdAt: entry.created_at,
+            exerciseDetails: entry.exercise_details || null
           };
         });
         
@@ -146,7 +147,8 @@ export const LogbookProvider = ({ children }) => {
         difficulty: entry.difficulty,
         feeling: entry.feeling,
         notes: entry.notes,
-        location: entry.location
+        location: entry.location,
+        exerciseDetails: entry.exerciseDetails || null
       };
 
       console.log('🔄 [LogbookContext] Transformed entry for Supabase:', supabaseEntry);
@@ -195,7 +197,8 @@ export const LogbookProvider = ({ children }) => {
           feeling: savedEntry.feeling,
           notes: savedEntry.notes,
           location: savedEntry.location,
-          createdAt: savedEntry.created_at
+          createdAt: savedEntry.created_at,
+          exerciseDetails: savedEntry.exercise_details || null
         };
         
         console.log('📋 [LogbookContext] Transformed entry:', transformedEntry);
@@ -240,7 +243,8 @@ export const LogbookProvider = ({ children }) => {
         difficulty: updatedEntry.difficulty,
         feeling: updatedEntry.feeling,
         notes: updatedEntry.notes,
-        location: updatedEntry.location
+        location: updatedEntry.location,
+        exerciseDetails: updatedEntry.exerciseDetails || null
       };
 
       console.log('🔄 [LogbookContext] Transformed update for Supabase:', supabaseEntry);
@@ -289,7 +293,8 @@ export const LogbookProvider = ({ children }) => {
           feeling: updatedSupabaseEntry.feeling,
           notes: updatedSupabaseEntry.notes,
           location: updatedSupabaseEntry.location,
-          createdAt: updatedSupabaseEntry.created_at
+          createdAt: updatedSupabaseEntry.created_at,
+          exerciseDetails: updatedSupabaseEntry.exercise_details || null
         };
         
         console.log('📋 [LogbookContext] Transformed updated entry:', transformedEntry);

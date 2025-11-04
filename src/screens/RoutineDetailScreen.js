@@ -14,12 +14,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WebIcon from '../components/WebIcon';
 import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
+import ExerciseHistoryModal from '../components/ExerciseHistoryModal';
 import { useLogbook } from '../context/LogbookContext';
 import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
 
 export default function RoutineDetailScreen({ navigation, route }) {
-  const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source, isStudentView } = route.params;
+  const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source, isStudentView, studentId } = route.params;
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   
@@ -65,6 +66,10 @@ export default function RoutineDetailScreen({ navigation, route }) {
   // Quick log modal state
   const [showQuickLogModal, setShowQuickLogModal] = React.useState(false);
   const [selectedExercise, setSelectedExercise] = React.useState(null);
+  
+  // Exercise history modal state
+  const [showHistoryModal, setShowHistoryModal] = React.useState(false);
+  const [historyExercise, setHistoryExercise] = React.useState(null);
   
   // Session start modal state
   const [showSessionStartModal, setShowSessionStartModal] = React.useState(false);
@@ -693,6 +698,18 @@ export default function RoutineDetailScreen({ navigation, route }) {
     setSelectedExercise(null);
   };
 
+  // Exercise history functions
+  const handleViewHistory = React.useCallback((exercise) => {
+    if (isNavigating) return; // Prevent action if already navigating
+    setHistoryExercise(exercise);
+    setShowHistoryModal(true);
+  }, [isNavigating]);
+
+  const closeHistoryModal = () => {
+    setShowHistoryModal(false);
+    setHistoryExercise(null);
+  };
+
   // Session timer functions
   const startSession = () => {
     setShowSessionStartModal(true);
@@ -821,33 +838,6 @@ export default function RoutineDetailScreen({ navigation, route }) {
           
           {exercises.map((exercise, index) => (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
-              {source !== 'explore' && !isStudentView && (
-                <View style={styles.exerciseReorderHandle}>
-                  <TouchableOpacity
-                    style={styles.reorderButton}
-                    onPress={() => moveExerciseUp(index)}
-                    disabled={index === 0}
-                  >
-                    <WebIcon 
-                      name="chevron-up" 
-                      size={16} 
-                      color={index === 0 ? "#D1D5DB" : "#6B7280"} 
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.reorderButton}
-                    onPress={() => moveExerciseDown(index)}
-                    disabled={index === exercises.length - 1}
-                  >
-                    <WebIcon 
-                      name="chevron-down" 
-                      size={16} 
-                      color={index === exercises.length - 1 ? "#D1D5DB" : "#6B7280"} 
-                    />
-                  </TouchableOpacity>
-                </View>
-              )}
-              
               <TouchableOpacity
                 style={[
                   styles.exerciseContent,
@@ -865,38 +855,45 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 
                 {source !== 'explore' && !isStudentView && (
                   <View style={styles.exerciseActions}>
-                    <View style={styles.exerciseButtonsContainer}>
-                      <View style={[
+                    <TouchableOpacity
+                      style={[
                         styles.exerciseButton,
-                        { backgroundColor: '#3B82F6' }
+                        styles.addLogButton,
+                        exerciseResults[exercise.routineExerciseId] 
+                          ? { backgroundColor: '#059669' } 
+                          : { backgroundColor: '#10B981' }
+                      ]}
+                      onPress={() => handleAddLog(exercise)}
+                    >
+                      <Text style={[
+                        styles.exerciseButtonText,
+                        { color: 'white' }
                       ]}>
-                        <Text style={[
-                          styles.exerciseButtonText,
-                          { color: 'white' }
-                        ]}>
-                          Details
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[
-                          styles.exerciseButton,
-                          styles.addLogButton,
-                          exerciseResults[exercise.routineExerciseId] 
-                            ? { backgroundColor: '#059669' } 
-                            : { backgroundColor: '#10B981' }
-                        ]}
-                        onPress={() => handleAddLog(exercise)}
-                      >
-                        <Text style={[
-                          styles.exerciseButtonText,
-                          { color: 'white' }
-                        ]}>
-                          {exerciseResults[exercise.routineExerciseId] 
-                            ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
-                            : 'Add Log'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        {exerciseResults[exercise.routineExerciseId] 
+                          ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
+                          : 'Add Log'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                
+                {source !== 'explore' && isStudentView && (
+                  <View style={styles.exerciseActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.exerciseButton,
+                        styles.seeLogsButton,
+                      ]}
+                      onPress={() => handleViewHistory(exercise)}
+                    >
+                      <WebIcon name="history" size={16} color="#3B82F6" />
+                      <Text style={[
+                        styles.exerciseButtonText,
+                        { color: '#3B82F6', marginLeft: 4 }
+                      ]}>
+                        See Logs
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1006,33 +1003,6 @@ export default function RoutineDetailScreen({ navigation, route }) {
           
           {exercises.map((exercise, index) => (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
-              {source !== 'explore' && !isStudentView && (
-                <View style={styles.exerciseReorderHandle}>
-                  <TouchableOpacity
-                    style={styles.reorderButton}
-                    onPress={() => moveExerciseUp(index)}
-                    disabled={index === 0}
-                  >
-                    <WebIcon 
-                      name="chevron-up" 
-                      size={16} 
-                      color={index === 0 ? "#D1D5DB" : "#6B7280"} 
-                    />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.reorderButton}
-                    onPress={() => moveExerciseDown(index)}
-                    disabled={index === exercises.length - 1}
-                  >
-                    <WebIcon 
-                      name="chevron-down" 
-                      size={16} 
-                      color={index === exercises.length - 1 ? "#D1D5DB" : "#6B7280"} 
-                    />
-                  </TouchableOpacity>
-                </View>
-              )}
-              
               <TouchableOpacity
                 style={[
                   styles.exerciseContent,
@@ -1050,38 +1020,45 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 
                 {source !== 'explore' && !isStudentView && (
                   <View style={styles.exerciseActions}>
-                    <View style={styles.exerciseButtonsContainer}>
-                      <View style={[
+                    <TouchableOpacity
+                      style={[
                         styles.exerciseButton,
-                        { backgroundColor: '#3B82F6' }
+                        styles.addLogButton,
+                        exerciseResults[exercise.routineExerciseId] 
+                          ? { backgroundColor: '#059669' } 
+                          : { backgroundColor: '#10B981' }
+                      ]}
+                      onPress={() => handleAddLog(exercise)}
+                    >
+                      <Text style={[
+                        styles.exerciseButtonText,
+                        { color: 'white' }
                       ]}>
-                        <Text style={[
-                          styles.exerciseButtonText,
-                          { color: 'white' }
-                        ]}>
-                          Details
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[
-                          styles.exerciseButton,
-                          styles.addLogButton,
-                          exerciseResults[exercise.routineExerciseId] 
-                            ? { backgroundColor: '#059669' } 
-                            : { backgroundColor: '#10B981' }
-                        ]}
-                        onPress={() => handleAddLog(exercise)}
-                      >
-                        <Text style={[
-                          styles.exerciseButtonText,
-                          { color: 'white' }
-                        ]}>
-                          {exerciseResults[exercise.routineExerciseId] 
-                            ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
-                            : 'Add Log'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                        {exerciseResults[exercise.routineExerciseId] 
+                          ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
+                          : 'Add Log'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                
+                {source !== 'explore' && isStudentView && (
+                  <View style={styles.exerciseActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.exerciseButton,
+                        styles.seeLogsButton,
+                      ]}
+                      onPress={() => handleViewHistory(exercise)}
+                    >
+                      <WebIcon name="history" size={16} color="#3B82F6" />
+                      <Text style={[
+                        styles.exerciseButtonText,
+                        { color: '#3B82F6', marginLeft: 4 }
+                      ]}>
+                        See Logs
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </TouchableOpacity>
@@ -1213,6 +1190,14 @@ export default function RoutineDetailScreen({ navigation, route }) {
       routine={routine}
       existingResult={selectedExercise ? exerciseResults[selectedExercise.routineExerciseId] : null}
       onResultSaved={handleResultSaved}
+      studentId={studentId}
+    />
+    
+    <ExerciseHistoryModal
+      visible={showHistoryModal}
+      onClose={closeHistoryModal}
+      exercise={historyExercise}
+      studentId={user?.id}
     />
   </>
   );
@@ -1419,6 +1404,13 @@ const styles = StyleSheet.create({
   },
   addLogButton: {
     borderColor: '#10B981',
+  },
+  seeLogsButton: {
+    borderColor: '#3B82F6',
+    backgroundColor: '#EFF6FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   exerciseButtonText: {
     fontSize: 12,

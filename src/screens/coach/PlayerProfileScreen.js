@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase, transformProgramData } from '../../lib/supabase';
+import { supabase, transformProgramData, getLogbookEntriesByUserId } from '../../lib/supabase';
 import { Modal } from 'react-native';
 
 const PRIMARY_COLOR = '#27AE60';
@@ -27,7 +27,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const [player, setPlayer] = useState(student || null);
   const [loading, setLoading] = useState(!student);
   const [loadingAssessments, setLoadingAssessments] = useState(true);
-  const [activeTab, setActiveTab] = useState('Assessments');
+  const [activeTab, setActiveTab] = useState('Assessment');
   const [assessments, setAssessments] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [progress, setProgress] = useState(null); // kept but not used
@@ -38,6 +38,8 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const [avgSkillScores, setAvgSkillScores] = useState(null);
   const [skillOverviewExpanded, setSkillOverviewExpanded] = useState(true);
   const [hasFirstTimeAssessment, setHasFirstTimeAssessment] = useState(false);
+  const [logbookEntries, setLogbookEntries] = useState([]);
+  const [loadingLogbook, setLoadingLogbook] = useState(false);
 
   // Include all assessed skills
   const PROGRESS_SKILLS = [
@@ -73,6 +75,9 @@ export default function PlayerProfileScreen({ route, navigation }) {
     if (activeTab === 'Programs') {
       console.log('📚 Programs tab selected, refreshing programs...');
       loadPrograms();
+    } else if (activeTab === 'Logbook') {
+      console.log('📖 Logbook tab selected, loading logbook...');
+      loadLogbookEntries();
     }
   }, [activeTab]);
 
@@ -348,6 +353,61 @@ export default function PlayerProfileScreen({ route, navigation }) {
     }
   };
 
+  const loadLogbookEntries = async () => {
+    try {
+      setLoadingLogbook(true);
+      const { data, error } = await getLogbookEntriesByUserId(studentId);
+      
+      if (error) {
+        console.error('Error loading student logbook:', error);
+        setLogbookEntries([]);
+        return;
+      }
+
+      // Transform Supabase data to match local format
+      const transformedEntries = (data || []).map(entry => {
+        let trainingFocus = entry.training_focus;
+        if (typeof trainingFocus === 'string') {
+          try {
+            trainingFocus = JSON.parse(trainingFocus);
+          } catch (e) {
+            trainingFocus = [trainingFocus];
+          }
+        }
+        
+        let difficulty = entry.difficulty;
+        if (typeof difficulty === 'string') {
+          try {
+            difficulty = JSON.parse(difficulty);
+          } catch (e) {
+            difficulty = difficulty ? [difficulty] : [];
+          }
+        }
+        
+        return {
+          id: entry.id,
+          date: entry.date,
+          hours: entry.hours,
+          sessionType: entry.session_type,
+          trainingFocus: trainingFocus,
+          difficulty: difficulty,
+          feeling: entry.feeling,
+          notes: entry.notes,
+          location: entry.location,
+          createdAt: entry.created_at,
+          exerciseDetails: entry.exercise_details || null,
+        };
+      });
+
+      setLogbookEntries(transformedEntries);
+    } catch (error) {
+      console.error('Error loading student logbook:', error);
+      setLogbookEntries([]);
+    } finally {
+      setLoadingLogbook(false);
+    }
+  };
+
   const handleStartAssessment = async () => {
     // Check if there's an existing draft assessment
     const draftKey = `assessment_${studentId}_draft`;
@@ -596,18 +656,11 @@ function SparkLine({ values, color, height = 64, style }) {
 
         {/* Tabs */}
         <View style={styles.tabs}>
-          {['Assessments', 'Programs', 'Progress', 'Logbook'].map((tab) => (
+          {['Assessment', 'Programs', 'Progress', 'Logbook'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => {
-                if (tab === 'Logbook') {
-                  // Navigate to dedicated logbook screen
-                  navigation.navigate('StudentLogbook', { studentId, student: player });
-                } else {
-                  setActiveTab(tab);
-                }
-              }}
+              onPress={() => setActiveTab(tab)}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
                 {tab}
@@ -618,7 +671,7 @@ function SparkLine({ values, color, height = 64, style }) {
 
         {/* Tab Content */}
         <View style={styles.tabContent}>
-          {activeTab === 'Assessments' && (
+          {activeTab === 'Assessment' && (
             <View>
               {loadingAssessments ? (
                 <View style={styles.emptyState}>
@@ -894,6 +947,157 @@ function SparkLine({ values, color, height = 64, style }) {
                   <Text style={styles.emptyText}>No breakdown available</Text>
                 )}
               </View>
+            </View>
+          )}
+
+          {activeTab === 'Logbook' && (
+            <View>
+              {loadingLogbook ? (
+                <View style={styles.emptyState}>
+                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+                  <Text style={styles.emptyText}>Loading logbook...</Text>
+                </View>
+              ) : (() => {
+                // Filter only entries with exercise details
+                const exerciseEntries = logbookEntries.filter(entry => 
+                  entry.exerciseDetails && entry.exerciseDetails.exerciseName
+                );
+
+                if (exerciseEntries.length === 0) {
+                  return (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="document-text-outline" size={48} color="#D1D5DB" />
+                      <Text style={styles.emptyText}>No exercise logs yet</Text>
+                    </View>
+                  );
+                }
+
+                // Get summary data
+                const firstLogDate = exerciseEntries[exerciseEntries.length - 1]?.date;
+                const uniqueDates = new Set(exerciseEntries.map(entry => entry.date));
+                const totalSessions = uniqueDates.size;
+                const lastExercises = exerciseEntries.slice(0, 4).map(entry => ({
+                  date: entry.date,
+                  programName: entry.exerciseDetails.programName,
+                  routineName: entry.exerciseDetails.routineName,
+                  exerciseName: entry.exerciseDetails.exerciseName,
+                  target: entry.exerciseDetails.target,
+                  result: entry.exerciseDetails.result,
+                }));
+
+                // Calculate success rate
+                const exercisesWithNumericResults = exerciseEntries.filter(entry => {
+                  const target = parseInt(entry.exerciseDetails.target);
+                  const result = parseInt(entry.exerciseDetails.result);
+                  return !isNaN(target) && !isNaN(result) && target > 0;
+                });
+
+                let successRate = 0;
+                if (exercisesWithNumericResults.length > 0) {
+                  let totalMetOrExceeded = 0;
+                  exercisesWithNumericResults.forEach(entry => {
+                    const target = parseInt(entry.exerciseDetails.target);
+                    const result = parseInt(entry.exerciseDetails.result);
+                    if (result >= target) totalMetOrExceeded++;
+                  });
+                  successRate = Math.round((totalMetOrExceeded / exercisesWithNumericResults.length) * 100);
+                }
+
+                return (
+                  <>
+                    {/* Summary Stats */}
+                    <View style={styles.logbookSummaryCard}>
+                      <View style={styles.logbookStatItem}>
+                        <Text style={styles.logbookStatValue}>{exerciseEntries.length}</Text>
+                        <Text style={styles.logbookStatLabel}>Exercises</Text>
+                      </View>
+                      <View style={styles.logbookStatDivider} />
+                      <View style={styles.logbookStatItem}>
+                        <Text style={styles.logbookStatValue}>{totalSessions}</Text>
+                        <Text style={styles.logbookStatLabel}>Sessions</Text>
+                      </View>
+                      {firstLogDate && (
+                        <>
+                          <View style={styles.logbookStatDivider} />
+                          <View style={styles.logbookStatItem}>
+                            <Text style={styles.logbookStatDateLabel}>Since</Text>
+                            <Text style={styles.logbookStatDate}>
+                              {new Date(firstLogDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </Text>
+                          </View>
+                        </>
+                      )}
+                    </View>
+
+                    {/* Last Session Activity */}
+                    {lastExercises.length > 0 && (() => {
+                      let lastDate = null;
+                      let lastProgram = null;
+                      let lastRoutine = null;
+                      
+                      return (
+                        <View style={styles.logbookLastExercisesCard}>
+                          <View style={styles.logbookLastExercisesHeader}>
+                            <Text style={styles.logbookLastExercisesTitle}>Last Session Activity</Text>
+                            <Text style={styles.logbookLastExercisesDate}>
+                              {new Date(lastExercises[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </Text>
+                          </View>
+                          <View style={styles.logbookLastExercisesList}>
+                            {lastExercises.map((exercise, index) => {
+                              const showDate = exercise.date !== lastDate && index > 0;
+                              const showProgram = exercise.programName !== lastProgram || showDate;
+                              const showRoutine = exercise.routineName !== lastRoutine || showDate;
+                              
+                              lastDate = exercise.date;
+                              lastProgram = exercise.programName;
+                              lastRoutine = exercise.routineName;
+                              
+                              return (
+                                <View key={index}>
+                                  {showDate && (
+                                    <Text style={styles.logbookExerciseDateDivider}>
+                                      {new Date(exercise.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </Text>
+                                  )}
+                                  <View style={styles.logbookLastExerciseItem}>
+                                    {(showProgram || showRoutine) && (
+                                      <Text style={styles.logbookLastExerciseMeta}>
+                                        {showProgram && exercise.programName}
+                                        {showProgram && showRoutine && ' / '}
+                                        {showRoutine && exercise.routineName}
+                                      </Text>
+                                    )}
+                                    <View style={styles.logbookLastExerciseRow}>
+                                      <Text style={styles.logbookLastExerciseName} numberOfLines={1}>{exercise.exerciseName}</Text>
+                                      <Text style={styles.logbookLastExerciseResult}>
+                                        {String(exercise.result).replace(/\s*attempts?/i, '')}/{String(exercise.target).replace(/\s*attempts?/i, '')}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      );
+                    })()}
+
+                    {/* Target Accomplishment */}
+                    {exercisesWithNumericResults.length > 0 && (
+                      <View style={styles.logbookAccomplishmentCard}>
+                        <Text style={styles.logbookAccomplishmentTitle}>TARGET ACCOMPLISHMENT</Text>
+                        <View style={styles.logbookAccomplishmentStats}>
+                          <View style={styles.logbookAccomplishmentStatItem}>
+                            <Text style={styles.logbookAccomplishmentStatValue}>{successRate}%</Text>
+                            <Text style={styles.logbookAccomplishmentStatLabel}>Success Rate</Text>
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                  </>
+                );
+              })()}
             </View>
           )}
         </View>
@@ -1721,6 +1925,151 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'right',
+  },
+  // Logbook styles
+  logbookSummaryCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  logbookStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  logbookStatValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  logbookStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  logbookStatDateLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  logbookStatDate: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  logbookStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 8,
+  },
+  logbookLastExercisesCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  logbookLastExercisesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  logbookLastExercisesTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  logbookLastExercisesDate: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  logbookExerciseDateDivider: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 8,
+    marginBottom: 6,
+    paddingLeft: 4,
+  },
+  logbookLastExercisesList: {
+    gap: 4,
+  },
+  logbookLastExerciseItem: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 6,
+    padding: 8,
+  },
+  logbookLastExerciseMeta: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  logbookLastExerciseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logbookLastExerciseName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+  },
+  logbookLastExerciseResult: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PRIMARY_COLOR,
+  },
+  logbookAccomplishmentCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    minHeight: 88,
+    justifyContent: 'center',
+  },
+  logbookAccomplishmentTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  logbookAccomplishmentStats: {
+    alignItems: 'center',
+  },
+  logbookAccomplishmentStatItem: {
+    alignItems: 'center',
+  },
+  logbookAccomplishmentStatValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: PRIMARY_COLOR,
+  },
+  logbookAccomplishmentStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginTop: 2,
   },
 });
 

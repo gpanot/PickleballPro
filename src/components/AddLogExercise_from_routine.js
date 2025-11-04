@@ -8,10 +8,12 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebIcon from './WebIcon';
 import { useLogbook } from '../context/LogbookContext';
+import { getLogbookEntriesByUserId, createLogbookEntry } from '../lib/supabase';
 
 export default function AddLogExercise_from_routine({
   visible,
@@ -20,33 +22,102 @@ export default function AddLogExercise_from_routine({
   program,
   routine,
   existingResult,
-  onResultSaved
+  onResultSaved,
+  studentId, // Add studentId prop to filter logs for specific student
 }) {
   const insets = useSafeAreaInsets();
-  const { addLogbookEntry } = useLogbook();
+  const { addLogbookEntry, logbookEntries } = useLogbook();
   
   // Local state for the modal
   const [logResult, setLogResult] = useState(existingResult?.result || '');
   const [logNotes, setLogNotes] = useState(existingResult?.notes || '');
-  const [difficulty, setDifficulty] = useState(existingResult?.difficulty || 3);
+  const [exerciseHistory, setExerciseHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Reset state when modal opens/closes or exercise changes
   React.useEffect(() => {
     if (visible && exercise) {
       setLogResult(existingResult?.result || '');
       setLogNotes(existingResult?.notes || '');
-      setDifficulty(existingResult?.difficulty || 3);
+      loadExerciseHistory();
     }
-  }, [visible, exercise, existingResult]);
+  }, [visible, exercise, existingResult, logbookEntries]);
 
-  // Difficulty options - same as in AddTrainingSessionScreen
-  const difficultyOptions = [
-    { value: 1, emoji: '🤩', label: 'Very Easy', color: '#10B981' },
-    { value: 2, emoji: '😊', label: 'Easy', color: '#6B7280' },
-    { value: 3, emoji: '😐', label: 'Moderate', color: '#F59E0B' },
-    { value: 4, emoji: '😕', label: 'Hard', color: '#F97316' },
-    { value: 5, emoji: '😓', label: 'Very Hard', color: '#EF4444' },
-  ];
+  // Load exercise history from logbook entries
+  const loadExerciseHistory = async () => {
+    if (!exercise) {
+      setExerciseHistory([]);
+      return;
+    }
+
+    setLoadingHistory(true);
+    
+    try {
+      let entries = [];
+      
+      // If studentId is provided, fetch logs for that specific student
+      // Otherwise, use logs from context (current user)
+      if (studentId) {
+        const { data, error } = await getLogbookEntriesByUserId(studentId);
+        if (data && !error) {
+          // Transform Supabase data to match local format
+          entries = data.map(entry => {
+            let trainingFocus = entry.training_focus;
+            if (typeof trainingFocus === 'string') {
+              try {
+                trainingFocus = JSON.parse(trainingFocus);
+              } catch (e) {
+                trainingFocus = [trainingFocus];
+              }
+            }
+            
+            return {
+              id: entry.id,
+              date: entry.date,
+              hours: entry.hours,
+              sessionType: entry.session_type,
+              trainingFocus: trainingFocus,
+              feeling: entry.feeling,
+              notes: entry.notes,
+              location: entry.location,
+              createdAt: entry.created_at,
+              exerciseDetails: entry.exercise_details || null,
+            };
+          });
+        }
+      } else {
+        // Use context's logbook entries for current user
+        entries = logbookEntries || [];
+      }
+
+      // Filter entries for this specific exercise
+      const history = entries.filter(entry => {
+        // Check if this entry has exerciseDetails and matches the current exercise name
+        if (entry.exerciseDetails && entry.exerciseDetails.exerciseName) {
+          return entry.exerciseDetails.exerciseName === exercise.name;
+        }
+        // Also check in notes for legacy format
+        if (entry.notes && entry.notes.includes(exercise.name + ':')) {
+          return true;
+        }
+        return false;
+      });
+
+      // Sort by date (most recent first)
+      const sortedHistory = history.sort((a, b) => {
+        const dateA = new Date(a.date || a.createdAt);
+        const dateB = new Date(b.date || b.createdAt);
+        return dateB - dateA;
+      });
+
+      setExerciseHistory(sortedHistory);
+    } catch (error) {
+      console.error('Error loading exercise history:', error);
+      setExerciseHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const getExerciseCategory = (exercise) => {
     const exerciseName = exercise.name.toLowerCase();
@@ -71,29 +142,10 @@ export default function AddLogExercise_from_routine({
       return;
     }
 
-    // Check if difficulty is challenging (3, 4, or 5) and prompt for redo
-    if (difficulty >= 3) {
-      Alert.alert(
-        'It looks like it was challenging!',
-        'Do you want to redo this exercise in the future?',
-        [
-          {
-            text: 'No',
-            style: 'cancel',
-            onPress: () => saveLogEntry(false)
-          },
-          {
-            text: 'Yes',
-            onPress: () => saveLogEntry(true)
-          }
-        ]
-      );
-    } else {
-      saveLogEntry(false);
-    }
+    saveLogEntry();
   };
 
-  const saveLogEntry = (wantsRedo) => {
+  const saveLogEntry = async () => {
     const entry = {
       id: Date.now().toString(),
       date: new Date().toISOString().split('T')[0],
@@ -105,29 +157,29 @@ export default function AddLogExercise_from_routine({
         exerciseName: exercise.name,
         target: exercise.target,
         result: logResult,
-        difficulty: difficulty,
-        wantsRedo: wantsRedo,
         routineName: routine.name,
         programName: program.name
       },
       createdAt: new Date().toISOString(),
     };
 
-    addLogbookEntry(entry);
-    
-    // Save redo preference locally (for future use)
-    if (wantsRedo) {
-      // Store locally that this exercise should be redone
-      // For now, we'll just store it in the result data
-      console.log(`User wants to redo exercise: ${exercise.name}`);
+    // If studentId is provided (coach logging for student), save directly to database
+    // Otherwise, use context (student logging for themselves)
+    if (studentId) {
+      console.log('💾 [AddLogExercise] Saving log for student:', studentId);
+      await createLogbookEntry(entry, studentId);
+    } else {
+      console.log('💾 [AddLogExercise] Saving log for current user');
+      await addLogbookEntry(entry);
     }
+    
+    // Reload history to show the new entry
+    loadExerciseHistory();
     
     // Prepare result data for parent component
     const resultData = {
       result: logResult,
       notes: logNotes,
-      difficulty: difficulty,
-      wantsRedo: wantsRedo,
       timestamp: new Date().toISOString(),
       exerciseName: exercise.name || exercise.title,
       target: exercise.target || exercise.goal
@@ -144,7 +196,6 @@ export default function AddLogExercise_from_routine({
   const handleClose = () => {
     setLogResult('');
     setLogNotes('');
-    setDifficulty(3);
     onClose();
   };
 
@@ -218,33 +269,6 @@ export default function AddLogExercise_from_routine({
               <Text style={styles.resultUnit}>/ target</Text>
             </View>
           </View>
-          
-          <View style={styles.inputSection}>
-            <Text style={styles.inputLabel}>Was it difficult for you?</Text>
-            <View style={styles.difficultySelector}>
-              {difficultyOptions.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.difficultyOption,
-                    difficulty === option.value && { 
-                      backgroundColor: option.color + '20',
-                      borderColor: option.color,
-                    }
-                  ]}
-                  onPress={() => setDifficulty(option.value)}
-                >
-                  <Text style={styles.difficultyOptionEmoji}>{option.emoji}</Text>
-                  <Text style={[
-                    styles.difficultyOptionLabel,
-                    difficulty === option.value && { color: option.color }
-                  ]}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
 
           <View style={styles.inputSection}>
             <Text style={styles.inputLabel}>Notes (optional)</Text>
@@ -257,6 +281,65 @@ export default function AddLogExercise_from_routine({
               multiline
               numberOfLines={3}
             />
+          </View>
+
+          {/* Exercise History Section */}
+          <View style={styles.historySection}>
+            <Text style={styles.historyTitle}>Previous Results</Text>
+            
+            {loadingHistory ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+              </View>
+            ) : exerciseHistory.length === 0 ? (
+              <View style={styles.emptyHistoryContainer}>
+                <WebIcon name="history" size={24} color="#D1D5DB" />
+                <Text style={styles.emptyHistoryText}>No previous results yet</Text>
+                <Text style={styles.emptyHistorySubtext}>Your progress will appear here after saving</Text>
+              </View>
+            ) : (
+              <View style={styles.historyList}>
+                {exerciseHistory.slice(0, 5).map((entry, index) => {
+                  const entryDate = new Date(entry.date || entry.createdAt);
+                  const formattedDate = entryDate.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  
+                  const result = entry.exerciseDetails?.result || 'N/A';
+                  const target = entry.exerciseDetails?.target || exercise.target_value || 'N/A';
+                  const notes = entry.exerciseDetails?.notes || '';
+                  
+                  return (
+                    <View key={entry.id || index} style={styles.historyItem}>
+                      <View style={styles.historyItemHeader}>
+                        <View style={styles.historyDateContainer}>
+                          <WebIcon name="calendar" size={14} color="#6B7280" />
+                          <Text style={styles.historyDate}>{formattedDate}</Text>
+                        </View>
+                        <View style={styles.historyResultBadge}>
+                          <Text style={styles.historyResultText}>
+                            {result} / {target}
+                          </Text>
+                        </View>
+                      </View>
+                      {notes && (
+                        <Text style={styles.historyNotes} numberOfLines={2}>
+                          {notes}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
+                
+                {exerciseHistory.length > 5 && (
+                  <Text style={styles.historyMoreText}>
+                    +{exerciseHistory.length - 5} more entries
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
         </ScrollView>
       </View>
@@ -411,32 +494,99 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  // Difficulty selector styles
-  difficultySelector: {
-    flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  // History Section Styles
+  historySection: {
+    marginTop: 24,
+    marginBottom: 16,
   },
-  difficultyOption: {
-    flex: 1,
-    minWidth: 55,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 8,
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  loadingContainer: {
+    padding: 20,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyHistoryContainer: {
+    backgroundColor: 'white',
+    padding: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
   },
-  difficultyOptionEmoji: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  difficultyOptionLabel: {
-    fontSize: 10,
+  emptyHistoryText: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#6B7280',
+    marginTop: 12,
+  },
+  emptyHistorySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 4,
     textAlign: 'center',
-    lineHeight: 12,
+  },
+  historyList: {
+    gap: 12,
+  },
+  historyItem: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  historyItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  historyDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  historyDate: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  historyResultBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  historyResultText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#3B82F6',
+  },
+  historyNotes: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  historyMoreText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

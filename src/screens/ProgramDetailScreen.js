@@ -297,6 +297,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
       routine: transformedRoutine,
       source,
       isStudentView: isStudentView, // Pass student view flag to RoutineDetail
+      studentId: studentId, // Pass student ID so logs are saved to student
       onUpdateRoutine: (updatedRoutine) => {
         setProgram(prev => ({
           ...prev,
