@@ -853,7 +853,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
                 </View>
                 
-                {source !== 'explore' && !isStudentView && (
+                {source !== 'explore' && source !== 'coach' && !isStudentView && (
                   <View style={styles.exerciseActions}>
                     <TouchableOpacity
                       style={[
@@ -905,7 +905,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
   );
 
   const renderSessionControls = () => {
-    if (exercises.length === 0 || source === 'explore' || isStudentView) {
+    if (exercises.length === 0 || source === 'explore' || source === 'coach' || isStudentView) {
       return null;
     }
 
@@ -1018,7 +1018,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                   <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
                 </View>
                 
-                {source !== 'explore' && !isStudentView && (
+                {source !== 'explore' && source !== 'coach' && !isStudentView && (
                   <View style={styles.exerciseActions}>
                     <TouchableOpacity
                       style={[
