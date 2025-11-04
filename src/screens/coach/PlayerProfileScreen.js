@@ -1095,6 +1095,16 @@ function SparkLine({ values, color, height = 64, style }) {
                         </View>
                       </View>
                     )}
+
+                    {/* See All Logs Button */}
+                    <TouchableOpacity
+                      style={styles.seeAllLogsButton}
+                      onPress={() => navigation.navigate('StudentLogbook', { studentId, student: player })}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.seeAllLogsButtonText}>See all logs</Text>
+                      <Ionicons name="chevron-forward" size={18} color={PRIMARY_COLOR} />
+                    </TouchableOpacity>
                   </>
                 );
               })()}
@@ -2070,6 +2080,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     marginTop: 2,
+  },
+  seeAllLogsButton: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  seeAllLogsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PRIMARY_COLOR,
   },
 });
 
