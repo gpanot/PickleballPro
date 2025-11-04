@@ -596,11 +596,18 @@ function SparkLine({ values, color, height = 64, style }) {
 
         {/* Tabs */}
         <View style={styles.tabs}>
-          {['Assessments', 'Programs', 'Progress'].map((tab) => (
+          {['Assessments', 'Programs', 'Progress', 'Logbook'].map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => {
+                if (tab === 'Logbook') {
+                  // Navigate to dedicated logbook screen
+                  navigation.navigate('StudentLogbook', { studentId, student: player });
+                } else {
+                  setActiveTab(tab);
+                }
+              }}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
                 {tab}
@@ -747,7 +754,8 @@ function SparkLine({ values, color, height = 64, style }) {
                         navigation.navigate('ProgramDetail', {
                           program: program.programs,
                           source: 'coach',
-                          isStudentView: isStudentView // Pass student view flag
+                          isStudentView: isStudentView, // Pass student view flag
+                          studentId: studentId // Pass student ID so logs are saved to student
                         });
                       }}
                       onLongPress={!isStudentView ? () => handleRemoveProgram(program) : undefined}

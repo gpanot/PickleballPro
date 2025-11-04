@@ -8,6 +8,7 @@ import SkillDetailScreen from '../screens/coach/SkillDetailScreen';
 import EvaluationSummaryScreen from '../screens/coach/EvaluationSummaryScreen';
 import FirstTimeAssessmentScreen from '../screens/coach/FirstTimeAssessmentScreen';
 import FirstTimeAssessmentSummaryScreen from '../screens/coach/FirstTimeAssessmentSummaryScreen';
+import StudentLogbookScreen from '../screens/coach/StudentLogbookScreen';
 
 const Stack = createStackNavigator();
 
@@ -26,6 +27,7 @@ export default function CoachNavigator() {
       <Stack.Screen name="EvaluationSummary" component={EvaluationSummaryScreen} />
       <Stack.Screen name="FirstTimeAssessment" component={FirstTimeAssessmentScreen} />
       <Stack.Screen name="FirstTimeAssessmentSummary" component={FirstTimeAssessmentSummaryScreen} />
+      <Stack.Screen name="StudentLogbook" component={StudentLogbookScreen} />
     </Stack.Navigator>
   );
 }

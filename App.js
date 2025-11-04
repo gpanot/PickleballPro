@@ -43,6 +43,7 @@ import PlayerProfileScreen from './src/screens/coach/PlayerProfileScreen';
 import EvaluationSummaryScreen from './src/screens/coach/EvaluationSummaryScreen';
 import FirstTimeAssessmentScreen from './src/screens/coach/FirstTimeAssessmentScreen';
 import FirstTimeAssessmentSummaryScreen from './src/screens/coach/FirstTimeAssessmentSummaryScreen';
+import StudentLogbookScreen from './src/screens/coach/StudentLogbookScreen';
 import GamePlayedListScreen from './src/screens/GamePlayedListScreen';
 import DoublesSetupScreen from './src/screens/DoublesSetupScreen';
 import SixPointSummaryScreen from './src/screens/6PointSummaryScreen';
@@ -238,6 +239,11 @@ function AppContent() {
             <Stack.Screen 
               name="FirstTimeAssessmentSummary" 
               component={FirstTimeAssessmentSummaryScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="StudentLogbook" 
+              component={StudentLogbookScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen 
