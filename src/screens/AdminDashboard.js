@@ -689,16 +689,31 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const handleSignOut = async () => {
+    console.log('🔴 handleSignOut called');
+    console.log('🔴 navigation object:', navigation);
+    
+    if (!navigation) {
+      console.error('❌ Navigation object is undefined!');
+      Alert.alert('Error', 'Navigation is not available');
+      return;
+    }
+    
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      'Exit Admin Dashboard',
+      'Return to your profile?',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Sign Out', 
-          style: 'destructive',
-          onPress: async () => {
-            await signOut();
+          text: 'Exit', 
+          style: 'default',
+          onPress: () => {
+            console.log('🔴 Exit pressed, navigating back...');
+            try {
+              navigation.goBack();
+              console.log('✅ Navigation goBack() called successfully');
+            } catch (error) {
+              console.error('❌ Error navigating back:', error);
+            }
           }
         }
       ]
@@ -794,19 +809,29 @@ export default function AdminDashboard({ navigation }) {
 
       {/* User Section */}
       <View style={styles.userSection}>
-        <TouchableOpacity style={styles.userProfile} onPress={handleSignOut}>
-          <View style={styles.userAvatar}>
+        <TouchableOpacity 
+          style={styles.userProfile} 
+          onPress={() => {
+            console.log('🔵 TouchableOpacity pressed!');
+            handleSignOut();
+          }}
+          activeOpacity={0.7}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Logout"
+        >
+          <View style={styles.userAvatar} pointerEvents="none">
             <Text style={styles.userAvatarText}>
               {(profile?.name || user?.email || 'A').charAt(0).toUpperCase()}
             </Text>
           </View>
           {!sidebarCollapsed && (
-            <View style={styles.userInfo}>
+            <View style={styles.userInfo} pointerEvents="none">
               <Text style={styles.userName}>{profile?.name || 'Admin'}</Text>
               <Text style={styles.userEmail}>{user?.email}</Text>
             </View>
           )}
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+          <Ionicons name="log-out-outline" size={20} color="#EF4444" pointerEvents="none" />
         </TouchableOpacity>
       </View>
     </View>
@@ -3935,10 +3960,18 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    zIndex: 100,
+    position: 'relative',
   },
   userProfile: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 8,
+    borderRadius: 8,
+    ...(Platform.OS === 'web' && {
+      cursor: 'pointer',
+      userSelect: 'none',
+    }),
   },
   userAvatar: {
     width: 36,
