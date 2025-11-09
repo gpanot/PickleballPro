@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+.expo
+.expo-shared
+web-build
+
+# Native builds
+android
+ios
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+*.log
+
+# Git
+.git
+
+# Misc
+*.md
+!README.md
+.github
+bundletool.jar
+
+# SQL migrations (not needed for deployment)
+*.sql
+
+# CSV files
+*.csv
+
+# Backup files
+*.backup
+

@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useUser } from '../context/UserContext';
-import { supabase } from '../lib/supabase';
+import { useUser } from '../../context/UserContext';
+import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function GamePlayedListScreen({ navigation }) {
@@ -24,6 +24,13 @@ export default function GamePlayedListScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [showEnterCodeModal, setShowEnterCodeModal] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const [showPlayerNamesModal, setShowPlayerNamesModal] = useState(false);
+  const [playerNames, setPlayerNames] = useState({
+    A1: '',
+    A2: '',
+    B1: '',
+    B2: '',
+  });
 
   useEffect(() => {
     loadGames();
@@ -228,6 +235,38 @@ export default function GamePlayedListScreen({ navigation }) {
     );
   };
 
+  const handleStartNewGame = () => {
+    // Pre-populate A1 with user's name, reset other fields
+    const userName = user?.name || user?.email?.split('@')[0] || '';
+    setPlayerNames({ 
+      A1: userName, 
+      A2: '', 
+      B1: '', 
+      B2: '' 
+    });
+    setShowPlayerNamesModal(true);
+  };
+
+  const handlePlayerNamesSubmit = () => {
+    // Validate that all names are entered
+    if (!playerNames.A1.trim() || !playerNames.A2.trim() || !playerNames.B1.trim() || !playerNames.B2.trim()) {
+      Alert.alert('Missing Names', 'Please enter all 4 player names.');
+      return;
+    }
+
+    // Create players object with names
+    const players = {
+      A1: { name: playerNames.A1.trim() },
+      A2: { name: playerNames.A2.trim() },
+      B1: { name: playerNames.B1.trim() },
+      B2: { name: playerNames.B2.trim() },
+    };
+
+    // Close modal and navigate with player names
+    setShowPlayerNamesModal(false);
+    navigation.navigate('DoublesSetup', { players });
+  };
+
   const renderGameItem = ({ item }) => {
     const formatDate = (dateString) => {
       const date = new Date(dateString);
@@ -356,7 +395,8 @@ export default function GamePlayedListScreen({ navigation }) {
       )}
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <View style={styles.joinButtonsRow}>
+        {/* Hidden for now - Scan to Join and Enter Code buttons */}
+        {/* <View style={styles.joinButtonsRow}>
           <TouchableOpacity
             style={styles.scanButton}
             onPress={() => {
@@ -374,11 +414,11 @@ export default function GamePlayedListScreen({ navigation }) {
             <Ionicons name="create-outline" size={20} color="#3B82F6" />
             <Text style={styles.enterCodeButtonText}>Enter Code</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
         
         <TouchableOpacity
           style={styles.startGameButton}
-          onPress={() => navigation.navigate('DoublesSetup')}
+          onPress={handleStartNewGame}
         >
           <Ionicons name="add-circle" size={24} color="#FFFFFF" />
           <Text style={styles.startGameButtonText}>Start A New Game</Text>
@@ -437,6 +477,104 @@ export default function GamePlayedListScreen({ navigation }) {
                 onPress={handleEnterCodeSubmit}
               >
                 <Text style={styles.modalButtonSubmitText}>Join Game</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Player Names Entry Modal */}
+      <Modal
+        visible={showPlayerNamesModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowPlayerNamesModal(false);
+          setPlayerNames({ A1: '', A2: '', B1: '', B2: '' });
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Enter Player Names</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowPlayerNamesModal(false);
+                  setPlayerNames({ A1: '', A2: '', B1: '', B2: '' });
+                }}
+              >
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSubtext}>
+              Enter the names of all 4 players
+            </Text>
+
+            {/* Team A Players */}
+            <View style={styles.teamSection}>
+              <View style={[styles.teamSectionHeader, { backgroundColor: '#D1FAE5' }]}>
+                <Text style={styles.teamSectionTitle}>Team A</Text>
+              </View>
+              <TextInput
+                style={styles.playerNameInput}
+                value={playerNames.A1}
+                onChangeText={(text) => setPlayerNames(prev => ({ ...prev, A1: text }))}
+                placeholder="Player A1 Name"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.playerNameInput}
+                value={playerNames.A2}
+                onChangeText={(text) => setPlayerNames(prev => ({ ...prev, A2: text }))}
+                placeholder="Player A2 Name"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+
+            {/* Team B Players */}
+            <View style={styles.teamSection}>
+              <View style={[styles.teamSectionHeader, { backgroundColor: '#DBEAFE' }]}>
+                <Text style={styles.teamSectionTitle}>Team B</Text>
+              </View>
+              <TextInput
+                style={styles.playerNameInput}
+                value={playerNames.B1}
+                onChangeText={(text) => setPlayerNames(prev => ({ ...prev, B1: text }))}
+                placeholder="Player B1 Name"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.playerNameInput}
+                value={playerNames.B2}
+                onChangeText={(text) => setPlayerNames(prev => ({ ...prev, B2: text }))}
+                placeholder="Player B2 Name"
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowPlayerNamesModal(false);
+                  setPlayerNames({ A1: '', A2: '', B1: '', B2: '' });
+                }}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSubmit]}
+                onPress={handlePlayerNamesSubmit}
+              >
+                <Text style={styles.modalButtonSubmitText}>Start Game</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -739,6 +877,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  teamSection: {
+    marginBottom: 20,
+  },
+  teamSectionHeader: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  teamSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  playerNameInput: {
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1F2937',
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
   },
 });
 

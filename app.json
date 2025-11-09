@@ -22,6 +22,9 @@
       "associatedDomains": ["applinks:pickleballhero.app"],
       "config": {
         "googleMapsApiKey": "AIzaSyAMNdMtfFdyekAB1VwDORs9Fesl41JUajg"
+      },
+      "infoPlist": {
+        "NSUserTrackingUsageDescription": "We use tracking to provide personalized coaching recommendations and improve your training experience."
       }
     },
     "android": {

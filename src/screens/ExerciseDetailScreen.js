@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,43 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import YoutubePlayer from 'react-native-youtube-iframe';
+import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
 
 const ExerciseDetailScreen = ({ route, navigation }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [currentExerciseData, setCurrentExerciseData] = useState(null);
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef(null);
   const insets = useSafeAreaInsets();
   
   // Get exercise data from navigation params or use mock data
   const initialRawExercise = route?.params?.exercise || route?.params?.rawExercise;
   const onExerciseUpdated = route?.params?.onExerciseUpdated;
+  const studentId = route?.params?.studentId; // For coach logging
+  const program = route?.params?.program; // For logging context
+  const routine = route?.params?.routine; // For logging context
+
+  // Helper function to extract YouTube video ID from URL
+  const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    
+    // Handle different YouTube URL formats
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
+      /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  };
   
   // Use current exercise data if available, otherwise fall back to initial data
   const rawExercise = currentExerciseData || initialRawExercise;
@@ -109,6 +136,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     validationMode: rawExercise.validation_mode || "manual",
     estimatedTime: rawExercise.estimated_minutes ? `${rawExercise.estimated_minutes} min` : "10-15 min",
     equipment: ["Balls", "Paddle"],
+    videoUrl: rawExercise.youtube_url || rawExercise.demo_video_url || rawExercise.video_url || rawExercise.videoUrl || null,
     tips: (() => {
       // Try multiple sources for tips data
       // 1. Direct tips_json field (from database)
@@ -158,11 +186,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.levelText}>{exercise.level}</Text>
           <Text style={styles.titleText}>{exercise.title}</Text>
-        </View>
-        <View style={styles.difficultyContainer}>
-          {getDifficultyStars()}
         </View>
       </View>
     </View>
@@ -196,28 +220,96 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     </View>
   );
 
-  const renderVideoSection = () => (
-    <View style={styles.videoSection}>
-      <View style={styles.videoContainer}>
-        <TouchableOpacity
-          style={styles.playButton}
-          onPress={() => setIsPlaying(!isPlaying)}
-        >
-          <ModernIcon 
-            name={isPlaying ? "pause" : "play"} 
-            size={32} 
-            color="white" 
+  const renderVideoSection = () => {
+    const videoId = getYouTubeVideoId(exercise.videoUrl);
+    
+    console.log('🎥 [Video Debug]', {
+      videoUrl: exercise.videoUrl,
+      extractedVideoId: videoId
+    });
+    
+    if (!videoId) {
+      // Show placeholder if no video URL
+      console.log('❌ No video ID found');
+      return (
+        <View style={styles.videoSection}>
+          <View style={styles.videoContainer}>
+            <View style={styles.noVideoContainer}>
+              <Ionicons name="videocam-off-outline" size={48} color="#9CA3AF" />
+              <Text style={styles.noVideoText}>No video available</Text>
+            </View>
+          </View>
+          <View style={styles.videoInfo}>
+            <View style={styles.videoDetails}>
+              <ModernIcon name="time" size={16} color="#6B7280" />
+              <Text style={styles.videoDetailText}>{exercise.estimatedTime}</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    console.log('✅ Rendering YouTube player with ID:', videoId);
+
+    return (
+      <View style={styles.videoSection}>
+        <View style={styles.videoContainer}>
+          <YoutubePlayer
+            ref={playerRef}
+            width={'100%'}
+            height={200}
+            videoId={videoId}
+            play={isPlaying}
+            webViewProps={{
+              allowsFullscreenVideo: true,
+              androidLayerType: 'hardware',
+            }}
+            webViewStyle={{
+              opacity: 0.99,
+            }}
+            initialPlayerParams={{
+              loop: false,
+              controls: true,
+              modestbranding: false,
+              showClosedCaptions: false,
+              preventFullScreen: false,
+            }}
+            onChangeState={(state) => {
+              console.log('📺 YouTube State Changed:', state);
+              if (state === 'ended' || state === 'paused') {
+                setIsPlaying(false);
+              } else if (state === 'playing') {
+                setIsPlaying(true);
+              }
+            }}
+            onReady={() => {
+              console.log('✅ YouTube Player Ready');
+            }}
+            onError={(error) => {
+              console.log('❌ YouTube Player Error:', error);
+            }}
+            onFullScreenChange={(isFullScreen) => {
+              console.log('📺 Fullscreen changed:', isFullScreen);
+            }}
           />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.videoInfo}>
-        <View style={styles.videoDetails}>
-          <ModernIcon name="time" size={16} color="#6B7280" />
-          <Text style={styles.videoDetailText}>{exercise.estimatedTime}</Text>
+        </View>
+        <View style={styles.videoInfo}>
+          <View style={styles.videoDetails}>
+            <ModernIcon name="time" size={16} color="#6B7280" />
+            <Text style={styles.videoDetailText}>{exercise.estimatedTime}</Text>
+          </View>
+          {exercise.videoUrl && (
+            <View style={styles.videoDetails}>
+              <Ionicons name="logo-youtube" size={16} color="#FF0000" />
+              <Text style={styles.videoUrlText} numberOfLines={1} ellipsizeMode="tail">
+                {exercise.videoUrl}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderInstructions = () => {
     // Split instructions by double newlines to create sections
@@ -347,6 +439,30 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           {renderTags()}
         </View>
       </ScrollView>
+      
+      {/* Log Button - only show for coaches viewing student exercises */}
+      {studentId && program && routine && (
+        <TouchableOpacity
+          style={[styles.logButton, { bottom: insets.bottom + 20 }]}
+          onPress={() => setShowLogModal(true)}
+        >
+          <Ionicons name="add" size={24} color="white" />
+          <Text style={styles.logButtonText}>Add Log</Text>
+        </TouchableOpacity>
+      )}
+      
+      {/* Log Modal */}
+      <AddLogExercise_from_routine
+        visible={showLogModal}
+        onClose={() => setShowLogModal(false)}
+        exercise={rawExercise}
+        program={program}
+        routine={routine}
+        studentId={studentId}
+        onResultSaved={() => {
+          console.log('✅ Log saved for student');
+        }}
+      />
     </View>
   );
 };
@@ -500,14 +616,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
-  playButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  noVideoContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  noVideoText: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginTop: 8,
   },
   videoInfo: {
     padding: 16,
@@ -521,6 +639,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginLeft: 4,
+  },
+  videoUrlText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginLeft: 4,
+    flex: 1,
   },
   card: {
     backgroundColor: 'white',
@@ -543,10 +667,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   instructionSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: 'normal',
+    color: '#374151',
+    marginBottom: 4,
   },
   instructionItem: {
     fontSize: 14,
@@ -602,6 +726,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
     lineHeight: 16,
+  },
+  logButton: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#27AE60',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    gap: 8,
+  },
+  logButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

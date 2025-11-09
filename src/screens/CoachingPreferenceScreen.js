@@ -7,9 +7,20 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { requestTrackingPermission, getTrackingStatus } from 'react-native-tracking-transparency';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
+
+// Optional import for tracking transparency (may not be available in all environments)
+let requestTrackingPermission = null;
+let getTrackingStatus = null;
+
+try {
+  const TrackingTransparency = require('react-native-tracking-transparency');
+  requestTrackingPermission = TrackingTransparency.requestTrackingPermission;
+  getTrackingStatus = TrackingTransparency.getTrackingStatus;
+} catch (error) {
+  console.log('CoachingPreferenceScreen: Tracking transparency not available:', error.message);
+}
 
 export default function CoachingPreferenceScreen({ onComplete }) {
   const [selectedPreference, setSelectedPreference] = useState(null);
@@ -36,33 +47,42 @@ export default function CoachingPreferenceScreen({ onComplete }) {
   ];
 
   const handlePreferenceSelect = async (preferenceId) => {
-    setSelectedPreference(preferenceId);
-    
-    // Request App Tracking Transparency permission on iOS
-    if (Platform.OS === 'ios') {
-      try {
-        console.log('CoachingPreferenceScreen: Requesting ATT permission on iOS');
-        const trackingStatus = await getTrackingStatus();
-        console.log('CoachingPreferenceScreen: Current tracking status:', trackingStatus);
-        
-        if (trackingStatus === 'not-determined') {
-          const permission = await requestTrackingPermission();
-          console.log('CoachingPreferenceScreen: ATT permission result:', permission);
-        }
-      } catch (error) {
-        console.error('CoachingPreferenceScreen: Error requesting ATT permission:', error);
-      }
+    try {
+      setSelectedPreference(preferenceId);
+      
+      // Note: App Tracking Transparency (ATT) request temporarily disabled
+      // To enable, add NSUserTrackingUsageDescription to Info.plist and rebuild iOS app
+      // if (Platform.OS === 'ios' && getTrackingStatus && requestTrackingPermission) {
+      //   try {
+      //     console.log('CoachingPreferenceScreen: Requesting ATT permission on iOS');
+      //     const trackingStatus = await getTrackingStatus();
+      //     console.log('CoachingPreferenceScreen: Current tracking status:', trackingStatus);
+      //     
+      //     if (trackingStatus === 'not-determined') {
+      //       const permission = await requestTrackingPermission();
+      //       console.log('CoachingPreferenceScreen: ATT permission result:', permission);
+      //     }
+      //   } catch (error) {
+      //     console.error('CoachingPreferenceScreen: Error requesting ATT permission:', error);
+      //   }
+      // }
+      
+      // Save coaching preference data to UserContext
+      console.log('CoachingPreferenceScreen: Saving coaching preference to UserContext:', preferenceId);
+      await updateOnboardingData({ coachPreference: preferenceId });
+      
+      // Navigate to CreateAccountScreen with coaching preference data
+      console.log('CoachingPreferenceScreen: Calling onComplete with:', { coach_preference: preferenceId });
+      onComplete({ 
+        coach_preference: preferenceId
+      });
+    } catch (error) {
+      console.error('CoachingPreferenceScreen: Error in handlePreferenceSelect:', error);
+      // Still try to navigate even if there's an error saving data
+      onComplete({ 
+        coach_preference: preferenceId
+      });
     }
-    
-    // Save coaching preference data to UserContext
-    console.log('CoachingPreferenceScreen: Saving coaching preference to UserContext:', preferenceId);
-    await updateOnboardingData({ coachPreference: preferenceId });
-    
-    // Navigate to CreateAccountScreen with coaching preference data
-    onComplete({ 
-      coach_preference: preferenceId,
-      navigateTo: 'CreateAccount'
-    });
   };
 
   const renderPreferenceOption = (preference) => (

@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
   TextInput,
   Image,
   ActivityIndicator,
@@ -117,7 +118,6 @@ export default function CoachDashboardScreen({ navigation }) {
           .from('coach_assessments')
           .select('id, student_id, total_score, max_score, created_at, skills_data')
           .in('student_id', studentIds)
-          .eq('coach_id', currentCoachId)
           .order('created_at', { ascending: false });
         if (!assessErr && assessmentsData) {
           // Helper function to check if an assessment is a First Time Assessment
@@ -242,6 +242,46 @@ export default function CoachDashboardScreen({ navigation }) {
 
   const handleStudentPress = (student) => {
     navigation.navigate('PlayerProfile', { studentId: student.id, student });
+  };
+
+  const handleRemoveStudent = async (student) => {
+    Alert.alert(
+      'Remove Student Connection',
+      `Remove ${student.name} from your student list?\n\nDon't worry - all assessment history and data will be preserved. You can reconnect with them later if needed.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Soft delete by setting is_active to false
+              const { error } = await supabase
+                .from('coach_students')
+                .update({ is_active: false })
+                .eq('coach_id', coachId)
+                .eq('student_id', student.id);
+              
+              if (error) throw error;
+              
+              // Reload students list
+              await loadStudents();
+              
+              Alert.alert(
+                'Student Removed',
+                `${student.name} has been removed from your list. All history is preserved.`
+              );
+            } catch (error) {
+              console.error('Error removing student:', error);
+              Alert.alert('Error', 'Failed to remove student. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Removed Start Assessment handler (no inline start button on dashboard)
@@ -382,16 +422,18 @@ export default function CoachDashboardScreen({ navigation }) {
                     style={styles.emptyButton}
                     onPress={() => setShowAddStudentModal(true)}
                   >
-                    <Text style={styles.emptyButtonText}>Add Your First Player</Text>
+                    <Text style={styles.emptyButtonText}>Add Your First Student</Text>
                   </TouchableOpacity>
                 )}
               </View>
             ) : (
               filteredStudents.map((student) => (
                 <View key={student.id} style={styles.playerCard}>
-                  <TouchableOpacity
+                  <Pressable
                     style={styles.playerHeader}
                     onPress={() => handleStudentPress(student)}
+                    onLongPress={() => handleRemoveStudent(student)}
+                    android_ripple={{ color: 'rgba(0, 0, 0, 0.05)' }}
                   >
                     <View style={styles.playerAvatar}>
                       {student.avatarUrl ? (
@@ -427,7 +469,7 @@ export default function CoachDashboardScreen({ navigation }) {
                         </Text>
                       </View>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
                   {/* Start New Assessment button removed */}
                 </View>
               ))

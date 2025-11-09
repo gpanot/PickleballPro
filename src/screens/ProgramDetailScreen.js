@@ -45,6 +45,8 @@ export default function ProgramDetailScreen({ navigation, route }) {
   const [isGeneratingShare, setIsGeneratingShare] = React.useState(false);
   const [isShareSectionExpanded, setIsShareSectionExpanded] = React.useState(true);
   const [chevronRotation] = React.useState(new Animated.Value(0));
+  const [isProgramAlreadyAssigned, setIsProgramAlreadyAssigned] = React.useState(false);
+  const [isCheckingAssignment, setIsCheckingAssignment] = React.useState(true);
 
   // Load persistent share section state
   React.useEffect(() => {
@@ -63,6 +65,41 @@ export default function ProgramDetailScreen({ navigation, route }) {
     };
     loadShareSectionState();
   }, []);
+
+  // Check if program is already assigned to student (for coach assignment mode)
+  React.useEffect(() => {
+    const checkProgramAssignment = async () => {
+      if (source === 'coach_assignment' && studentId && program.id) {
+        try {
+          console.log('🔍 Checking if program is already assigned to student:', { studentId, programId: program.id });
+          setIsCheckingAssignment(true);
+          
+          const { data: existing, error: checkError } = await supabase
+            .from('user_programs')
+            .select('id')
+            .eq('user_id', studentId)
+            .eq('program_id', program.id)
+            .single();
+          
+          if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+            console.error('❌ Error checking program assignment:', checkError);
+          }
+          
+          const isAssigned = !!existing;
+          setIsProgramAlreadyAssigned(isAssigned);
+          console.log(isAssigned ? '✅ Program already assigned' : '📝 Program not assigned yet');
+        } catch (error) {
+          console.error('💥 Error checking program assignment:', error);
+        } finally {
+          setIsCheckingAssignment(false);
+        }
+      } else {
+        setIsCheckingAssignment(false);
+      }
+    };
+    
+    checkProgramAssignment();
+  }, [source, studentId, program.id]);
 
   // Update program in parent (would be better with context/state management)
   React.useEffect(() => {
@@ -666,7 +703,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
           <View style={styles.routinesHeader}>
             <Text style={styles.routinesTitle}>Sessions ({program.routines.length})</Text>
             <Text style={styles.routinesSubtitle}>
-              {source === 'explore' ? 'Tap to preview routine' : 'Tap to open • Long press to delete'}
+              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Tap to preview routine' : 'Tap to open • Long press to delete'}
             </Text>
           </View>
           
@@ -675,7 +712,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
               <TouchableOpacity
                 style={styles.routineContent}
                 onPress={() => navigateToRoutine(routine)}
-                onLongPress={source === 'explore' ? undefined : () => deleteRoutine(routine.id)}
+                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => deleteRoutine(routine.id)}
               >
                 <View style={styles.routineInfo}>
                   <Text style={styles.routineName}>{routine.name}</Text>
@@ -883,27 +920,13 @@ export default function ProgramDetailScreen({ navigation, route }) {
       )}
       
       {/* Fixed Assign Button for Coach Assignment Mode */}
-      {source === 'coach_assignment' && (
+      {source === 'coach_assignment' && !isStudentView && !isProgramAlreadyAssigned && !isCheckingAssignment && (
         <View style={[styles.fixedButtonContainer, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity
             style={styles.fixedAssignButton}
             onPress={async () => {
               try {
                 console.log('🎯 Assigning program to student:', { studentId, programId: program.id, programName: program.name });
-                
-                // Check if program is already assigned
-                const { data: existing, error: checkError } = await supabase
-                  .from('user_programs')
-                  .select('id')
-                  .eq('user_id', studentId)
-                  .eq('program_id', program.id)
-                  .single();
-                
-                if (existing) {
-                  console.log('⚠️ Program already assigned');
-                  Alert.alert('Already Assigned', 'This program is already assigned to the student.');
-                  return;
-                }
                 
                 // Assign program to student
                 console.log('📝 Inserting program assignment...');
@@ -921,6 +944,9 @@ export default function ProgramDetailScreen({ navigation, route }) {
                 }
                 
                 console.log('✅ Program assigned successfully');
+                
+                // Update local state to hide button
+                setIsProgramAlreadyAssigned(true);
                 
                 Alert.alert('Success', `Assigned "${program.name}" to ${studentName || 'student'}.`, [
                   { 

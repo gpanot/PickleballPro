@@ -88,6 +88,120 @@ export default function RoutineDetailScreen({ navigation, route }) {
   
   // Pull to refresh state
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  
+  // Latest logs for exercises
+  const [latestLogs, setLatestLogs] = React.useState({});
+
+  // Fetch latest logs for all exercises in the routine
+  const fetchLatestLogs = React.useCallback(async () => {
+    if (!user?.id || exercises.length === 0) {
+      return;
+    }
+
+    try {
+      console.log('📊 [RoutineDetailScreen] Fetching latest logs for exercises...');
+      
+      // Get exercise names from the routine
+      const exerciseNames = exercises.map(ex => ex.name || ex.title).filter(Boolean);
+      
+      if (exerciseNames.length === 0) {
+        return;
+      }
+
+      console.log('🔍 [RoutineDetailScreen] Looking for logs for exercises:', exerciseNames);
+
+      // Fetch all logbook entries for this user
+      const { data: logs, error } = await supabase
+        .from('logbook_entries')
+        .select('*')
+        .eq('user_id', studentId || user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ [RoutineDetailScreen] Error fetching latest logs:', error);
+        return;
+      }
+
+      console.log('📦 [RoutineDetailScreen] Total logs fetched:', logs?.length || 0);
+
+      // Filter and group by exercise name from exercise_details JSONB field
+      const latestByExercise = {};
+      
+      logs?.forEach(log => {
+        // Check if exercise_details exists and has exerciseName
+        if (log.exercise_details && log.exercise_details.exerciseName) {
+          const exerciseName = log.exercise_details.exerciseName;
+          
+          // Check if this exercise is in our routine
+          if (exerciseNames.includes(exerciseName)) {
+            // Only keep the first (most recent) log for each exercise
+            if (!latestByExercise[exerciseName]) {
+              latestByExercise[exerciseName] = log;
+            }
+          }
+        }
+      });
+
+      console.log('✅ [RoutineDetailScreen] Fetched latest logs for', Object.keys(latestByExercise).length, 'exercises');
+      
+      // Map by exercise id for easier lookup in render
+      const latestByExerciseId = {};
+      exercises.forEach(ex => {
+        const exerciseName = ex.name || ex.title;
+        if (latestByExercise[exerciseName]) {
+          latestByExerciseId[ex.id] = latestByExercise[exerciseName];
+        }
+      });
+      
+      setLatestLogs(latestByExerciseId);
+      
+    } catch (error) {
+      console.error('💥 [RoutineDetailScreen] Error fetching latest logs:', error);
+    }
+  }, [user?.id, studentId, exercises]);
+
+  // Fetch latest logs when exercises change
+  React.useEffect(() => {
+    fetchLatestLogs();
+  }, [fetchLatestLogs]);
+
+  // Helper function to parse numeric value from string (e.g., "7/10" -> 0.7, "15 consecutive" -> 15)
+  const parseNumericValue = (str) => {
+    if (!str) return null;
+    
+    // Remove common words
+    const cleanStr = str.toLowerCase()
+      .replace(/consecutive|soft|clean|successful|attempts?|reps?|minutes?|seconds?/gi, '')
+      .trim();
+    
+    // Check for fraction format (e.g., "7/10")
+    const fractionMatch = cleanStr.match(/(\d+)\s*\/\s*(\d+)/);
+    if (fractionMatch) {
+      return parseFloat(fractionMatch[1]) / parseFloat(fractionMatch[2]);
+    }
+    
+    // Extract first number
+    const numberMatch = cleanStr.match(/(\d+\.?\d*)/);
+    if (numberMatch) {
+      return parseFloat(numberMatch[1]);
+    }
+    
+    return null;
+  };
+
+  // Helper function to determine if result meets target
+  const meetsTarget = (result, target) => {
+    const resultValue = parseNumericValue(result);
+    const targetValue = parseNumericValue(target);
+    
+    if (resultValue === null || targetValue === null) {
+      return null; // Can't determine
+    }
+    
+    // For fractions, both are 0-1 range, compare directly
+    // For absolute numbers, compare directly
+    return resultValue >= targetValue;
+  };
 
   // Refresh routine data from database
   const onRefresh = React.useCallback(async () => {
@@ -194,6 +308,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
         onUpdateRoutine(refreshedRoutine);
       }
       
+      // Refresh latest logs
+      await fetchLatestLogs();
+      
       console.log('🎉 [RoutineDetailScreen] Refresh completed successfully');
       
     } catch (error) {
@@ -202,7 +319,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
     } finally {
       setIsRefreshing(false);
     }
-  }, [routine.id, user?.id, onUpdateRoutine]);
+  }, [routine.id, user?.id, onUpdateRoutine, fetchLatestLogs]);
 
   // Batch save exercises to database
   const saveUnsavedExercises = async () => {
@@ -640,6 +757,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
       navigation.navigate('ExerciseDetail', {
         exercise: exerciseDataToPass, // Pass complete exercise data with tips
         rawExercise: exerciseDataToPass, // Also pass as rawExercise for compatibility
+        studentId: studentId, // Pass student ID for coach logging
+        program: program, // Pass program for logging context
+        routine: routine, // Pass routine for logging context
         onExerciseUpdated: (updatedExercise) => {
           console.log('🔄 [RoutineDetailScreen] Exercise updated from detail screen:', updatedExercise.id);
           // Update the exercise in the routine if needed
@@ -658,7 +778,10 @@ export default function RoutineDetailScreen({ navigation, route }) {
       // Minimal fallback - still let ExerciseDetailScreen handle it
       navigation.navigate('ExerciseDetail', {
         exercise: exercise,
-        rawExercise: exercise
+        rawExercise: exercise,
+        studentId: studentId, // Pass student ID for coach logging
+        program: program, // Pass program for logging context
+        routine: routine // Pass routine for logging context
       });
     } finally {
       // Reset navigation state immediately since no async operations
@@ -832,12 +955,25 @@ export default function RoutineDetailScreen({ navigation, route }) {
               )}
             </View>
             <Text style={styles.exercisesSubtitle}>
-              {source === 'explore' ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
+              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
             </Text>
           </View>
           
-          {exercises.map((exercise, index) => (
+          {exercises.map((exercise, index) => {
+            // Check if this exercise has met the target
+            const latestLog = latestLogs[exercise.id];
+            const hasMetTarget = latestLog?.exercise_details?.result && 
+              meetsTarget(latestLog.exercise_details.result, exercise.target || exercise.goal) === true;
+            
+            return (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
+              {/* Success check mark badge */}
+              {hasMetTarget && (
+                <View style={styles.successBadge}>
+                  <Ionicons name="checkmark-circle" size={28} color="#10B981" />
+                </View>
+              )}
+              
               <TouchableOpacity
                 style={[
                   styles.exerciseContent,
@@ -845,37 +981,49 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 ]}
                 onPress={() => handleNavigateToExercise(exercise)}
                 disabled={isNavigating} // Disable tap when already navigating
-                onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
+                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
                   <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
                   <Text style={styles.exerciseTarget}>Target: {exercise.target || exercise.goal}</Text>
                   <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
+                  
+                  {/* Latest Log Display */}
+                  {latestLogs[exercise.id] && (
+                    <View style={styles.latestLogContainer}>
+                      {(() => {
+                        const latestLog = latestLogs[exercise.id];
+                        const target = exercise.target || exercise.goal;
+                        // Get result from exercise_details JSONB field
+                        const result = latestLog.exercise_details?.result;
+                        
+                        if (!result) return null; // Don't show if no result
+                        
+                        const targetMet = meetsTarget(result, target);
+                        
+                        return (
+                          <View style={[
+                            styles.latestLogBadge,
+                            targetMet === true && styles.latestLogSuccess,
+                            targetMet === false && styles.latestLogBelowTarget,
+                            targetMet === null && styles.latestLogNeutral
+                          ]}>
+                            <Text style={[
+                              styles.latestLogLabel,
+                              targetMet === true && styles.latestLogLabelSuccess,
+                              targetMet === false && styles.latestLogLabelBelowTarget
+                            ]}>
+                              Latest: {result}
+                            </Text>
+                            {targetMet === true && (
+                              <Text style={styles.latestLogEmoji}>😊</Text>
+                            )}
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  )}
                 </View>
-                
-                {source !== 'explore' && source !== 'coach' && !isStudentView && (
-                  <View style={styles.exerciseActions}>
-                    <TouchableOpacity
-                      style={[
-                        styles.exerciseButton,
-                        styles.addLogButton,
-                        exerciseResults[exercise.routineExerciseId] 
-                          ? { backgroundColor: '#059669' } 
-                          : { backgroundColor: '#10B981' }
-                      ]}
-                      onPress={() => handleAddLog(exercise)}
-                    >
-                      <Text style={[
-                        styles.exerciseButtonText,
-                        { color: 'white' }
-                      ]}>
-                        {exerciseResults[exercise.routineExerciseId] 
-                          ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
-                          : 'Add Log'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
                 
                 {source !== 'explore' && isStudentView && (
                   <View style={styles.exerciseActions}>
@@ -898,52 +1046,15 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 )}
               </TouchableOpacity>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
     </View>
   );
 
   const renderSessionControls = () => {
-    if (exercises.length === 0 || source === 'explore' || source === 'coach' || isStudentView) {
       return null;
-    }
-
-    return (
-      <View style={styles.sessionControlsFixed}>
-              {!isSessionActive ? (
-                <TouchableOpacity
-                  style={styles.startSessionButton}
-                  onPress={startSession}
-                >
-                  <Text style={styles.startSessionButtonText}>Start this session</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={styles.activeSessionContainer}>
-                  <View style={styles.timerContainer}>
-              <WebIcon name="time" size={18} color="#3B82F6" />
-                    <Text style={styles.timerText}>{formatTime(sessionTime)}</Text>
-                  </View>
-                  
-                  <View style={styles.sessionActions}>
-                    <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={cancelSession}
-                    >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
-                      style={styles.completeButton}
-                      onPress={completeSession}
-                    >
-                      <Text style={styles.completeButtonText}>Completed</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-    );
   };
 
   const renderExercisesContentUpdated = () => (
@@ -997,12 +1108,25 @@ export default function RoutineDetailScreen({ navigation, route }) {
               )}
             </View>
             <Text style={styles.exercisesSubtitle}>
-              {source === 'explore' ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
+              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
             </Text>
           </View>
           
-          {exercises.map((exercise, index) => (
+          {exercises.map((exercise, index) => {
+            // Check if this exercise has met the target
+            const latestLog = latestLogs[exercise.id];
+            const hasMetTarget = latestLog?.exercise_details?.result && 
+              meetsTarget(latestLog.exercise_details.result, exercise.target || exercise.goal) === true;
+            
+            return (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
+              {/* Success check mark badge */}
+              {hasMetTarget && (
+                <View style={styles.successBadge}>
+                  <Ionicons name="checkmark-circle" size={28} color="#10B981" />
+                </View>
+              )}
+              
               <TouchableOpacity
                 style={[
                   styles.exerciseContent,
@@ -1010,37 +1134,49 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 ]}
                 onPress={() => handleNavigateToExercise(exercise)}
                 disabled={isNavigating} // Disable tap when already navigating
-                onLongPress={source === 'explore' ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
+                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
                   <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
                   <Text style={styles.exerciseTarget}>Target: {exercise.target || exercise.goal}</Text>
                   <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
+                  
+                  {/* Latest Log Display */}
+                  {latestLogs[exercise.id] && (
+                    <View style={styles.latestLogContainer}>
+                      {(() => {
+                        const latestLog = latestLogs[exercise.id];
+                        const target = exercise.target || exercise.goal;
+                        // Get result from exercise_details JSONB field
+                        const result = latestLog.exercise_details?.result;
+                        
+                        if (!result) return null; // Don't show if no result
+                        
+                        const targetMet = meetsTarget(result, target);
+                        
+                        return (
+                          <View style={[
+                            styles.latestLogBadge,
+                            targetMet === true && styles.latestLogSuccess,
+                            targetMet === false && styles.latestLogBelowTarget,
+                            targetMet === null && styles.latestLogNeutral
+                          ]}>
+                            <Text style={[
+                              styles.latestLogLabel,
+                              targetMet === true && styles.latestLogLabelSuccess,
+                              targetMet === false && styles.latestLogLabelBelowTarget
+                            ]}>
+                              Latest: {result}
+                            </Text>
+                            {targetMet === true && (
+                              <Text style={styles.latestLogEmoji}>😊</Text>
+                            )}
+                          </View>
+                        );
+                      })()}
+                    </View>
+                  )}
                 </View>
-                
-                {source !== 'explore' && source !== 'coach' && !isStudentView && (
-                  <View style={styles.exerciseActions}>
-                    <TouchableOpacity
-                      style={[
-                        styles.exerciseButton,
-                        styles.addLogButton,
-                        exerciseResults[exercise.routineExerciseId] 
-                          ? { backgroundColor: '#059669' } 
-                          : { backgroundColor: '#10B981' }
-                      ]}
-                      onPress={() => handleAddLog(exercise)}
-                    >
-                      <Text style={[
-                        styles.exerciseButtonText,
-                        { color: 'white' }
-                      ]}>
-                        {exerciseResults[exercise.routineExerciseId] 
-                          ? `${exerciseResults[exercise.routineExerciseId].result} ${getDifficultyEmoji(exerciseResults[exercise.routineExerciseId].difficulty)}`
-                          : 'Add Log'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
                 
                 {source !== 'explore' && isStudentView && (
                   <View style={styles.exerciseActions}>
@@ -1063,7 +1199,8 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 )}
               </TouchableOpacity>
             </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
     </View>
@@ -1345,6 +1482,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    position: 'relative',
+  },
+  successBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    backgroundColor: 'white',
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
   exerciseReorderHandle: {
     width: 40,
@@ -1616,5 +1767,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  // Latest Log styles
+  latestLogContainer: {
+    marginTop: 8,
+  },
+  latestLogBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 6,
+  },
+  latestLogSuccess: {
+    backgroundColor: '#D1FAE5',
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  latestLogBelowTarget: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  latestLogNeutral: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  latestLogLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  latestLogLabelSuccess: {
+    color: '#059669',
+  },
+  latestLogLabelBelowTarget: {
+    color: '#DC2626',
+  },
+  latestLogEmoji: {
+    fontSize: 14,
   },
 });

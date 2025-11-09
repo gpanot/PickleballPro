@@ -202,7 +202,12 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
       await AsyncStorage.removeItem(assessmentKey);
       // Reset saving first to avoid stuck UI, then navigate
       setSaving(false);
-      navigation.navigate('PlayerProfile', { studentId, student, justSavedAssessmentId: data?.id });
+      navigation.navigate('PlayerProfile', { 
+        studentId, 
+        student, 
+        justSavedAssessmentId: data?.id,
+        isStudentView: !isCoach // Pass isStudentView flag based on user type
+      });
     } catch (error) {
       console.error('Error saving assessment:', error);
       Alert.alert('Error', error?.message === 'Request timeout' ? 'Saving timed out. Please check your connection and try again.' : 'Failed to save assessment. Please try again.');

@@ -112,9 +112,8 @@ export default function PlayerProfileScreen({ route, navigation }) {
       setAssessments(list);
       
       // Check if First Time Assessment exists
-      const firstTimeExists = list.some(
-        assessment => assessment.skills_data?.newbie_assessment?.type === 'first_time_assessment'
-      );
+      // Check if there's a First Time Assessment (either new or old format)
+      const firstTimeExists = list.some(assessment => isFirstTimeAssessment(assessment));
       setHasFirstTimeAssessment(firstTimeExists);
       
       computeProgress(list);
@@ -128,6 +127,11 @@ export default function PlayerProfileScreen({ route, navigation }) {
 
   // Helper function to check if an assessment is a First Time Assessment
   const isFirstTimeAssessment = (assessment) => {
+    // Check for new branching assessment format
+    if (assessment?.skills_data?.branching_assessment?.type === 'branching_experience_assessment') {
+      return true;
+    }
+    // Check for old newbie assessment format
     return assessment?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
   };
 
@@ -702,14 +706,29 @@ function SparkLine({ values, color, height = 64, style }) {
                   {assessments.map((assessment) => {
                     const isFirstTime = isFirstTimeAssessment(assessment);
                     
-                    // Get the dynamic message for First Time Assessment based on Question 1 answer
+                    // Get the dynamic message for First Time Assessment
                     let firstTimeMessage = null;
                     if (isFirstTime) {
-                      const question1Answer = assessment.skills_data?.newbie_assessment?.answers?.[1];
-                      if (question1Answer === 'none') {
-                        firstTimeMessage = "Your Level 'BEGINNER'";
-                      } else if (question1Answer !== undefined && question1Answer !== null) {
-                        firstTimeMessage = "Do the SKILL ASSESSMENT with your Coach";
+                      // Check for new branching assessment format
+                      const branchingAnswers = assessment.skills_data?.branching_assessment?.answers;
+                      if (branchingAnswers) {
+                        // New format: Check if they've played pickleball or racket sports
+                        const playedPickleball = branchingAnswers.playedPickleball;
+                        const racketSport = branchingAnswers.racketSport;
+                        
+                        if (playedPickleball === 'no' && racketSport === 'none') {
+                          firstTimeMessage = "Your Level 'BEGINNER'";
+                        } else if (playedPickleball || racketSport) {
+                          firstTimeMessage = "Do the SKILL ASSESSMENT with your Coach";
+                        }
+                      } else {
+                        // Old format: Check question 1 answer
+                        const question1Answer = assessment.skills_data?.newbie_assessment?.answers?.[1];
+                        if (question1Answer === 'none') {
+                          firstTimeMessage = "Your Level 'BEGINNER'";
+                        } else if (question1Answer !== undefined && question1Answer !== null) {
+                          firstTimeMessage = "Do the SKILL ASSESSMENT with your Coach";
+                        }
                       }
                     }
                     
@@ -718,7 +737,11 @@ function SparkLine({ values, color, height = 64, style }) {
                         key={assessment.id}
                         style={styles.assessmentCard}
                         onPress={() => handleViewAssessment(assessment)}
-                        onLongPress={!isStudentView ? () => confirmDeleteAssessment(assessment) : undefined}
+                        onLongPress={
+                          !isStudentView || isFirstTime 
+                            ? () => confirmDeleteAssessment(assessment) 
+                            : undefined
+                        }
                         delayLongPress={400}
                       >
                         <View style={styles.assessmentHeader}>
@@ -806,13 +829,11 @@ function SparkLine({ values, color, height = 64, style }) {
                         // Navigate to program detail to view sessions/exercises
                         navigation.navigate('ProgramDetail', {
                           program: program.programs,
-                          source: 'coach',
+                          source: 'coach_assignment',
                           isStudentView: isStudentView, // Pass student view flag
                           studentId: studentId // Pass student ID so logs are saved to student
                         });
                       }}
-                      onLongPress={!isStudentView ? () => handleRemoveProgram(program) : undefined}
-                      delayLongPress={500}
                     >
                       <View style={styles.programCardContent}>
                         {program.programs?.thumbnail_url && (

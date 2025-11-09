@@ -1614,6 +1614,26 @@ export default function ProgramScreen({ navigation, route }) {
 
   // Render Coach Program tab content
   const renderCoachProgramsContent = () => {
+    // "Find your coach" section that appears in all states
+    const renderFindYourCoach = () => (
+      <View style={styles.findCoachSection}>
+        <TouchableOpacity
+          style={styles.findCoachCard}
+          onPress={() => navigation.navigate('CoachDetail')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="search" size={24} color="#3B82F6" style={styles.findCoachIconDirect} />
+          <View style={styles.findCoachContent}>
+            <Text style={styles.findCoachTitle}>Find Your Coach</Text>
+            <Text style={styles.findCoachDescription}>
+              Browse certified coaches near you
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
+        </TouchableOpacity>
+      </View>
+    );
+
     // Loading state
     if (coachProgramsLoading) {
       const spin = coachRotateAnim.interpolate({
@@ -1622,17 +1642,20 @@ export default function ProgramScreen({ navigation, route }) {
       });
 
       return (
-        <View style={styles.loadingContainer}>
-          <Animated.Image
-            source={require('../../assets/images/icon_ball.png')}
-            style={[
-              styles.loadingBall,
-              {
-                transform: [{ rotate: spin }],
-              },
-            ]}
-          />
-          <Text style={styles.loadingText}>Loading coach programs...</Text>
+        <View style={styles.coachProgramsContainer}>
+          {renderFindYourCoach()}
+          <View style={styles.loadingContainer}>
+            <Animated.Image
+              source={require('../../assets/images/icon_ball.png')}
+              style={[
+                styles.loadingBall,
+                {
+                  transform: [{ rotate: spin }],
+                },
+              ]}
+            />
+            <Text style={styles.loadingText}>Loading coach programs...</Text>
+          </View>
         </View>
       );
     }
@@ -1640,11 +1663,14 @@ export default function ProgramScreen({ navigation, route }) {
     // Error state
     if (coachProgramsError) {
       return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load coach programs</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadCoachPrograms}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
+        <View style={styles.coachProgramsContainer}>
+          {renderFindYourCoach()}
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Failed to load coach programs</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadCoachPrograms}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       );
     }
@@ -1656,12 +1682,21 @@ export default function ProgramScreen({ navigation, route }) {
           style={styles.scrollView} 
           contentContainerStyle={styles.coachScrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={coachProgramsLoading}
+              onRefresh={loadCoachPrograms}
+              tintColor="#3B82F6"
+              colors={["#3B82F6"]}
+            />
+          }
         >
+          {renderFindYourCoach()}
           <View style={styles.coachEmptyContent}>
             {studentCode && (
               <View style={styles.studentCodeCard}>
                 <View style={styles.studentCodeHeader}>
-                  <Ionicons name="person-circle" size={24} color="#3B82F6" />
+                  <Ionicons name="person-circle-outline" size={20} color="#3B82F6" />
                   <Text style={styles.studentCodeLabel}>Your Student Code</Text>
                 </View>
                 <View style={styles.studentCodeContainer}>
@@ -1690,7 +1725,7 @@ export default function ProgramScreen({ navigation, route }) {
                       }
                     }}
                   >
-                    <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                    <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
                     <Text style={styles.shareButtonText}>Share</Text>
                   </TouchableOpacity>
                 </View>
@@ -1745,9 +1780,18 @@ export default function ProgramScreen({ navigation, route }) {
       return (
         <ScrollView 
           style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.coachScrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={coachProgramsLoading}
+              onRefresh={loadCoachPrograms}
+              tintColor="#3B82F6"
+              colors={["#3B82F6"]}
+            />
+          }
         >
+        {renderFindYourCoach()}
         {/* Coach Cards Section */}
         {coaches.length > 0 && (
           <View style={styles.coachesSection}>
@@ -1779,8 +1823,8 @@ export default function ProgramScreen({ navigation, route }) {
                           <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                         )}
                       </View>
-                      {coach.dupr_rating && (
-                        <Text style={styles.coachCardSubtext}>DUPR: {coach.dupr_rating}</Text>
+                      {!hasAssessment && (
+                        <Text style={styles.coachCardSubtext}>Complete your first assessment</Text>
                       )}
                       {coach.bio && (
                         <Text style={styles.coachCardBio} numberOfLines={2}>{coach.bio}</Text>
@@ -1794,26 +1838,80 @@ export default function ProgramScreen({ navigation, route }) {
           )}
 
           <View style={styles.coachEmptyContent}>
-            <Text style={styles.coachEmptyTitle}>Complete Your Assessment</Text>
-            <Text style={styles.coachEmptyDescription}>
-              You're connected with a coach! Complete your skill assessment to receive personalized training programs.
-            </Text>
+            {studentCode && (
+              <View style={styles.studentCodeCard}>
+                <View style={styles.studentCodeHeader}>
+                  <Ionicons name="person-circle-outline" size={20} color="#3B82F6" />
+                  <Text style={styles.studentCodeLabel}>Your Student Code</Text>
+                </View>
+                <View style={styles.studentCodeContainer}>
+                  <Text style={styles.studentCodeValue}>{studentCode}</Text>
+                  <TouchableOpacity
+                    style={styles.shareButton}
+                    onPress={async () => {
+                      try {
+                        if (Platform.OS !== 'web') {
+                          await Share.share({
+                            message: studentCode,
+                          });
+                        } else {
+                          // For web, try clipboard API
+                          if (navigator.clipboard) {
+                            await navigator.clipboard.writeText(studentCode);
+                            Alert.alert('Copied!', 'Student code copied to clipboard');
+                          } else {
+                            Alert.alert('Student Code', studentCode);
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error sharing student code:', error);
+                        // Fallback: show alert with code
+                        Alert.alert('Your Student Code', studentCode);
+                      }
+                    }}
+                  >
+                    <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.shareButtonText}>Share</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            
+            <View style={styles.stepsContainer}>
+              <View style={styles.stepCard}>
+                <View style={[styles.stepIcon, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="search" size={24} color="#3B82F6" />
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepNumber}>Step 1</Text>
+                  <Text style={styles.stepTitle}>
+                    {studentCode ? 'Share Your Code With Your Certified Coach' : 'Find a Coach'}
+                  </Text>
+                </View>
+              </View>
 
-            <View style={styles.quickInfoCards}>
-              <View style={styles.quickInfoCard}>
-                <Ionicons name="calendar-outline" size={32} color="#3B82F6" />
-                <Text style={styles.quickInfoTitle}>Schedule</Text>
-                <Text style={styles.quickInfoText}>Your coach will schedule an assessment session</Text>
+              <View style={styles.stepConnector} />
+
+              <View style={styles.stepCard}>
+                <View style={[styles.stepIcon, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="clipboard-outline" size={24} color="#F59E0B" />
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepNumber}>Step 2</Text>
+                  <Text style={styles.stepTitle}>Complete Assessment To Get Your Score</Text>
+                </View>
               </View>
-              <View style={styles.quickInfoCard}>
-                <Ionicons name="analytics-outline" size={32} color="#10B981" />
-                <Text style={styles.quickInfoTitle}>Evaluate</Text>
-                <Text style={styles.quickInfoText}>Your coach will evaluate your skills</Text>
-              </View>
-              <View style={styles.quickInfoCard}>
-                <Ionicons name="document-text-outline" size={32} color="#F59E0B" />
-                <Text style={styles.quickInfoTitle}>Create</Text>
-                <Text style={styles.quickInfoText}>Custom programs based on results</Text>
+
+              <View style={styles.stepConnector} />
+
+              <View style={styles.stepCard}>
+                <View style={[styles.stepIcon, { backgroundColor: '#D1FAE5' }]}>
+                  <Ionicons name="create-outline" size={24} color="#10B981" />
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepNumber}>Step 3</Text>
+                  <Text style={styles.stepTitle}>Get Your Program And Progress</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -1829,7 +1927,16 @@ export default function ProgramScreen({ navigation, route }) {
           style={styles.scrollView} 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={coachProgramsLoading}
+              onRefresh={loadCoachPrograms}
+              tintColor="#3B82F6"
+              colors={["#3B82F6"]}
+            />
+          }
         >
+          {renderFindYourCoach()}
           {/* Coach Cards Section */}
           {coaches.length > 0 && (
             <View style={styles.coachesSection}>
@@ -1861,8 +1968,8 @@ export default function ProgramScreen({ navigation, route }) {
                           <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                         )}
                       </View>
-                      {coach.dupr_rating && (
-                        <Text style={styles.coachCardSubtext}>DUPR: {coach.dupr_rating}</Text>
+                      {!hasAssessment && (
+                        <Text style={styles.coachCardSubtext}>Complete your first assessment</Text>
                       )}
                       {coach.bio && (
                         <Text style={styles.coachCardBio} numberOfLines={2}>{coach.bio}</Text>
@@ -1877,7 +1984,7 @@ export default function ProgramScreen({ navigation, route }) {
               {studentCode && (
                 <View style={styles.studentCodeCard}>
                   <View style={styles.studentCodeHeader}>
-                    <Ionicons name="person-circle" size={24} color="#3B82F6" />
+                    <Ionicons name="person-circle-outline" size={20} color="#3B82F6" />
                     <Text style={styles.studentCodeLabel}>Your Student Code</Text>
                   </View>
                   <View style={styles.studentCodeContainer}>
@@ -1906,7 +2013,7 @@ export default function ProgramScreen({ navigation, route }) {
                         }
                       }}
                     >
-                      <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                      <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
                       <Text style={styles.shareButtonText}>Share</Text>
                     </TouchableOpacity>
                   </View>
@@ -1915,12 +2022,7 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
           )}
           
-          {/* No Programs Message */}
-          <View style={styles.coachEmptyContent}>
-            <Text style={styles.coachEmptyDescription}>
-              Tap on your coach above to view programs when they become available.
-            </Text>
-          </View>
+          
           
           <View style={styles.bottomSpacing} />
         </ScrollView>
@@ -1935,13 +2037,14 @@ export default function ProgramScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={coachProgramsLoading}
             onRefresh={loadCoachPrograms}
             tintColor="#3B82F6"
             colors={["#3B82F6"]}
           />
         }
       >
+        {renderFindYourCoach()}
         {/* Coach Cards Section */}
         {coaches.length > 0 && (
           <View style={styles.coachesSection}>
@@ -1973,8 +2076,8 @@ export default function ProgramScreen({ navigation, route }) {
                         <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                       )}
                     </View>
-                    {coach.dupr_rating && (
-                      <Text style={styles.coachCardSubtext}>DUPR: {coach.dupr_rating}</Text>
+                    {!hasAssessment && (
+                      <Text style={styles.coachCardSubtext}>Complete your first assessment</Text>
                     )}
                     {coach.bio && (
                       <Text style={styles.coachCardBio} numberOfLines={2}>{coach.bio}</Text>
@@ -1989,7 +2092,7 @@ export default function ProgramScreen({ navigation, route }) {
             {studentCode && (
               <View style={styles.studentCodeCard}>
                 <View style={styles.studentCodeHeader}>
-                  <Ionicons name="person-circle" size={24} color="#3B82F6" />
+                  <Ionicons name="person-circle-outline" size={20} color="#3B82F6" />
                   <Text style={styles.studentCodeLabel}>Your Student Code</Text>
                 </View>
                 <View style={styles.studentCodeContainer}>
@@ -2018,7 +2121,7 @@ export default function ProgramScreen({ navigation, route }) {
                       }
                     }}
                   >
-                    <Ionicons name="share-outline" size={18} color="#FFFFFF" />
+                    <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
                     <Text style={styles.shareButtonText}>Share</Text>
                   </TouchableOpacity>
                 </View>
@@ -2376,7 +2479,7 @@ export default function ProgramScreen({ navigation, route }) {
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>
-            Level Up With Fun
+            Training Programs
           </Text>
           
           {/* Tab Navigation */}
@@ -3443,15 +3546,15 @@ const styles = StyleSheet.create({
   // Student code card styles
   studentCodeCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 20,
     width: '100%',
-    marginBottom: 24,
+    marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
@@ -3459,10 +3562,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   studentCodeLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#6B7280',
     textTransform: 'uppercase',
@@ -3472,33 +3575,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
   },
   studentCodeValue: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: '700',
     color: '#1F2937',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 4,
+    letterSpacing: 2,
   },
   shareButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    minWidth: 80,
+    minWidth: 100,
   },
   shareButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -3655,5 +3751,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     lineHeight: 18,
+  },
+  // Find your coach section styles
+  coachProgramsContainer: {
+    flex: 1,
+  },
+  findCoachSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  findCoachCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  findCoachIconDirect: {
+    marginRight: 14,
+  },
+  findCoachContent: {
+    flex: 1,
+  },
+  findCoachTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  findCoachDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
   },
 });

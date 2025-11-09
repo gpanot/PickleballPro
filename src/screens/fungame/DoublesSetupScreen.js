@@ -17,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
-import { useUser } from '../context/UserContext';
+import { useUser } from '../../context/UserContext';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const { width } = Dimensions.get('window');
@@ -36,15 +36,43 @@ export default function DoublesSetupScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
   const scanMode = route?.params?.scanMode || false;
+  const initialPlayers = route?.params?.players || null;
   const [permission, requestPermission] = useCameraPermissions();
   const [joinCode] = useState(generateJoinCode());
-  const [players, setPlayers] = useState({
-    A1: null,
-    A2: null,
-    B1: null,
-    B2: null,
-  });
-  const [connectedPlayers, setConnectedPlayers] = useState([]);
+  
+  // Initialize players from route params if provided
+  const getInitialPlayers = () => {
+    if (initialPlayers) {
+      return {
+        A1: initialPlayers.A1 || null,
+        A2: initialPlayers.A2 || null,
+        B1: initialPlayers.B1 || null,
+        B2: initialPlayers.B2 || null,
+      };
+    }
+    return {
+      A1: null,
+      A2: null,
+      B1: null,
+      B2: null,
+    };
+  };
+  
+  // Initialize connectedPlayers from route params if provided
+  const getInitialConnectedPlayers = () => {
+    if (initialPlayers) {
+      const connected = [];
+      if (initialPlayers.A1) connected.push(initialPlayers.A1);
+      if (initialPlayers.A2) connected.push(initialPlayers.A2);
+      if (initialPlayers.B1) connected.push(initialPlayers.B1);
+      if (initialPlayers.B2) connected.push(initialPlayers.B2);
+      return connected;
+    }
+    return [];
+  };
+  
+  const [players, setPlayers] = useState(getInitialPlayers());
+  const [connectedPlayers, setConnectedPlayers] = useState(getInitialConnectedPlayers());
   const [serveOrder, setServeOrder] = useState(['A1', 'A2', 'B1', 'B2']);
   const [startServer, setStartServer] = useState('A1');
   const [draggedPlayer, setDraggedPlayer] = useState(null);
@@ -138,8 +166,8 @@ export default function DoublesSetupScreen({ navigation, route }) {
     // Generate initial random serve order
     generateRandomServeOrder();
     
-    // Auto-assign first player to A1 if they're the host
-    if (user && connectedPlayers.length === 0) {
+    // Auto-assign first player to A1 if they're the host and no players were pre-populated
+    if (user && connectedPlayers.length === 0 && !initialPlayers) {
       handlePlayerJoin({
         id: user.id,
         name: user.name || 'You',
@@ -457,7 +485,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Doubles 15-Point Setup</Text>
           <Text style={styles.headerSubtext}>
-            Scan or enter code to join. Drag players to slots.
+            Set up your doubles game. Drag players to rearrange slots.
           </Text>
         </View>
       </View>
@@ -467,8 +495,8 @@ export default function DoublesSetupScreen({ navigation, route }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Connect Row */}
-        <View style={styles.connectRow}>
+        {/* Connect Row - Hidden for now */}
+        {/* <View style={styles.connectRow}>
           <View style={styles.qrCard}>
             <QRCode
               value={`pickleballhero://doubles/join/${joinCode}`}
@@ -500,7 +528,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
               <Text style={styles.copyButtonText}>Copy Link</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </View> */}
 
         {/* Court Grid */}
         <View style={styles.courtContainer}>

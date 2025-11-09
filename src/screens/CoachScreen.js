@@ -23,7 +23,7 @@ import { usePreload } from '../context/PreloadContext';
 import { useAuth } from '../context/AuthContext';
 import { getCoaches, transformCoachData, supabase } from '../lib/supabase';
 
-export default function CoachScreen() {
+export default function CoachScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState([]);
   const [sortBy, setSortBy] = useState('Rating');
@@ -940,13 +940,24 @@ export default function CoachScreen() {
     );
   };
 
+  // Check if we're in a stack navigation (opened from CoachDetail)
+  const showBackButton = navigation && navigation.canGoBack && navigation.canGoBack();
+
   return (
     <View style={styles.container}>
       {renderAvatarModal()}
       {renderMessagingModal()}
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Certified Coaches</Text>
+          {showBackButton && (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color="#1F2937" />
+            </TouchableOpacity>
+          )}
+          <Text style={[styles.headerTitle, showBackButton && styles.headerTitleWithBack]}>Certified Coaches</Text>
           <TouchableOpacity 
             style={styles.searchIconButton}
             onPress={toggleSearch}
@@ -1036,11 +1047,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#1F2937',
     flex: 1,
+  },
+  headerTitleWithBack: {
+    marginLeft: 0,
   },
   searchIconButton: {
     padding: 8,

@@ -44,10 +44,11 @@ import EvaluationSummaryScreen from './src/screens/coach/EvaluationSummaryScreen
 import FirstTimeAssessmentScreen from './src/screens/coach/FirstTimeAssessmentScreen';
 import FirstTimeAssessmentSummaryScreen from './src/screens/coach/FirstTimeAssessmentSummaryScreen';
 import StudentLogbookScreen from './src/screens/coach/StudentLogbookScreen';
-import GamePlayedListScreen from './src/screens/GamePlayedListScreen';
-import DoublesSetupScreen from './src/screens/DoublesSetupScreen';
-import SixPointSummaryScreen from './src/screens/6PointSummaryScreen';
-import UITestGameScreen from './src/screens/UITestGameScreen';
+import GamePlayedListScreen from './src/screens/fungame/GamePlayedListScreen';
+import DoublesSetupScreen from './src/screens/fungame/DoublesSetupScreen';
+import SixPointSummaryScreen from './src/screens/fungame/6PointSummaryScreen';
+import UITestGameScreen from './src/screens/fungame/UITestGameScreen';
+import CoachScreen from './src/screens/CoachScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -213,6 +214,13 @@ function AppContent() {
                 return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
               }}
             </Stack.Screen>
+            <Stack.Screen 
+              name="CoachDetail" 
+              component={CoachScreen}
+              options={{ 
+                headerShown: false
+              }}
+            />
             <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
             <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
             <Stack.Screen name="AddExercise" component={AddExerciseScreen} />
@@ -357,6 +365,13 @@ function AppContent() {
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
                 </Stack.Screen>
+                <Stack.Screen 
+                  name="CoachDetail" 
+                  component={CoachScreen}
+                  options={{ 
+                    headerShown: false
+                  }}
+                />
                 <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
                 <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
                 <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />

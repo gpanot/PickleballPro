@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { checkCoachAccess, supabase } from '../lib/supabase';
 
 import ProgramScreen from '../screens/ProgramScreen';
-import CoachScreen from '../screens/CoachScreen';
 import LogbookScreen from '../screens/LogbookScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import CoachNavigator from './CoachNavigator';
@@ -77,9 +76,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
 
           if (route.name === 'Training2') {
             iconName = 'training2';
-          } else if (route.name === 'Coach') {
-            iconName = 'coach';
-          } else if (route.name === 'Dashboard') {
+          } else if (route.name === 'Academy') {
             iconName = 'dashboard';
           } else if (route.name === 'Leaderboard') {
             iconName = 'leaderboard';
@@ -126,13 +123,9 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         component={ProgramScreen}
         options={{ title: 'Program' }}
       />
-      <Tab.Screen 
-        name="Coach" 
-        component={CoachScreen}
-      />
       {isCoach && coachPublished && (
         <Tab.Screen 
-          name="Dashboard" 
+          name="Academy" 
           component={CoachNavigator}
         />
       )}

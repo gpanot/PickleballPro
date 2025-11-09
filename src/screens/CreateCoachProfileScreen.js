@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -45,26 +45,16 @@ export default function CreateCoachProfileScreen({ navigation }) {
     isActive: true,
     isAcceptingStudents: false // Default to not published
   });
-  const [showMapPicker, setShowMapPicker] = useState(false);
-  const [tempCoordinates, setTempCoordinates] = useState({
-    latitude: 10.7786, // Default to Ho Chi Minh City
-    longitude: 106.7131,
-  });
   const [locationLoading, setLocationLoading] = useState(false);
-  const [mapRegion, setMapRegion] = useState({
-    latitude: 10.7786,
-    longitude: 106.7131,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
-  const [previewLocation, setPreviewLocation] = useState('');
-  const [geocodingLoading, setGeocodingLoading] = useState(false);
   const [existingCoachProfile, setExistingCoachProfile] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [detectedCountry, setDetectedCountry] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [countryDetectionLoading, setCountryDetectionLoading] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  
+  // Track if DUPR was manually edited to prevent auto-repopulation
+  const duprManuallyEdited = useRef(false);
 
   // Messaging options configuration
   const messagingOptions = {
@@ -195,15 +185,17 @@ export default function CreateCoachProfileScreen({ navigation }) {
     }
   };
 
-  // Add debug useEffect
-  useEffect(() => {
-    console.log('Component mounted');
-    console.log('Platform:', Platform.OS);
-    console.log('Initial map region:', mapRegion);
-  }, []);
-
   // Detect country intelligently based on context
   useEffect(() => {
+    // Skip country detection on iOS to prevent keyboard dismissal issues
+    if (Platform.OS === 'ios') {
+      // On iOS, default to Vietnam and let user change manually if needed
+      setDetectedCountry('VN');
+      setSelectedCountry('VN');
+      setCountryDetectionLoading(false);
+      return;
+    }
+    
     // Only run country detection if we have the necessary context
     if (isEditMode !== null) { // Wait for edit mode to be determined
       if (!isEditMode || !formData.phone) {
@@ -218,7 +210,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
         setCountryDetectionLoading(false);
       }
     }
-  }, [isEditMode, formData.phone]);
+  }, [isEditMode]);
 
   // Check for existing coach profile when component mounts
   useEffect(() => {
@@ -242,6 +234,14 @@ export default function CreateCoachProfileScreen({ navigation }) {
             console.log('Found existing coach profile:', existingCoach);
             setExistingCoachProfile(existingCoach);
             setIsEditMode(true);
+            
+            // On iOS, infer country from existing phone (if present) to set correct country
+            if (Platform.OS === 'ios' && existingCoach.phone) {
+              const inferredCountry = inferCountryFromPhone(existingCoach.phone);
+              console.log('iOS: Inferred country from existing phone:', inferredCountry);
+              setDetectedCountry(inferredCountry);
+              setSelectedCountry(inferredCountry);
+            }
             
             // Populate form with existing data
             setFormData({
@@ -525,19 +525,21 @@ export default function CreateCoachProfileScreen({ navigation }) {
   };
 
   // Handle phone number change
-  const handlePhoneChange = (text) => {
+  const handlePhoneChange = useCallback((text) => {
     if (!selectedCountry) {
-      setFormData({...formData, phone: text});
+      setFormData(prev => ({...prev, phone: text}));
       return;
     }
     
-    const formatted = formatPhoneNumber(text, selectedCountry);
-    setFormData({...formData, phone: formatted});
-  };
+    // On iOS, skip formatting to prevent keyboard issues
+    // On Android, apply formatting for better UX
+    const phoneValue = Platform.OS === 'ios' ? text : formatPhoneNumber(text, selectedCountry);
+    setFormData(prev => ({...prev, phone: phoneValue}));
+  }, [selectedCountry]);
 
   // Update form data when user profile loads (only for new profiles)
   useEffect(() => {
-    if (!isEditMode && userProfile && userProfile.dupr_rating && !formData.duprRating) {
+    if (!isEditMode && userProfile && userProfile.dupr_rating && !formData.duprRating && !duprManuallyEdited.current) {
       console.log('Auto-populating DUPR rating from user profile:', userProfile.dupr_rating);
       setFormData(prevData => ({
         ...prevData,
@@ -546,29 +548,6 @@ export default function CreateCoachProfileScreen({ navigation }) {
       }));
     }
   }, [userProfile, formData.duprRating, isEditMode]);
-
-  // Auto-reverse geocode when coordinates change (with debounce)
-  useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      if (tempCoordinates.latitude && tempCoordinates.longitude && 
-          (tempCoordinates.latitude !== 10.7786 || tempCoordinates.longitude !== 106.7131)) {
-        try {
-          setGeocodingLoading(true);
-          const locationString = await reverseGeocode(tempCoordinates.latitude, tempCoordinates.longitude);
-          setPreviewLocation(locationString || '');
-        } catch (error) {
-          console.error('Auto-reverse geocoding failed:', error);
-          setPreviewLocation('');
-        } finally {
-          setGeocodingLoading(false);
-        }
-      } else {
-        setPreviewLocation('');
-      }
-    }, 1000); // 1 second debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [tempCoordinates.latitude, tempCoordinates.longitude]);
 
   const handleSaveCoach = async () => {
     if (!formData.name || !formData.email) {
@@ -588,6 +567,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
     setLoading(true);
     try {
       const coachData = {
+        user_id: authUser.id, // Link coach profile to user account
         name: formData.name,
         email: formData.email,
         bio: formData.bio || '',
@@ -806,56 +786,6 @@ export default function CreateCoachProfileScreen({ navigation }) {
     }
   };
 
-  const handleConfirmLocation = async () => {
-    try {
-      console.log('Confirming location:', tempCoordinates);
-      setLocationLoading(true);
-      
-      // Perform reverse geocoding to get address
-      const locationString = await reverseGeocode(tempCoordinates.latitude, tempCoordinates.longitude);
-      
-      // Update form data with coordinates and location string
-      setFormData({
-        ...formData,
-        latitude: tempCoordinates.latitude,
-        longitude: tempCoordinates.longitude,
-        location: locationString || formData.location, // Keep existing if geocoding fails
-      });
-      
-      setShowMapPicker(false);
-      
-      if (locationString) {
-        Alert.alert(
-          'Location Saved',
-          `Coordinates and location "${locationString}" saved successfully!`,
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          'Location Saved',
-          'Coordinates saved successfully! The automatic location detection didn\'t work, but you can manually enter the city name in the location field.',
-          [
-            { text: 'OK' },
-            { 
-              text: 'Help', 
-              onPress: () => Alert.alert(
-                'Finding Your Location',
-                'To find your city name:\n\n1. Open Google Maps\n2. Search for your coordinates\n3. Copy the city and state name\n4. Paste it in the location field',
-                [{ text: 'Got it' }]
-              )
-            }
-          ]
-        );
-      }
-      
-    } catch (error) {
-      console.error('Error saving location:', error);
-      Alert.alert('Error', 'Failed to save location. Please try again.');
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
   const getCurrentLocation = async () => {
     try {
       setLocationLoading(true);
@@ -944,107 +874,59 @@ export default function CreateCoachProfileScreen({ navigation }) {
     }
   };
 
-  const handleOpenMapPicker = async () => {
-    console.log('Opening map picker...');
+  const handleUseMyLocation = async () => {
+    console.log('Getting user location...');
+    setLocationLoading(true);
     
     try {
-      // For Android, directly get location and populate without opening modal
-      if (Platform.OS === 'android') {
-        setLocationLoading(true);
-        
-        try {
-          // Try to get current location first
-          const currentLocation = await getCurrentLocation();
-          if (currentLocation) {
-            console.log('Android: Got current location:', currentLocation);
-            
-            // Perform reverse geocoding to get address
-            const locationString = await reverseGeocode(currentLocation.latitude, currentLocation.longitude);
-            
-            // Update form data directly
-            setFormData({
-              ...formData,
-              latitude: currentLocation.latitude,
-              longitude: currentLocation.longitude,
-              location: locationString || formData.location, // Keep existing if geocoding fails
-            });
-            
-            if (locationString) {
-              Alert.alert(
-                'Location Set',
-                `Your location has been set to: "${locationString}"`,
-                [{ text: 'OK' }]
-              );
-            } else {
-              Alert.alert(
-                'Location Set',
-                'Your coordinates have been saved! You can manually enter the city name in the location field if needed.',
-                [{ text: 'OK' }]
-              );
-            }
-            
-            return; // Exit early for Android
-          } else {
-            Alert.alert(
-              'Location Error',
-              'Unable to get your current location. Please try again or enter your location manually.',
-              [{ text: 'OK' }]
-            );
-            return;
-          }
-        } catch (error) {
-          console.error('Android location error:', error);
-          Alert.alert(
-            'Location Error',
-            'Failed to get your location. Please try again or enter your location manually.',
-            [{ text: 'OK' }]
-          );
-          return;
-        } finally {
-          setLocationLoading(false);
-        }
+      // Get current location
+      const currentLocation = await getCurrentLocation();
+      
+      if (!currentLocation) {
+        Alert.alert(
+          'Location Error',
+          'Unable to get your current location. Please check your location permissions and try again, or enter your location manually.',
+          [{ text: 'OK' }]
+        );
+        return;
       }
       
-      // For iOS and Web, continue with the map picker modal
-      let targetLocation;
+      console.log('Got current location:', currentLocation);
       
-      // If coordinates already exist, use them
-      if (formData.latitude && formData.longitude) {
-        console.log('Using existing coordinates:', formData.latitude, formData.longitude);
-        targetLocation = {
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-        };
-      } else {
-        // Try to get current location first
-        const currentLocation = await getCurrentLocation();
-        if (currentLocation) {
-          console.log('Using current location:', currentLocation);
-          targetLocation = currentLocation;
-        } else {
-          // Fall back to Ho Chi Minh City (since you're there)
-          console.log('Using Ho Chi Minh City as default');
-          targetLocation = {
-            latitude: 10.7786,
-            longitude: 106.7131,
-          };
-        }
-      }
+      // Perform reverse geocoding to get address
+      const locationString = await reverseGeocode(currentLocation.latitude, currentLocation.longitude);
       
-      // Set both temp coordinates and map region
-      setTempCoordinates(targetLocation);
-      setMapRegion({
-        ...targetLocation,
-        latitudeDelta: 0.01, // Closer zoom
-        longitudeDelta: 0.01,
+      // Update form data directly
+      setFormData({
+        ...formData,
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        location: locationString || formData.location, // Keep existing if geocoding fails
       });
       
-      // Show the map picker
-      setShowMapPicker(true);
+      if (locationString) {
+        Alert.alert(
+          'Location Set Successfully',
+          `Your coaching location has been set to: "${locationString}"`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Location Coordinates Set',
+          'Your coordinates have been saved! The automatic location detection didn\'t find a city name, but you can manually enter it in the location field above.',
+          [{ text: 'OK' }]
+        );
+      }
       
     } catch (error) {
-      console.error('Error opening map picker:', error);
-      Alert.alert('Error', 'Failed to open map picker. Please try again.');
+      console.error('Error getting location:', error);
+      Alert.alert(
+        'Location Error',
+        'Failed to get your location. Please try again or enter your location manually.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -1097,207 +979,6 @@ export default function CreateCoachProfileScreen({ navigation }) {
     </Modal>
   );
 
-  const renderMapPicker = () => (
-    <Modal
-      visible={showMapPicker}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <View style={styles.mapPickerContainer}>
-        <View style={styles.mapPickerHeader}>
-          <TouchableOpacity
-            style={styles.mapPickerCancelButton}
-            onPress={() => setShowMapPicker(false)}
-          >
-            <Text style={styles.mapPickerCancelText}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.mapPickerTitle}>Select Location</Text>
-          <TouchableOpacity
-            style={styles.mapPickerConfirmButton}
-            onPress={handleConfirmLocation}
-          >
-            <Text style={styles.mapPickerConfirmText}>Confirm</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {/* Debug Info - Remove in production */}
-        <View style={styles.debugInfo}>
-          <Text style={styles.debugText}>
-            Map Region: {mapRegion.latitude.toFixed(4)}, {mapRegion.longitude.toFixed(4)}
-          </Text>
-          <Text style={styles.debugText}>
-            Temp Coords: {tempCoordinates.latitude.toFixed(4)}, {tempCoordinates.longitude.toFixed(4)}
-          </Text>
-        </View>
-        
-        <View style={styles.mapContainer}>
-          {Platform.OS === 'web' ? (
-            <View style={styles.webMapContainer}>
-              <iframe
-                key={`${tempCoordinates.latitude}-${tempCoordinates.longitude}`}
-                src={`https://maps.google.com/maps?q=${tempCoordinates.latitude},${tempCoordinates.longitude}&hl=en&z=15&output=embed`}
-                style={{ width: '100%', height: '350px', border: 'none', borderRadius: 8 }}
-                title="Location Map"
-                loading="lazy"
-              />
-              <View style={styles.mapOverlay}>
-                <TouchableOpacity
-                  style={styles.openInGoogleMapsButton}
-                  onPress={() => {
-                    const url = `https://maps.google.com/?q=${tempCoordinates.latitude},${tempCoordinates.longitude}`;
-                    if (typeof window !== 'undefined') window.open(url, '_blank');
-                  }}
-                >
-                  <Ionicons name="open-outline" size={16} color="#059669" />
-                  <Text style={styles.openInGoogleMapsText}>Open in Google Maps</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            // MOBILE: Show a real MapView
-            <PlatformMap
-              style={{ height: 350, width: '100%' }}               // ensure non-zero height!
-              initialRegion={{
-                latitude: mapRegion.latitude,
-                longitude: mapRegion.longitude,
-                latitudeDelta: mapRegion.latitudeDelta,
-                longitudeDelta: mapRegion.longitudeDelta,
-              }}
-              region={{
-                latitude: tempCoordinates.latitude,
-                longitude: tempCoordinates.longitude,
-                latitudeDelta: mapRegion.latitudeDelta,
-                longitudeDelta: mapRegion.longitudeDelta,
-              }}
-              onPress={(e) => {
-                const { latitude, longitude } = e.nativeEvent.coordinate;
-                setTempCoordinates({ latitude, longitude });
-              }}
-              onMapReady={() => console.log('Map ready')}
-              onRegionChangeComplete={(r) => setMapRegion(r)}
-            >
-              <PlatformMarker
-                coordinate={{
-                  latitude: tempCoordinates.latitude,
-                  longitude: tempCoordinates.longitude,
-                }}
-                draggable
-                onDragEnd={(e) => {
-                  const { latitude, longitude } = e.nativeEvent.coordinate;
-                  setTempCoordinates({ latitude, longitude });
-                }}
-              />
-            </PlatformMap>
-          )}
-          
-          <View style={styles.coordinateInputsSection}>
-            <Text style={styles.coordinateInputsTitle}>
-              📍 Set Location Coordinates
-            </Text>
-            <View style={styles.webCoordinateInputs}>
-              <View style={styles.coordinateInputContainer}>
-                <Text style={styles.coordinateLabel}>Latitude</Text>
-                <TextInput
-                  style={styles.coordinateInput}
-                  placeholder="10.7786"
-                  value={tempCoordinates.latitude.toString()}
-                  onChangeText={(text) => {
-                    const lat = parseFloat(text) || 0;
-                    setTempCoordinates({...tempCoordinates, latitude: lat});
-                  }}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={styles.coordinateInputContainer}>
-                <Text style={styles.coordinateLabel}>Longitude</Text>
-                <TextInput
-                  style={styles.coordinateInput}
-                  placeholder="106.7131"
-                  value={tempCoordinates.longitude.toString()}
-                  onChangeText={(text) => {
-                    const lng = parseFloat(text) || 0;
-                    setTempCoordinates({...tempCoordinates, longitude: lng});
-                  }}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-            </View>
-            
-            {previewLocation ? (
-              <View style={styles.locationPreview}>
-                <View style={styles.locationPreviewHeader}>
-                  {geocodingLoading ? (
-                    <ActivityIndicator size="small" color="#059669" />
-                  ) : (
-                    <Ionicons name="location" size={16} color="#059669" />
-                  )}
-                  <Text style={styles.locationPreviewTitle}>
-                    {geocodingLoading ? 'Finding location...' : 'Detected Location:'}
-                  </Text>
-                </View>
-                {!geocodingLoading && (
-                  <Text style={styles.locationPreviewText}>{previewLocation}</Text>
-                )}
-              </View>
-            ) : null}
-            
-            <View style={styles.coordinateHelper}>
-              <Text style={styles.coordinateHelperText}>
-                💡 Adjust the coordinates above to see the map and location update in real-time. You can also click "Open in Google Maps" to find your exact location.
-              </Text>
-            </View>
-          </View>
-        </View>
-        
-        <View style={styles.mapPickerFooter}>
-          <TouchableOpacity
-            style={styles.useMyLocationButton}
-            onPress={async () => {
-              const currentLocation = await getCurrentLocation();
-              if (currentLocation) {
-                setTempCoordinates(currentLocation);
-                setMapRegion({
-                  ...currentLocation,
-                  latitudeDelta: 0.01, // Smaller delta for more zoom
-                  longitudeDelta: 0.01,
-                });
-                
-                // Auto-reverse geocode when location is obtained
-                try {
-                  const locationString = await reverseGeocode(currentLocation.latitude, currentLocation.longitude);
-                  if (locationString) {
-                    console.log('Auto-populated location from GPS:', locationString);
-                    // Show a preview of what location will be set
-                    Alert.alert(
-                      'Location Detected',
-                      `Found location: "${locationString}". This will be saved when you confirm.`,
-                      [{ text: 'OK' }]
-                    );
-                  }
-                } catch (error) {
-                  console.error('Auto-reverse geocoding failed:', error);
-                }
-              }
-            }}
-            disabled={locationLoading}
-          >
-            {locationLoading ? (
-              <ActivityIndicator size="small" color="#059669" />
-            ) : (
-              <Ionicons name="locate" size={20} color="#059669" />
-            )}
-            <Text style={styles.useMyLocationText}>
-              {locationLoading ? 'Getting Location...' : 'Use My Location'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.mapPickerInstructionsText}>
-            Tap on the map to select your coaching location or drag the marker
-          </Text>
-        </View>
-      </View>
-    </Modal>
-  );
-
   const renderHeader = () => (
     <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
       <TouchableOpacity 
@@ -1328,7 +1009,6 @@ export default function CreateCoachProfileScreen({ navigation }) {
   return (
     <View style={styles.container}>
       {renderHeader()}
-      {renderMapPicker()}
       {renderCountryPicker()}
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -1402,6 +1082,11 @@ export default function CreateCoachProfileScreen({ navigation }) {
                     onChangeText={handlePhoneChange}
                     keyboardType="phone-pad"
                     placeholderTextColor="#9CA3AF"
+                    textContentType="telephoneNumber"
+                    autoComplete="tel"
+                    returnKeyType="done"
+                    blurOnSubmit={false}
+                    enablesReturnKeyAutomatically={false}
                   />
                 </View>
               )}
@@ -1532,8 +1217,17 @@ export default function CreateCoachProfileScreen({ navigation }) {
                 placeholder="4.125"
                 value={formData.duprRating}
                 onChangeText={(text) => {
+                  // Mark as manually edited to prevent auto-repopulation
+                  duprManuallyEdited.current = true;
+                  
                   // Allow only numbers and decimal point
                   const cleanedText = text.replace(/[^0-9.]/g, '');
+                  
+                  // Allow empty string (user is clearing the field)
+                  if (cleanedText === '') {
+                    setFormData({...formData, duprRating: ''});
+                    return;
+                  }
                   
                   // Ensure only one decimal point
                   const parts = cleanedText.split('.');
@@ -1551,10 +1245,11 @@ export default function CreateCoachProfileScreen({ navigation }) {
                   
                   const formattedText = parts.join('.');
                   
-                  // Validate range (DUPR ratings are typically 1.000 to 8.000)
+                  // Allow partial inputs during editing (like "0", "0.", ".", etc.)
+                  // Only validate complete numbers
                   const numValue = parseFloat(formattedText);
-                  if (formattedText !== '' && (isNaN(numValue) || numValue < 1 || numValue > 8)) {
-                    return; // Don't update if outside valid range
+                  if (!isNaN(numValue) && numValue > 8) {
+                    return; // Don't allow values greater than 8
                   }
                   
                   setFormData({...formData, duprRating: formattedText});
@@ -1618,20 +1313,20 @@ export default function CreateCoachProfileScreen({ navigation }) {
               />
               <TouchableOpacity
                 style={styles.mapPickerButton}
-                onPress={handleOpenMapPicker}
+                onPress={handleUseMyLocation}
                 disabled={locationLoading}
               >
                 {locationLoading ? (
                   <ActivityIndicator size="small" color="#059669" />
                 ) : (
-                  <Ionicons name="location-outline" size={20} color="#059669" />
+                  <Ionicons name="locate" size={20} color="#059669" />
                 )}
                 <Text style={styles.mapPickerButtonText}>
                   {locationLoading 
                     ? 'Getting Location...' 
                     : formData.latitude && formData.longitude 
-                      ? (Platform.OS === 'android' ? 'Update My Location' : 'Update Map Location')
-                      : (Platform.OS === 'android' ? 'Get My Location' : 'Set Map Location')
+                      ? 'Update My Location'
+                      : 'Use My Location'
                   }
                 </Text>
               </TouchableOpacity>

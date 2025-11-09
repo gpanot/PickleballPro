@@ -812,24 +812,40 @@ export const addStudentByCode = async (coachId, studentCode) => {
       return { data: null, error: { message: 'Invalid student code' } };
     }
 
-    // Check if relationship already exists
+    // Check if relationship already exists (active or inactive)
     const { data: existingRelation, error: relationCheckError } = await supabase
       .from('coach_students')
-      .select('id')
+      .select('id, is_active')
       .eq('coach_id', coachId)
       .eq('student_id', studentData.id)
       .single();
 
     if (existingRelation && !relationCheckError) {
+      // If relationship exists and is inactive, reactivate it
+      if (!existingRelation.is_active) {
+        const { data, error: reactivateError } = await supabase
+          .from('coach_students')
+          .update({ is_active: true })
+          .eq('id', existingRelation.id)
+          .select()
+          .single();
+
+        if (reactivateError) throw reactivateError;
+
+        return { data: { ...data, student: studentData }, error: null };
+      }
+      
+      // If relationship exists and is active, return error
       return { data: null, error: { message: 'Student already added' } };
     }
 
-    // Create coach-student relationship
+    // Create new coach-student relationship
     const { data, error } = await supabase
       .from('coach_students')
       .insert({
         coach_id: coachId,
-        student_id: studentData.id
+        student_id: studentData.id,
+        is_active: true
       })
       .select()
       .single();
@@ -861,6 +877,7 @@ export const getCoachStudents = async (coachId) => {
         )
       `)
       .eq('coach_id', coachId)
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -880,11 +897,17 @@ export const getStudentCoach = async (studentId) => {
       .select('coach_id')
       .eq('student_id', studentId)
       .eq('is_active', true)
-      .single();
+      .order('created_at', { ascending: false }) // Get most recent coach first
+      .limit(1); // Get only the first result
 
     if (error) throw error;
 
-    return { coachId: data?.coach_id, error: null };
+    // Check if we got any results
+    if (!data || data.length === 0) {
+      return { coachId: null, error: { message: 'No active coach found' } };
+    }
+
+    return { coachId: data[0]?.coach_id, error: null };
   } catch (error) {
     console.error('Error getting student coach:', error);
     return { coachId: null, error };

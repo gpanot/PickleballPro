@@ -14,84 +14,59 @@ import { supabase } from '../../lib/supabase';
 const PRIMARY_COLOR = '#27AE60';
 const SECONDARY_COLOR = '#F4F5F7';
 
-const QUESTIONS = [
-  {
-    id: 1,
-    question: 'Have you played any racket or paddle sports before?',
+const QUESTIONS = {
+  // First question - always shown
+  playedPickleball: {
+    id: 'playedPickleball',
+    question: 'Have you ever played Pickleball (PB)?',
     type: 'button',
+    options: [
+      { label: '✅ Yes', value: 'yes' },
+      { label: '❌ No', value: 'no' },
+    ],
+  },
+  
+  // If YES to pickleball - ask duration
+  pbDuration: {
+    id: 'pbDuration',
+    question: 'For how long have you been playing?',
+    type: 'button',
+    condition: (answers) => answers.playedPickleball === 'yes',
+    options: [
+      { label: '📅 Less than 6 months', value: 'less6months' },
+      { label: '📆 More than 6 months', value: 'more6months' },
+    ],
+  },
+  
+  // If NO to pickleball - ask about other racket sports
+  racketSport: {
+    id: 'racketSport',
+    question: 'Have you ever played any racket sport?',
+    type: 'button',
+    condition: (answers) => answers.playedPickleball === 'no',
     options: [
       { label: '🎾 Tennis', value: 'tennis' },
       { label: '🏸 Badminton', value: 'badminton' },
       { label: '🏓 Ping Pong', value: 'pingpong' },
+      { label: '🎾 Squash', value: 'squash' },
       { label: '❌ None', value: 'none' },
     ],
   },
-  {
-    id: 2,
-    question: 'How comfortable are you hitting or catching a moving ball?',
-    type: 'slider',
-    labels: { left: '😬', right: '😎' },
-  },
-  {
-    id: 3,
-    question: 'How well do you move side-to-side or forward quickly?',
-    type: 'slider',
-    labels: { left: 'Slow', right: 'Very agile' },
-  },
-  {
-    id: 4,
-    question: 'How well do you know the Pickleball rules?',
+  
+  // If they played a racket sport - ask skill level
+  racketSkillLevel: {
+    id: 'racketSkillLevel',
+    question: 'How good are you at that sport?',
     type: 'button',
+    condition: (answers) => answers.racketSport && answers.racketSport !== 'none',
     options: [
-      { label: '🤷 Nothing', value: 'nothing' },
-      { label: '🤔 A bit', value: 'abit' },
-      { label: '👍 Well', value: 'well' },
-      { label: '🎯 Very Well', value: 'verywell' },
+      { label: '🌱 Beginner', value: 'beginner' },
+      { label: '👍 Normal', value: 'normal' },
+      { label: '⭐ Semi Pro', value: 'semipro' },
+      { label: '🏆 Pro Player', value: 'pro' },
     ],
   },
-  {
-    id: 5,
-    question: 'What motivates you most to play pickleball?',
-    type: 'button',
-    options: [
-      { label: '🧘 Fitness', value: 'fitness' },
-      { label: '🎉 Fun', value: 'fun' },
-      { label: '🧠 Learning', value: 'learning' },
-      { label: '🏆 Competing', value: 'competing' },
-    ],
-  },
-  {
-    id: 6,
-    question: 'How balanced do you feel while moving?',
-    type: 'slider',
-  },
-  {
-    id: 7,
-    question: 'Can you stay focused for short drills (2–5 minutes)?',
-    type: 'slider',
-    labels: { left: '🧘 Calm', right: '🔥 Focused' },
-  },
-  {
-    id: 8,
-    question: 'How would you describe your current fitness level?',
-    type: 'slider',
-    labels: { left: 'Low', right: 'High' },
-  },
-  {
-    id: 9,
-    question: 'Which hand do you use most for hitting?',
-    type: 'button',
-    options: [
-      { label: '✋ Right', value: 'right' },
-      { label: '🤚 Left', value: 'left' },
-    ],
-  },
-  {
-    id: 10,
-    question: 'What\'s your main goal for your first month of play?',
-    type: 'text',
-  },
-];
+};
 
 export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) {
   const { assessmentId, student } = route.params || {};
@@ -99,6 +74,7 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
   
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState({});
+  const [questionFlow, setQuestionFlow] = useState([]);
   const [assessmentDate, setAssessmentDate] = useState(null);
 
   useEffect(() => {
@@ -115,9 +91,20 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
 
       if (error) throw error;
 
-      const newbieAssessment = data?.skills_data?.newbie_assessment;
-      if (newbieAssessment && newbieAssessment.answers) {
-        setAnswers(newbieAssessment.answers);
+      // Try new branching assessment format first
+      const branchingAssessment = data?.skills_data?.branching_assessment;
+      if (branchingAssessment && branchingAssessment.answers) {
+        setAnswers(branchingAssessment.answers);
+        setQuestionFlow(branchingAssessment.questionFlow || []);
+      } else {
+        // Fallback to old newbie assessment format
+        const newbieAssessment = data?.skills_data?.newbie_assessment;
+        if (newbieAssessment && newbieAssessment.answers) {
+          setAnswers(newbieAssessment.answers);
+          // For old format, show all questions that have answers
+          const flow = Object.keys(newbieAssessment.answers);
+          setQuestionFlow(flow);
+        }
       }
       
       if (data?.created_at) {
@@ -131,16 +118,11 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
   };
 
   const formatAnswer = (question, answer) => {
-    if (!answer && question.optional) return 'Not provided';
     if (!answer) return 'No answer';
     
     if (question.type === 'button') {
       const option = question.options.find(opt => opt.value === answer);
       return option ? option.label : answer;
-    } else if (question.type === 'slider') {
-      return `${answer} / 10`;
-    } else if (question.type === 'text') {
-      return answer || 'Not provided';
     }
     return answer;
   };
@@ -153,6 +135,11 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
     );
   }
 
+  // Only show questions that were part of the flow
+  const answeredQuestions = questionFlow
+    .filter(key => key !== 'summary' && QUESTIONS[key])
+    .map(key => QUESTIONS[key]);
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
@@ -160,7 +147,7 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>First Time Assessment</Text>
+          <Text style={styles.headerTitle}>Experience Assessment</Text>
           <Text style={styles.headerSubtitle}>{student?.name || 'Player'}</Text>
           {assessmentDate && (
             <Text style={styles.headerDate}>{assessmentDate}</Text>
@@ -171,12 +158,12 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
 
       <View style={styles.summaryContainer}>
         <ScrollView style={styles.summaryScrollView} showsVerticalScrollIndicator={true}>
-          {QUESTIONS.map((question) => {
+          {answeredQuestions.map((question, index) => {
             const answer = answers[question.id];
             return (
               <View key={question.id} style={styles.qaItem}>
                 <View style={styles.qaQuestionContainer}>
-                  <Text style={styles.qaQuestionNumber}>{question.id}.</Text>
+                  <Text style={styles.qaQuestionNumber}>{index + 1}.</Text>
                   <Text style={styles.qaQuestion}>{question.question}</Text>
                 </View>
                 <View style={styles.qaAnswerContainer}>

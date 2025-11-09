@@ -33,12 +33,14 @@ A comprehensive React Native app for pickleball training with personalized onboa
 ## 🛠 Technical Stack
 
 - **Framework**: React Native with Expo
+- **Web Support**: React Native Web + React DOM
 - **Navigation**: React Navigation v6
+- **Backend**: Supabase (Auth, Database, Storage)
 - **Context**: React Context for state management
 - **UI Components**: Custom components with modern design
-- **Icons**: Custom ModernIcon component
+- **Icons**: Expo Vector Icons
 - **Safe Areas**: React Native Safe Area Context
-- **Platform**: iOS and Android support
+- **Platform**: iOS, Android, and Web support
 
 ## 📁 Project Structure
 
@@ -97,7 +99,26 @@ npx expo start
 4. Run on your preferred platform:
    - Press `i` for iOS Simulator
    - Press `a` for Android Emulator
+   - Press `w` for Web (browser)
    - Scan QR code with Expo Go app on your device
+
+### 🌐 Web Deployment (NEW!)
+
+Deploy your admin dashboard to the web without Expo or mobile app:
+
+```bash
+# Quick deploy in 3 commands
+npm run build:web
+npm install -g vercel
+vercel
+```
+
+**📚 Detailed Guides:**
+- **[Quick Start Guide](./QUICK_START.md)** - Deploy in 5 minutes
+- **[Complete Deployment Guide](./ADMIN_WEB_DEPLOYMENT_GUIDE.md)** - All deployment options
+- **[Web vs Mobile Comparison](./WEB_VS_MOBILE.md)** - Feature comparison
+
+**Access your admin dashboard from any browser without installation!**
 
 ## 📱 Onboarding Flow
 
