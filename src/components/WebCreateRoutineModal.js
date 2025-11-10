@@ -22,6 +22,7 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [programs, setPrograms] = useState([]);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
 
   const isEditing = !!editingRoutine;
 
@@ -36,8 +37,12 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
         // Set selected program based on programId or editingRoutine.program_id
         const programToSelect = programId || editingRoutine.program_id;
         if (programToSelect) {
-          setSelectedProgram({ id: programToSelect });
+          setSelectedProgram({
+            id: programToSelect,
+            name: editingRoutine?.programs?.name,
+          });
         }
+        setIsPublished(!!editingRoutine.is_published);
       } else {
         // Reset fields when creating new
         setRoutineTitle('');
@@ -48,6 +53,7 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
         } else {
           setSelectedProgram(null);
         }
+        setIsPublished(false);
       }
     }
   }, [visible, editingRoutine, programId]);
@@ -75,6 +81,7 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
     setRoutineTitle('');
     setRoutineDescription('');
     setSelectedProgram(null);
+    setIsPublished(false);
     onClose();
   };
 
@@ -112,7 +119,7 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
         description: routineDescription.trim() || 'New training routine',
         program_id: selectedProgram.id,
         order_index: isEditing ? editingRoutine.order_index : 1, // Keep existing order or default
-        is_published: isEditing ? editingRoutine.is_published : false
+        is_published: isPublished
       };
 
       console.log('📋 [WebCreateRoutineModal] Routine data prepared:', {
@@ -304,11 +311,33 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
               textAlignVertical="top"
             />
 
+            <View style={styles.publishRow}>
+              <TouchableOpacity
+                style={[
+                  styles.publishCheckbox,
+                  isPublished && styles.publishCheckboxChecked
+                ]}
+                onPress={() => setIsPublished(prev => !prev)}
+              >
+                {isPublished && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+              <View style={styles.publishTextContainer}>
+                <Text style={styles.publishTitle}>Publish routine</Text>
+                <Text style={styles.publishSubtitle}>
+                  {isPublished
+                    ? 'This routine will be available to athletes right away.'
+                    : 'Keep as draft until you are ready to publish.'}
+                </Text>
+              </View>
+            </View>
+
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
                 <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
                 <Text style={styles.infoText}>
-                  Routine will be created as a draft. You can publish it later and assign exercises.
+                  You can save routines as drafts or publish them immediately.
                 </Text>
               </View>
               <View style={styles.infoItem}>
@@ -404,6 +433,39 @@ const styles = StyleSheet.create({
   modalTextArea: {
     height: 120,
     textAlignVertical: 'top',
+  },
+  publishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  publishCheckbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginRight: 12,
+  },
+  publishCheckboxChecked: {
+    backgroundColor: '#3B82F6',
+  },
+  publishTextContainer: {
+    flex: 1,
+  },
+  publishTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  publishSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+    lineHeight: 20,
   },
   infoSection: {
     marginTop: 24,

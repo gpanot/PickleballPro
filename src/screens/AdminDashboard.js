@@ -94,6 +94,7 @@ export default function AdminDashboard({ navigation }) {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showCreateProgramModal, setShowCreateProgramModal] = useState(false);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
+  const [showEditRoutineModal, setShowEditRoutineModal] = useState(false);
   const [showCreateExerciseModal, setShowCreateExerciseModal] = useState(false);
   const [showProgramStructureModal, setShowProgramStructureModal] = useState(false);
   const [showEditProgramModal, setShowEditProgramModal] = useState(false);
@@ -101,6 +102,7 @@ export default function AdminDashboard({ navigation }) {
   const [selectedCoach, setSelectedCoach] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
+  const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [modalType, setModalType] = useState(''); // 'program', 'routine', 'exercise'
   const [hasUnsavedCategoryChanges, setHasUnsavedCategoryChanges] = useState(false);
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
@@ -312,6 +314,12 @@ export default function AdminDashboard({ navigation }) {
   const handleProgramSaved = () => {
     // Refresh programs list after saving
     fetchPrograms();
+  };
+
+  const handleEditRoutine = (routine) => {
+    setSelectedRoutine(routine);
+    setShowEditRoutineModal(true);
+    setActiveDropdown(null);
   };
 
   const fetchRoutines = async () => {
@@ -1759,6 +1767,9 @@ export default function AdminDashboard({ navigation }) {
             <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
               <Text style={styles.modernTableHeaderText}>Created</Text>
             </View>
+            <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+              <Text style={styles.modernTableHeaderText}>Actions</Text>
+            </View>
           </View>
 
           <ScrollView style={styles.modernTableBody}>
@@ -1789,6 +1800,16 @@ export default function AdminDashboard({ navigation }) {
                   <Text style={styles.cellText}>
                     {new Date(routine.created_at).toLocaleDateString()}
                   </Text>
+                </View>
+                <View style={[styles.modernTableCell, { flex: 1 }]}>
+                  <View style={styles.modernActionButtons}>
+                    <TouchableOpacity
+                      style={styles.modernActionButton}
+                      onPress={() => handleEditRoutine(routine)}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             )) : (
@@ -3653,6 +3674,21 @@ export default function AdminDashboard({ navigation }) {
         visible={showCreateRoutineModal}
         onClose={() => setShowCreateRoutineModal(false)}
         onSuccess={handleRoutineCreated}
+      />
+      <WebCreateRoutineModal
+        visible={showEditRoutineModal}
+        onClose={() => {
+          setShowEditRoutineModal(false);
+          setSelectedRoutine(null);
+        }}
+        onSuccess={() => {
+          fetchRoutines();
+          setShowEditRoutineModal(false);
+          setSelectedRoutine(null);
+          handleRoutineCreated();
+        }}
+        editingRoutine={selectedRoutine}
+        programId={selectedRoutine?.program_id}
       />
 
       {/* Create Exercise Modal */}
