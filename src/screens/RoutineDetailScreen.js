@@ -92,8 +92,22 @@ export default function RoutineDetailScreen({ navigation, route }) {
   // Latest logs for exercises
   const [latestLogs, setLatestLogs] = React.useState({});
 
+  // Determine if we're simply previewing a program (e.g., coach browsing library)
+  const isPreviewOnly = React.useMemo(
+    () =>
+      (source === 'coach' || source === 'coach_assignment') &&
+      !isStudentView &&
+      !studentId,
+    [source, isStudentView, studentId]
+  );
+
   // Fetch latest logs for all exercises in the routine
   const fetchLatestLogs = React.useCallback(async () => {
+    if (isPreviewOnly) {
+      setLatestLogs((prev) => (Object.keys(prev).length ? {} : prev));
+      return;
+    }
+
     if (!user?.id || exercises.length === 0) {
       return;
     }
@@ -158,7 +172,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
     } catch (error) {
       console.error('💥 [RoutineDetailScreen] Error fetching latest logs:', error);
     }
-  }, [user?.id, studentId, exercises]);
+  }, [user?.id, studentId, exercises, isPreviewOnly]);
 
   // Fetch latest logs when exercises change
   React.useEffect(() => {

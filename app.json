@@ -30,7 +30,7 @@
     "android": {
       "backgroundColor": "#000000",
       "package": "com.picklepro.mobile",
-      "versionCode": 11,
+      "versionCode": 12,
       "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",

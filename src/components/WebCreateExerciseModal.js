@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import skillsData from '../data/Commun_skills_tags.json';
 
 export default function WebCreateExerciseModal({ visible, onClose, onSuccess, editingExercise }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const screenWidth = Dimensions.get('window').width;
   const [exerciseName, setExerciseName] = useState('');
@@ -42,6 +42,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
   const [duprRangeMax, setDuprRangeMax] = useState('');
   const [showDuprMinDropdown, setShowDuprMinDropdown] = useState(false);
   const [showDuprMaxDropdown, setShowDuprMaxDropdown] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
 
   const isEditing = !!editingExercise;
 
@@ -83,6 +84,17 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       // Handle DUPR range
       setDuprRangeMin(editingExercise.dupr_range_min ? editingExercise.dupr_range_min.toString() : '');
       setDuprRangeMax(editingExercise.dupr_range_max ? editingExercise.dupr_range_max.toString() : '');
+      setIsPublished(!!editingExercise.is_published);
+      setSelectedProgram(editingExercise.program_id || '');
+      setSelectedRoutine(editingExercise.routine_id || '');
+      setShowProgramDropdown(false);
+      setShowRoutineDropdown(false);
+    } else {
+      setIsPublished(false);
+      setSelectedProgram('');
+      setSelectedRoutine('');
+      setShowProgramDropdown(false);
+      setShowRoutineDropdown(false);
     }
   }, [isEditing, editingExercise]);
 
@@ -91,15 +103,16 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     if (selectedProgram) {
       const filteredRoutines = allRoutines.filter(routine => routine.program_id === selectedProgram);
       setRoutines(filteredRoutines);
-      // Reset routine selection if current routine doesn't belong to selected program
-      if (selectedRoutine && !filteredRoutines.find(r => r.id === selectedRoutine)) {
+      if (selectedRoutine && filteredRoutines.length > 0 && !filteredRoutines.find(r => r.id === selectedRoutine)) {
         setSelectedRoutine('');
       }
     } else {
       setRoutines([]);
-      setSelectedRoutine('');
+      if (!isEditing) {
+        setSelectedRoutine('');
+      }
     }
-  }, [selectedProgram, allRoutines]);
+  }, [selectedProgram, allRoutines, selectedRoutine, isEditing]);
 
   const loadPrograms = async () => {
     try {
@@ -161,6 +174,23 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       label: i.toString()
     });
   }
+
+  const programLocked = isEditing && !!editingExercise?.program_id;
+  const routineLocked = isEditing && !!editingExercise?.routine_id;
+  const selectedProgramObj = programs.find(p => p.id === selectedProgram);
+  const programDisplayLabel = selectedProgram
+    ? (selectedProgramObj?.name || editingExercise?.program_name || 'Select Program')
+    : (isEditing && editingExercise?.program_name)
+      ? editingExercise.program_name
+      : `Select Program (${programs.length} available)`;
+
+  const routineLookupList = routines.length > 0 ? routines : allRoutines;
+  const selectedRoutineObj = routineLookupList.find(r => r.id === selectedRoutine);
+  const routineDisplayLabel = selectedRoutine
+    ? (selectedRoutineObj?.name || editingExercise?.routine_name || 'Select Routine')
+    : (isEditing && editingExercise?.routine_name)
+      ? editingExercise.routine_name
+      : 'Select Routine';
 
   // Generate category options from skills data with emojis and organized by category
   const categoryOptions = [
@@ -224,6 +254,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     setDuprRangeMax('');
     setShowDuprMinDropdown(false);
     setShowDuprMaxDropdown(false);
+    setIsPublished(false);
     onClose();
   };
 
@@ -405,6 +436,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
         target_value: targetValue.trim() ? parseInt(targetValue.trim()) : null,
         skill_category: skillCategories.join(','),
         difficulty: difficulty,
+        is_published: isPublished,
       };
 
       let data, error;
@@ -425,7 +457,6 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           .insert([{
             ...exerciseData,
             code: exerciseName.trim().toUpperCase().replace(/\s+/g, '_'),
-            is_published: false,
             created_by: user.id
           }])
           .select();
@@ -438,7 +469,17 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       // If a routine is selected, link the exercise to the routine
       if (selectedRoutine && data && data[0]) {
         const exerciseId = data[0].id;
-        
+        console.log('🔗 Preparing to link exercise to routine', {
+          routineId: selectedRoutine,
+          exerciseId,
+          userId: user?.id,
+          userEmail: user?.email,
+          userIsAdmin: profile?.is_admin,
+          routineCount: routines?.length,
+          isEditing,
+          existingExerciseRecord: data?.[0]
+        });
+
         // Get the highest order_index for this routine
         const { data: existingExercises, error: orderError } = await supabase
           .from('routine_exercises')
@@ -448,12 +489,23 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           .limit(1);
 
         if (orderError) {
-          console.error('Error getting order index:', orderError);
+          console.error('🔗 Error getting current routine order index:', orderError, {
+            routineId: selectedRoutine,
+            exerciseId,
+            userId: user?.id
+          });
         }
 
         const nextOrderIndex = existingExercises && existingExercises[0] 
           ? existingExercises[0].order_index + 1 
           : 1;
+
+        console.log('🔗 Linking payload prepared', {
+          routineId: selectedRoutine,
+          exerciseId,
+          nextOrderIndex,
+          existingOrderEntries: existingExercises
+        });
 
         // Insert into routine_exercises
         const { error: linkError } = await supabase
@@ -466,12 +518,26 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           });
 
         if (linkError) {
-          console.error('Error linking exercise to routine:', linkError);
+          console.error('🔗 Error linking exercise to routine:', linkError, {
+            routineId: selectedRoutine,
+            exerciseId,
+            attemptedOrderIndex: nextOrderIndex,
+            userId: user?.id,
+            userIsAdmin: profile?.is_admin
+          });
+          
           Alert.alert(
             'Partial Success', 
-            `Exercise "${exerciseName}" created but could not be linked to the routine. You can link it manually later.`
+            `Exercise "${exerciseName}" created but could not be linked to the routine (code ${linkError?.code || 'unknown'}).` +
+            '\n\nCheck the console for detailed diagnostics. This usually means the current user lacks permission to modify routine exercises.'
           );
         } else {
+          console.log('✅ Exercise linked to routine successfully', {
+            routineId: selectedRoutine,
+            exerciseId,
+            orderIndex: nextOrderIndex,
+            userId: user?.id
+          });
           const selectedRoutineName = routines.find(r => r.id === selectedRoutine)?.name || 'the routine';
           Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} and linked to ${selectedRoutineName}!`);
         }
@@ -538,30 +604,34 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
 
             <Text style={styles.modalLabel}>Program (Optional)</Text>
             <TouchableOpacity 
-              style={[styles.dropdown, !selectedProgram && styles.dropdownPlaceholder]}
+              style={[
+                styles.dropdown,
+                !selectedProgram && styles.dropdownPlaceholder,
+                programLocked && styles.dropdownDisabled
+              ]}
               onPress={() => {
+                if (programLocked) return;
                 console.log('Program dropdown clicked, current state:', showProgramDropdown);
                 setShowProgramDropdown(!showProgramDropdown);
               }}
+              disabled={programLocked}
             >
               <Text style={[
                 styles.dropdownText,
-                !selectedProgram && styles.dropdownPlaceholderText
+                !selectedProgram && styles.dropdownPlaceholderText,
+                programLocked && styles.dropdownDisabledText
               ]}>
-                {selectedProgram 
-                  ? programs.find(p => p.id === selectedProgram)?.name || 'Select Program'
-                  : `Select Program (${programs.length} available)`
-                }
+                {programDisplayLabel}
               </Text>
               <Ionicons 
                 name={showProgramDropdown ? "chevron-up" : "chevron-down"} 
                 size={20} 
-                color="#6B7280" 
+                color={programLocked ? "#D1D5DB" : "#6B7280"} 
               />
             </TouchableOpacity>
             
             {/* Program Selection List - Inline */}
-            {showProgramDropdown && (
+            {!programLocked && showProgramDropdown && (
               <View style={styles.inlineDropdownList}>
                 <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
                   <TouchableOpacity 
@@ -598,27 +668,33 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
               <>
                 <Text style={styles.modalLabel}>Routine</Text>
                 <TouchableOpacity 
-                  style={[styles.dropdown, !selectedRoutine && styles.dropdownPlaceholder]}
-                  onPress={() => setShowRoutineDropdown(!showRoutineDropdown)}
+                  style={[
+                    styles.dropdown,
+                    !selectedRoutine && styles.dropdownPlaceholder,
+                    routineLocked && styles.dropdownDisabled
+                  ]}
+                  onPress={() => {
+                    if (routineLocked) return;
+                    setShowRoutineDropdown(!showRoutineDropdown);
+                  }}
+                  disabled={routineLocked}
                 >
                   <Text style={[
                     styles.dropdownText,
-                    !selectedRoutine && styles.dropdownPlaceholderText
+                    !selectedRoutine && styles.dropdownPlaceholderText,
+                    routineLocked && styles.dropdownDisabledText
                   ]}>
-                    {selectedRoutine 
-                      ? routines.find(r => r.id === selectedRoutine)?.name || 'Select Routine'
-                      : 'Select Routine'
-                    }
+                    {routineDisplayLabel}
                   </Text>
                   <Ionicons 
                     name={showRoutineDropdown ? "chevron-up" : "chevron-down"} 
                     size={20} 
-                    color="#6B7280" 
+                    color={routineLocked ? "#D1D5DB" : "#6B7280"} 
                   />
                 </TouchableOpacity>
                 
                 {/* Routine Selection List - Inline */}
-                {showRoutineDropdown && (
+                {!routineLocked && showRoutineDropdown && (
                   <View style={styles.inlineDropdownList}>
                     <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
                       {routines.map((routine) => (
@@ -934,11 +1010,33 @@ Complete the target successfully`}
               })}
             </View>
 
+            <View style={styles.publishRow}>
+              <TouchableOpacity
+                style={[
+                  styles.publishCheckbox,
+                  isPublished && styles.publishCheckboxChecked
+                ]}
+                onPress={() => setIsPublished(prev => !prev)}
+              >
+                {isPublished && (
+                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
+              <View style={styles.publishTextContainer}>
+                <Text style={styles.publishTitle}>Publish exercise</Text>
+                <Text style={styles.publishSubtitle}>
+                  {isPublished
+                    ? 'This exercise will be available to athletes immediately.'
+                    : 'Keep as draft until you are ready to publish.'}
+                </Text>
+              </View>
+            </View>
+
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
                 <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
                 <Text style={styles.infoText}>
-                  Exercise will be created as a draft. You can publish it later from the exercises list.
+                  Exercise will be {isPublished ? 'published immediately' : 'saved as a draft'}.
                 </Text>
               </View>
               <View style={styles.infoItem}>
@@ -1042,6 +1140,39 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 8,
     marginTop: 16,
+  },
+  publishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  publishCheckbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginRight: 12,
+  },
+  publishCheckboxChecked: {
+    backgroundColor: '#3B82F6',
+  },
+  publishTextContainer: {
+    flex: 1,
+  },
+  publishTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  publishSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+    lineHeight: 20,
   },
   tipLabel: {
     fontSize: 14,
@@ -1420,6 +1551,13 @@ const styles = StyleSheet.create({
   },
   dropdownPlaceholderText: {
     color: '#9CA3AF',
+  },
+  dropdownDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+  },
+  dropdownDisabledText: {
+    color: '#6B7280',
   },
   inlineDropdownList: {
     backgroundColor: '#F9FAFB',

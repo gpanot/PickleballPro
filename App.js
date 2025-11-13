@@ -5,6 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as SplashScreenExpo from 'expo-splash-screen';
+
+// Prevent the native splash screen from auto-hiding
+SplashScreenExpo.preventAutoHideAsync().catch(() => {
+  // Ignore if already prevented
+});
 
 // Filter out Grammarly console errors during development
 if (__DEV__) {

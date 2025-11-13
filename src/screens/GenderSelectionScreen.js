@@ -33,12 +33,8 @@ export default function GenderSelectionScreen({ navigation, onComplete, onGoBack
 
   const handleGenderSelect = (genderId) => {
     setSelectedGender(genderId);
-  };
-
-  const handleContinue = () => {
-    if (selectedGender) {
-      onComplete({ gender: selectedGender });
-    }
+    // Automatically proceed to next screen
+    onComplete({ gender: genderId });
   };
 
   const renderGenderOption = (option) => {
@@ -119,19 +115,8 @@ export default function GenderSelectionScreen({ navigation, onComplete, onGoBack
         </View>
       </View>
 
-      {/* Button Area - Always reserve space */}
-      <View style={styles.buttonArea}>
-        {selectedGender && (
-          <TouchableOpacity 
-            style={styles.continueButton}
-            onPress={handleContinue}
-          >
-            <Text style={styles.continueButtonText}>
-              CONTINUE
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      {/* Spacer for bottom padding */}
+      <View style={styles.bottomSpacer} />
     </View>
   );
 }
@@ -223,28 +208,8 @@ const styles = StyleSheet.create({
   genderTitleSelected: {
     color: '#FFFFFF',
   },
-  buttonArea: {
-    minHeight: 80,
-    justifyContent: 'center',
-    paddingBottom: 20,
-    paddingHorizontal: 0,
-  },
-  continueButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 30,
-    paddingVertical: 18,
-    alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  continueButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: 'white',
-    letterSpacing: 0.5,
+  bottomSpacer: {
+    height: 40,
   },
   statusBar: {
     paddingHorizontal: 16,

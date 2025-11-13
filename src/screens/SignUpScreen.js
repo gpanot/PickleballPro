@@ -80,10 +80,14 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       
       console.log('SignUp: Complete user data being saved:', userData);
       
+      // Use AuthContext signUp (already handles everything properly)
       const { data, error } = await signUp(email, password, userData);
       
       if (error) {
-        // Check for specific error types
+        setIsLoading(false);
+        console.log('Signup error detected:', error.message);
+        
+        // Check for duplicate email error
         if (error.message?.includes('User already registered') || 
             error.message?.includes('already registered') ||
             error.message?.includes('already exists')) {
@@ -91,20 +95,25 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
         } else {
           Alert.alert('Sign Up Failed', error.message || 'Please try again.');
         }
+        // CRITICAL: Stay on this screen - do NOT call onSignUp, do NOT navigate
         return;
       }
 
-      if (data?.user) {
-        console.log('Sign up successful with complete onboarding data!');
-        // Directly call onSignUp without showing popup
+      // Only proceed with navigation if successful AND no error
+      if (data?.user && !error) {
+        setIsLoading(false);
+        console.log('Sign up complete! Navigating to next screen...');
+        
+        // Only now do we navigate
         if (onSignUp) {
           onSignUp({ email, password, name });
         }
       }
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.log('Unexpected signup error:', error.message);
+      setIsLoading(false);
       
-      // Check for specific error types in catch block as well
+      // Check for duplicate email error
       if (error.message?.includes('User already registered') || 
           error.message?.includes('already registered') ||
           error.message?.includes('already exists')) {
@@ -112,8 +121,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       } else {
         Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       }
-    } finally {
-      setIsLoading(false);
+      // CRITICAL: Stay on this screen - do NOT call onSignUp, do NOT navigate
     }
   };
 

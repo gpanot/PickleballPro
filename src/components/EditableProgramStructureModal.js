@@ -33,6 +33,8 @@ export default function EditableProgramStructureModal({ visible, program, onClos
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [routineToDelete, setRoutineToDelete] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [reorderingRoutineId, setReorderingRoutineId] = useState(null);
+  const [reorderingExerciseId, setReorderingExerciseId] = useState(null);
 
   // Function to refresh program data from database
   const refreshProgramData = async () => {
@@ -47,6 +49,7 @@ export default function EditableProgramStructureModal({ visible, program, onClos
           routines (
             *,
             routine_exercises (
+              id,
               order_index,
               custom_target_value,
               exercises (*)
@@ -68,6 +71,8 @@ export default function EditableProgramStructureModal({ visible, program, onClos
             exercises: routine.routine_exercises
               .sort((a, b) => a.order_index - b.order_index)
               .map(re => ({
+                routineExerciseId: re.id,
+                exerciseId: re.exercises.id,
                 id: re.exercises.code,
                 name: re.exercises.title,
                 target: `${re.custom_target_value || re.exercises.target_value} ${re.exercises.target_unit}`,
@@ -232,6 +237,145 @@ export default function EditableProgramStructureModal({ visible, program, onClos
     setRoutineToDelete(null);
   };
 
+  const routineExercises = getSelectedRoutineExercises();
+
+  const reorderRoutine = async (routineId, direction) => {
+    if (!editedProgram?.routines || editedProgram.routines.length < 2) return;
+    if (reorderingRoutineId !== null) return;
+
+    const routines = [...editedProgram.routines];
+    const currentIndex = routines.findIndex(routine => routine.id === routineId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= routines.length) return;
+
+    const reorderedRoutines = [...routines];
+    const [movedRoutine] = reorderedRoutines.splice(currentIndex, 1);
+    reorderedRoutines.splice(targetIndex, 0, movedRoutine);
+
+    const normalizedRoutines = reorderedRoutines.map((routine, index) => ({
+      ...routine,
+      order_index: index
+    }));
+
+    setEditedProgram(prevProgram => ({
+      ...prevProgram,
+      routines: normalizedRoutines
+    }));
+
+    setSelectedRoutine(prevRoutine => {
+      if (!prevRoutine) return prevRoutine;
+      const updatedSelection = normalizedRoutines.find(routine => routine.id === prevRoutine.id);
+      return updatedSelection || prevRoutine;
+    });
+
+    setReorderingRoutineId(routineId);
+
+    try {
+      const results = await Promise.all(
+        normalizedRoutines.map((routine, index) =>
+          supabase
+            .from('routines')
+            .update({ order_index: index })
+            .eq('id', routine.id)
+        )
+      );
+
+      const erroredResult = results.find(result => result?.error);
+      if (erroredResult?.error) {
+        throw erroredResult.error;
+      }
+
+      onSave && onSave();
+      await refreshProgramData();
+    } catch (error) {
+      console.error('Error reordering routines:', error);
+      Alert.alert('Error', `Failed to reorder routines: ${error.message}`);
+      await refreshProgramData();
+    } finally {
+      setReorderingRoutineId(null);
+    }
+  };
+
+  const reorderExercise = async (routineId, routineExerciseId, direction) => {
+    if (!routineId || !routineExerciseId) return;
+    if (reorderingExerciseId !== null) return;
+
+    const routine = editedProgram?.routines?.find(r => r.id === routineId);
+    if (!routine || !routine.exercises || routine.exercises.length < 2) return;
+
+    const exercises = [...routine.exercises];
+    const currentIndex = exercises.findIndex(exercise => exercise.routineExerciseId === routineExerciseId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= exercises.length) return;
+
+    const reorderedExercises = [...exercises];
+    const [movedExercise] = reorderedExercises.splice(currentIndex, 1);
+    reorderedExercises.splice(targetIndex, 0, movedExercise);
+
+    const normalizedExercises = reorderedExercises.map((exercise, index) => ({
+      ...exercise,
+      order_index: index
+    }));
+
+    setEditedProgram(prevProgram => {
+      if (!prevProgram?.routines) {
+        return prevProgram;
+      }
+
+      const updatedRoutines = prevProgram.routines.map(routineItem => {
+        if (routineItem.id !== routineId) return routineItem;
+        return {
+          ...routineItem,
+          exercises: normalizedExercises
+        };
+      });
+
+      return {
+        ...prevProgram,
+        routines: updatedRoutines
+      };
+    });
+
+    setSelectedRoutine(prevRoutine => {
+      if (!prevRoutine || prevRoutine.id !== routineId) return prevRoutine;
+      return {
+        ...prevRoutine,
+        exercises: normalizedExercises
+      };
+    });
+
+    setReorderingExerciseId(routineExerciseId);
+
+    try {
+      const results = await Promise.all(
+        normalizedExercises.map((exercise, index) =>
+          supabase
+            .from('routine_exercises')
+            .update({ order_index: index })
+            .eq('id', exercise.routineExerciseId)
+        )
+      );
+
+      const erroredResult = results.find(result => result?.error);
+      if (erroredResult?.error) {
+        throw erroredResult.error;
+      }
+
+      onSave && onSave();
+      await refreshProgramData();
+    } catch (error) {
+      console.error('Error reordering exercises:', error);
+      Alert.alert('Error', `Failed to reorder exercises: ${error.message}`);
+      await refreshProgramData();
+    } finally {
+      setReorderingExerciseId(null);
+    }
+  };
+
 
   if (!editedProgram) return null;
 
@@ -315,14 +459,22 @@ export default function EditableProgramStructureModal({ visible, program, onClos
             </View>
             <ScrollView style={styles.columnContent}>
               {editedProgram.routines && editedProgram.routines.length > 0 ? (
-                editedProgram.routines.map((routine, index) => (
-                  <View
-                    key={routine.id}
-                    style={[
-                      styles.routineCard,
-                      selectedRoutine?.id === routine.id && styles.selectedRoutineCard
-                    ]}
-                  >
+                editedProgram.routines.map((routine, index) => {
+                  const isFirstRoutine = index === 0;
+                  const isLastRoutine = index === editedProgram.routines.length - 1;
+                  const disableMoveUp = isFirstRoutine || reorderingRoutineId !== null;
+                  const disableMoveDown = isLastRoutine || reorderingRoutineId !== null;
+                  const upIconColor = disableMoveUp ? '#D1D5DB' : '#10B981';
+                  const downIconColor = disableMoveDown ? '#D1D5DB' : '#10B981';
+
+                  return (
+                    <View
+                      key={routine.id}
+                      style={[
+                        styles.routineCard,
+                        selectedRoutine?.id === routine.id && styles.selectedRoutineCard
+                      ]}
+                    >
                     <TouchableOpacity
                       style={styles.routineClickableArea}
                       onPress={() => handleRoutineSelected(routine)}
@@ -330,6 +482,38 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                       <View style={styles.cardHeader}>
                         <Text style={styles.routineName}>{routine.name}</Text>
                         <View style={styles.cardHeaderRight}>
+                          <View style={styles.reorderControls}>
+                            <TouchableOpacity
+                              style={[
+                                styles.reorderButton,
+                                disableMoveUp && styles.reorderButtonDisabled
+                              ]}
+                              disabled={disableMoveUp}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                if (!disableMoveUp) {
+                                  reorderRoutine(routine.id, 'up');
+                                }
+                              }}
+                            >
+                              <Ionicons name="chevron-up" size={14} color={upIconColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.reorderButton,
+                                disableMoveDown && styles.reorderButtonDisabled
+                              ]}
+                              disabled={disableMoveDown}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                if (!disableMoveDown) {
+                                  reorderRoutine(routine.id, 'down');
+                                }
+                              }}
+                            >
+                              <Ionicons name="chevron-down" size={14} color={downIconColor} />
+                            </TouchableOpacity>
+                          </View>
                           <Text style={styles.routineOrder}>#{index + 1}</Text>
                           <TouchableOpacity
                             style={styles.editButton}
@@ -365,7 +549,8 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                       </View>
                     </TouchableOpacity>
                   </View>
-                ))
+                  );
+                })
               ) : (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyText}>No routines available</Text>
@@ -383,121 +568,169 @@ export default function EditableProgramStructureModal({ visible, program, onClos
               </Text>
             </View>
             <ScrollView style={styles.columnContent}>
-              {getSelectedRoutineExercises().length > 0 ? (
-                getSelectedRoutineExercises().map((exercise, index) => (
-                  <View key={`${exercise.id}-${index}`} style={styles.exerciseCard}>
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
-                      <View style={styles.cardHeaderRight}>
-                        <Text style={styles.exerciseOrder}>#{index + 1}</Text>
-                        <TouchableOpacity
-                          style={styles.editButton}
-                          onPress={async () => {
-                            try {
+              {routineExercises.length > 0 ? (
+                routineExercises.map((exercise, index) => {
+                  const hasRoutineExerciseId = Boolean(exercise.routineExerciseId);
+                  const isFirstExercise = index === 0;
+                  const isLastExercise = index === routineExercises.length - 1;
+                  const disableMoveUp = isFirstExercise || reorderingExerciseId !== null || !hasRoutineExerciseId;
+                  const disableMoveDown = isLastExercise || reorderingExerciseId !== null || !hasRoutineExerciseId;
+                  const upIconColor = disableMoveUp ? '#FCD34D' : '#F59E0B';
+                  const downIconColor = disableMoveDown ? '#FCD34D' : '#F59E0B';
 
-                              // Fetch complete exercise data from database using the code or id
-                              let data, error;
-                              
-                              // First try to find by code (for older exercises with code field)
-                              const { data: dataByCode, error: errorByCode } = await supabase
-                                .from('exercises')
-                                .select('*')
-                                .eq('code', exercise.id)
-                                .single();
-                              
-                              if (!errorByCode && dataByCode) {
-                                data = dataByCode;
-                                error = errorByCode;
-                              } else {
-                                // If not found by code, try to find by UUID (for database exercises)
-                                const { data: dataById, error: errorById } = await supabase
+                  return (
+                    <View key={exercise.routineExerciseId || exercise.id || index} style={styles.exerciseCard}>
+                      <View style={styles.cardHeader}>
+                        <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
+                        <View style={styles.cardHeaderRight}>
+                          <View style={styles.reorderControls}>
+                            <TouchableOpacity
+                              style={[
+                                styles.reorderButton,
+                                disableMoveUp && styles.reorderButtonDisabled
+                              ]}
+                              disabled={disableMoveUp}
+                              onPress={() => {
+                                if (!disableMoveUp && selectedRoutine) {
+                                  reorderExercise(selectedRoutine.id, exercise.routineExerciseId, 'up');
+                                }
+                              }}
+                            >
+                              <Ionicons name="chevron-up" size={14} color={upIconColor} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[
+                                styles.reorderButton,
+                                disableMoveDown && styles.reorderButtonDisabled
+                              ]}
+                              disabled={disableMoveDown}
+                              onPress={() => {
+                                if (!disableMoveDown && selectedRoutine) {
+                                  reorderExercise(selectedRoutine.id, exercise.routineExerciseId, 'down');
+                                }
+                              }}
+                            >
+                              <Ionicons name="chevron-down" size={14} color={downIconColor} />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={styles.exerciseOrder}>#{index + 1}</Text>
+                          <TouchableOpacity
+                            style={styles.editButton}
+                            onPress={async () => {
+                              try {
+                                // Fetch complete exercise data from database using the code or id
+                                let data = null;
+                                let error = null;
+
+                                const exerciseIdFromRoutine = exercise.exerciseId || null;
+
+                                const { data: dataByCode, error: errorByCode } = await supabase
                                   .from('exercises')
                                   .select('*')
-                                  .eq('id', exercise.id)
+                                  .eq('code', exercise.id)
                                   .single();
-                                
-                                data = dataById;
-                                error = errorById;
+
+                                if (!errorByCode && dataByCode) {
+                                  data = dataByCode;
+                                  error = errorByCode;
+                                } else {
+                                  const { data: dataById, error: errorById } = await supabase
+                                    .from('exercises')
+                                    .select('*')
+                                    .eq('id', exerciseIdFromRoutine || exercise.id)
+                                    .single();
+
+                                  data = dataById;
+                                  error = errorById;
+                                }
+
+                                if (error) throw error;
+
+                                if (data) {
+                                  const exerciseDetails = {
+                                    ...data,
+                                    routine_exercise_id: exercise.routineExerciseId || null,
+                                    routine_id: selectedRoutine?.id || null,
+                                    routine_name: selectedRoutine?.name || null,
+                                    program_id: editedProgram?.id || null,
+                                    program_name: editedProgram?.name || null
+                                  };
+                                  setSelectedExercise(exerciseDetails);
+                                  setShowExerciseModal(true);
+                                } else {
+                                  Alert.alert('Error', 'Could not find exercise data');
+                                }
+                              } catch (error) {
+                                console.error('Error fetching exercise data:', error);
+                                Alert.alert('Error', 'Failed to load exercise data: ' + error.message);
                               }
-                              
-                              if (error) throw error;
-                              
-                              if (data) {
-                                setSelectedExercise(data);
-                                setShowExerciseModal(true);
-                              } else {
-                                Alert.alert('Error', 'Could not find exercise data');
-                              }
-                            } catch (error) {
-                              console.error('Error fetching exercise data:', error);
-                              Alert.alert('Error', 'Failed to load exercise data: ' + error.message);
-                            }
-                          }}
-                        >
-                          <Ionicons name="create-outline" size={16} color="#F59E0B" />
-                        </TouchableOpacity>
+                            }}
+                          >
+                            <Ionicons name="create-outline" size={16} color="#F59E0B" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                    </View>
-                    <Text style={styles.exerciseTarget}>{exercise.target}</Text>
-                    
-                    {/* Tags Section */}
-                    {(() => {
-                      // Helper function to normalize tags/categories to an array
-                      const normalizeToArray = (value) => {
-                        if (!value) return [];
-                        if (Array.isArray(value)) return value;
-                        if (typeof value === 'string') {
-                          try {
-                            // Try to parse as JSON first
-                            const parsed = JSON.parse(value);
-                            return Array.isArray(parsed) ? parsed : [];
-                          } catch (e) {
-                            // If not JSON, treat as comma-separated string
-                            return value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                      <Text style={styles.exerciseTarget}>{exercise.target}</Text>
+
+                      {/* Tags Section */}
+                      {(() => {
+                        // Helper function to normalize tags/categories to an array
+                        const normalizeToArray = (value) => {
+                          if (!value) return [];
+                          if (Array.isArray(value)) return value;
+                          if (typeof value === 'string') {
+                            try {
+                              // Try to parse as JSON first
+                              const parsed = JSON.parse(value);
+                              return Array.isArray(parsed) ? parsed : [];
+                            } catch (e) {
+                              // If not JSON, treat as comma-separated string
+                              return value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                            }
                           }
-                        }
-                        return [];
-                      };
-                      
-                      const tags = normalizeToArray(exercise.skill_categories_json || exercise.tags);
-                      
-                      if (tags.length === 0) return null;
-                      
-                      return (
-                        <View style={styles.tagsContainer}>
-                          <Text style={styles.tagsLabel}>Tags: </Text>
-                          <View style={styles.tagsRow}>
-                            {tags.map((tag, tagIndex) => (
-                              <Text key={tagIndex} style={styles.tagText}>
-                                {tag}{tagIndex < tags.length - 1 ? ' • ' : ''}
-                              </Text>
-                            ))}
+                          return [];
+                        };
+
+                        const tags = normalizeToArray(exercise.skill_categories_json || exercise.tags);
+
+                        if (tags.length === 0) return null;
+
+                        return (
+                          <View style={styles.tagsContainer}>
+                            <Text style={styles.tagsLabel}>Tags: </Text>
+                            <View style={styles.tagsRow}>
+                              {tags.map((tag, tagIndex) => (
+                                <Text key={tagIndex} style={styles.tagText}>
+                                  {tag}{tagIndex < tags.length - 1 ? ' • ' : ''}
+                                </Text>
+                              ))}
+                            </View>
+                          </View>
+                        );
+                      })()}
+
+                      {/* DUPR Range Section */}
+                      {exercise.dupr_range_min && exercise.dupr_range_max && (
+                        <View style={styles.duprRangeContainer}>
+                          <Text style={styles.duprRangeLabel}>DUPR Range: </Text>
+                          <View style={styles.duprRangeBadge}>
+                            <Text style={styles.duprRangeText}>
+                              {exercise.dupr_range_min}–{exercise.dupr_range_max}
+                            </Text>
                           </View>
                         </View>
-                      );
-                    })()}
-                    
-                    {/* DUPR Range Section */}
-                    {exercise.dupr_range_min && exercise.dupr_range_max && (
-                      <View style={styles.duprRangeContainer}>
-                        <Text style={styles.duprRangeLabel}>DUPR Range: </Text>
-                        <View style={styles.duprRangeBadge}>
-                          <Text style={styles.duprRangeText}>
-                            {exercise.dupr_range_min}–{exercise.dupr_range_max}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                    
-                    <View style={styles.exerciseFooter}>
-                      {exercise.difficulty && (
-                        <View style={styles.difficultyBadge}>
-                          <Text style={styles.difficultyText}>Difficulty: {exercise.difficulty}/5</Text>
-                        </View>
                       )}
+
+                      <View style={styles.exerciseFooter}>
+                        {exercise.difficulty && (
+                          <View style={styles.difficultyBadge}>
+                            <Text style={styles.difficultyText}>Difficulty: {exercise.difficulty}/5</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                ))
+                  );
+                })
               ) : (
                 <View style={styles.emptyState}>
                   <Text style={styles.emptyText}>
@@ -670,6 +903,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  reorderControls: {
+    flexDirection: 'column',
+    marginRight: 8,
+    alignItems: 'center',
+  },
+  reorderButton: {
+    width: 28,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 4,
+  },
+  reorderButtonDisabled: {
+    opacity: 0.4,
   },
   editButton: {
     width: 28,

@@ -35,6 +35,9 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+*.jks
+*.pem
+KEYSTORE_CREDENTIALS.md
 
 # Visual Studio Code
 #

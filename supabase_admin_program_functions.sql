@@ -259,6 +259,68 @@ WITH CHECK (
   )
 );
 
+-- Enable RLS on routine_exercises table if not already enabled
+ALTER TABLE routine_exercises ENABLE ROW LEVEL SECURITY;
+
+-- Allow admins to insert into routine_exercises
+DROP POLICY IF EXISTS "Admin users can insert routine exercises" ON routine_exercises;
+CREATE POLICY "Admin users can insert routine exercises" ON routine_exercises
+FOR INSERT
+TO authenticated
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.is_admin = true
+  )
+);
+
+-- Allow admins to update routine_exercises
+DROP POLICY IF EXISTS "Admin users can update routine exercises" ON routine_exercises;
+CREATE POLICY "Admin users can update routine exercises" ON routine_exercises
+FOR UPDATE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.is_admin = true
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.is_admin = true
+  )
+);
+
+-- Allow admins to delete from routine_exercises
+DROP POLICY IF EXISTS "Admin users can delete routine exercises" ON routine_exercises;
+CREATE POLICY "Admin users can delete routine exercises" ON routine_exercises
+FOR DELETE
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.is_admin = true
+  )
+);
+
+-- Allow admins to select all routine_exercises rows
+DROP POLICY IF EXISTS "Admin users can view routine exercises" ON routine_exercises;
+CREATE POLICY "Admin users can view routine exercises" ON routine_exercises
+FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid()
+    AND users.is_admin = true
+  )
+);
+
 -- Function to delete routines as admin
 CREATE OR REPLACE FUNCTION delete_routine_as_admin(
   routine_id UUID

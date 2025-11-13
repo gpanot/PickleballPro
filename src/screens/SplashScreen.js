@@ -8,6 +8,7 @@ import {
   StatusBar,
   Text,
 } from 'react-native';
+import * as SplashScreenExpo from 'expo-splash-screen';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,6 +22,11 @@ export default function SplashScreen({ onComplete }) {
   const glowPulse = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
+    // CRITICAL: Hide the native Expo splash screen immediately
+    SplashScreenExpo.hideAsync().catch(() => {
+      // Ignore errors if already hidden
+    });
+
     // Start all animations
     startAnimations();
 

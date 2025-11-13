@@ -117,6 +117,14 @@ export default function AdminDashboard({ navigation }) {
   const [showDeleteCoachConfirmation, setShowDeleteCoachConfirmation] = useState(false);
   const [programSortField, setProgramSortField] = useState(null);
   const [programSortDirection, setProgramSortDirection] = useState('asc');
+  const [exerciseSortField, setExerciseSortField] = useState(null);
+  const [exerciseSortDirection, setExerciseSortDirection] = useState('asc');
+  const [exerciseFilterProgram, setExerciseFilterProgram] = useState(null);
+  const [exerciseFilterRoutine, setExerciseFilterRoutine] = useState(null);
+  const [showProgramFilterDropdown, setShowProgramFilterDropdown] = useState(false);
+  const [showRoutineFilterDropdown, setShowRoutineFilterDropdown] = useState(false);
+  const [exerciseProgramOptions, setExerciseProgramOptions] = useState([]);
+  const [exerciseRoutineOptions, setExerciseRoutineOptions] = useState([]);
   
 
   // Web responsiveness
@@ -256,6 +264,7 @@ export default function AdminDashboard({ navigation }) {
           routines (
             *,
             routine_exercises (
+              id,
               order_index,
               custom_target_value,
               exercises (*)
@@ -277,6 +286,8 @@ export default function AdminDashboard({ navigation }) {
             exercises: routine.routine_exercises
               .sort((a, b) => a.order_index - b.order_index)
               .map(re => ({
+                routineExerciseId: re.id,
+                exerciseId: re.exercises.id,
                 id: re.exercises.code,
                 name: re.exercises.title,
                 target: `${re.custom_target_value || re.exercises.target_value} ${re.exercises.target_unit}`,
@@ -356,7 +367,78 @@ export default function AdminDashboard({ navigation }) {
         .limit(100); // Increase limit to show more exercises
 
       if (error) throw error;
-      setExercises(data || []);
+      
+      const exercisesData = data || [];
+      const exerciseIds = exercisesData.map(ex => ex.id).filter(Boolean);
+
+      let routineLinksByExercise = {};
+
+      if (exerciseIds.length > 0) {
+        const { data: routineLinks, error: routineLinksError } = await supabase
+          .from('routine_exercises')
+          .select(`
+            exercise_id,
+            routines!inner(
+              id,
+              name,
+              programs!inner(
+                id,
+                name
+              )
+            )
+          `)
+          .in('exercise_id', exerciseIds);
+
+        if (routineLinksError) {
+          console.error('Error fetching routine links for exercises:', routineLinksError);
+        } else {
+          routineLinksByExercise = routineLinks.reduce((acc, link) => {
+            if (!link || !link.exercise_id) {
+              return acc;
+            }
+
+            const routine = link.routines || {};
+            const program = routine.programs || {};
+
+            const routineEntry = {
+              id: routine.id || null,
+              name: routine.name || null,
+              program: program.id ? { id: program.id, name: program.name || null } : null
+            };
+
+            if (!acc[link.exercise_id]) {
+              acc[link.exercise_id] = [];
+            }
+            acc[link.exercise_id].push(routineEntry);
+            return acc;
+          }, {});
+        }
+      }
+
+      const exercisesWithRelations = exercisesData.map(exercise => {
+        const linkedRoutines = (routineLinksByExercise[exercise.id] || []).filter(r => r.id && r.name);
+        const sortedRoutines = [...linkedRoutines].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        const programMap = new Map();
+        sortedRoutines.forEach(routine => {
+          if (routine.program?.id) {
+            programMap.set(routine.program.id, routine.program.name || '');
+          }
+        });
+
+        const linkedPrograms = Array.from(programMap.entries()).map(([id, name]) => ({ id, name }));
+        const sortedPrograms = [...linkedPrograms].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        return {
+          ...exercise,
+          linkedRoutines: sortedRoutines,
+          linkedPrograms: sortedPrograms,
+          primaryRoutineName: sortedRoutines[0]?.name || null,
+          primaryProgramName: sortedPrograms[0]?.name || null
+        };
+      });
+
+      setExercises(exercisesWithRelations);
     } catch (error) {
       console.error('Error fetching exercises:', error);
       Alert.alert('Error', 'Failed to fetch exercises');
@@ -364,6 +446,33 @@ export default function AdminDashboard({ navigation }) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const programSet = new Set();
+    const routineSet = new Set();
+
+    exercises.forEach(exercise => {
+      (exercise.linkedPrograms || []).forEach(program => {
+        if (program?.name) {
+          programSet.add(program.name);
+        }
+      });
+      (exercise.linkedRoutines || []).forEach(routine => {
+        if (routine?.name) {
+          routineSet.add(routine.name);
+        }
+      });
+    });
+
+    const programList = Array.from(programSet).sort((a, b) => a.localeCompare(b));
+    const routineList = Array.from(routineSet).sort((a, b) => a.localeCompare(b));
+
+    setExerciseProgramOptions(programList);
+    setExerciseRoutineOptions(routineList);
+
+    setExerciseFilterProgram(prev => (prev && !programSet.has(prev) ? null : prev));
+    setExerciseFilterRoutine(prev => (prev && !routineSet.has(prev) ? null : prev));
+  }, [exercises]);
 
   const fetchCoaches = async () => {
     setLoading(true);
@@ -1527,7 +1636,7 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const renderExercisesTable = () => {
-    const filteredExercises = exercises.filter(exercise => 
+    let filteredExercises = exercises.filter(exercise => 
       exercise.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       exercise.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       exercise.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1536,11 +1645,162 @@ export default function AdminDashboard({ navigation }) {
        `${exercise.dupr_range_min}–${exercise.dupr_range_max}`.includes(searchQuery))
     );
 
+    if (exerciseFilterProgram) {
+      filteredExercises = filteredExercises.filter(exercise =>
+        (exercise.linkedPrograms || []).some(program => program?.name === exerciseFilterProgram)
+      );
+    }
+
+    if (exerciseFilterRoutine) {
+      filteredExercises = filteredExercises.filter(exercise =>
+        (exercise.linkedRoutines || []).some(routine => routine?.name === exerciseFilterRoutine)
+      );
+    }
+
+    if (exerciseSortField === 'program') {
+      filteredExercises = [...filteredExercises].sort((a, b) => {
+        const aValue = a.primaryProgramName || '';
+        const bValue = b.primaryProgramName || '';
+        if (exerciseSortDirection === 'asc') {
+          return aValue.localeCompare(bValue);
+        }
+        return bValue.localeCompare(aValue);
+      });
+    } else if (exerciseSortField === 'routine') {
+      filteredExercises = [...filteredExercises].sort((a, b) => {
+        const aValue = a.primaryRoutineName || '';
+        const bValue = b.primaryRoutineName || '';
+        if (exerciseSortDirection === 'asc') {
+          return aValue.localeCompare(bValue);
+        }
+        return bValue.localeCompare(aValue);
+      });
+    }
+
     return (
       <View style={styles.contentSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Exercise Library</Text>
-          <Text style={styles.sectionSubtitle}>Manage individual exercises and drills</Text>
+          <View style={styles.sectionHeaderTextGroup}>
+            <Text style={styles.sectionTitle}>Exercise Library</Text>
+            <Text style={styles.sectionSubtitle}>Manage individual exercises and drills</Text>
+          </View>
+          <View style={styles.exerciseFiltersContainer}>
+            <View style={[
+              styles.exerciseFilterWrapper,
+              showProgramFilterDropdown && styles.exerciseFilterWrapperActive
+            ]}>
+              <TouchableOpacity
+                style={[
+                  styles.dropdown,
+                  styles.exerciseFilterDropdown,
+                  !exerciseFilterProgram && styles.dropdownPlaceholder
+                ]}
+                onPress={() => {
+                  setShowProgramFilterDropdown(prev => !prev);
+                  setShowRoutineFilterDropdown(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    !exerciseFilterProgram && styles.dropdownPlaceholderText
+                  ]}
+                >
+                  {exerciseFilterProgram ? exerciseFilterProgram : 'All Programs'}
+                </Text>
+                <Ionicons
+                  name={showProgramFilterDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+              {showProgramFilterDropdown && (
+                <View style={styles.exerciseFilterDropdownList}>
+                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <TouchableOpacity
+                      style={styles.dropdownOption}
+                      onPress={() => {
+                        setExerciseFilterProgram(null);
+                        setShowProgramFilterDropdown(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownOptionText}>All Programs</Text>
+                    </TouchableOpacity>
+                    {exerciseProgramOptions.map(programName => (
+                      <TouchableOpacity
+                        key={programName}
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          setExerciseFilterProgram(programName);
+                          setShowProgramFilterDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownOptionText}>{programName}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            <View style={[
+              styles.exerciseFilterWrapper,
+              showRoutineFilterDropdown && styles.exerciseFilterWrapperActive
+            ]}>
+              <TouchableOpacity
+                style={[
+                  styles.dropdown,
+                  styles.exerciseFilterDropdown,
+                  !exerciseFilterRoutine && styles.dropdownPlaceholder
+                ]}
+                onPress={() => {
+                  setShowRoutineFilterDropdown(prev => !prev);
+                  setShowProgramFilterDropdown(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    !exerciseFilterRoutine && styles.dropdownPlaceholderText
+                  ]}
+                >
+                  {exerciseFilterRoutine ? exerciseFilterRoutine : 'All Routines'}
+                </Text>
+                <Ionicons
+                  name={showRoutineFilterDropdown ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+              {showRoutineFilterDropdown && (
+                <View style={styles.exerciseFilterDropdownList}>
+                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    <TouchableOpacity
+                      style={styles.dropdownOption}
+                      onPress={() => {
+                        setExerciseFilterRoutine(null);
+                        setShowRoutineFilterDropdown(false);
+                      }}
+                    >
+                      <Text style={styles.dropdownOptionText}>All Routines</Text>
+                    </TouchableOpacity>
+                    {exerciseRoutineOptions.map(routineName => (
+                      <TouchableOpacity
+                        key={routineName}
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          setExerciseFilterRoutine(routineName);
+                          setShowRoutineFilterDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownOptionText}>{routineName}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
         
         {loading ? (
@@ -1556,6 +1816,50 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Difficulty</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Categories</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Range</Text>
+              <TouchableOpacity
+                style={{ flex: 1.2 }}
+                onPress={() => {
+                  if (exerciseSortField === 'program') {
+                    setExerciseSortDirection(exerciseSortDirection === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setExerciseSortField('program');
+                    setExerciseSortDirection('asc');
+                  }
+                }}
+              >
+                <View style={styles.sortableHeader}>
+                  <Text style={styles.modernTableHeaderText}>Program</Text>
+                  {exerciseSortField === 'program' && (
+                    <Ionicons 
+                      name={exerciseSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'} 
+                      size={14} 
+                      color="#3B82F6" 
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1.2 }}
+                onPress={() => {
+                  if (exerciseSortField === 'routine') {
+                    setExerciseSortDirection(exerciseSortDirection === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setExerciseSortField('routine');
+                    setExerciseSortDirection('asc');
+                  }
+                }}
+              >
+                <View style={styles.sortableHeader}>
+                  <Text style={styles.modernTableHeaderText}>Routine</Text>
+                  {exerciseSortField === 'routine' && (
+                    <Ionicons 
+                      name={exerciseSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'} 
+                      size={14} 
+                      color="#3B82F6" 
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Type</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
@@ -1647,6 +1951,34 @@ export default function AdminDashboard({ navigation }) {
                       </View>
                     ) : (
                       <Text style={styles.noDuprRangeText}>—</Text>
+                    )}
+                  </View>
+
+                  {/* Program */}
+                  <View style={[styles.modernTableCell, { flex: 1.2 }]}>
+                    {exercise.linkedPrograms && exercise.linkedPrograms.length > 0 ? (
+                      <View style={styles.exerciseProgramContainer}>
+                        <Text style={styles.programNameText}>{exercise.linkedPrograms[0].name}</Text>
+                        {exercise.linkedPrograms.length > 1 && (
+                          <Text style={styles.moreProgramsText}>+{exercise.linkedPrograms.length - 1} more</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={styles.noProgramText}>—</Text>
+                    )}
+                  </View>
+
+                  {/* Routine */}
+                  <View style={[styles.modernTableCell, { flex: 1.2 }]}>
+                    {exercise.linkedRoutines && exercise.linkedRoutines.length > 0 ? (
+                      <View style={styles.exerciseRoutineContainer}>
+                        <Text style={styles.routineNameText}>{exercise.linkedRoutines[0].name}</Text>
+                        {exercise.linkedRoutines.length > 1 && (
+                          <Text style={styles.moreRoutinesText}>+{exercise.linkedRoutines.length - 1} more</Text>
+                        )}
+                      </View>
+                    ) : (
+                      <Text style={styles.noRoutineText}>—</Text>
                     )}
                   </View>
 
@@ -3632,12 +3964,20 @@ export default function AdminDashboard({ navigation }) {
         <ScrollView 
           style={styles.contentScrollView} 
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={() => setActiveDropdown(null)}
+          onScrollBeginDrag={() => {
+            setActiveDropdown(null);
+            setShowProgramFilterDropdown(false);
+            setShowRoutineFilterDropdown(false);
+          }}
         >
           <TouchableOpacity 
             style={{ flex: 1 }} 
             activeOpacity={1} 
-            onPress={() => setActiveDropdown(null)}
+            onPress={() => {
+              setActiveDropdown(null);
+              setShowProgramFilterDropdown(false);
+              setShowRoutineFilterDropdown(false);
+            }}
           >
             {renderContent()}
           </TouchableOpacity>
@@ -4252,6 +4592,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  sectionHeaderTextGroup: {
+    flex: 1,
+  },
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4336,6 +4679,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginLeft: 6,
+  },
+  exerciseFiltersContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    position: 'relative',
+    zIndex: 200,
+  },
+  exerciseFilterWrapper: {
+    position: 'relative',
+  },
+  exerciseFilterWrapperActive: {
+    zIndex: 210,
+  },
+  exerciseFilterDropdown: {
+    minWidth: 180,
+  },
+  exerciseFilterDropdownList: {
+    position: 'absolute',
+    top: 46,
+    right: 0,
+    width: 220,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    zIndex: 220,
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 10px 25px rgba(15, 23, 42, 0.15)',
+    }),
   },
   primaryButton: {
     flexDirection: 'row',
@@ -5516,6 +5890,42 @@ const styles = StyleSheet.create({
   },
   noDuprRangeText: {
     fontSize: 11,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  exerciseProgramContainer: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  programNameText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  moreProgramsText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  noProgramText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  exerciseRoutineContainer: {
+    flexDirection: 'column',
+    gap: 4,
+  },
+  routineNameText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  moreRoutinesText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  noRoutineText: {
+    fontSize: 12,
     color: '#9CA3AF',
     fontStyle: 'italic',
   },

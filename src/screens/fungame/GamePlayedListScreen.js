@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -339,7 +340,7 @@ export default function GamePlayedListScreen({ navigation }) {
             <View style={[styles.teamLabel, styles.teamALabel]}>
               <Text style={styles.teamLabelText}>Team A</Text>
             </View>
-            <Text style={styles.teamPlayers}>
+            <Text style={styles.teamPlayers} numberOfLines={1} ellipsizeMode="tail">
               {teamANames[0]} & {teamANames[1]}
             </Text>
           </View>
@@ -347,7 +348,7 @@ export default function GamePlayedListScreen({ navigation }) {
             <View style={[styles.teamLabel, styles.teamBLabel]}>
               <Text style={styles.teamLabelText}>Team B</Text>
             </View>
-            <Text style={styles.teamPlayers}>
+            <Text style={styles.teamPlayers} numberOfLines={1} ellipsizeMode="tail">
               {teamBNames[0]} & {teamBNames[1]}
             </Text>
           </View>
@@ -436,7 +437,12 @@ export default function GamePlayedListScreen({ navigation }) {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <KeyboardAvoidingView
+            style={styles.modalAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+          >
+            <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Enter Join Code</Text>
               <TouchableOpacity
@@ -480,6 +486,7 @@ export default function GamePlayedListScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -494,7 +501,12 @@ export default function GamePlayedListScreen({ navigation }) {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
+          <KeyboardAvoidingView
+            style={styles.modalAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+          >
+            <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Enter Player Names</Text>
               <TouchableOpacity
@@ -515,8 +527,9 @@ export default function GamePlayedListScreen({ navigation }) {
               <View style={[styles.teamSectionHeader, { backgroundColor: '#D1FAE5' }]}>
                 <Text style={styles.teamSectionTitle}>Team A</Text>
               </View>
+            <View style={styles.playerInputsRow}>
               <TextInput
-                style={styles.playerNameInput}
+                style={[styles.playerNameInput, styles.playerNameInputLeft]}
                 value={playerNames.A1}
                 onChangeText={(text) => setPlayerNames(prev => ({ ...prev, A1: text }))}
                 placeholder="Player A1 Name"
@@ -534,14 +547,16 @@ export default function GamePlayedListScreen({ navigation }) {
                 autoCorrect={false}
               />
             </View>
+            </View>
 
             {/* Team B Players */}
             <View style={styles.teamSection}>
               <View style={[styles.teamSectionHeader, { backgroundColor: '#DBEAFE' }]}>
                 <Text style={styles.teamSectionTitle}>Team B</Text>
               </View>
+            <View style={[styles.playerInputsRow, styles.playerInputsRowLast]}>
               <TextInput
-                style={styles.playerNameInput}
+                style={[styles.playerNameInput, styles.playerNameInputLeft]}
                 value={playerNames.B1}
                 onChangeText={(text) => setPlayerNames(prev => ({ ...prev, B1: text }))}
                 placeholder="Player B1 Name"
@@ -558,6 +573,7 @@ export default function GamePlayedListScreen({ navigation }) {
                 autoCapitalize="words"
                 autoCorrect={false}
               />
+            </View>
             </View>
 
             <View style={styles.modalButtons}>
@@ -578,6 +594,7 @@ export default function GamePlayedListScreen({ navigation }) {
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -719,6 +736,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     flex: 1,
+    flexShrink: 1,
   },
   scoreContainer: {
     paddingTop: 12,
@@ -819,6 +837,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  modalAvoidingView: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -901,8 +925,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#1F2937',
-    marginBottom: 12,
     backgroundColor: '#FFFFFF',
+    flex: 1,
+  },
+  playerNameInputLeft: {
+    marginRight: 12,
+  },
+  playerInputsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  playerInputsRowLast: {
+    marginBottom: 0,
   },
 });
 
