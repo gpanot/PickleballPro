@@ -23,8 +23,14 @@ import WebCreateRoutineModal from '../components/WebCreateRoutineModal';
 import WebCreateExerciseModal from '../components/WebCreateExerciseModal';
 import ProgramStructureModal from '../components/ProgramStructureModal';
 import EditableProgramStructureModal from '../components/EditableProgramStructureModal';
+import AdminSidebar from './admindashboard/AdminSidebar';
+import ProgramsTable from './admindashboard/components/ProgramsTable';
+import ExercisesTable from './admindashboard/components/ExercisesTable';
+import RoutinesTable from './admindashboard/components/RoutinesTable';
+import CategoriesTable from './admindashboard/components/CategoriesTable';
 import WebUserLogbookModal from '../components/WebUserLogbookModal';
 import skillsData from '../data/Commun_skills_tags.json';
+import AdminTopBar from './admindashboard/components/AdminTopBar';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -860,217 +866,6 @@ export default function AdminDashboard({ navigation }) {
     }
   };
 
-  const renderSidebar = () => (
-    <View style={[styles.sidebar, { width: sidebarWidth }]}>
-      {/* Logo and Header */}
-      <View style={styles.sidebarHeader}>
-        {!sidebarCollapsed && (
-          <View style={styles.logoContainer}>
-            <View style={styles.logoIcon}>
-              <Ionicons name="tennisball" size={24} color="#FFFFFF" />
-            </View>
-            <View style={styles.logoTextContainer}>
-              <Text style={styles.logoText}>PicklePro</Text>
-              <Text style={styles.logoSubtext}>Admin Dashboard</Text>
-            </View>
-          </View>
-        )}
-        <TouchableOpacity 
-          style={styles.collapseButton} 
-          onPress={() => setSidebarCollapsed(!sidebarCollapsed)}
-        >
-          <Ionicons 
-            name="menu" 
-            size={20} 
-            color="#6B7280" 
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Navigation Menu */}
-      <View style={styles.navigationMenu}>
-        {[
-          { id: 'dashboard', label: 'Dashboard', icon: 'grid-outline' },
-          { id: 'content', label: 'Content Management', icon: 'library-outline' },
-          { id: 'users', label: 'User Management', icon: 'people-outline' },
-          { id: 'coaches', label: 'Coach Management', icon: 'person-outline' },
-          { id: 'feedback', label: 'Feedback', icon: 'heart-outline' },
-          { id: 'analytics', label: 'Analytics', icon: 'analytics-outline' },
-          { id: 'settings', label: 'Settings', icon: 'settings-outline' }
-        ].map(tab => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[
-              styles.navItem, 
-              activeTab === tab.id && styles.activeNavItem,
-              sidebarCollapsed && styles.navItemCollapsed
-            ]}
-            onPress={() => setActiveTab(tab.id)}
-          >
-            <View style={styles.navItemContent}>
-              <Ionicons 
-                name={tab.icon} 
-                size={20} 
-                color={activeTab === tab.id ? '#000000' : '#6B7280'} 
-              />
-              {!sidebarCollapsed && (
-                <Text style={[styles.navItemText, activeTab === tab.id && styles.activeNavItemText]}>
-                  {tab.label}
-                </Text>
-              )}
-            </View>
-            {activeTab === tab.id && <View style={styles.activeIndicator} />}
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* User Section */}
-      <View style={styles.userSection}>
-        <TouchableOpacity 
-          style={styles.userProfile} 
-          onPress={() => {
-            console.log('🔵 TouchableOpacity pressed!');
-            handleSignOut();
-          }}
-          activeOpacity={0.7}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Logout"
-        >
-          <View style={styles.userAvatar} pointerEvents="none">
-            <Text style={styles.userAvatarText}>
-              {(profile?.name || user?.email || 'A').charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          {!sidebarCollapsed && (
-            <View style={styles.userInfo} pointerEvents="none">
-              <Text style={styles.userName}>{profile?.name || 'Admin'}</Text>
-              <Text style={styles.userEmail}>{user?.email}</Text>
-            </View>
-          )}
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" pointerEvents="none" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  const renderTopBar = () => {
-    const getPageInfo = () => {
-      switch (activeTab) {
-        case 'content':
-          return {
-            title: 'Content Management',
-            subtitle: 'Manage training programs, exercises, and routines',
-            breadcrumb: 'Content'
-          };
-        case 'dashboard':
-          return {
-            title: 'Dashboard',
-            subtitle: 'Overview of your admin panel',
-            breadcrumb: 'Dashboard'
-          };
-        case 'users':
-          return {
-            title: 'User Management',
-            subtitle: 'Manage users and their accounts',
-            breadcrumb: 'User Management'
-          };
-        case 'coaches':
-          return {
-            title: 'Coach Management',
-            subtitle: 'Manage coaches and their profiles',
-            breadcrumb: 'Coach Management'
-          };
-        case 'feedback':
-          return {
-            title: 'User Feedback',
-            subtitle: 'View and analyze user feedback',
-            breadcrumb: 'Feedback'
-          };
-        default:
-          return {
-            title: activeTab.charAt(0).toUpperCase() + activeTab.slice(1),
-            subtitle: '',
-            breadcrumb: activeTab
-          };
-      }
-    };
-
-    const pageInfo = getPageInfo();
-
-    return (
-      <View style={[styles.topBar, { marginLeft: sidebarWidth }]}>
-        <View style={styles.topBarLeft}>
-          <Text style={styles.breadcrumb}>{pageInfo.breadcrumb}</Text>
-          <Text style={styles.pageTitle}>{pageInfo.title}</Text>
-          {pageInfo.subtitle && (
-            <Text style={styles.pageSubtitle}>{pageInfo.subtitle}</Text>
-          )}
-        </View>
-        <View style={styles.topBarRight}>
-          {/* Refresh Button - Always visible */}
-          <TouchableOpacity 
-            style={styles.refreshButton}
-            onPress={handleRefresh}
-            disabled={loading}
-          >
-            <Ionicons 
-              name="refresh" 
-              size={20} 
-              color={loading ? "#9CA3AF" : "#6B7280"} 
-              style={loading && styles.refreshSpinning}
-            />
-          </TouchableOpacity>
-
-          {/* Tab-specific buttons */}
-          {activeTab === 'content' && (
-            <>
-              <TouchableOpacity 
-                style={styles.primaryButton}
-                onPress={() => setShowCreateProgramModal(true)}
-              >
-                <Ionicons name="add" size={20} color="white" />
-                <Text style={styles.primaryButtonText}>Create Program</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.secondaryButton}
-                onPress={() => setShowCreateRoutineModal(true)}
-              >
-                <Ionicons name="add" size={20} color="#6B7280" />
-                <Text style={styles.secondaryButtonText}>Create Routine</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.secondaryButton}
-                onPress={() => setShowCreateExerciseModal(true)}
-              >
-                <Ionicons name="add" size={20} color="#6B7280" />
-                <Text style={styles.secondaryButtonText}>Create Exercise</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          {activeTab === 'coaches' && (
-            <TouchableOpacity 
-              style={styles.primaryButton}
-              onPress={() => setShowAddCoachModal(true)}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.primaryButtonText}>Add Coach</Text>
-            </TouchableOpacity>
-          )}
-          {activeTab === 'users' && (
-            <TouchableOpacity 
-              style={styles.primaryButton}
-              onPress={() => setShowAddUserModal(true)}
-            >
-              <Ionicons name="add" size={20} color="white" />
-              <Text style={styles.primaryButtonText}>Add User</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  };
-
   const renderOverview = () => (
     <View style={styles.content}>
       {/* Quick Action Buttons */}
@@ -1364,708 +1159,84 @@ export default function AdminDashboard({ navigation }) {
       </View>
 
       {/* Content */}
-      {contentTab === 'programs' ? renderProgramsTable() : 
-       contentTab === 'exercises' ? renderExercisesTable() : 
-       contentTab === 'routines' ? renderRoutinesTable() :
-       renderCategoriesTable()}
+      {contentTab === 'programs' ? (
+        <ProgramsTable
+          programs={programs}
+          loading={loading}
+          searchQuery={searchQuery}
+          programSortField={programSortField}
+          programSortDirection={programSortDirection}
+          setProgramSortField={setProgramSortField}
+          setProgramSortDirection={setProgramSortDirection}
+          reorderingProgramId={reorderingProgramId}
+          reorderProgram={reorderProgram}
+          handleViewProgramStructure={handleViewProgramStructure}
+          handleEditProgramStructure={handleEditProgramStructure}
+          handleDeleteProgram={handleDeleteProgram}
+          activeDropdown={activeDropdown}
+          setActiveDropdown={setActiveDropdown}
+          styles={styles}
+        />
+      ) : 
+       contentTab === 'exercises' ? (
+        <ExercisesTable
+          exercises={exercises}
+          loading={loading}
+          searchQuery={searchQuery}
+          exerciseSortField={exerciseSortField}
+          exerciseSortDirection={exerciseSortDirection}
+          setExerciseSortField={setExerciseSortField}
+          setExerciseSortDirection={setExerciseSortDirection}
+          exerciseFilterProgram={exerciseFilterProgram}
+          setExerciseFilterProgram={setExerciseFilterProgram}
+          exerciseFilterRoutine={exerciseFilterRoutine}
+          setExerciseFilterRoutine={setExerciseFilterRoutine}
+          exerciseProgramOptions={exerciseProgramOptions}
+          exerciseRoutineOptions={exerciseRoutineOptions}
+          showProgramFilterDropdown={showProgramFilterDropdown}
+          setShowProgramFilterDropdown={setShowProgramFilterDropdown}
+          showRoutineFilterDropdown={showRoutineFilterDropdown}
+          setShowRoutineFilterDropdown={setShowRoutineFilterDropdown}
+          togglePublishStatus={togglePublishStatus}
+          handleEditExercise={handleEditExercise}
+          handleDeleteExercise={handleDeleteExercise}
+          activeDropdown={activeDropdown}
+          setActiveDropdown={setActiveDropdown}
+          styles={styles}
+        />
+      ) : 
+       contentTab === 'routines' ? (
+        <RoutinesTable
+          routines={routines}
+          loading={loading}
+          searchQuery={searchQuery}
+          handleEditRoutine={handleEditRoutine}
+          styles={styles}
+        />
+      ) :
+       contentTab === 'categories' ? (
+        <CategoriesTable
+          categories={categories}
+          programs={programs}
+          searchQuery={searchQuery}
+          hasUnsavedCategoryChanges={hasUnsavedCategoryChanges}
+          savingCategoryOrder={savingCategoryOrder}
+          saveCategoryOrder={saveCategoryOrder}
+          reorderCategory={reorderCategory}
+          editingCategoryId={editingCategoryId}
+          editingCategoryName={editingCategoryName}
+          setEditingCategoryName={setEditingCategoryName}
+          handleEditCategory={handleEditCategory}
+          handleCancelCategoryEdit={handleCancelCategoryEdit}
+          handleSaveCategoryName={handleSaveCategoryName}
+          styles={styles}
+        />
+      ) : null}
     </View>
   );
 
-  const renderProgramsTable = () => {
-    let filteredPrograms = programs.filter(program => 
-      program.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      program.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    // Sort programs if sort field is set
-    if (programSortField === 'coach_program') {
-      filteredPrograms = [...filteredPrograms].sort((a, b) => {
-        const aValue = a.is_coach_program ? 1 : 0;
-        const bValue = b.is_coach_program ? 1 : 0;
-        if (programSortDirection === 'asc') {
-          return aValue - bValue;
-        } else {
-          return bValue - aValue;
-        }
-      });
-    }
-
-    return (
-      <View style={styles.contentSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Training Programs</Text>
-          <Text style={styles.sectionSubtitle}>Manage and organize training programs</Text>
-        </View>
-        
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000000" />
-            <Text style={styles.loadingText}>Loading programs...</Text>
-          </View>
-        ) : (
-          <View style={styles.modernTable}>
-            <View style={styles.modernTableHeader}>
-              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Program</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Category</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Tier</Text>
-              <TouchableOpacity 
-                style={{ flex: 1 }}
-                onPress={() => {
-                  if (programSortField === 'coach_program') {
-                    setProgramSortDirection(programSortDirection === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setProgramSortField('coach_program');
-                    setProgramSortDirection('asc');
-                  }
-                }}
-              >
-                <View style={styles.sortableHeader}>
-                  <Text style={styles.modernTableHeaderText}>COACH Program</Text>
-                  {programSortField === 'coach_program' && (
-                    <Ionicons 
-                      name={programSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'} 
-                      size={14} 
-                      color="#3B82F6" 
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Content</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Users</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Rating</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Order</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
-            </View>
-            <ScrollView style={styles.modernTableBody}>
-              {filteredPrograms.length > 0 ? filteredPrograms.map(program => (
-                <View key={program.id} style={styles.modernTableRow}>
-                  <View style={[styles.modernTableCell, { flex: 2 }]}>
-                    <View style={styles.programInfoContainer}>
-                      <View style={styles.programThumbnailContainer}>
-                        {program.thumbnail_url ? (
-                          <Image 
-                            source={{ uri: program.thumbnail_url }} 
-                            style={styles.programThumbnail}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View style={styles.programThumbnailPlaceholder}>
-                            <Ionicons name="image-outline" size={16} color="#9CA3AF" />
-                          </View>
-                        )}
-                      </View>
-                      <View style={styles.programInfo}>
-                        <Text style={styles.programTitle}>{program.name}</Text>
-                        <Text style={styles.programMeta}>Created {new Date(program.created_at).toLocaleDateString()}</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1.5 }]}>
-                    <View style={styles.categoryWithPosition}>
-                      <Text style={styles.positionNumber}>
-                        ({filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) + 1})
-                      </Text>
-                      <View style={[styles.categoryPill, { 
-                        backgroundColor: program.category === 'Fundamentals' ? '#F0F9FF' : '#F8F4FF'
-                      }]}>
-                        <Text style={[styles.categoryPillText, {
-                          color: program.category === 'Fundamentals' ? '#0369A1' : '#7C3AED'
-                        }]}>{program.category}</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <Text style={styles.tierText}>{program.tier || 'Beginner'}</Text>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={[styles.modernStatusChip, 
-                      program.is_coach_program ? styles.coachProgramChip : styles.studentProgramChip
-                    ]}>
-                      <Text style={[styles.modernStatusText,
-                        program.is_coach_program ? styles.coachProgramText : styles.studentProgramText
-                      ]}>
-                        {program.is_coach_program ? 'Coach' : 'Student'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1.5 }]}>
-                    <Text style={styles.contentText}>
-                      {program.routine_count || 0} routine{program.routine_count !== 1 ? 's' : ''}
-                    </Text>
-                    <Text style={styles.contentSubtext}>
-                      {program.exercise_count || 0} exercise{program.exercise_count !== 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={styles.usersContainer}>
-                      <Ionicons name="people" size={16} color="#6B7280" />
-                      <Text style={styles.usersText}>{program.added_count || 0}</Text>
-                    </View>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={[styles.modernStatusChip, 
-                      program.is_published ? styles.publishedStatusChip : styles.draftStatusChip
-                    ]}>
-                      <Text style={[styles.modernStatusText,
-                        program.is_published ? styles.publishedStatusText : styles.draftStatusText
-                      ]}>{program.is_published ? 'Published' : 'Draft'}</Text>
-                    </View>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    {program.rating ? (
-                      <View style={styles.ratingContainer}>
-                        <Ionicons name="star" size={16} color="#F59E0B" />
-                        <Text style={styles.ratingText}>{program.rating}</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.noRatingText}>—</Text>
-                    )}
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 0.8 }]}>
-                    <View style={styles.reorderButtons}>
-                      {reorderingProgramId === program.id ? (
-                        <View style={styles.reorderingIndicator}>
-                          <ActivityIndicator size="small" color="#6B7280" />
-                        </View>
-                      ) : (
-                        <>
-                          <TouchableOpacity 
-                            style={[
-                              styles.reorderButton, 
-                              filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 0 && styles.reorderButtonDisabled
-                            ]}
-                            onPress={() => reorderProgram(program.id, 'up')}
-                            disabled={
-                              reorderingProgramId !== null || 
-                              filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 0
-                            }
-                          >
-                            <Ionicons 
-                              name="chevron-up" 
-                              size={14} 
-                              color={
-                                filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 0 
-                                  ? "#D1D5DB" 
-                                  : "#6B7280"
-                              } 
-                            />
-                          </TouchableOpacity>
-                          <TouchableOpacity 
-                            style={[
-                              styles.reorderButton, 
-                              filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 
-                              filteredPrograms.filter(p => p.category === program.category).length - 1 && styles.reorderButtonDisabled
-                            ]}
-                            onPress={() => reorderProgram(program.id, 'down')}
-                            disabled={
-                              reorderingProgramId !== null || 
-                              filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 
-                              filteredPrograms.filter(p => p.category === program.category).length - 1
-                            }
-                          >
-                            <Ionicons 
-                              name="chevron-down" 
-                              size={14} 
-                              color={
-                                filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 
-                                filteredPrograms.filter(p => p.category === program.category).length - 1 
-                                  ? "#D1D5DB" 
-                                  : "#6B7280"
-                              } 
-                            />
-                          </TouchableOpacity>
-                        </>
-                      )}
-                    </View>
-                  </View>
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={styles.modernActionButtons}>
-                      <TouchableOpacity 
-                        style={styles.modernActionButton}
-                        onPress={() => handleViewProgramStructure(program)}
-                      >
-                        <Ionicons name="eye-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.modernActionButton}
-                        onPress={() => handleEditProgramStructure(program)}
-                      >
-                        <Ionicons name="create-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <View style={styles.dropdownContainer}>
-                        <TouchableOpacity 
-                          style={styles.modernActionButton}
-                          onPress={() => {
-                            const newDropdown = activeDropdown === program.id ? null : program.id;
-                            console.log('⋯ Three dots clicked for program:', program.name, 'Setting dropdown to:', newDropdown);
-                            setActiveDropdown(newDropdown);
-                          }}
-                        >
-                          <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
-                        </TouchableOpacity>
-                        {activeDropdown === program.id && (
-                          <View style={styles.dropdownMenu}>
-                            <TouchableOpacity 
-                              style={styles.dropdownItem}
-                              onPress={() => {
-                                console.log('🗑️ Delete button clicked for program:', program.name, program.id);
-                                handleDeleteProgram(program);
-                              }}
-                            >
-                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                              <Text style={styles.dropdownItemTextDelete}>Delete</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              )) : (
-                <View style={styles.comingSoon}>
-                  <Ionicons name="library-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.comingSoonText}>No programs found</Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    );
-  };
-
   const renderExercisesTable = () => {
-    let filteredExercises = exercises.filter(exercise => 
-      exercise.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exercise.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exercise.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      exercise.skill_category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (exercise.dupr_range_min && exercise.dupr_range_max && 
-       `${exercise.dupr_range_min}–${exercise.dupr_range_max}`.includes(searchQuery))
-    );
-
-    if (exerciseFilterProgram) {
-      filteredExercises = filteredExercises.filter(exercise =>
-        (exercise.linkedPrograms || []).some(program => program?.name === exerciseFilterProgram)
-      );
-    }
-
-    if (exerciseFilterRoutine) {
-      filteredExercises = filteredExercises.filter(exercise =>
-        (exercise.linkedRoutines || []).some(routine => routine?.name === exerciseFilterRoutine)
-      );
-    }
-
-    if (exerciseSortField === 'program') {
-      filteredExercises = [...filteredExercises].sort((a, b) => {
-        const aValue = a.primaryProgramName || '';
-        const bValue = b.primaryProgramName || '';
-        if (exerciseSortDirection === 'asc') {
-          return aValue.localeCompare(bValue);
-        }
-        return bValue.localeCompare(aValue);
-      });
-    } else if (exerciseSortField === 'routine') {
-      filteredExercises = [...filteredExercises].sort((a, b) => {
-        const aValue = a.primaryRoutineName || '';
-        const bValue = b.primaryRoutineName || '';
-        if (exerciseSortDirection === 'asc') {
-          return aValue.localeCompare(bValue);
-        }
-        return bValue.localeCompare(aValue);
-      });
-    }
-
-    return (
-      <View style={styles.contentSection}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionHeaderTextGroup}>
-            <Text style={styles.sectionTitle}>Exercise Library</Text>
-            <Text style={styles.sectionSubtitle}>Manage individual exercises and drills</Text>
-          </View>
-          <View style={styles.exerciseFiltersContainer}>
-            <View style={[
-              styles.exerciseFilterWrapper,
-              showProgramFilterDropdown && styles.exerciseFilterWrapperActive
-            ]}>
-              <TouchableOpacity
-                style={[
-                  styles.dropdown,
-                  styles.exerciseFilterDropdown,
-                  !exerciseFilterProgram && styles.dropdownPlaceholder
-                ]}
-                onPress={() => {
-                  setShowProgramFilterDropdown(prev => !prev);
-                  setShowRoutineFilterDropdown(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownText,
-                    !exerciseFilterProgram && styles.dropdownPlaceholderText
-                  ]}
-                >
-                  {exerciseFilterProgram ? exerciseFilterProgram : 'All Programs'}
-                </Text>
-                <Ionicons
-                  name={showProgramFilterDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-              {showProgramFilterDropdown && (
-                <View style={styles.exerciseFilterDropdownList}>
-                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                    <TouchableOpacity
-                      style={styles.dropdownOption}
-                      onPress={() => {
-                        setExerciseFilterProgram(null);
-                        setShowProgramFilterDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownOptionText}>All Programs</Text>
-                    </TouchableOpacity>
-                    {exerciseProgramOptions.map(programName => (
-                      <TouchableOpacity
-                        key={programName}
-                        style={styles.dropdownOption}
-                        onPress={() => {
-                          setExerciseFilterProgram(programName);
-                          setShowProgramFilterDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownOptionText}>{programName}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-
-            <View style={[
-              styles.exerciseFilterWrapper,
-              showRoutineFilterDropdown && styles.exerciseFilterWrapperActive
-            ]}>
-              <TouchableOpacity
-                style={[
-                  styles.dropdown,
-                  styles.exerciseFilterDropdown,
-                  !exerciseFilterRoutine && styles.dropdownPlaceholder
-                ]}
-                onPress={() => {
-                  setShowRoutineFilterDropdown(prev => !prev);
-                  setShowProgramFilterDropdown(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownText,
-                    !exerciseFilterRoutine && styles.dropdownPlaceholderText
-                  ]}
-                >
-                  {exerciseFilterRoutine ? exerciseFilterRoutine : 'All Routines'}
-                </Text>
-                <Ionicons
-                  name={showRoutineFilterDropdown ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#6B7280"
-                />
-              </TouchableOpacity>
-              {showRoutineFilterDropdown && (
-                <View style={styles.exerciseFilterDropdownList}>
-                  <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                    <TouchableOpacity
-                      style={styles.dropdownOption}
-                      onPress={() => {
-                        setExerciseFilterRoutine(null);
-                        setShowRoutineFilterDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownOptionText}>All Routines</Text>
-                    </TouchableOpacity>
-                    {exerciseRoutineOptions.map(routineName => (
-                      <TouchableOpacity
-                        key={routineName}
-                        style={styles.dropdownOption}
-                        onPress={() => {
-                          setExerciseFilterRoutine(routineName);
-                          setShowRoutineFilterDropdown(false);
-                        }}
-                      >
-                        <Text style={styles.dropdownOptionText}>{routineName}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-        
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000000" />
-            <Text style={styles.loadingText}>Loading exercises...</Text>
-          </View>
-        ) : (
-          <View style={styles.modernTable}>
-            <View style={styles.modernTableHeader}>
-              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Exercise</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Description</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Difficulty</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Categories</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Range</Text>
-              <TouchableOpacity
-                style={{ flex: 1.2 }}
-                onPress={() => {
-                  if (exerciseSortField === 'program') {
-                    setExerciseSortDirection(exerciseSortDirection === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setExerciseSortField('program');
-                    setExerciseSortDirection('asc');
-                  }
-                }}
-              >
-                <View style={styles.sortableHeader}>
-                  <Text style={styles.modernTableHeaderText}>Program</Text>
-                  {exerciseSortField === 'program' && (
-                    <Ionicons 
-                      name={exerciseSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'} 
-                      size={14} 
-                      color="#3B82F6" 
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ flex: 1.2 }}
-                onPress={() => {
-                  if (exerciseSortField === 'routine') {
-                    setExerciseSortDirection(exerciseSortDirection === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setExerciseSortField('routine');
-                    setExerciseSortDirection('asc');
-                  }
-                }}
-              >
-                <View style={styles.sortableHeader}>
-                  <Text style={styles.modernTableHeaderText}>Routine</Text>
-                  {exerciseSortField === 'routine' && (
-                    <Ionicons 
-                      name={exerciseSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'} 
-                      size={14} 
-                      color="#3B82F6" 
-                    />
-                  )}
-                </View>
-              </TouchableOpacity>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Type</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
-            </View>
-            <ScrollView style={styles.modernTableBody}>
-              {filteredExercises.length > 0 ? filteredExercises.map(exercise => (
-                <View key={exercise.id} style={styles.modernTableRow}>
-                  {/* Exercise Info */}
-                  <View style={[styles.modernTableCell, { flex: 2 }]}>
-                    <View style={styles.exerciseInfoContainer}>
-                      <View style={styles.exerciseInfo}>
-                        <Text style={styles.exerciseTitle}>{exercise.title || exercise.code}</Text>
-                        <Text style={styles.exerciseMeta}>
-                          {exercise.code && exercise.title !== exercise.code && `Code: ${exercise.code}`}
-                        </Text>
-                        {exercise.estimated_minutes && (
-                          <Text style={styles.exerciseMeta}>
-                            ⏱️ {exercise.estimated_minutes} min
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Description */}
-                  <View style={[styles.modernTableCell, { flex: 2 }]}>
-                    <Text style={styles.exerciseDescription} numberOfLines={2}>
-                      {exercise.description || exercise.instructions || '—'}
-                    </Text>
-                    {exercise.goal && (
-                      <Text style={styles.exerciseGoal} numberOfLines={1}>
-                        Goal: {exercise.goal}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Difficulty */}
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={styles.difficultyContainer}>
-                      <View style={styles.difficultyStars}>
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Ionicons
-                            key={star}
-                            name={star <= (exercise.difficulty || 1) ? "star" : "star-outline"}
-                            size={12}
-                            color={star <= (exercise.difficulty || 1) ? "#F59E0B" : "#E5E7EB"}
-                          />
-                        ))}
-                      </View>
-                      <Text style={styles.difficultyText}>{exercise.difficulty || 1}/5</Text>
-                    </View>
-                  </View>
-
-                  {/* Categories */}
-                  <View style={[styles.modernTableCell, { flex: 1.5 }]}>
-                    <View style={styles.exerciseCategoriesContainer}>
-                      {exercise.skill_categories_json && Array.isArray(exercise.skill_categories_json) ? (
-                        exercise.skill_categories_json.slice(0, 2).map((category, index) => (
-                          <View key={index} style={styles.exerciseCategoryTag}>
-                            <Text style={styles.exerciseCategoryText}>{category}</Text>
-                          </View>
-                        ))
-                      ) : exercise.skill_category ? (
-                        exercise.skill_category.split(',').slice(0, 2).map((category, index) => (
-                          <View key={index} style={styles.exerciseCategoryTag}>
-                            <Text style={styles.exerciseCategoryText}>{category.trim()}</Text>
-                          </View>
-                        ))
-                      ) : (
-                        <Text style={styles.noCategoryText}>—</Text>
-                      )}
-                      {((exercise.skill_categories_json && exercise.skill_categories_json.length > 2) ||
-                        (exercise.skill_category && exercise.skill_category.split(',').length > 2)) && (
-                        <Text style={styles.moreCategoriesText}>
-                          +{((exercise.skill_categories_json && exercise.skill_categories_json.length) || 
-                             (exercise.skill_category && exercise.skill_category.split(',').length) || 0) - 2} more
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  {/* DUPR Range */}
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    {exercise.dupr_range_min && exercise.dupr_range_max ? (
-                      <View style={styles.duprRangeBadge}>
-                        <Text style={styles.duprRangeText}>
-                          {exercise.dupr_range_min}–{exercise.dupr_range_max}
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.noDuprRangeText}>—</Text>
-                    )}
-                  </View>
-
-                  {/* Program */}
-                  <View style={[styles.modernTableCell, { flex: 1.2 }]}>
-                    {exercise.linkedPrograms && exercise.linkedPrograms.length > 0 ? (
-                      <View style={styles.exerciseProgramContainer}>
-                        <Text style={styles.programNameText}>{exercise.linkedPrograms[0].name}</Text>
-                        {exercise.linkedPrograms.length > 1 && (
-                          <Text style={styles.moreProgramsText}>+{exercise.linkedPrograms.length - 1} more</Text>
-                        )}
-                      </View>
-                    ) : (
-                      <Text style={styles.noProgramText}>—</Text>
-                    )}
-                  </View>
-
-                  {/* Routine */}
-                  <View style={[styles.modernTableCell, { flex: 1.2 }]}>
-                    {exercise.linkedRoutines && exercise.linkedRoutines.length > 0 ? (
-                      <View style={styles.exerciseRoutineContainer}>
-                        <Text style={styles.routineNameText}>{exercise.linkedRoutines[0].name}</Text>
-                        {exercise.linkedRoutines.length > 1 && (
-                          <Text style={styles.moreRoutinesText}>+{exercise.linkedRoutines.length - 1} more</Text>
-                        )}
-                      </View>
-                    ) : (
-                      <Text style={styles.noRoutineText}>—</Text>
-                    )}
-                  </View>
-
-                  {/* Type */}
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={[styles.exerciseTypeBadge, 
-                      exercise.created_by ? styles.userCreatedBadge : styles.defaultBadge
-                    ]}>
-                      <Text style={[styles.exerciseTypeText,
-                        exercise.created_by ? styles.userCreatedText : styles.defaultText
-                      ]}>
-                        {exercise.created_by ? 'User' : 'Default'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Status */}
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <TouchableOpacity
-                      style={[styles.modernStatusChip, 
-                        exercise.is_published ? styles.publishedStatusChip : styles.draftStatusChip
-                      ]}
-                      onPress={() => togglePublishStatus('exercise', exercise.id, exercise.is_published)}
-                    >
-                      <Text style={[styles.modernStatusText,
-                        exercise.is_published ? styles.publishedStatusText : styles.draftStatusText
-                      ]}>
-                        {exercise.is_published ? 'Published' : 'Draft'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Actions */}
-                  <View style={[styles.modernTableCell, { flex: 1 }]}>
-                    <View style={styles.modernActionButtons}>
-                      <TouchableOpacity style={styles.modernActionButton}>
-                        <Ionicons name="eye-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={styles.modernActionButton}
-                        onPress={() => handleEditExercise(exercise)}
-                      >
-                        <Ionicons name="create-outline" size={16} color="#6B7280" />
-                      </TouchableOpacity>
-                      <View style={styles.dropdownContainer}>
-                        <TouchableOpacity 
-                          style={styles.modernActionButton}
-                          onPress={() => {
-                            const newDropdown = activeDropdown === exercise.id ? null : exercise.id;
-                            console.log('⋯ Three dots clicked for exercise:', exercise.title, 'Setting dropdown to:', newDropdown);
-                            setActiveDropdown(newDropdown);
-                          }}
-                        >
-                          <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
-                        </TouchableOpacity>
-                        {activeDropdown === exercise.id && (
-                          <View style={styles.dropdownMenu}>
-                            <TouchableOpacity 
-                              style={styles.dropdownItem}
-                              onPress={() => {
-                                console.log('🗑️ Delete button clicked for exercise:', exercise.title, exercise.id);
-                                handleDeleteExercise(exercise);
-                              }}
-                            >
-                              <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                              <Text style={styles.dropdownItemTextDelete}>Delete</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              )) : (
-                <View style={styles.comingSoon}>
-                  <Ionicons name="fitness-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.comingSoonText}>No exercises found</Text>
-                  <Text style={styles.comingSoonSubtext}>
-                    {searchQuery ? 'Try adjusting your search criteria' : 'Create your first exercise to get started'}
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        )}
-      </View>
-    );
+    return null;
   };
 
   const renderRoutinesTable = () => {
@@ -3958,9 +3129,29 @@ export default function AdminDashboard({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 0 : insets.top }]}>
-      {renderSidebar()}
+      <AdminSidebar
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        profile={profile}
+        user={user}
+        onSignOut={handleSignOut}
+        styles={styles}
+      />
       <View style={[styles.mainContent, { marginLeft: sidebarWidth }]}>
-        {renderTopBar()}
+        <AdminTopBar
+          activeTab={activeTab}
+          sidebarWidth={sidebarWidth}
+          loading={loading}
+          handleRefresh={handleRefresh}
+          setShowCreateProgramModal={setShowCreateProgramModal}
+          setShowCreateRoutineModal={setShowCreateRoutineModal}
+          setShowCreateExerciseModal={setShowCreateExerciseModal}
+          setShowAddCoachModal={setShowAddCoachModal}
+          setShowAddUserModal={setShowAddUserModal}
+          styles={styles}
+        />
         <ScrollView 
           style={styles.contentScrollView} 
           showsVerticalScrollIndicator={false}
