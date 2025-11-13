@@ -74,11 +74,15 @@ export default function ExercisesTable({
     });
   }
 
+  const exerciseCount = filteredExercises.length;
+
   return (
     <View style={styles.contentSection}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionHeaderTextGroup}>
-          <Text style={styles.sectionTitle}>Exercise Library</Text>
+          <Text style={styles.sectionTitle}>
+            {`Exercise Library (${exerciseCount.toLocaleString()})`}
+          </Text>
           <Text style={styles.sectionSubtitle}>Manage individual exercises and drills</Text>
         </View>
         <View style={styles.exerciseFiltersContainer}>
@@ -111,33 +115,6 @@ export default function ExercisesTable({
                 color="#6B7280"
               />
             </TouchableOpacity>
-            {showProgramFilterDropdown && (
-              <View style={styles.exerciseFilterDropdownList}>
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                  <TouchableOpacity
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      setExerciseFilterProgram(null);
-                      setShowProgramFilterDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownOptionText}>All Programs</Text>
-                  </TouchableOpacity>
-                  {exerciseProgramOptions.map(programName => (
-                    <TouchableOpacity
-                      key={programName}
-                      style={styles.dropdownOption}
-                      onPress={() => {
-                        setExerciseFilterProgram(programName);
-                        setShowProgramFilterDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownOptionText}>{programName}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
           </View>
 
           <View style={[
@@ -169,44 +146,78 @@ export default function ExercisesTable({
                 color="#6B7280"
               />
             </TouchableOpacity>
-            {showRoutineFilterDropdown && (
-              <View style={styles.exerciseFilterDropdownList}>
-                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-                  <TouchableOpacity
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      setExerciseFilterRoutine(null);
-                      setShowRoutineFilterDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownOptionText}>All Routines</Text>
-                  </TouchableOpacity>
-                  {exerciseRoutineOptions.map(routineName => (
-                    <TouchableOpacity
-                      key={routineName}
-                      style={styles.dropdownOption}
-                      onPress={() => {
-                        setExerciseFilterRoutine(routineName);
-                        setShowRoutineFilterDropdown(false);
-                      }}
-                    >
-                      <Text style={styles.dropdownOptionText}>{routineName}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
           </View>
         </View>
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000000" />
-          <Text style={styles.loadingText}>Loading exercises...</Text>
+      {showProgramFilterDropdown && (
+        <View style={styles.exerciseFilterDropdownContainer}>
+          <View style={styles.exerciseFilterDropdownList}>
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.dropdownOption}
+                onPress={() => {
+                  setExerciseFilterProgram(null);
+                  setShowProgramFilterDropdown(false);
+                }}
+              >
+                <Text style={styles.dropdownOptionText}>All Programs</Text>
+              </TouchableOpacity>
+              {exerciseProgramOptions.map(programName => (
+                <TouchableOpacity
+                  key={programName}
+                  style={styles.dropdownOption}
+                  onPress={() => {
+                    setExerciseFilterProgram(programName);
+                    setShowProgramFilterDropdown(false);
+                  }}
+                >
+                  <Text style={styles.dropdownOptionText}>{programName}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         </View>
-      ) : (
-        <View style={styles.modernTable}>
+      )}
+
+      {showRoutineFilterDropdown && (
+        <View style={styles.exerciseFilterAbsoluteDropdown}>
+          <View style={styles.exerciseFilterDropdownList}>
+            <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.dropdownOption}
+                onPress={() => {
+                  setExerciseFilterRoutine(null);
+                  setShowRoutineFilterDropdown(false);
+                }}
+              >
+                <Text style={styles.dropdownOptionText}>All Routines</Text>
+              </TouchableOpacity>
+              {exerciseRoutineOptions.map(routineName => (
+                <TouchableOpacity
+                  key={routineName}
+                  style={styles.dropdownOption}
+                  onPress={() => {
+                    setExerciseFilterRoutine(routineName);
+                    setShowRoutineFilterDropdown(false);
+                  }}
+                >
+                  <Text style={styles.dropdownOptionText}>{routineName}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.contentSectionWrapper}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+            <Text style={styles.loadingText}>Loading exercises...</Text>
+          </View>
+        ) : (
+          <View style={styles.modernTable}>
           <View style={styles.modernTableHeader}>
             <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Exercise</Text>
             <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Description</Text>
@@ -451,6 +462,7 @@ export default function ExercisesTable({
           </ScrollView>
         </View>
       )}
+      </View>
     </View>
   );
 }

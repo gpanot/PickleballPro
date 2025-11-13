@@ -42,10 +42,14 @@ export default function ProgramsTable({
     });
   }
 
+  const programCount = filteredPrograms.length;
+
   return (
     <View style={styles.contentSection}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Training Programs</Text>
+        <Text style={styles.sectionTitle}>
+          {`Training Programs (${programCount.toLocaleString()})`}
+        </Text>
         <Text style={styles.sectionSubtitle}>Manage and organize training programs</Text>
       </View>
 
