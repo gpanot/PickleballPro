@@ -175,8 +175,9 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     });
   }
 
-  const programLocked = isEditing && !!editingExercise?.program_id;
-  const routineLocked = isEditing && !!editingExercise?.routine_id;
+  // Allow changing program/routine when editing (can be controlled via prop if needed in future)
+  const programLocked = false; // Allow program changes when editing
+  const routineLocked = false; // Allow routine changes when editing
   const selectedProgramObj = programs.find(p => p.id === selectedProgram);
   const programDisplayLabel = selectedProgram
     ? (selectedProgramObj?.name || editingExercise?.program_name || 'Select Program')
@@ -466,80 +467,165 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
 
       if (error) throw error;
 
-      // If a routine is selected, link the exercise to the routine
-      if (selectedRoutine && data && data[0]) {
+      // Handle routine linking/changes
+      if (data && data[0]) {
         const exerciseId = data[0].id;
-        console.log('🔗 Preparing to link exercise to routine', {
-          routineId: selectedRoutine,
-          exerciseId,
-          userId: user?.id,
-          userEmail: user?.email,
-          userIsAdmin: profile?.is_admin,
-          routineCount: routines?.length,
-          isEditing,
-          existingExerciseRecord: data?.[0]
-        });
-
-        // Get the highest order_index for this routine
-        const { data: existingExercises, error: orderError } = await supabase
-          .from('routine_exercises')
-          .select('order_index')
-          .eq('routine_id', selectedRoutine)
-          .order('order_index', { ascending: false })
-          .limit(1);
-
-        if (orderError) {
-          console.error('🔗 Error getting current routine order index:', orderError, {
-            routineId: selectedRoutine,
-            exerciseId,
-            userId: user?.id
-          });
+        
+        // Get original routine ID if editing
+        let originalRoutineId = null;
+        if (isEditing && editingExercise) {
+          // First try to get from editingExercise directly
+          if (editingExercise.routine_id) {
+            originalRoutineId = editingExercise.routine_id;
+          } else if (editingExercise.routine_exercise_id) {
+            // Fetch from routine_exercises table
+            const { data: routineExerciseData, error: routineExerciseError } = await supabase
+              .from('routine_exercises')
+              .select('routine_id')
+              .eq('id', editingExercise.routine_exercise_id)
+              .single();
+            
+            if (!routineExerciseError && routineExerciseData) {
+              originalRoutineId = routineExerciseData.routine_id;
+            }
+          }
         }
-
-        const nextOrderIndex = existingExercises && existingExercises[0] 
-          ? existingExercises[0].order_index + 1 
-          : 1;
-
-        console.log('🔗 Linking payload prepared', {
-          routineId: selectedRoutine,
+        
+        // Check if routine was cleared (empty string, null, or undefined) or changed to different routine
+        // Also unlink if program is cleared (standalone exercise) even if routine still selected
+        const routineWasCleared = !selectedRoutine || selectedRoutine === '';
+        const programWasCleared = !selectedProgram || selectedProgram === '';
+        const shouldUnlinkRoutine = programWasCleared || routineWasCleared;
+        const routineChanged = originalRoutineId && (shouldUnlinkRoutine || originalRoutineId !== selectedRoutine);
+        
+        console.log('🔗 Handling routine linkage', {
           exerciseId,
-          nextOrderIndex,
-          existingOrderEntries: existingExercises
+          selectedRoutine,
+          selectedProgram,
+          originalRoutineId,
+          isEditing,
+          routineWasCleared,
+          programWasCleared,
+          shouldUnlinkRoutine,
+          routineChanged
         });
 
-        // Insert into routine_exercises
-        const { error: linkError } = await supabase
-          .from('routine_exercises')
-          .insert({
-            routine_id: selectedRoutine,
-            exercise_id: exerciseId,
-            order_index: nextOrderIndex,
-            is_optional: false
-          });
-
-        if (linkError) {
-          console.error('🔗 Error linking exercise to routine:', linkError, {
-            routineId: selectedRoutine,
-            exerciseId,
-            attemptedOrderIndex: nextOrderIndex,
-            userId: user?.id,
-            userIsAdmin: profile?.is_admin
+        // If editing and routine changed (or cleared), or program was cleared, remove from old routine
+        if (isEditing && routineChanged) {
+          console.log('🔄 Removing exercise from old routine:', {
+            originalRoutineId,
+            selectedRoutine,
+            routineWasCleared
           });
           
-          Alert.alert(
-            'Partial Success', 
-            `Exercise "${exerciseName}" created but could not be linked to the routine (code ${linkError?.code || 'unknown'}).` +
-            '\n\nCheck the console for detailed diagnostics. This usually means the current user lacks permission to modify routine exercises.'
-          );
-        } else {
-          console.log('✅ Exercise linked to routine successfully', {
+          // If there's a routine_exercise_id, delete that specific entry
+          if (editingExercise?.routine_exercise_id) {
+            const { error: deleteError } = await supabase
+              .from('routine_exercises')
+              .delete()
+              .eq('id', editingExercise.routine_exercise_id);
+            
+            if (deleteError) {
+              console.error('❌ Error removing exercise from old routine:', deleteError);
+              throw new Error(`Failed to unlink exercise from routine: ${deleteError.message}`);
+            } else {
+              console.log('✅ Removed exercise from old routine');
+            }
+          } else if (originalRoutineId) {
+            // Fallback: delete by exercise_id and routine_id
+            const { error: deleteError } = await supabase
+              .from('routine_exercises')
+              .delete()
+              .eq('exercise_id', exerciseId)
+              .eq('routine_id', originalRoutineId);
+            
+            if (deleteError) {
+              console.error('❌ Error removing exercise from old routine:', deleteError);
+              throw new Error(`Failed to unlink exercise from routine: ${deleteError.message}`);
+            } else {
+              console.log('✅ Removed exercise from old routine');
+            }
+          }
+        }
+
+        // If a routine is selected (and different from original), link the exercise to the routine
+        // Only link if selectedRoutine is truthy (not empty/null/undefined) AND program is also selected
+        // Don't link if program is cleared (standalone exercise)
+        if (selectedRoutine && selectedRoutine !== '' && selectedProgram && selectedProgram !== '' && (!isEditing || originalRoutineId !== selectedRoutine)) {
+          console.log('🔗 Linking exercise to routine', {
             routineId: selectedRoutine,
-            exerciseId,
-            orderIndex: nextOrderIndex,
-            userId: user?.id
+            exerciseId
           });
-          const selectedRoutineName = routines.find(r => r.id === selectedRoutine)?.name || 'the routine';
-          Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} and linked to ${selectedRoutineName}!`);
+
+          // Check if exercise is already linked to this routine
+          const { data: existingLink, error: checkError } = await supabase
+            .from('routine_exercises')
+            .select('id, order_index')
+            .eq('routine_id', selectedRoutine)
+            .eq('exercise_id', exerciseId)
+            .maybeSingle();
+
+          if (checkError) {
+            console.error('🔗 Error checking existing link:', checkError);
+          }
+
+          if (existingLink) {
+            // Already linked to this routine - no action needed
+            console.log('✅ Exercise already linked to this routine');
+            const selectedRoutineName = routines.find(r => r.id === selectedRoutine)?.name || allRoutines.find(r => r.id === selectedRoutine)?.name || 'the routine';
+            Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} and linked to ${selectedRoutineName}!`);
+          } else {
+            // Get the highest order_index for this routine
+            const { data: existingExercises, error: orderError } = await supabase
+              .from('routine_exercises')
+              .select('order_index')
+              .eq('routine_id', selectedRoutine)
+              .order('order_index', { ascending: false })
+              .limit(1);
+
+            if (orderError) {
+              console.error('🔗 Error getting current routine order index:', orderError);
+            }
+
+            const nextOrderIndex = existingExercises && existingExercises[0] 
+              ? existingExercises[0].order_index + 1 
+              : 1;
+
+            // Insert into routine_exercises
+            const { error: linkError } = await supabase
+              .from('routine_exercises')
+              .insert({
+                routine_id: selectedRoutine,
+                exercise_id: exerciseId,
+                order_index: nextOrderIndex,
+                is_optional: false
+              });
+
+            if (linkError) {
+              console.error('🔗 Error linking exercise to routine:', linkError);
+              
+              Alert.alert(
+                'Partial Success', 
+                `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} but could not be linked to the routine (code ${linkError?.code || 'unknown'}).` +
+                '\n\nCheck the console for detailed diagnostics. This usually means the current user lacks permission to modify routine exercises.'
+              );
+            } else {
+              console.log('✅ Exercise linked to routine successfully', {
+                routineId: selectedRoutine,
+                exerciseId,
+                orderIndex: nextOrderIndex
+              });
+              const selectedRoutineName = routines.find(r => r.id === selectedRoutine)?.name || allRoutines.find(r => r.id === selectedRoutine)?.name || 'the routine';
+              Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} and linked to ${selectedRoutineName}!`);
+            }
+          }
+        } else {
+          // No routine selected - exercise is standalone or was unlinked
+          if (isEditing && (routineWasCleared || programWasCleared) && originalRoutineId) {
+            Alert.alert('Success', `Exercise "${exerciseName}" updated and unlinked from routine!`);
+          } else {
+            Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} successfully!`);
+          }
         }
       } else {
         Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} successfully!`);
@@ -697,6 +783,15 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
                 {!routineLocked && showRoutineDropdown && (
                   <View style={styles.inlineDropdownList}>
                     <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                      <TouchableOpacity 
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          setSelectedRoutine('');
+                          setShowRoutineDropdown(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownOptionText}>None (Unlink from Routine)</Text>
+                      </TouchableOpacity>
                       {routines.map((routine) => (
                         <TouchableOpacity
                           key={routine.id}
