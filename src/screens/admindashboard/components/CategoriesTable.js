@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   ActivityIndicator
@@ -70,7 +69,7 @@ export default function CategoriesTable({
           </View>
         </View>
 
-        <ScrollView style={styles.modernTableBody}>
+        <View>
           {filteredCategories.length > 0 ? filteredCategories.map((category, index) => {
             const programCount = programs.filter(p => p.category === category.name).length;
 
@@ -179,7 +178,7 @@ export default function CategoriesTable({
               <Text style={styles.comingSoonSubtext}>Categories are created automatically from programs</Text>
             </View>
           )}
-        </ScrollView>
+        </View>
       </View>
     </View>
   );

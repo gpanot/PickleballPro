@@ -2,21 +2,22 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import TrainingGoalScreen from '../screens/TrainingGoalScreen';
 import TimeCommitmentScreen from '../screens/TimeCommitmentScreen';
-import CommitmentVisualizationScreen from '../screens/CommitmentVisualizationScreen';
-import FocusAreasScreen from '../screens/FocusAreasScreen';
+// import CommitmentVisualizationScreen from '../screens/CommitmentVisualizationScreen'; // Skipped in flow
+// import FocusAreasScreen from '../screens/FocusAreasScreen'; // Skipped in flow - all skills are set as default automatically
 import IntensitySelectionScreen from '../screens/IntensitySelectionScreen';
-import CoachingPreferenceScreen from '../screens/CoachingPreferenceScreen';
+// import CoachingPreferenceScreen from '../screens/CoachingPreferenceScreen'; // Skipped in flow
 import CreateAccountScreen from '../screens/CreateAccountScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import ProgramLoadingScreen from '../screens/ProgramLoadingScreen';
 
 const Stack = createStackNavigator();
 
-export default function OnboardingNavigator({ onComplete }) {
+const OnboardingNavigatorComponent = ({ onComplete }) => {
   return (
     <Stack.Navigator 
       screenOptions={{ headerShown: false }}
       initialRouteName="TrainingGoal"
+      detachInactiveScreens={false}
     >
       <Stack.Screen name="TrainingGoal">
         {(props) => (
@@ -35,8 +36,9 @@ export default function OnboardingNavigator({ onComplete }) {
           <TimeCommitmentScreen 
             {...props} 
             onComplete={(data) => {
-              // Navigate to commitment visualization screen
-              props.navigation.navigate('CommitmentVisualization', { 
+              // Navigate directly to intensity selection screen (skipping FocusAreas)
+              // All skills will be set as default automatically
+              props.navigation.navigate('IntensitySelection', { 
                 previousData: { 
                   ...props.route.params?.previousData, 
                   ...data 
@@ -47,6 +49,7 @@ export default function OnboardingNavigator({ onComplete }) {
         )}
       </Stack.Screen>
       
+      {/* SKIPPED: CommitmentVisualization screen
       <Stack.Screen name="CommitmentVisualization">
         {(props) => (
           <CommitmentVisualizationScreen 
@@ -63,7 +66,9 @@ export default function OnboardingNavigator({ onComplete }) {
           />
         )}
       </Stack.Screen>
+      */}
       
+      {/* SKIPPED: FocusAreas screen - all skills are now set as default automatically
       <Stack.Screen name="FocusAreas">
         {(props) => (
           <FocusAreasScreen 
@@ -80,14 +85,15 @@ export default function OnboardingNavigator({ onComplete }) {
           />
         )}
       </Stack.Screen>
+      */}
       
       <Stack.Screen name="IntensitySelection">
         {(props) => (
           <IntensitySelectionScreen 
             {...props} 
             onComplete={(data) => {
-              // Navigate to coaching preference screen
-              props.navigation.navigate('CoachingPreference', { 
+              // Navigate directly to create account screen (skipping CoachingPreference)
+              props.navigation.navigate('CreateAccount', { 
                 previousData: { 
                   ...props.route.params?.previousData, 
                   ...data 
@@ -98,6 +104,7 @@ export default function OnboardingNavigator({ onComplete }) {
         )}
       </Stack.Screen>
       
+      {/* SKIPPED: CoachingPreference screen
       <Stack.Screen name="CoachingPreference">
         {(props) => (
           <CoachingPreferenceScreen 
@@ -114,6 +121,7 @@ export default function OnboardingNavigator({ onComplete }) {
           />
         )}
       </Stack.Screen>
+      */}
       
       <Stack.Screen name="CreateAccount">
         {(props) => (
@@ -168,4 +176,9 @@ export default function OnboardingNavigator({ onComplete }) {
       </Stack.Screen>
     </Stack.Navigator>
   );
-}
+};
+
+// Memoize to prevent remounting when there are errors
+const OnboardingNavigator = React.memo(OnboardingNavigatorComponent);
+
+export default OnboardingNavigator;

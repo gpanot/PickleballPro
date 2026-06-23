@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, getCurrentUser, signIn, signUp, signOut } from '../lib/supabase';
 import { APP_VERSION, shouldPreserveSession } from '../lib/appVersion';
+import skillsData from '../data/Commun_skills_tags.json';
 
 const AuthContext = createContext();
 
@@ -321,7 +322,7 @@ export const AuthProvider = ({ children }) => {
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
         
       if (profileError) {
         console.warn('🔄 AuthContext: Profile fetch error:', profileError);
@@ -362,6 +363,15 @@ export const AuthProvider = ({ children }) => {
     fetchOrCreateUserProfile(authUser);
   };
 
+  // Helper function to get all skill IDs from skills data
+  const getAllSkillIds = () => {
+    const allSkills = [];
+    Object.values(skillsData.skillCategories).forEach(category => {
+      allSkills.push(...category.skills.map(skill => skill.id));
+    });
+    return allSkills;
+  };
+
   const fetchOrCreateUserProfile = async (authUser) => {
     try {
       const { data: userProfile, error } = await supabase
@@ -370,8 +380,11 @@ export const AuthProvider = ({ children }) => {
         .eq('id', authUser.id)
         .single();
       
+      // Get all skill IDs for default
+      const allSkillIds = getAllSkillIds();
+      
       if (error && error.code === 'PGRST116') {
-        // Profile not found, create new profile
+        // Profile not found, create new profile with all skills as default
         const defaultName = authUser.email ? authUser.email.split('@')[0] : authUser.id;
         const { data: newProfile, error: createError } = await supabase
           .from('users')
@@ -380,7 +393,7 @@ export const AuthProvider = ({ children }) => {
             email: authUser.email,
             name: defaultName,
             dupr_rating: 2.0,
-            focus_areas: []
+            focus_areas: allSkillIds // Set all skills as default
           })
           .select()
           .single();
@@ -396,35 +409,57 @@ export const AuthProvider = ({ children }) => {
               .single();
             
             if (existingProfile) {
+              // If focus_areas is empty, set all skills as default
+              let focusAreas = existingProfile.focus_areas || [];
+              if (!focusAreas || focusAreas.length === 0) {
+                focusAreas = allSkillIds;
+                // Update in database
+                await supabase
+                  .from('users')
+                  .update({ focus_areas: allSkillIds })
+                  .eq('id', authUser.id);
+              }
+              
               const profileWithDefaults = {
                 ...existingProfile,
                 name: existingProfile.name || existingProfile.email?.split('@')[0] || existingProfile.id,
                 dupr_rating: existingProfile.dupr_rating || 2.0,
-                focus_areas: existingProfile.focus_areas || []
+                focus_areas: focusAreas
               };
               setProfile(profileWithDefaults);
               return;
             }
           }
           
-          // Fallback to local profile
+          // Fallback to local profile with all skills
           setProfile({
             id: authUser.id,
             email: authUser.email,
             name: defaultName,
             dupr_rating: 2.0,
-            focus_areas: []
+            focus_areas: allSkillIds
           });
         } else {
           setProfile(newProfile);
         }
       } else if (userProfile) {
         // Use existing profile with defaults
+        // If focus_areas is empty, set all skills as default and update in database
+        let focusAreas = userProfile.focus_areas || [];
+        if (!focusAreas || focusAreas.length === 0) {
+          focusAreas = allSkillIds;
+          // Update in database
+          await supabase
+            .from('users')
+            .update({ focus_areas: allSkillIds })
+            .eq('id', authUser.id);
+        }
+        
         const profileWithDefaults = {
           ...userProfile,
           name: userProfile.name || userProfile.email?.split('@')[0] || userProfile.id,
           dupr_rating: userProfile.dupr_rating || 2.0,
-          focus_areas: userProfile.focus_areas || []
+          focus_areas: focusAreas
         };
         setProfile(profileWithDefaults);
       } else {
@@ -432,12 +467,13 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       // Set default profile to prevent null issues
+      const allSkillIds = getAllSkillIds();
       setProfile({
         id: authUser.id,
         email: authUser.email,
         name: authUser.email ? authUser.email.split('@')[0] : authUser.id,
         dupr_rating: 2.0,
-        focus_areas: []
+        focus_areas: allSkillIds
       });
     }
   };
@@ -533,7 +569,7 @@ export const AuthProvider = ({ children }) => {
         .update(updates)
         .eq('id', user.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

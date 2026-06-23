@@ -2,8 +2,8 @@
 // Add this to your React Native app
 
 export const supabaseConfig = {
-  url: 'https://lenlkoqtczffweamgsxv.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxlbmxrb3F0Y3pmZndlYW1nc3h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwODc4NTMsImV4cCI6MjA3MzY2Mzg1M30.30bQPgg14boyWnITZoFOFxNzuZ8FXFPAqhsB8WRRjjA'
+  url: 'https://qdlvidtnfqnqjgrhxwtz.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbHZpZHRuZnFucWpncmh4d3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzg3MTksImV4cCI6MjA5Nzc1NDcxOX0.zlRtmQrST5Z1JdBZXHbsSZ_GT-v__HJ_M7MJziOR7L0'
 };
 
 // Example usage in your app:

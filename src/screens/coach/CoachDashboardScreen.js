@@ -51,11 +51,12 @@ export default function CoachDashboardScreen({ navigation }) {
     checkCoachAndLoadData();
   }, [authUser]);
 
-  // Reload when the tab/screen gains focus
+  // Reload when the tab/screen gains focus - but only reload students, not programs
   useEffect(() => {
-    if (!isFocused) return;
-    checkCoachAndLoadData(); // Always refresh and verify when focused
-  }, [isFocused]);
+    if (!isFocused || !coachId) return;
+    // Only reload students on focus, not programs (to avoid unnecessary reloads when navigating back)
+    loadStudents(coachId);
+  }, [isFocused, coachId]);
 
   // Load programs when switching to Programs tab if not already loaded
   useEffect(() => {
@@ -286,10 +287,12 @@ export default function CoachDashboardScreen({ navigation }) {
 
   // Removed Start Assessment handler (no inline start button on dashboard)
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.studentCode?.toString().includes(searchQuery)
-  );
+  const filteredStudents = students
+    .filter(student =>
+      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.studentCode?.toString().includes(searchQuery)
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const onRefresh = async () => {
     try {
@@ -455,11 +458,11 @@ export default function CoachDashboardScreen({ navigation }) {
                         )}
                       </View>
                       {student.lastAssessmentDate ? (
-                        <Text style={styles.lastAssessmentText}>
+                        <Text style={styles.lastAssessmentText} numberOfLines={1}>
                           Last: {getRelativeTime(student.lastAssessmentDate)}
                         </Text>
                       ) : (
-                        <Text style={styles.lastAssessmentText}>No assessment</Text>
+                        <Text style={styles.lastAssessmentText} numberOfLines={1}>No assessment</Text>
                       )}
                     </View>
                     {student.lastAssessmentScore !== null && (
@@ -787,8 +790,8 @@ const styles = StyleSheet.create({
   playerCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    padding: 11,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -797,7 +800,7 @@ const styles = StyleSheet.create({
   },
   playerHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 0,
     alignItems: 'center',
   },
   playerAvatar: {

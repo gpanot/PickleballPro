@@ -119,14 +119,14 @@ export default function ProgramScreen({ navigation, route }) {
 
   // Load programs when component mounts
   React.useEffect(() => {
-    console.log('🔄 [ProgramScreen] Component mounted, loading programs...');
-    console.log('👤 [ProgramScreen] Current user:', user?.id);
-    loadPrograms();
-    loadCoachPrograms();
-    
-    // Always preload library data for faster access
-    fetchLibraryPrograms();
-    fetchCategoryOrder();
+    if (user?.id) {
+      loadPrograms();
+      loadCoachPrograms();
+      
+      // Always preload library data for faster access
+      fetchLibraryPrograms();
+      fetchCategoryOrder();
+    }
   }, [user?.id]);
 
   // Reload library data when switching to Library tab (if not already loaded)
@@ -292,20 +292,15 @@ export default function ProgramScreen({ navigation, route }) {
   // Load programs from database and local storage
   const loadPrograms = async () => {
     try {
-      console.log('📂 [ProgramScreen] loadPrograms called');
       setIsLoadingPrograms(true);
       
       if (!user?.id) {
-        console.log('❌ [ProgramScreen] No user ID, skipping program load');
         setIsLoadingPrograms(false);
         return;
       }
-
-      console.log('💾 [ProgramScreen] Attempting to load from database...');
       
       // Try to load from database first with routines
       try {
-        console.log('🔍 [ProgramScreen] Loading programs with routines from database...');
         const { data: dbPrograms, error: dbError } = await supabase
           .from('programs')
           .select(`
@@ -324,16 +319,11 @@ export default function ProgramScreen({ navigation, route }) {
           .order('created_at', { ascending: false });
 
         if (dbError) {
-          console.error('❌ [ProgramScreen] Database load failed:', dbError);
+          console.error('❌ [ProgramScreen] Database load failed:', dbError.message || dbError);
         } else {
-          console.log('✅ [ProgramScreen] Loaded from database:', dbPrograms?.length || 0, 'programs');
-          
           if (dbPrograms && dbPrograms.length > 0) {
             // Transform database programs to match local format
             const transformedPrograms = await Promise.all(dbPrograms.map(async (dbProgram) => {
-              console.log('🔄 [ProgramScreen] Processing program:', dbProgram.name);
-              console.log('📋 [ProgramScreen] Program routines:', dbProgram.routines?.length || 0);
-              console.log('🖼️ [ProgramScreen] Program thumbnail URL:', dbProgram.thumbnail_url);
               
               // Handle thumbnail - convert URL to local format if needed
               let thumbnail = null;
@@ -341,15 +331,13 @@ export default function ProgramScreen({ navigation, route }) {
                 try {
                   // For now, we'll use the URL directly - could download and cache locally later
                   thumbnail = { uri: dbProgram.thumbnail_url };
-                  console.log('✅ [ProgramScreen] Thumbnail loaded from URL');
                 } catch (error) {
-                  console.error('❌ [ProgramScreen] Error loading thumbnail:', error);
+                  console.error('❌ [ProgramScreen] Error loading thumbnail:', error.message || error);
                 }
               }
               
               // Transform routines to match local format and load their exercises
               const routines = await Promise.all((dbProgram.routines || []).map(async (dbRoutine) => {
-                console.log('🔄 [ProgramScreen] Loading exercises for routine:', dbRoutine.name);
                 
                 // Load exercises for this routine
                 let exercises = [];
@@ -388,7 +376,7 @@ export default function ProgramScreen({ navigation, route }) {
                     .order('order_index', { ascending: true });
                   
                   if (exerciseError) {
-                    console.error('❌ [ProgramScreen] Error loading exercises for routine:', exerciseError);
+                    console.error('❌ [ProgramScreen] Error loading exercises for routine:', exerciseError.message || exerciseError);
                   } else {
                     exercises = (routineExercises || []).map(re => ({
                       ...re.exercises,
@@ -402,10 +390,9 @@ export default function ProgramScreen({ navigation, route }) {
                         ? `${re.exercises.target_value} ${re.exercises.target_unit}`
                         : `${re.exercises.target_value || 10} attempts`
                     }));
-                    console.log('✅ [ProgramScreen] Loaded', exercises.length, 'exercises for routine:', dbRoutine.name);
                   }
                 } catch (error) {
-                  console.error('❌ [ProgramScreen] Error loading exercises:', error);
+                  console.error('❌ [ProgramScreen] Error loading exercises:', error.message || error);
                 }
                 
                 return {
@@ -419,8 +406,6 @@ export default function ProgramScreen({ navigation, route }) {
                   is_published: dbRoutine.is_published
                 };
               }));
-              
-              console.log('📊 [ProgramScreen] Transformed routines for', dbProgram.name, ':', routines.length);
               
               return {
                 id: dbProgram.id,
@@ -439,65 +424,49 @@ export default function ProgramScreen({ navigation, route }) {
               };
             }));
             
-            console.log('📊 [ProgramScreen] Final transformed programs:', transformedPrograms.length);
-            transformedPrograms.forEach(program => {
-              const totalExercises = program.routines.reduce((sum, routine) => sum + routine.exercises.length, 0);
-              console.log(`📋 [ProgramScreen] Program "${program.name}": ${program.routines.length} routines, ${totalExercises} exercises, thumbnail: ${!!program.thumbnail}`);
-              program.routines.forEach(routine => {
-                console.log(`  📝 [ProgramScreen] Routine "${routine.name}": ${routine.exercises.length} exercises`);
-              });
-            });
-            
             setPrograms(transformedPrograms);
-            console.log('📊 [ProgramScreen] Set programs from database with routines and thumbnails');
             
             // Save to local storage as backup
             await AsyncStorage.setItem(`@user_programs_${user.id}`, JSON.stringify(transformedPrograms));
-            console.log('💾 [ProgramScreen] Saved to local storage as backup');
             
             // After loading programs, sync any unsynced AI programs
             try {
-              console.log('🔄 [ProgramScreen] Checking for unsynced AI programs...');
               const syncResult = await syncUnsyncedAIPrograms(transformedPrograms, setPrograms);
               if (syncResult.syncedCount > 0) {
-                console.log(`✅ [ProgramScreen] Synced ${syncResult.syncedCount} AI programs to database`);
+                console.log(`✅ [ProgramScreen] Synced ${syncResult.syncedCount} AI programs`);
               }
             } catch (syncError) {
-              console.error('❌ [ProgramScreen] Error syncing AI programs:', syncError);
+              console.error('❌ [ProgramScreen] Error syncing AI programs:', syncError.message || syncError);
             }
             
             return;
           }
         }
       } catch (dbError) {
-        console.error('❌ [ProgramScreen] Database error:', dbError);
+        console.error('❌ [ProgramScreen] Database error:', dbError.message || dbError);
       }
 
       // Fallback to local storage
-      console.log('📱 [ProgramScreen] Falling back to local storage...');
       try {
         const localPrograms = await AsyncStorage.getItem(`@user_programs_${user.id}`);
         if (localPrograms) {
           const parsedPrograms = JSON.parse(localPrograms);
-          console.log('✅ [ProgramScreen] Loaded from local storage:', parsedPrograms.length, 'programs');
           setPrograms(parsedPrograms);
           
           // After loading from local storage, try to sync any unsynced AI programs
           try {
-            console.log('🔄 [ProgramScreen] Checking for unsynced AI programs from local storage...');
             const syncResult = await syncUnsyncedAIPrograms(parsedPrograms, setPrograms);
             if (syncResult.syncedCount > 0) {
-              console.log(`✅ [ProgramScreen] Synced ${syncResult.syncedCount} AI programs to database from local storage`);
+              console.log(`✅ [ProgramScreen] Synced ${syncResult.syncedCount} AI programs`);
             }
           } catch (syncError) {
-            console.error('❌ [ProgramScreen] Error syncing AI programs from local storage:', syncError);
+            console.error('❌ [ProgramScreen] Error syncing AI programs:', syncError.message || syncError);
           }
         } else {
-          console.log('📭 [ProgramScreen] No local programs found');
           setPrograms([]);
         }
       } catch (localError) {
-        console.error('❌ [ProgramScreen] Local storage error:', localError);
+        console.error('❌ [ProgramScreen] Local storage error:', localError.message || localError);
         setPrograms([]);
       }
 
@@ -513,12 +482,10 @@ export default function ProgramScreen({ navigation, route }) {
   const savePrograms = async (programsToSave) => {
     try {
       if (user?.id) {
-        console.log('💾 [ProgramScreen] Saving programs to local storage:', programsToSave.length);
         await AsyncStorage.setItem(`@user_programs_${user.id}`, JSON.stringify(programsToSave));
-        console.log('✅ [ProgramScreen] Programs saved to local storage');
       }
     } catch (error) {
-      console.error('❌ [ProgramScreen] Error saving programs:', error);
+      console.error('❌ [ProgramScreen] Error saving programs:', error.message || error);
     }
   };
 
@@ -698,15 +665,12 @@ export default function ProgramScreen({ navigation, route }) {
   // Upload program thumbnail to Supabase Storage
   const uploadProgramThumbnail = async (imageUri, programName) => {
     try {
-      console.log('📤 [ProgramScreen] Starting thumbnail upload...');
-      
       if (!user?.id) {
         throw new Error('User not authenticated');
       }
 
       // Safety check: Prevent blob URLs from being uploaded
       if (imageUri.startsWith('blob:')) {
-        console.warn('⚠️ [ProgramScreen] Blob URL detected, cannot upload:', imageUri);
         Alert.alert('Warning', 'Invalid image format. Program will be created without thumbnail.');
         return null;
       }
@@ -716,18 +680,9 @@ export default function ProgramScreen({ navigation, route }) {
       const sanitizedProgramName = programName.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
       const fileName = `${user.id}/${sanitizedProgramName}_${Date.now()}.${fileExtension}`;
       
-      console.log('📋 [ProgramScreen] Upload details:', {
-        userId: user.id,
-        fileName,
-        bucketName: 'program_thumbnails',
-        sanitizedProgramName
-      });
-      
       // Read file as array buffer (works for both web and React Native)
       const response = await fetch(imageUri);
       const arrayBuffer = await response.arrayBuffer();
-      
-      console.log('📊 [ProgramScreen] File size:', arrayBuffer.byteLength, 'bytes');
       
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
@@ -738,11 +693,8 @@ export default function ProgramScreen({ navigation, route }) {
         });
 
       if (error) {
-        console.error('❌ [ProgramScreen] Storage upload error:', error);
-        
         // Provide specific error messages for common issues
-        if (error.message.includes('row-level security policy')) {
-          console.log('🚨 [ProgramScreen] RLS policy error - bucket needs setup');
+        if (error.message?.includes('row-level security policy')) {
           Alert.alert(
             'Storage Setup Required',
             'The program thumbnails storage bucket needs to be set up. Creating program without thumbnail for now.'
@@ -750,8 +702,7 @@ export default function ProgramScreen({ navigation, route }) {
           return null;
         }
         
-        if (error.message.includes('bucket') && error.message.includes('not found')) {
-          console.log('🚨 [ProgramScreen] Bucket not found - needs creation');
+        if (error.message?.includes('bucket') && error.message?.includes('not found')) {
           Alert.alert(
             'Storage Bucket Missing',
             'Program thumbnails bucket needs to be created. Creating program without thumbnail for now.'
@@ -769,49 +720,36 @@ export default function ProgramScreen({ navigation, route }) {
 
       // Safety check: Ensure the returned URL is not a blob URL
       if (publicUrl.startsWith('blob:')) {
-        console.error('❌ [ProgramScreen] Generated URL is still a blob URL - upload may have failed');
         Alert.alert('Warning', 'Thumbnail upload failed. Program will be created without image.');
         return null;
       }
 
-      console.log('✅ [ProgramScreen] Thumbnail uploaded successfully:', publicUrl);
       return publicUrl;
 
     } catch (error) {
-      console.error('❌ [ProgramScreen] Error uploading thumbnail:', error);
+      console.error('❌ [ProgramScreen] Error uploading thumbnail:', error.message || error);
       Alert.alert('Warning', 'Failed to upload thumbnail. Program will be created without image.');
       return null;
     }
   };
 
   const createProgram = async () => {
-    console.log('🚀 [ProgramScreen] createProgram called');
-    console.log('📝 [ProgramScreen] Program name:', newProgramName.trim());
-    console.log('🖼️ [ProgramScreen] Has image:', !!selectedImage);
-    console.log('👤 [ProgramScreen] Current user:', user?.id);
-    
     if (!newProgramName.trim()) {
-      console.log('❌ [ProgramScreen] Validation failed: Empty program name');
       Alert.alert('Error', 'Please enter a program name');
       return;
     }
     
     if (!user?.id) {
-      console.log('❌ [ProgramScreen] Validation failed: No user ID');
       Alert.alert('Error', 'User not authenticated');
       return;
     }
     
     try {
-      console.log('🔄 [ProgramScreen] Starting program creation process...');
-      
       let compressedThumbnail = null;
       let thumbnailUrl = null;
       
       if (selectedImage) {
         try {
-          console.log('🖼️ [ProgramScreen] Processing image...');
-          
           // Compress the selected image for local storage
           const manipResult = await ImageManipulator.manipulateAsync(
             selectedImage.uri,
@@ -819,20 +757,12 @@ export default function ProgramScreen({ navigation, route }) {
             { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
           );
           compressedThumbnail = manipResult;
-          console.log('✅ [ProgramScreen] Image compressed successfully');
           
           // Upload to Supabase Storage for database storage
-          console.log('📤 [ProgramScreen] Uploading thumbnail to storage...');
           thumbnailUrl = await uploadProgramThumbnail(manipResult.uri, newProgramName.trim());
           
-          if (thumbnailUrl) {
-            console.log('✅ [ProgramScreen] Thumbnail uploaded to storage:', thumbnailUrl);
-          } else {
-            console.log('⚠️ [ProgramScreen] Thumbnail upload failed, continuing without URL');
-          }
-          
         } catch (error) {
-          console.error('❌ [ProgramScreen] Error processing image:', error);
+          console.error('❌ [ProgramScreen] Error processing image:', error.message || error);
           Alert.alert('Warning', 'Failed to process image. Program will be created without thumbnail.');
         }
       }
@@ -846,16 +776,7 @@ export default function ProgramScreen({ navigation, route }) {
         createdAt: new Date().toISOString(),
       };
       
-      console.log('📋 [ProgramScreen] Program object created:', {
-        id: newProgram.id,
-        name: newProgram.name,
-        hasThumbnail: !!newProgram.thumbnail,
-        hasThumbnailUrl: !!newProgram.thumbnailUrl,
-        routinesCount: newProgram.routines.length
-      });
-      
       // Save to database using the user function with thumbnail URL
-      console.log('💾 [ProgramScreen] Attempting to save to database...');
       try {
         const { data: savedProgram, error: saveError } = await supabase.rpc('create_program_as_user', {
           program_name: newProgram.name,
@@ -863,70 +784,44 @@ export default function ProgramScreen({ navigation, route }) {
           program_category: 'Custom',
           program_tier: 'Beginner',
           program_is_published: false,
-          program_thumbnail_url: thumbnailUrl, // Now properly handling image upload!
+          program_thumbnail_url: thumbnailUrl,
           program_is_coach_program: isCoachProgram
         });
         
         if (saveError) {
-          console.error('❌ [ProgramScreen] Database save failed:', saveError);
-          console.log('📱 [ProgramScreen] Falling back to local storage only');
+          console.error('❌ [ProgramScreen] Database save failed:', saveError.message || saveError);
           Alert.alert('Warning', 'Program saved locally but could not sync to server. It will sync when connection is available.');
         } else {
-          console.log('✅ [ProgramScreen] Program saved to database successfully:', savedProgram);
-          
           // 🔧 CRITICAL FIX: RPC functions return arrays, so get the first element
           const programData = Array.isArray(savedProgram) ? savedProgram[0] : savedProgram;
           
           if (programData && programData.id) {
-            console.log('🔄 [ProgramScreen] Updating program ID from timestamp to UUID:', {
-              oldId: newProgram.id,
-              newId: programData.id,
-              idType: typeof programData.id
-            });
             newProgram.id = programData.id;
             newProgram.program_id = programData.id; // Also set program_id for consistency
             newProgram.created_by = programData.created_by;
             newProgram.category = programData.category;
             newProgram.tier = programData.tier;
             newProgram.is_published = programData.is_published;
-            console.log('✅ [ProgramScreen] Program object updated with database UUID');
-          } else {
-            console.log('⚠️ [ProgramScreen] data returned from database function');
           }
         }
       } catch (dbError) {
-        console.error('❌ [ProgramScreen] Database operation failed:', dbError);
-        console.log('📱 [ProgramScreen] Continuing with local storage only');
+        console.error('❌ [ProgramScreen] Database operation failed:', dbError.message || dbError);
         Alert.alert('Warning', `Database save failed: ${dbError.message}. Program saved locally.`);
       }
       
       // Update local state
-      console.log('📱 [ProgramScreen] Updating local state...');
-      console.log('🔍 [ProgramScreen] Final program object before adding to state:', {
-        id: newProgram.id,
-        name: newProgram.name,
-        idType: typeof newProgram.id,
-        isUUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newProgram.id)
-      });
-      
       setPrograms(prev => {
         const updated = [...prev, newProgram];
-        console.log('📊 [ProgramScreen] Local programs count after add:', updated.length);
-        
         // Save to local storage immediately
         savePrograms(updated);
-        
         return updated;
       });
       
       // Clear form
-      console.log('🧹 [ProgramScreen] Clearing form...');
       setNewProgramName('');
       setSelectedImage(null);
       setIsCoachProgram(false);
       setShowCreateProgramModal(false);
-      
-      console.log('✅ [ProgramScreen] Program creation completed successfully');
       
       // Show success message with thumbnail status
       const successMessage = thumbnailUrl 
@@ -935,7 +830,7 @@ export default function ProgramScreen({ navigation, route }) {
       Alert.alert('Success', successMessage);
       
     } catch (error) {
-      console.error('💥 [ProgramScreen] Unexpected error in createProgram:', error);
+      console.error('💥 [ProgramScreen] Unexpected error in createProgram:', error.message || error);
       Alert.alert('Error', `Failed to create program: ${error.message}`);
     }
   };
@@ -1071,12 +966,10 @@ export default function ProgramScreen({ navigation, route }) {
   // Coach Program tab functions
   const loadCoachPrograms = async () => {
     try {
-      console.log('📚 [ProgramScreen] Loading coach programs...');
       setCoachProgramsLoading(true);
       setCoachProgramsError(null);
       
       if (!user?.id) {
-        console.log('❌ [ProgramScreen] No user ID, skipping coach programs load');
         setCoachProgramsLoading(false);
         coachProgramsLoadedRef.current = true;
         return;
@@ -1089,7 +982,7 @@ export default function ProgramScreen({ navigation, route }) {
           setStudentCode(studentCodeData.student_code);
         }
       } catch (error) {
-        console.error('❌ [ProgramScreen] Error loading student code:', error);
+        // Silently fail - student code is optional
       }
 
       // First, check if user has a coach relationship - load ALL coaches
@@ -1116,26 +1009,16 @@ export default function ProgramScreen({ navigation, route }) {
         .eq('is_active', true);
 
       if (relationshipError) {
-        console.error('❌ [ProgramScreen] Error checking coach relationship:', relationshipError);
+        console.error('❌ [ProgramScreen] Error checking coach relationship:', relationshipError.message || relationshipError);
         setHasCoachRelationship(false);
         setCoaches([]);
       } else if (coachRelationships && coachRelationships.length > 0) {
         setHasCoachRelationship(true);
-        console.log('✅ [ProgramScreen] User has active coach relationships:', coachRelationships.length);
         
         // Store all coaches with their info
         // Prioritize user avatar over coach avatar (same as AdminDashboard)
         const coachesList = await Promise.all(coachRelationships.map(async (cr) => {
             const coach = cr.coaches;
-            
-            // Debug: Log the coach data structure
-            console.log(`🔍 [ProgramScreen] Coach data for ${coach?.name}:`, {
-              hasCoach: !!coach,
-              coachAvatar: coach?.avatar_url,
-              hasUsers: !!coach?.users,
-              usersType: Array.isArray(coach?.users) ? 'array' : typeof coach?.users,
-              usersData: coach?.users
-            });
             
             // Get user avatar URL - handle both object and array cases from Supabase relationship
             const userAvatarUrl = Array.isArray(coach?.users) 
@@ -1144,12 +1027,6 @@ export default function ProgramScreen({ navigation, route }) {
             // Prioritize user avatar over coach avatar
             let avatarUrl = userAvatarUrl || coach?.avatar_url;
             
-            console.log(`🖼️ [ProgramScreen] Avatar resolution for ${coach?.name}:`, {
-              userAvatarUrl,
-              coachAvatarUrl: coach?.avatar_url,
-              finalAvatarUrl: avatarUrl
-            });
-            
             // Convert storage path to public URL if needed (same logic as transformCoachData)
             if (avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('blob:')) {
               // It's likely a storage path, convert to public URL
@@ -1157,10 +1034,8 @@ export default function ProgramScreen({ navigation, route }) {
                 const { data: { publicUrl } } = supabase.storage
                   .from('avatars')
                   .getPublicUrl(avatarUrl);
-                console.log(`🖼️ [ProgramScreen] Converted coach avatar URL for ${coach?.name}: ${avatarUrl} -> ${publicUrl}`);
                 avatarUrl = publicUrl;
               } catch (error) {
-                console.error('❌ [ProgramScreen] Error converting avatar URL:', error);
                 // Keep original URL if conversion fails
               }
             }
@@ -1178,10 +1053,7 @@ export default function ProgramScreen({ navigation, route }) {
           }));
         
         const filteredCoaches = coachesList.filter(c => c.id); // Filter out any null coaches
-        console.log('✅ [ProgramScreen] Coach avatars:', filteredCoaches.map(c => ({ name: c.name, hasAvatar: !!c.avatar_url, avatarUrl: c.avatar_url?.substring(0, 50) + '...' })));
-        
         setCoaches(filteredCoaches);
-        console.log('✅ [ProgramScreen] Stored', filteredCoaches.length, 'coaches');
         
         // Check if user has assessments
         const { data: assessments, error: assessmentError } = await supabase
@@ -1221,11 +1093,10 @@ export default function ProgramScreen({ navigation, route }) {
             .order('created_at', { ascending: false });
 
           if (dbError) {
-            console.error('❌ [ProgramScreen] Error loading coach programs:', dbError);
+            console.error('❌ [ProgramScreen] Error loading coach programs:', dbError.message || dbError);
             setCoachProgramsError('Failed to load coach programs');
             setCoachPrograms([]);
           } else if (dbCoachPrograms && dbCoachPrograms.length > 0) {
-            console.log('✅ [ProgramScreen] Loaded', dbCoachPrograms.length, 'coach programs');
             
             // Transform programs similar to regular programs
             const transformedCoachPrograms = await Promise.all(dbCoachPrograms.map(async (dbProgram) => {
@@ -1280,7 +1151,7 @@ export default function ProgramScreen({ navigation, route }) {
                     }));
                   }
                 } catch (error) {
-                  console.error('❌ [ProgramScreen] Error loading exercises for routine:', error);
+                  console.error('❌ [ProgramScreen] Error loading exercises for routine:', error.message || error);
                 }
                 
                 return {
@@ -1315,14 +1186,12 @@ export default function ProgramScreen({ navigation, route }) {
             
             setCoachPrograms(transformedCoachPrograms);
           } else {
-            console.log('📭 [ProgramScreen] No coach programs found');
             setCoachPrograms([]);
           }
         }
       } else {
         setHasCoachRelationship(false);
         setCoaches([]);
-        console.log('📭 [ProgramScreen] User does not have a coach relationship');
       }
     } catch (error) {
       console.error('💥 [ProgramScreen] Unexpected error loading coach programs:', error);
@@ -1356,14 +1225,12 @@ export default function ProgramScreen({ navigation, route }) {
     // Check if we have preloaded data first
     const preloadedPrograms = getDataWithFallback('programs');
     if (preloadedPrograms && preloadedPrograms.length > 0) {
-      console.log('🚀 ProgramScreen: Using preloaded programs data for Library - INSTANT LOAD!');
       setExplorePrograms(preloadedPrograms);
       setLibraryLoading(false);
       setLibraryError(null);
       return;
     } else if (hasPreloadedData('programs')) {
       // We have preloaded data but it's empty
-      console.log('📭 ProgramScreen: Preloaded programs data is empty for Library - INSTANT LOAD!');
       setExplorePrograms([]);
       setLibraryLoading(false);
       setLibraryError(null);
@@ -1643,7 +1510,6 @@ export default function ProgramScreen({ navigation, route }) {
 
       return (
         <View style={styles.coachProgramsContainer}>
-          {renderFindYourCoach()}
           <View style={styles.loadingContainer}>
             <Animated.Image
               source={require('../../assets/images/icon_ball.png')}
@@ -1656,6 +1522,7 @@ export default function ProgramScreen({ navigation, route }) {
             />
             <Text style={styles.loadingText}>Loading coach programs...</Text>
           </View>
+          {renderFindYourCoach()}
         </View>
       );
     }
@@ -1664,13 +1531,13 @@ export default function ProgramScreen({ navigation, route }) {
     if (coachProgramsError) {
       return (
         <View style={styles.coachProgramsContainer}>
-          {renderFindYourCoach()}
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Failed to load coach programs</Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadCoachPrograms}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
+          {renderFindYourCoach()}
         </View>
       );
     }
@@ -1691,7 +1558,6 @@ export default function ProgramScreen({ navigation, route }) {
             />
           }
         >
-          {renderFindYourCoach()}
           <View style={styles.coachEmptyContent}>
             {studentCode && (
               <View style={styles.studentCodeCard}>
@@ -1770,6 +1636,7 @@ export default function ProgramScreen({ navigation, route }) {
               </View>
             </View>
           </View>
+          {renderFindYourCoach()}
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -1791,7 +1658,6 @@ export default function ProgramScreen({ navigation, route }) {
             />
           }
         >
-        {renderFindYourCoach()}
         {/* Coach Cards Section */}
         {coaches.length > 0 && (
           <View style={styles.coachesSection}>
@@ -1915,6 +1781,7 @@ export default function ProgramScreen({ navigation, route }) {
               </View>
             </View>
           </View>
+          {renderFindYourCoach()}
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -1936,7 +1803,6 @@ export default function ProgramScreen({ navigation, route }) {
             />
           }
         >
-          {renderFindYourCoach()}
           {/* Coach Cards Section */}
           {coaches.length > 0 && (
             <View style={styles.coachesSection}>
@@ -2022,8 +1888,7 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
           )}
           
-          
-          
+          {renderFindYourCoach()}
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -2044,7 +1909,6 @@ export default function ProgramScreen({ navigation, route }) {
           />
         }
       >
-        {renderFindYourCoach()}
         {/* Coach Cards Section */}
         {coaches.length > 0 && (
           <View style={styles.coachesSection}>
@@ -2132,6 +1996,7 @@ export default function ProgramScreen({ navigation, route }) {
 
         {/* Programs are now shown in player profile when tapping a coach */}
 
+        {renderFindYourCoach()}
         <View style={styles.bottomSpacing} />
       </ScrollView>
     );
@@ -2495,30 +2360,12 @@ export default function ProgramScreen({ navigation, route }) {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.tab}
-              onPress={() => setCurrentView('programs')}
-            >
-              <Text style={[styles.tabText, currentView === 'programs' && styles.activeTabText]}>
-                Programs
-              </Text>
-              {currentView === 'programs' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
               onPress={() => setCurrentView('library')}
             >
               <Text style={[styles.tabText, currentView === 'library' && styles.activeTabText]}>
                 Library
               </Text>
               {currentView === 'library' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => setCurrentView('fun')}
-            >
-              <Text style={[styles.tabText, currentView === 'fun' && styles.activeTabText]}>
-                Fun
-              </Text>
-              {currentView === 'fun' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
           </View>
         </View>

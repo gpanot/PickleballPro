@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const supabaseUrl = 'https://lenlkoqtczffweamgsxv.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxlbmxrb3F0Y3pmZndlYW1nc3h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwODc4NTMsImV4cCI6MjA3MzY2Mzg1M30.30bQPgg14boyWnITZoFOFxNzuZ8FXFPAqhsB8WRRjjA';
+export const supabaseUrl = 'https://qdlvidtnfqnqjgrhxwtz.supabase.co';
+export const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbHZpZHRuZnFucWpncmh4d3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzg3MTksImV4cCI6MjA5Nzc1NDcxOX0.zlRtmQrST5Z1JdBZXHbsSZ_GT-v__HJ_M7MJziOR7L0';
 
 // Custom storage adapter for React Native
 const customStorage = {
@@ -87,7 +87,22 @@ export const signUp = async (email, password, userData = {}) => {
         });
 
       if (profileError) {
-        console.error('Error creating/updating user profile:', profileError);
+        // Extract meaningful error message from potentially HTML response
+        let errorMessage = 'Unknown error';
+        if (typeof profileError === 'string') {
+          errorMessage = profileError;
+        } else if (profileError?.message) {
+          // Check if message contains HTML (error page response)
+          if (profileError.message.includes('<!DOCTYPE') || profileError.message.includes('<html')) {
+            errorMessage = 'Server error: Received invalid response. Please try again.';
+          } else {
+            errorMessage = profileError.message;
+          }
+        } else if (profileError?.code) {
+          errorMessage = `Database error (${profileError.code})`;
+        }
+        
+        console.error('Error creating/updating user profile:', errorMessage);
         // Don't throw here as the auth user was created successfully
       } else {
         console.log('✅ User profile created/updated successfully');
@@ -179,7 +194,7 @@ export const getCurrentUser = async () => {
         .from('users')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) {
         console.error('Error fetching user profile:', profileError);
@@ -209,7 +224,7 @@ export const updateUserProfile = async (userId, updates) => {
       .update(updates)
       .eq('id', userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     
@@ -677,9 +692,6 @@ export const transformProgramData = (programs) => {
       };
     });
     
-    console.log('🔄 Supabase: ✅ Transform completed, result:', transformed.length, 'programs');
-    console.log('🔄 Supabase: First transformed program sample:', JSON.stringify(transformed[0], null, 2));
-    
     return transformed;
   } catch (error) {
     console.error('🔄 Supabase: Error transforming program data:', error);
@@ -775,12 +787,12 @@ export const getStudentCode = async (userId) => {
       .from('users')
       .select('student_code')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     
-    // If no student code exists, generate one
-    if (!data.student_code) {
+    // If no row yet or no student code, generate one
+    if (!data || !data.student_code) {
       const studentCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code
       const { error: updateError } = await supabase
         .from('users')
@@ -806,7 +818,7 @@ export const addStudentByCode = async (coachId, studentCode) => {
       .from('users')
       .select('id, name, email, student_code')
       .eq('student_code', studentCode)
-      .single();
+      .maybeSingle();
 
     if (studentError || !studentData) {
       return { data: null, error: { message: 'Invalid student code' } };
@@ -818,7 +830,7 @@ export const addStudentByCode = async (coachId, studentCode) => {
       .select('id, is_active')
       .eq('coach_id', coachId)
       .eq('student_id', studentData.id)
-      .single();
+      .maybeSingle();
 
     if (existingRelation && !relationCheckError) {
       // If relationship exists and is inactive, reactivate it

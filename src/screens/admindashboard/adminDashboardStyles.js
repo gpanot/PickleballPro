@@ -5,8 +5,12 @@ const { width: screenWidth } = Dimensions.get('window');
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fafafa', // Shadcn/UI background
+    backgroundColor: '#fafafa',
     flexDirection: 'row',
+    ...(Platform.OS === 'web' && {
+      height: '100vh',
+      overflow: 'hidden',
+    }),
   },
   
   // Sidebar Styles
@@ -178,6 +182,10 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    ...(Platform.OS === 'web' && {
+      height: '100vh',
+      overflow: 'hidden',
+    }),
   },
   
   // Top Bar
@@ -382,7 +390,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '400',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -665,7 +678,7 @@ const styles = StyleSheet.create({
   tableContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: 'visible',
     ...(Platform.OS === 'web' && {
       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
     }),
@@ -686,7 +699,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   tableBody: {
-    maxHeight: 600,
   },
   tableRow: {
     flexDirection: 'row',
@@ -916,6 +928,7 @@ const styles = StyleSheet.create({
   // Content Section
   contentSection: {
     flex: 1,
+    overflow: 'visible',
   },
 
   // Modern Table
@@ -925,6 +938,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     borderWidth: 1,
     borderColor: '#e4e4e7', // zinc-300
+    position: 'relative',
     ...(Platform.OS === 'web' && {
       boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', // Shadcn/UI shadow-md
     }),
@@ -945,7 +959,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.05, // Tighter letter spacing
   },
   modernTableBody: {
-    maxHeight: 600,
+    overflow: 'visible',
+  },
+  modernTableHeaderCell: {
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   modernTableRow: {
     flexDirection: 'row',
@@ -954,6 +972,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
     alignItems: 'center',
+    position: 'relative',
+    overflow: 'visible',
     ...(Platform.OS === 'web' && {
       '&:hover': {
         backgroundColor: '#FAFBFC',
@@ -963,6 +983,7 @@ const styles = StyleSheet.create({
   modernTableCell: {
     paddingRight: 16,
     justifyContent: 'center',
+    overflow: 'visible',
   },
 
   // Program Details
@@ -1116,6 +1137,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    position: 'relative',
+    overflow: 'visible',
   },
   modernActionButton: {
     width: 32,
@@ -1185,7 +1208,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     minWidth: 120,
-    zIndex: 1000,
+    zIndex: 10000,
+    elevation: 20,
     ...(Platform.OS === 'web' && {
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
     }),
@@ -1265,6 +1289,7 @@ const styles = StyleSheet.create({
   },
   coachDirectorySection: {
     flex: 1,
+    overflow: 'visible',
   },
 
   // Coach Table Styles
@@ -1463,6 +1488,7 @@ const styles = StyleSheet.create({
   },
   userAccountsSection: {
     flex: 1,
+    overflow: 'visible',
   },
 
   // User Table Styles
@@ -1648,6 +1674,7 @@ const styles = StyleSheet.create({
   },
   feedbackSection: {
     flex: 1,
+    overflow: 'visible',
   },
   feedbackUserName: {
     fontSize: 14,

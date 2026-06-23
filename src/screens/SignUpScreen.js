@@ -21,6 +21,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false); // Track if there's been a signup error
   const insets = useSafeAreaInsets();
   const { signUp } = useAuth();
   const { user, getOnboardingData } = useUser();
@@ -85,16 +86,21 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       
       if (error) {
         setIsLoading(false);
+        setHasError(true); // Mark that there's been an error
         console.log('Signup error detected:', error.message);
         
-        // Check for duplicate email error
-        if (error.message?.includes('User already registered') || 
-            error.message?.includes('already registered') ||
-            error.message?.includes('already exists')) {
-          Alert.alert('Email Already Exists', 'A user with this email already exists. Please try signing in instead or use a different email address.');
-        } else {
-          Alert.alert('Sign Up Failed', error.message || 'Please try again.');
-        }
+        // Use setTimeout to delay Alert so it doesn't interfere with navigation state
+        setTimeout(() => {
+          // Check for duplicate email error
+          if (error.message?.includes('User already registered') || 
+              error.message?.includes('already registered') ||
+              error.message?.includes('already exists')) {
+            Alert.alert('Email Already Exists', 'A user with this email already exists. Please try signing in instead or use a different email address.');
+          } else {
+            Alert.alert('Sign Up Failed', error.message || 'Please try again.');
+          }
+        }, 100);
+        
         // CRITICAL: Stay on this screen - do NOT call onSignUp, do NOT navigate
         return;
       }
@@ -112,25 +118,46 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
     } catch (error) {
       console.log('Unexpected signup error:', error.message);
       setIsLoading(false);
+      setHasError(true); // Mark that there's been an error
       
-      // Check for duplicate email error
-      if (error.message?.includes('User already registered') || 
-          error.message?.includes('already registered') ||
-          error.message?.includes('already exists')) {
-        Alert.alert('Email Already Exists', 'A user with this email already exists. Please try signing in instead or use a different email address.');
-      } else {
-        Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-      }
+      // Use setTimeout to delay Alert so it doesn't interfere with navigation state
+      setTimeout(() => {
+        // Check for duplicate email error
+        if (error.message?.includes('User already registered') || 
+            error.message?.includes('already registered') ||
+            error.message?.includes('already exists')) {
+          Alert.alert('Email Already Exists', 'A user with this email already exists. Please try signing in instead or use a different email address.');
+        } else {
+          Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+        }
+      }, 100);
+      
       // CRITICAL: Stay on this screen - do NOT call onSignUp, do NOT navigate
     }
   };
 
   const handleBack = () => {
+    // If there's been an error, don't allow going back - user should stay on screen to edit email
+    if (hasError) {
+      // Optionally show a message or do nothing
+      // The user should edit their email instead of going back
+      return;
+    }
+    
+    // Normal back behavior when no error
     if (onGoBack) {
       onGoBack();
     } else if (navigation?.goBack) {
       navigation.goBack();
     }
+  };
+  
+  // Reset error flag when email is changed (user is trying to fix it)
+  const handleEmailChange = (text) => {
+    if (hasError) {
+      setHasError(false); // Clear error flag when user edits email
+    }
+    setEmail(text);
   };
 
   const handleSignIn = () => {
@@ -167,18 +194,20 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.content}>
-            {/* Back Button */}
-            <TouchableOpacity 
-              style={styles.backButton} 
-              onPress={handleBack}
-              activeOpacity={0.7}
-            >
-              <Ionicons 
-                name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-                size={24} 
-                color="#007AFF" 
-              />
-            </TouchableOpacity>
+            {/* Back Button - Hide or disable when there's an error */}
+            {!hasError && (
+              <TouchableOpacity 
+                style={styles.backButton} 
+                onPress={handleBack}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
+                  size={24} 
+                  color="#007AFF" 
+                />
+              </TouchableOpacity>
+            )}
             
             {/* Header Section */}
             <View style={styles.header}>
@@ -208,7 +237,7 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
                   placeholder="Enter your email"
                   placeholderTextColor="#9CA3AF"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}

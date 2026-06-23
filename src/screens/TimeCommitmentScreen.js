@@ -8,6 +8,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
+import skillsData from '../data/Commun_skills_tags.json';
 
 export default function TimeCommitmentScreen({ onComplete }) {
   const [selectedTime, setSelectedTime] = useState(null);
@@ -41,12 +42,27 @@ export default function TimeCommitmentScreen({ onComplete }) {
     }
   ];
 
+  // Helper function to get all skill IDs from skills data
+  const getAllSkillIds = () => {
+    const allSkills = [];
+    Object.values(skillsData.skillCategories).forEach(category => {
+      allSkills.push(...category.skills.map(skill => skill.id));
+    });
+    return allSkills;
+  };
+
   const handleTimeSelect = async (timeId) => {
     setSelectedTime(timeId);
     
-    // Save time commitment data to UserContext
-    console.log('TimeCommitmentScreen: Saving time commitment to UserContext:', timeId);
-    await updateOnboardingData({ timeCommitment: timeId });
+    // Get all skill IDs to set as default
+    const allSkillIds = getAllSkillIds();
+    
+    // Save time commitment and all skills as default to UserContext
+    console.log('TimeCommitmentScreen: Saving time commitment and all skills to UserContext:', timeId, allSkillIds);
+    await updateOnboardingData({ 
+      timeCommitment: timeId,
+      focus_areas: allSkillIds // Set all skills as default
+    });
     
     // Immediately proceed to next screen
     onComplete({ time_commitment: timeId });

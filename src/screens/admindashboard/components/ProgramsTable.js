@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Pagination from './Pagination';
+
+const DEFAULT_PAGE_SIZE = 10;
 
 export default function ProgramsTable({
   programs,
@@ -24,33 +27,61 @@ export default function ProgramsTable({
   handleDeleteProgram,
   activeDropdown,
   setActiveDropdown,
-  styles
+  styles,
 }) {
-  let filteredPrograms = programs.filter(program =>
-    program.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    program.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [hoveredRow, setHoveredRow] = useState(null);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+
+  let filteredPrograms = programs.filter(
+    (program) =>
+      program.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      program.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (programSortField === 'coach_program') {
     filteredPrograms = [...filteredPrograms].sort((a, b) => {
       const aValue = a.is_coach_program ? 1 : 0;
       const bValue = b.is_coach_program ? 1 : 0;
-      if (programSortDirection === 'asc') {
-        return aValue - bValue;
-      }
-      return bValue - aValue;
+      return programSortDirection === 'asc' ? aValue - bValue : bValue - aValue;
     });
   }
 
-  const programCount = filteredPrograms.length;
+  const totalCount = filteredPrograms.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = filteredPrograms.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const handlePageChange = (page) => setCurrentPage(page);
+  const handlePageSizeChange = (size) => { setPageSize(size); setCurrentPage(1); };
+
+  const SortIcon = ({ field }) =>
+    programSortField === field ? (
+      <Ionicons
+        name={programSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'}
+        size={13}
+        color="#3B82F6"
+        style={{ marginLeft: 4 }}
+      />
+    ) : (
+      <Ionicons name="swap-vertical-outline" size={13} color="#CBD5E1" style={{ marginLeft: 4 }} />
+    );
 
   return (
     <View style={styles.contentSection}>
+      {/* Section header */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>
-          {`Training Programs (${programCount.toLocaleString()})`}
-        </Text>
-        <Text style={styles.sectionSubtitle}>Manage and organize training programs</Text>
+        <View>
+          <Text style={styles.sectionTitle}>
+            Training Programs
+            <Text style={{ color: '#9CA3AF', fontWeight: '400', fontSize: 15 }}>
+              {' '}({totalCount.toLocaleString()})
+            </Text>
+          </Text>
+          <Text style={styles.sectionSubtitle}>Manage and organize training programs</Text>
+        </View>
       </View>
 
       {loading ? (
@@ -60,12 +91,13 @@ export default function ProgramsTable({
         </View>
       ) : (
         <View style={styles.modernTable}>
+          {/* Table header */}
           <View style={styles.modernTableHeader}>
             <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Program</Text>
             <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Category</Text>
-            <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Tier</Text>
+            <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Tier</Text>
             <TouchableOpacity
-              style={{ flex: 1 }}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
               onPress={() => {
                 if (programSortField === 'coach_program') {
                   setProgramSortDirection(programSortDirection === 'asc' ? 'desc' : 'asc');
@@ -75,27 +107,31 @@ export default function ProgramsTable({
                 }
               }}
             >
-              <View style={styles.sortableHeader}>
-                <Text style={styles.modernTableHeaderText}>COACH Program</Text>
-                {programSortField === 'coach_program' && (
-                  <Ionicons
-                    name={programSortDirection === 'asc' ? 'chevron-up' : 'chevron-down'}
-                    size={14}
-                    color="#3B82F6"
-                  />
-                )}
-              </View>
+              <Text style={styles.modernTableHeaderText}>Content For</Text>
+              <SortIcon field="coach_program" />
             </TouchableOpacity>
-            <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Content</Text>
-            <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Users</Text>
-            <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
-            <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Rating</Text>
-            <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Order</Text>
+            <Text style={[styles.modernTableHeaderText, { flex: 1.2 }]}>Routines / Exs</Text>
+            <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Users</Text>
+            <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Status</Text>
+            <Text style={[styles.modernTableHeaderText, { flex: 0.7 }]}>Rating</Text>
+            <Text style={[styles.modernTableHeaderText, { flex: 0.6 }]}>Order</Text>
             <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
           </View>
-          <ScrollView style={styles.modernTableBody}>
-            {filteredPrograms.length > 0 ? filteredPrograms.map(program => (
-              <View key={program.id} style={styles.modernTableRow}>
+
+          {/* Table body */}
+          {paginated.length > 0 ? (
+            paginated.map((program) => (
+              <TouchableOpacity
+                key={program.id}
+                activeOpacity={1}
+                onMouseEnter={() => Platform.OS === 'web' && setHoveredRow(program.id)}
+                onMouseLeave={() => Platform.OS === 'web' && setHoveredRow(null)}
+                style={[
+                  styles.modernTableRow,
+                  hoveredRow === program.id && { backgroundColor: '#F8FAFC' },
+                ]}
+              >
+                {/* Program */}
                 <View style={[styles.modernTableCell, { flex: 2 }]}>
                   <View style={styles.programInfoContainer}>
                     <View style={styles.programThumbnailContainer}>
@@ -112,73 +148,87 @@ export default function ProgramsTable({
                       )}
                     </View>
                     <View style={styles.programInfo}>
-                      <Text style={styles.programTitle}>{program.name}</Text>
-                      <Text style={styles.programMeta}>Created {new Date(program.created_at).toLocaleDateString()}</Text>
+                      <Text style={styles.programTitle} numberOfLines={1}>{program.name}</Text>
+                      <Text style={styles.programMeta}>
+                        Created {new Date(program.created_at).toLocaleDateString()}
+                      </Text>
                     </View>
                   </View>
                 </View>
+
+                {/* Category */}
                 <View style={[styles.modernTableCell, { flex: 1.5 }]}>
                   <View style={styles.categoryWithPosition}>
                     <Text style={styles.positionNumber}>
-                      ({filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) + 1})
+                      ({filteredPrograms.filter((p) => p.category === program.category).findIndex((p) => p.id === program.id) + 1})
                     </Text>
-                    <View style={[styles.categoryPill, {
-                      backgroundColor: program.category === 'Fundamentals' ? '#F0F9FF' : '#F8F4FF'
-                    }]}>
-                      <Text style={[styles.categoryPillText, {
-                        color: program.category === 'Fundamentals' ? '#0369A1' : '#7C3AED'
-                      }]}>{program.category}</Text>
+                    <View style={[styles.categoryPill, { backgroundColor: '#F0F9FF' }]}>
+                      <Text style={[styles.categoryPillText, { color: '#0369A1' }]} numberOfLines={1}>
+                        {program.category}
+                      </Text>
                     </View>
                   </View>
                 </View>
-                <View style={[styles.modernTableCell, { flex: 1 }]}>
+
+                {/* Tier */}
+                <View style={[styles.modernTableCell, { flex: 0.8 }]}>
                   <Text style={styles.tierText}>{program.tier || 'Beginner'}</Text>
                 </View>
+
+                {/* Content for */}
                 <View style={[styles.modernTableCell, { flex: 1 }]}>
                   <View style={[styles.modernStatusChip,
-                    program.is_coach_program ? styles.coachProgramChip : styles.studentProgramChip
-                  ]}>
+                    program.is_coach_program ? styles.coachProgramChip : styles.studentProgramChip]}>
                     <Text style={[styles.modernStatusText,
-                      program.is_coach_program ? styles.coachProgramText : styles.studentProgramText
-                    ]}>
+                      program.is_coach_program ? styles.coachProgramText : styles.studentProgramText]}>
                       {program.is_coach_program ? 'Coach' : 'Student'}
                     </Text>
                   </View>
                 </View>
-                <View style={[styles.modernTableCell, { flex: 1.5 }]}>
+
+                {/* Content counts */}
+                <View style={[styles.modernTableCell, { flex: 1.2 }]}>
                   <Text style={styles.contentText}>
-                    {program.routine_count || 0} routine{program.routine_count !== 1 ? 's' : ''}
+                    {program.routine_count || 0} routines
                   </Text>
                   <Text style={styles.contentSubtext}>
-                    {program.exercise_count || 0} exercise{program.exercise_count !== 1 ? 's' : ''}
+                    {program.exercise_count || 0} exercises
                   </Text>
                 </View>
-                <View style={[styles.modernTableCell, { flex: 1 }]}>
+
+                {/* Users */}
+                <View style={[styles.modernTableCell, { flex: 0.8 }]}>
                   <View style={styles.usersContainer}>
-                    <Ionicons name="people" size={16} color="#6B7280" />
-                    <Text style={styles.usersText}>{program.added_count || 0}</Text>
+                    <Ionicons name="people" size={14} color="#6B7280" />
+                    <Text style={styles.usersText}>{(program.added_count || 0).toLocaleString()}</Text>
                   </View>
                 </View>
-                <View style={[styles.modernTableCell, { flex: 1 }]}>
+
+                {/* Status */}
+                <View style={[styles.modernTableCell, { flex: 0.8 }]}>
                   <View style={[styles.modernStatusChip,
-                    program.is_published ? styles.publishedStatusChip : styles.draftStatusChip
-                  ]}>
+                    program.is_published ? styles.publishedStatusChip : styles.draftStatusChip]}>
                     <Text style={[styles.modernStatusText,
-                      program.is_published ? styles.publishedStatusText : styles.draftStatusText
-                    ]}>{program.is_published ? 'Published' : 'Draft'}</Text>
+                      program.is_published ? styles.publishedStatusText : styles.draftStatusText]}>
+                      {program.is_published ? 'Published' : 'Draft'}
+                    </Text>
                   </View>
                 </View>
-                <View style={[styles.modernTableCell, { flex: 1 }]}>
+
+                {/* Rating */}
+                <View style={[styles.modernTableCell, { flex: 0.7 }]}>
                   {program.rating ? (
                     <View style={styles.ratingContainer}>
-                      <Ionicons name="star" size={16} color="#F59E0B" />
+                      <Ionicons name="star" size={13} color="#F59E0B" />
                       <Text style={styles.ratingText}>{program.rating}</Text>
                     </View>
                   ) : (
                     <Text style={styles.noRatingText}>—</Text>
                   )}
                 </View>
-                <View style={[styles.modernTableCell, { flex: 0.8 }]}>
+
+                {/* Order */}
+                <View style={[styles.modernTableCell, { flex: 0.6 }]}>
                   <View style={styles.reorderButtons}>
                     {reorderingProgramId === program.id ? (
                       <View style={styles.reorderingIndicator}>
@@ -187,85 +237,67 @@ export default function ProgramsTable({
                     ) : (
                       <>
                         <TouchableOpacity
-                          style={[
-                            styles.reorderButton,
-                            filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 0 && styles.reorderButtonDisabled
-                          ]}
+                          style={[styles.reorderButton,
+                            filteredPrograms.filter((p) => p.category === program.category)
+                              .findIndex((p) => p.id === program.id) === 0 && styles.reorderButtonDisabled]}
                           onPress={() => reorderProgram(program.id, 'up')}
-                          disabled={
-                            reorderingProgramId !== null ||
-                            filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 0
-                          }
+                          disabled={reorderingProgramId !== null ||
+                            filteredPrograms.filter((p) => p.category === program.category)
+                              .findIndex((p) => p.id === program.id) === 0}
                         >
-                          <Ionicons
-                            name="chevron-up"
-                            size={14}
-                            color={
-                              filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) === 0
-                                ? '#D1D5DB'
-                                : '#6B7280'
-                            }
-                          />
+                          <Ionicons name="chevron-up" size={12} color={
+                            filteredPrograms.filter((p) => p.category === program.category)
+                              .findIndex((p) => p.id === program.id) === 0 ? '#D1D5DB' : '#6B7280'} />
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={[
-                            styles.reorderButton,
-                            filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) ===
-                            filteredPrograms.filter(p => p.category === program.category).length - 1 && styles.reorderButtonDisabled
-                          ]}
+                          style={[styles.reorderButton,
+                            filteredPrograms.filter((p) => p.category === program.category)
+                              .findIndex((p) => p.id === program.id) ===
+                            filteredPrograms.filter((p) => p.category === program.category).length - 1 &&
+                            styles.reorderButtonDisabled]}
                           onPress={() => reorderProgram(program.id, 'down')}
-                          disabled={
-                            reorderingProgramId !== null ||
-                            filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) ===
-                            filteredPrograms.filter(p => p.category === program.category).length - 1
-                          }
+                          disabled={reorderingProgramId !== null ||
+                            filteredPrograms.filter((p) => p.category === program.category)
+                              .findIndex((p) => p.id === program.id) ===
+                            filteredPrograms.filter((p) => p.category === program.category).length - 1}
                         >
-                          <Ionicons
-                            name="chevron-down"
-                            size={14}
-                            color={
-                              filteredPrograms.filter(p => p.category === program.category).findIndex(p => p.id === program.id) ===
-                              filteredPrograms.filter(p => p.category === program.category).length - 1
-                                ? '#D1D5DB'
-                                : '#6B7280'
-                            }
-                          />
+                          <Ionicons name="chevron-down" size={12} color={
+                            filteredPrograms.filter((p) => p.category === program.category)
+                              .findIndex((p) => p.id === program.id) ===
+                            filteredPrograms.filter((p) => p.category === program.category).length - 1
+                              ? '#D1D5DB' : '#6B7280'} />
                         </TouchableOpacity>
                       </>
                     )}
                   </View>
                 </View>
+
+                {/* Actions */}
                 <View style={[styles.modernTableCell, { flex: 1 }]}>
                   <View style={styles.modernActionButtons}>
                     <TouchableOpacity
                       style={styles.modernActionButton}
                       onPress={() => handleViewProgramStructure(program)}
                     >
-                      <Ionicons name="eye-outline" size={16} color="#6B7280" />
+                      <Ionicons name="eye-outline" size={15} color="#6B7280" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.modernActionButton}
                       onPress={() => handleEditProgramStructure(program)}
                     >
-                      <Ionicons name="create-outline" size={16} color="#6B7280" />
+                      <Ionicons name="create-outline" size={15} color="#6B7280" />
                     </TouchableOpacity>
                     <View style={styles.dropdownContainer}>
                       <TouchableOpacity
                         style={styles.modernActionButton}
-                        onPress={() => {
-                          const newDropdown = activeDropdown === program.id ? null : program.id;
-                          setActiveDropdown(newDropdown);
-                        }}
+                        onPress={() => setActiveDropdown(activeDropdown === program.id ? null : program.id)}
                       >
-                        <Ionicons name="ellipsis-horizontal" size={16} color="#6B7280" />
+                        <Ionicons name="ellipsis-horizontal" size={15} color="#6B7280" />
                       </TouchableOpacity>
                       {activeDropdown === program.id && (
                         <View style={styles.dropdownMenu}>
-                          <TouchableOpacity
-                            style={styles.dropdownItem}
-                            onPress={() => handleDeleteProgram(program)}
-                          >
-                            <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                          <TouchableOpacity style={styles.dropdownItem} onPress={() => handleDeleteProgram(program)}>
+                            <Ionicons name="trash-outline" size={15} color="#EF4444" />
                             <Text style={styles.dropdownItemTextDelete}>Delete</Text>
                           </TouchableOpacity>
                         </View>
@@ -273,18 +305,44 @@ export default function ProgramsTable({
                     </View>
                   </View>
                 </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={[styles.comingSoon, { paddingVertical: 48 }]}>
+              <View style={{
+                width: 56, height: 56, borderRadius: 12,
+                backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+              }}>
+                <Ionicons name="library-outline" size={28} color="#9CA3AF" />
               </View>
-            )) : (
-              <View style={styles.comingSoon}>
-                <Ionicons name="library-outline" size={48} color="#9CA3AF" />
-                <Text style={styles.comingSoonText}>No programs found</Text>
-              </View>
-            )}
-          </ScrollView>
+              <Text style={[styles.comingSoonText, { fontWeight: '600', color: '#374151' }]}>
+                {searchQuery ? 'No programs match your search' : 'No programs yet'}
+              </Text>
+              {searchQuery ? (
+                <Text style={[styles.comingSoonSubtext, { marginTop: 4 }]}>
+                  Try adjusting your search: "{searchQuery}"
+                </Text>
+              ) : (
+                <Text style={[styles.comingSoonSubtext, { marginTop: 4 }]}>
+                  Create your first program to get started
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Pagination */}
+          {totalCount > 0 && (
+            <Pagination
+              totalItems={totalCount}
+              currentPage={safePage}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              itemLabel="programs"
+            />
+          )}
         </View>
       )}
     </View>
   );
 }
-
-

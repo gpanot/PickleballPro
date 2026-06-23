@@ -105,3 +105,8 @@ node_modules
 node_modules
 node_modules
 .vercel
+
+# Supabase backup files
+Supabase_backup_files/
+*.backup.gz
+*.storage.zip

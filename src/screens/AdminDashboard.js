@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase';
 import AddCoachModal from '../components/AddCoachModal';
 import AddUserModal from '../components/AddUserModal';
 import WebCreateProgramModal from '../components/WebCreateProgramModal';
@@ -117,6 +117,9 @@ export default function AdminDashboard({ navigation }) {
   const [showRoutineProgramFilterDropdown, setShowRoutineProgramFilterDropdown] = useState(false);
   const [routineSortField, setRoutineSortField] = useState(null);
   const [routineSortDirection, setRoutineSortDirection] = useState('asc');
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [userToResetPassword, setUserToResetPassword] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
   
 
   // Web responsiveness
@@ -1297,7 +1300,7 @@ export default function AdminDashboard({ navigation }) {
             </View>
           </View>
 
-          <ScrollView style={styles.modernTableBody}>
+          <View>
             {filteredCategories.length > 0 ? filteredCategories.map((category, index) => {
               const programCount = programs.filter(p => p.category === category.name).length;
               
@@ -1411,7 +1414,7 @@ export default function AdminDashboard({ navigation }) {
                 <Text style={styles.comingSoonSubtext}>Categories are created automatically from programs</Text>
               </View>
             )}
-          </ScrollView>
+          </View>
         </View>
       </View>
     );
@@ -1496,9 +1499,9 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
             </View>
-            <ScrollView style={styles.modernTableBody}>
+            <View>
               {renderCoachRows()}
-            </ScrollView>
+            </View>
           </View>
         )}
       </View>
@@ -1543,7 +1546,13 @@ export default function AdminDashboard({ navigation }) {
     }
 
     return coachesToRender.map(coach => (
-      <View key={coach.id} style={styles.modernTableRow}>
+      <View 
+        key={coach.id} 
+        style={[
+          styles.modernTableRow,
+          activeDropdown === `coach_${coach.id}` && { zIndex: 1000, elevation: 10 }
+        ]}
+      >
         {/* Coach Info */}
         <View style={[styles.modernTableCell, { flex: 2 }]}>
           <View style={styles.coachInfoContainer}>
@@ -1735,37 +1744,10 @@ export default function AdminDashboard({ navigation }) {
           <Text style={styles.userStatLabel}>DUPR Users</Text>
           <Text style={styles.userStatSubtext}>Users with DUPR rating</Text>
         </View>
-        <View style={styles.userStatCard}>
-          <Text style={styles.userStatNumber}>{users.filter(u => u.focus_areas && u.focus_areas.length > 0).length}</Text>
-          <Text style={styles.userStatLabel}>Users with Skills</Text>
-          <Text style={styles.userStatSubtext}>Users with selected skills</Text>
-        </View>
       </View>
 
       {/* User Accounts Section */}
       <View style={styles.userAccountsSection}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionTitle}>User Accounts</Text>
-            <Text style={styles.sectionSubtitle}>
-              {searchQuery ? 
-                `${users.filter(user => 
-                  user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  user.email?.toLowerCase().includes(searchQuery.toLowerCase())
-                ).length} users found` : 
-                `${users.length} total users`
-              }
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.primaryButton}
-            onPress={() => setShowAddUserModal(true)}
-          >
-            <Ionicons name="add" size={20} color="white" />
-            <Text style={styles.primaryButtonText}>Add User</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Search and Filter Bar */}
         <View style={styles.searchFilterBar}>
           <View style={styles.searchContainer}>
@@ -1807,9 +1789,9 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Status</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Actions</Text>
             </View>
-            <ScrollView style={styles.modernTableBody}>
+            <View>
               {renderUserRows()}
-            </ScrollView>
+            </View>
           </View>
         )}
       </View>
@@ -1860,7 +1842,13 @@ export default function AdminDashboard({ navigation }) {
     };
 
     return filteredUsers.map(user => (
-      <View key={user.id} style={styles.modernTableRow}>
+      <View 
+        key={user.id} 
+        style={[
+          styles.modernTableRow,
+          activeDropdown === `user_${user.id}` && { zIndex: 1000, elevation: 10 }
+        ]}
+      >
         {/* User Info */}
         <View style={[styles.modernTableCell, { flex: 2 }]}>
           <View style={styles.userInfoContainer}>
@@ -1998,6 +1986,16 @@ export default function AdminDashboard({ navigation }) {
                   <TouchableOpacity 
                     style={styles.dropdownItem}
                     onPress={() => {
+                      console.log('🔑 Reset password clicked for user:', user.name, user.id);
+                      handleResetUserPassword(user);
+                    }}
+                  >
+                    <Ionicons name="key-outline" size={16} color="#F59E0B" />
+                    <Text style={styles.dropdownItemText}>Reset Pwd</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
                       console.log('🗑️ Delete button clicked for user:', user.name, user.id);
                       handleDeleteUser(user.id, user.name || user.email);
                     }}
@@ -2115,7 +2113,7 @@ export default function AdminDashboard({ navigation }) {
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Suggestions</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Date</Text>
             </View>
-            <ScrollView style={styles.modernTableBody}>
+            <View>
               {feedback.map(item => (
                 <View key={item.id} style={styles.modernTableRow}>
                   {/* Rating */}
@@ -2185,7 +2183,7 @@ export default function AdminDashboard({ navigation }) {
                   </View>
                 </View>
               ))}
-            </ScrollView>
+            </View>
           </View>
         )}
       </View>
@@ -2516,6 +2514,107 @@ export default function AdminDashboard({ navigation }) {
         }
       ]
     );
+  };
+
+  const handleResetUserPassword = async (user) => {
+    setActiveDropdown(null);
+    setUserToResetPassword(user);
+    setNewPassword('');
+    setShowResetPasswordModal(true);
+  };
+
+  const handleGenerateRandomPassword = () => {
+    const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
+    setNewPassword(randomPassword);
+  };
+
+  const handleConfirmPasswordReset = async () => {
+    if (!userToResetPassword || !newPassword) {
+      Alert.alert('Error', 'Please enter a password');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      console.log('🔑 Resetting password for user:', userToResetPassword.id);
+      
+      // Get the current session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('You must be logged in to reset passwords');
+      }
+
+      // Call the Edge Function to reset password using Supabase's functions API
+      const { data: functionResult, error: functionError } = await supabase.functions.invoke(
+        'reset-user-password',
+        {
+          body: {
+            userId: userToResetPassword.id,
+            newPassword: newPassword
+          }
+        }
+      );
+
+      if (functionError) {
+        // Check if function doesn't exist (not deployed)
+        if (functionError.message?.includes('404') || functionError.message?.includes('not found')) {
+          throw new Error('Password reset function is not deployed. Please deploy the Edge Function first. See EDGE_FUNCTION_DEPLOYMENT.md for instructions.');
+        }
+        throw new Error(functionError.message || 'Failed to reset password');
+      }
+
+      if (functionResult?.error) {
+        throw new Error(functionResult.error);
+      }
+
+      console.log('✅ Password reset successful');
+      
+      const passwordToCopy = newPassword;
+      
+      // Close modal first
+      setShowResetPasswordModal(false);
+      
+      Alert.alert(
+        'Password Reset Successful',
+        `New password for ${userToResetPassword.name || userToResetPassword.email}:\n\n${passwordToCopy}\n\nPlease save this password securely and share it with the user.`,
+        [
+          { 
+            text: 'Copy Password',
+            onPress: () => {
+              // For web, we can use the Clipboard API
+              if (Platform.OS === 'web' && navigator.clipboard) {
+                navigator.clipboard.writeText(passwordToCopy);
+                Alert.alert('Copied', 'Password copied to clipboard');
+              }
+            }
+          },
+          { text: 'OK' }
+        ]
+      );
+      
+      // Reset states
+      setUserToResetPassword(null);
+      setNewPassword('');
+      
+    } catch (error) {
+      console.error('💥 Error resetting password:', error);
+      Alert.alert('Error', `Failed to reset password: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelPasswordReset = () => {
+    setShowResetPasswordModal(false);
+    setUserToResetPassword(null);
+    setNewPassword('');
   };
 
   const handleProgramCreated = () => {
@@ -3086,7 +3185,6 @@ export default function AdminDashboard({ navigation }) {
           }}
         >
           <TouchableOpacity 
-            style={{ flex: 1 }} 
             activeOpacity={1} 
             onPress={() => {
               setActiveDropdown(null);
@@ -3310,6 +3408,93 @@ export default function AdminDashboard({ navigation }) {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <Text style={styles.deleteModalConfirmText}>Reset Coach</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="key" size={24} color="#F59E0B" />
+              <Text style={styles.deleteModalTitle}>Reset Password</Text>
+            </View>
+            
+            <Text style={styles.deleteModalMessage}>
+              Set a new password for "{userToResetPassword?.name || userToResetPassword?.email}"
+            </Text>
+            
+            <View style={{ marginTop: 20, marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={{ fontSize: 14, fontWeight: '500', color: '#374151', marginRight: 10 }}>
+                  New Password
+                </Text>
+                <TouchableOpacity
+                  onPress={handleGenerateRandomPassword}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    backgroundColor: '#F3F4F6',
+                    borderRadius: 6,
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Ionicons name="shuffle" size={14} color="#6B7280" style={{ marginRight: 4 }} />
+                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
+                    Generate
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#D1D5DB',
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  fontSize: 14,
+                  backgroundColor: '#FFFFFF',
+                  fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'
+                }}
+                placeholder="Enter new password (min. 6 characters)"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                autoFocus={true}
+                placeholderTextColor="#9CA3AF"
+              />
+              {newPassword.length > 0 && newPassword.length < 6 && (
+                <Text style={{ fontSize: 12, color: '#EF4444', marginTop: 4 }}>
+                  Password must be at least 6 characters
+                </Text>
+              )}
+            </View>
+            
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity 
+                style={styles.deleteModalCancelButton}
+                onPress={handleCancelPasswordReset}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[
+                  styles.deleteModalConfirmButton,
+                  { backgroundColor: '#F59E0B' },
+                  (!newPassword || newPassword.length < 6) && { opacity: 0.5 }
+                ]}
+                onPress={handleConfirmPasswordReset}
+                disabled={loading || !newPassword || newPassword.length < 6}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.deleteModalConfirmText}>Reset Password</Text>
                 )}
               </TouchableOpacity>
             </View>
