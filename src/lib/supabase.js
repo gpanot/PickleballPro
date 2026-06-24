@@ -465,8 +465,12 @@ export const createLogbookEntry = async (entryData, userId = null) => {
         date: entryData.date,
         hours: entryData.hours,
         session_type: entryData.sessionType,
-        training_focus: entryData.trainingFocus,
-        difficulty: entryData.difficulty,
+        training_focus: Array.isArray(entryData.trainingFocus)
+          ? JSON.stringify(entryData.trainingFocus)
+          : entryData.trainingFocus,
+        difficulty: Array.isArray(entryData.difficulty)
+          ? JSON.stringify(entryData.difficulty)
+          : entryData.difficulty,
         feeling: entryData.feeling,
         notes: entryData.notes,
         location: entryData.location,
@@ -542,8 +546,12 @@ export const updateLogbookEntry = async (id, entryData, userId = null) => {
         date: entryData.date,
         hours: entryData.hours,
         session_type: entryData.sessionType,
-        training_focus: entryData.trainingFocus,
-        difficulty: entryData.difficulty,
+        training_focus: Array.isArray(entryData.trainingFocus)
+          ? JSON.stringify(entryData.trainingFocus)
+          : entryData.trainingFocus,
+        difficulty: Array.isArray(entryData.difficulty)
+          ? JSON.stringify(entryData.difficulty)
+          : entryData.difficulty,
         feeling: entryData.feeling,
         notes: entryData.notes,
         location: entryData.location,
