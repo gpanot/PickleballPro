@@ -469,11 +469,6 @@ export const createLogbookEntry = async (entryData, userId = null) => {
     exercise_details: entryData.exerciseDetails || null
   };
 
-  console.log('🟡 [DB INSERT] Payload being sent to Supabase:', JSON.stringify(payload, null, 2));
-  console.log('🟡 [DB INSERT] userId:', userId, '| typeof userId:', typeof userId);
-  console.log('🟡 [DB INSERT] training_focus value:', payload.training_focus, '| type:', typeof payload.training_focus);
-  console.log('🟡 [DB INSERT] difficulty value:', payload.difficulty, '| type:', typeof payload.difficulty);
-
   try {
     const { data, error } = await supabase
       .from('logbook_entries')
@@ -482,18 +477,14 @@ export const createLogbookEntry = async (entryData, userId = null) => {
       .single();
 
     if (error) {
-      console.error('🔴 [DB INSERT] FAILED — Supabase error:', JSON.stringify(error));
-      console.error('🔴 [DB INSERT] error.code:', error.code);
-      console.error('🔴 [DB INSERT] error.message:', error.message);
-      console.error('🔴 [DB INSERT] error.details:', error.details);
-      console.error('🔴 [DB INSERT] error.hint:', error.hint);
+      console.error('🏓 [SUPABASE] Error creating logbook entry:', error);
       throw error;
     }
     
-    console.log('🟢 [DB INSERT] SUCCESS — entry saved with id:', data?.id);
+    console.log('🏓 [SUPABASE] ✅ Logbook entry created successfully:', data?.id);
     return { data, error: null };
   } catch (error) {
-    console.error('🔴 [DB INSERT] EXCEPTION caught:', error?.message || error);
+    console.error('🏓 [SUPABASE] ❌ Failed to create logbook entry:', error?.message || error);
     return { data: null, error };
   }
 };
@@ -505,20 +496,14 @@ export const getLogbookEntries = async (userId) => {
       return { data: [], error: null };
     }
 
-    console.log('🔍 [DB SELECT] Fetching logbook entries for userId:', userId);
-
     const { data, error } = await supabase
       .from('logbook_entries')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false });
 
-    if (error) {
-      console.error('🔴 [DB SELECT] FAILED:', JSON.stringify(error));
-      throw error;
-    }
+    if (error) throw error;
     
-    console.log('🟢 [DB SELECT] Found', data?.length ?? 0, 'entries in Supabase for user', userId);
     return { data, error: null };
   } catch (error) {
     console.error('Error fetching logbook entries:', error);

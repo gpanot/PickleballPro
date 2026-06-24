@@ -164,11 +164,10 @@ export const LogbookProvider = ({ children }) => {
 
       // Try to save to Supabase first - pass user ID
       const userId = user?.id || null;
-      console.log('🆔 [LogbookContext] user object:', JSON.stringify(user));
-      console.log('🆔 [LogbookContext] Using user ID:', userId, '| auth session valid:', !!user);
+      console.log('🆔 [LogbookContext] Using user ID:', userId);
       const { data: savedEntry, error } = await createLogbookEntry(supabaseEntry, userId);
       
-      console.log('📥 [LogbookContext] Supabase response — savedEntry:', savedEntry ? savedEntry.id : 'NULL', '| error:', error ? JSON.stringify(error) : 'none');
+      console.log('📥 [LogbookContext] Supabase response:', { savedEntry, error });
       
       if (savedEntry && !error) {
         console.log('✅ [LogbookContext] Successfully saved to Supabase!');
