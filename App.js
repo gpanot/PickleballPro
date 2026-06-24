@@ -70,6 +70,19 @@ function AppContent() {
   const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+
+    document.documentElement.style.height = '100%';
+    document.body.style.height = '100%';
+    document.body.style.margin = '0';
+
+    const root = document.getElementById('root');
+    if (root) {
+      root.style.height = '100%';
+    }
+  }, []);
+
   // Add a timeout fallback for auth loading
   useEffect(() => {
     if (!showSplash && authLoading) {
@@ -200,6 +213,7 @@ function AppContent() {
 
   return (
     <NavigationContainer
+      style={{ flex: 1 }}
       ref={(navigationRef) => {
         // Initialize deep link handling when navigation is ready
         if (navigationRef) {
@@ -210,7 +224,7 @@ function AppContent() {
       }}
     >
       <StatusBar style="auto" backgroundColor="transparent" translucent />
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 } }}>
         {isAuthenticated ? (
           // AUTHENTICATED USER FLOW - Always show Main app
           <>
@@ -230,8 +244,8 @@ function AppContent() {
             <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
             <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
             <Stack.Screen name="AddExercise" component={AddExerciseScreen} />
-            <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
-            <Stack.Screen name="EditTrainingSession" component={EditTrainingSessionScreen} />
+            <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} options={{ cardStyle: { flex: 1 } }} />
+            <Stack.Screen name="EditTrainingSession" component={EditTrainingSessionScreen} options={{ cardStyle: { flex: 1 } }} />
             <Stack.Screen name="LogConfirmation" component={LogConfirmationScreen} />
             <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
             <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
@@ -380,7 +394,7 @@ function AppContent() {
                 />
                 <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} />
                 <Stack.Screen name="ExercisePicker" component={ExercisePickerScreen} />
-                <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} />
+                <Stack.Screen name="AddTrainingSession" component={AddTrainingSessionScreen} options={{ cardStyle: { flex: 1 } }} />
                 <Stack.Screen name="ProgramDetail" component={ProgramDetailScreen} />
                 <Stack.Screen name="RoutineDetail" component={RoutineDetailScreen} />
                 <Stack.Screen 
@@ -450,7 +464,7 @@ function AppContent() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={{ flex: 1 }}>
         <AuthProvider>
           <UserProvider>
             <PreloadProvider>

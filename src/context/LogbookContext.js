@@ -25,31 +25,38 @@ export const LogbookProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth(); // Get current authenticated user
 
-  // Load entries from Supabase on mount (with AsyncStorage fallback)
+  // On mount: load from local AsyncStorage immediately so the UI is never blank
   useEffect(() => {
-    loadLogbookEntries();
+    const loadLocal = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          setLogbookEntries(JSON.parse(stored));
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadLocal();
   }, []);
 
-  // Reload entries when user changes
+  // Once the authenticated user is available, sync from Supabase
   useEffect(() => {
     if (user?.id) {
-      console.log('🔄 [LogbookContext] User changed, reloading entries for user:', user.id);
+      console.log('🔄 [LogbookContext] User available, syncing from Supabase for:', user.id);
       loadLogbookEntries();
     }
   }, [user?.id]);
 
   const loadLogbookEntries = async () => {
     try {
-      // Check if we have a user ID before attempting to load
-      if (!user?.id) {
-        console.log('🔄 [LogbookContext] No user ID available, skipping Supabase load');
-        setIsLoading(false);
-        return;
-      }
+      if (!user?.id) return;
 
       console.log('🔄 [LogbookContext] Loading logbook entries for user:', user.id);
       
-      // First try to load from Supabase with user ID
+      // Load from Supabase
       const { data: supabaseEntries, error } = await getLogbookEntries(user.id);
       
       if (supabaseEntries && !error) {

@@ -474,6 +474,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+    ...(Platform.OS === 'web' && {
+      height: '100%',
+      overflow: 'hidden',
+      minHeight: 0,
+    }),
   },
   header: {
     flexDirection: 'row',
@@ -507,6 +512,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    ...(Platform.OS === 'web' && {
+      overflowY: 'auto',
+      minHeight: 0,
+    }),
   },
   scrollContent: {
     padding: 20,

@@ -1039,13 +1039,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
     ...(Platform.OS === 'web' && {
-      height: '100vh',
+      height: '100%',
       overflow: 'hidden',
+      minHeight: 0,
     }),
   },
   headerSafeArea: {
     backgroundColor: 'white',
-    zIndex: 1000,
   },
   // Top Bar styles
   topBar: {
@@ -1076,6 +1076,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    ...(Platform.OS === 'web' && {
+      overflowY: 'auto',
+      minHeight: 0,
+    }),
   },
   scrollContent: {
     flexGrow: 1,
