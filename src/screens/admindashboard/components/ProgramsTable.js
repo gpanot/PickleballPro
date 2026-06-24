@@ -6,9 +6,14 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Pagination from './Pagination';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -90,7 +95,8 @@ export default function ProgramsTable({
           <Text style={styles.loadingText}>Loading programs...</Text>
         </View>
       ) : (
-        <View style={styles.modernTable}>
+        <ScrollView horizontal={IS_MOBILE} showsHorizontalScrollIndicator={IS_MOBILE}>
+        <View style={[styles.modernTable, IS_MOBILE && { minWidth: 700 }]}>
           {/* Table header */}
           <View style={styles.modernTableHeader}>
             <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Program</Text>
@@ -342,6 +348,7 @@ export default function ProgramsTable({
             />
           )}
         </View>
+        </ScrollView>
       )}
     </View>
   );

@@ -9,6 +9,7 @@ import {
   TextInput,
   Platform,
   Image,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -122,9 +123,12 @@ export default function AdminDashboard({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   
 
-  // Web responsiveness
+  // Responsive layout
   const isWeb = Platform.OS === 'web';
-  const sidebarWidth = sidebarCollapsed ? 80 : 280;
+  const screenWidth = Dimensions.get('window').width;
+  const isMobile = Platform.OS !== 'web' || screenWidth < 768;
+  const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 80 : 280);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -821,34 +825,28 @@ export default function AdminDashboard({ navigation }) {
     }
   };
 
-  const handleSignOut = async () => {
-    console.log('🔴 handleSignOut called');
-    console.log('🔴 navigation object:', navigation);
-    
+  const handleSignOut = () => {
     if (!navigation) {
-      console.error('❌ Navigation object is undefined!');
       Alert.alert('Error', 'Navigation is not available');
       return;
     }
-    
+
     Alert.alert(
       'Exit Admin Dashboard',
       'Return to your profile?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Exit', 
+        {
+          text: 'Exit',
           style: 'default',
           onPress: () => {
-            console.log('🔴 Exit pressed, navigating back...');
             try {
               navigation.goBack();
-              console.log('✅ Navigation goBack() called successfully');
             } catch (error) {
-              console.error('❌ Error navigating back:', error);
+              // no-op
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -3159,9 +3157,11 @@ export default function AdminDashboard({ navigation }) {
         profile={profile}
         user={user}
         onSignOut={handleSignOut}
+        mobileDrawerOpen={mobileDrawerOpen}
+        onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
         styles={styles}
       />
-      <View style={[styles.mainContent, { marginLeft: sidebarWidth }]}>
+      <View style={[styles.mainContent, !isMobile && { marginLeft: sidebarWidth }]}>
         <AdminTopBar
           activeTab={activeTab}
           sidebarWidth={sidebarWidth}
@@ -3172,6 +3172,7 @@ export default function AdminDashboard({ navigation }) {
           setShowCreateExerciseModal={setShowCreateExerciseModal}
           setShowAddCoachModal={setShowAddCoachModal}
           setShowAddUserModal={setShowAddUserModal}
+          onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
           styles={styles}
         />
         <ScrollView 

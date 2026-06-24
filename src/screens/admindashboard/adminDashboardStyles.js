@@ -11,6 +11,7 @@ const styles = StyleSheet.create({
       height: '100vh',
       overflow: 'hidden',
     }),
+    // Mobile: full screen column stacking handled by mainContent taking full width
   },
   
   // Sidebar Styles
@@ -193,13 +194,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 20,
+    paddingHorizontal: screenWidth < 768 ? 12 : 32,
+    paddingVertical: screenWidth < 768 ? 12 : 20,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f4f4f5', // zinc-100
+    borderBottomColor: '#f4f4f5',
     ...(Platform.OS === 'web' && {
-      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)', // Subtle shadow
+      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     }),
   },
   topBarLeft: {
@@ -283,15 +284,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 32,
+    padding: screenWidth < 768 ? 12 : 32,
   },
   
   // Modern Stats Cards
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 24,
-    marginBottom: 32,
+    gap: screenWidth < 768 ? 12 : 24,
+    marginBottom: screenWidth < 768 ? 16 : 32,
   },
   modernStatCard: {
     backgroundColor: '#FFFFFF',
@@ -945,11 +946,11 @@ const styles = StyleSheet.create({
   },
   modernTableHeader: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
+    paddingHorizontal: screenWidth < 768 ? 12 : 24,
     paddingVertical: 12,
-    backgroundColor: '#fafafa', // muted background
+    backgroundColor: '#fafafa',
     borderBottomWidth: 1,
-    borderBottomColor: '#e4e4e7', // zinc-300
+    borderBottomColor: '#e4e4e7',
   },
   modernTableHeaderText: {
     fontSize: 12,
@@ -967,8 +968,8 @@ const styles = StyleSheet.create({
   },
   modernTableRow: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: screenWidth < 768 ? 10 : 24,
+    paddingVertical: screenWidth < 768 ? 12 : 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
     alignItems: 'center',

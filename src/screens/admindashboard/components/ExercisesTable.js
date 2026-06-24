@@ -2,14 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView, // used for filter dropdowns
+  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Pagination from './Pagination';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 const DEFAULT_PAGE_SIZE = 25;
 
 export default function ExercisesTable({
@@ -209,7 +212,8 @@ export default function ExercisesTable({
             <Text style={styles.loadingText}>Loading exercises...</Text>
           </View>
         ) : (
-          <View style={styles.modernTable}>
+          <ScrollView horizontal={IS_MOBILE} showsHorizontalScrollIndicator={IS_MOBILE}>
+          <View style={[styles.modernTable, IS_MOBILE && { minWidth: 700 }]}>
             {/* Table header */}
             <View style={styles.modernTableHeader}>
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Exercise</Text>
@@ -424,6 +428,7 @@ export default function ExercisesTable({
               />
             )}
           </View>
+          </ScrollView>
         )}
       </View>
     </View>

@@ -30,86 +30,86 @@ export default function SplashScreen({ onComplete }) {
     // Start all animations
     startAnimations();
 
-    // Complete splash after 3 seconds
+    // Complete splash after 1.8 seconds (reduced by 40% from 3s)
     const timer = setTimeout(() => {
       if (onComplete) {
         onComplete();
       }
-    }, 3000);
+    }, 1800);
 
     return () => clearTimeout(timer);
   }, []);
 
   const startAnimations = () => {
-    // Fade in animation
+    // Fade in animation (300ms, was 500ms)
     Animated.timing(fadeValue, {
       toValue: 1,
-      duration: 500,
+      duration: 300,
       useNativeDriver: true,
     }).start();
 
-    // Scale up animation
+    // Scale up animation (480ms, was 800ms)
     Animated.timing(scaleValue, {
       toValue: 1,
-      duration: 800,
+      duration: 480,
       useNativeDriver: true,
     }).start();
 
-    // Text fade in with delay
+    // Text fade in with delay (delay 600ms, duration 480ms; was 1000ms / 800ms)
     Animated.timing(textFadeValue, {
       toValue: 1,
-      duration: 800,
-      delay: 1000,
+      duration: 480,
+      delay: 600,
       useNativeDriver: true,
     }).start();
 
-    // Glow pulse animation
+    // Glow pulse animation (600ms each, was 1000ms)
     const glowAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(glowPulse, {
           toValue: 0.8,
-          duration: 1000,
+          duration: 600,
           useNativeDriver: true,
         }),
         Animated.timing(glowPulse, {
           toValue: 0.3,
-          duration: 1000,
+          duration: 600,
           useNativeDriver: true,
         }),
       ])
     );
 
-    // Bouncing animation - continuous
+    // Bouncing animation (360ms each, was 600ms)
     const bounceAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(bounceValue, {
           toValue: -50,
-          duration: 600,
+          duration: 360,
           useNativeDriver: true,
         }),
         Animated.timing(bounceValue, {
           toValue: 0,
-          duration: 600,
+          duration: 360,
           useNativeDriver: true,
         }),
       ])
     );
 
-    // Rotation animation - continuous slow spin
+    // Rotation animation (1800ms per spin, was 3000ms)
     const rotationAnimation = Animated.loop(
       Animated.timing(rotationValue, {
         toValue: 1,
-        duration: 3000,
+        duration: 1800,
         useNativeDriver: true,
       })
     );
 
-    // Start continuous animations with slight delay
+    // Start continuous animations (300ms delay, was 500ms)
     setTimeout(() => {
       bounceAnimation.start();
       rotationAnimation.start();
       glowAnimation.start();
-    }, 500);
+    }, 300);
   };
 
   // Interpolate rotation
