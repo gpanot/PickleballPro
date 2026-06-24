@@ -1390,6 +1390,7 @@ export default function ProgramScreen({ navigation, route }) {
       <View style={styles.loadingContainer}>
         <Animated.Image
           source={require('../../assets/images/icon_ball.png')}
+          resizeMode="contain"
           style={[
             styles.loadingBall,
             {
@@ -1440,6 +1441,7 @@ export default function ProgramScreen({ navigation, route }) {
           <View style={styles.aiGenerationContent}>
             <Animated.Image
               source={require('../../assets/images/icon_ball.png')}
+              resizeMode="contain"
               style={[
                 styles.aiGenerationBall,
                 {
@@ -1513,6 +1515,7 @@ export default function ProgramScreen({ navigation, route }) {
           <View style={styles.loadingContainer}>
             <Animated.Image
               source={require('../../assets/images/icon_ball.png')}
+              resizeMode="contain"
               style={[
                 styles.loadingBall,
                 {
@@ -2015,6 +2018,7 @@ export default function ProgramScreen({ navigation, route }) {
         <View style={styles.loadingContainer}>
           <Animated.Image
             source={require('../../assets/images/icon_ball.png')}
+            resizeMode="contain"
             style={[
               styles.loadingBall,
               {
@@ -2938,7 +2942,6 @@ const styles = StyleSheet.create({
   loadingBall: {
     width: 60,
     height: 60,
-    resizeMode: 'contain',
   },
   loadingText: {
     fontSize: 16,
@@ -2971,7 +2974,6 @@ const styles = StyleSheet.create({
   aiGenerationBall: {
     width: 80,
     height: 80,
-    resizeMode: 'contain',
     marginBottom: 24,
   },
   aiGenerationTitle: {

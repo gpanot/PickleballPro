@@ -766,10 +766,9 @@ export const checkCoachAccess = async (userId) => {
       .select('id, user_id')
       .eq('user_id', userId)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      // User is not a coach
+    if (error || !data) {
       return { isCoach: false, coachId: null, error: null };
     }
 
