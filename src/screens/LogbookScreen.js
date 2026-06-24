@@ -189,11 +189,9 @@ export default function LogbookScreen({ navigation }) {
         <>
           {/* Total Hours Card */}
           <View style={styles.totalHoursCard}>
-            <Text style={styles.totalHoursValue}>{summary.totalHours}h</Text>
+            <Text style={styles.totalHoursValue}>{`${summary.totalHours}h`}</Text>
             <Text style={styles.totalHoursLabel}>Total Hours</Text>
-            <Text style={styles.totalHoursSubtext}>
-              {summary.totalSessions} sessions since {formatDate(summary.firstSessionDate)}
-            </Text>
+            <Text style={styles.totalHoursSubtext}>{`${summary.totalSessions} sessions since ${formatDate(summary.firstSessionDate)}`}</Text>
           </View>
 
           {/* Session Type Hours */}
@@ -211,7 +209,7 @@ export default function LogbookScreen({ navigation }) {
                         <Text style={[styles.sessionTypeHoursLabel, { color: typeData.color }]}>
                           {typeData.label}
                         </Text>
-                        <Text style={styles.sessionTypeHoursValue}>{hours}h</Text>
+                        <Text style={styles.sessionTypeHoursValue}>{`${hours}h`}</Text>
                       </View>
                     );
                   })}
@@ -233,7 +231,7 @@ export default function LogbookScreen({ navigation }) {
                         <Text style={[styles.skillName, { color: skillData.color }]}>
                           {skillData.label}
                         </Text>
-                        <Text style={styles.skillCount}>{item.count}x</Text>
+                        <Text style={styles.skillCount}>{`${item.count}x`}</Text>
                       </View>
                     );
                   })}
@@ -253,7 +251,7 @@ export default function LogbookScreen({ navigation }) {
                         <Text style={[styles.skillName, { color: skillData.color }]}>
                           {skillData.label}
                         </Text>
-                        <Text style={styles.skillCount}>{item.count}x</Text>
+                        <Text style={styles.skillCount}>{`${item.count}x`}</Text>
                       </View>
                     );
                   })}
@@ -382,7 +380,7 @@ export default function LogbookScreen({ navigation }) {
                   <View style={styles.entryHeader}>
                     <View style={styles.entryDateContainer}>
                       <Text style={styles.entryDate}>{formatDate(entry.date)}</Text>
-                      <Text style={styles.entryHours}>{entry.hours}h</Text>
+                      <Text style={styles.entryHours}>{`${entry.hours}h`}</Text>
                     </View>
                     <View style={styles.entryMetadata}>
                       <View style={styles.entrySessionType}>

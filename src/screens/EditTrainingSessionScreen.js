@@ -327,7 +327,7 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
                 </TouchableOpacity>
                 
                 <View style={styles.hoursDisplay}>
-                  <Text style={styles.hoursValue}>{hours}h</Text>
+                  <Text style={styles.hoursValue}>{`${hours}h`}</Text>
                 </View>
                 
                 <TouchableOpacity

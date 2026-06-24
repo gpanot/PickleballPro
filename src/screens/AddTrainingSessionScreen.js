@@ -173,7 +173,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
               >
                 <Text style={styles.hoursBtnText}>−</Text>
               </TouchableOpacity>
-              <Text style={styles.hoursValue}>{hours}h</Text>
+              <Text style={styles.hoursValue}>{`${hours}h`}</Text>
               <TouchableOpacity
                 style={[styles.hoursBtn, hours >= 5 && styles.hoursBtnDisabled]}
                 onPress={incrementHours}
