@@ -1534,6 +1534,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
   },
+  userStudentCode: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 1,
+  },
   tierBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,

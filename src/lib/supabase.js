@@ -816,16 +816,60 @@ export const getStudentCode = async (userId) => {
 };
 
 export const addStudentByCode = async (coachId, studentCode) => {
+  const normalizedCode = String(studentCode ?? '').trim();
+  console.log('[addStudentByCode] start', { coachId, studentCode: normalizedCode });
+
   try {
+    if (!coachId) {
+      console.warn('[addStudentByCode] missing coachId');
+      return {
+        data: null,
+        error: {
+          message: 'Coach profile not loaded. Please go back and reopen Academy.',
+          code: 'MISSING_COACH_ID',
+        },
+      };
+    }
+
     // Find user by student code
     const { data: studentData, error: studentError } = await supabase
       .from('users')
       .select('id, name, email, student_code')
-      .eq('student_code', studentCode)
+      .eq('student_code', normalizedCode)
       .maybeSingle();
 
-    if (studentError || !studentData) {
-      return { data: null, error: { message: 'Invalid student code' } };
+    console.log('[addStudentByCode] lookup result', {
+      coachId,
+      studentCode: normalizedCode,
+      studentError: studentError?.message ?? null,
+      studentErrorCode: studentError?.code ?? null,
+      studentErrorDetails: studentError?.details ?? null,
+      found: !!studentData,
+      studentId: studentData?.id ?? null,
+      studentName: studentData?.name ?? null,
+    });
+
+    if (studentError) {
+      return {
+        data: null,
+        error: {
+          message: `Database error while looking up student code: ${studentError.message}`,
+          code: studentError.code || 'LOOKUP_ERROR',
+          debug: { step: 'lookup', coachId, studentCode: normalizedCode },
+        },
+      };
+    }
+
+    if (!studentData) {
+      return {
+        data: null,
+        error: {
+          message:
+            'No student found with this code. The player may not have a code yet — ask them to open Profile once so it is generated.',
+          code: 'STUDENT_NOT_FOUND',
+          debug: { step: 'lookup', coachId, studentCode: normalizedCode },
+        },
+      };
     }
 
     // Check if relationship already exists (active or inactive)
@@ -836,7 +880,25 @@ export const addStudentByCode = async (coachId, studentCode) => {
       .eq('student_id', studentData.id)
       .maybeSingle();
 
-    if (existingRelation && !relationCheckError) {
+    console.log('[addStudentByCode] relationship check', {
+      coachId,
+      studentId: studentData.id,
+      existingRelation,
+      relationCheckError: relationCheckError?.message ?? null,
+    });
+
+    if (relationCheckError) {
+      return {
+        data: null,
+        error: {
+          message: `Database error checking coach-student link: ${relationCheckError.message}`,
+          code: relationCheckError.code || 'RELATION_CHECK_ERROR',
+          debug: { step: 'relation_check', coachId, studentId: studentData.id },
+        },
+      };
+    }
+
+    if (existingRelation) {
       // If relationship exists and is inactive, reactivate it
       if (!existingRelation.is_active) {
         const { data, error: reactivateError } = await supabase
@@ -865,6 +927,14 @@ export const addStudentByCode = async (coachId, studentCode) => {
       })
       .select()
       .single();
+
+    console.log('[addStudentByCode] insert result', {
+      coachId,
+      studentId: studentData.id,
+      success: !error,
+      insertError: error?.message ?? null,
+      insertErrorCode: error?.code ?? null,
+    });
 
     if (error) throw error;
 

@@ -215,17 +215,30 @@ export default function CoachDashboardScreen({ navigation }) {
   };
 
   const handleAddStudent = async () => {
-    if (!studentCodeInput.trim() || studentCodeInput.length !== 4) {
+    const code = studentCodeInput.trim();
+
+    if (!code || code.length !== 4) {
       Alert.alert('Invalid Code', 'Please enter a valid 4-digit student code.');
+      return;
+    }
+
+    if (!coachId) {
+      console.warn('[Academy] handleAddStudent called without coachId');
+      Alert.alert('Error', 'Coach profile not loaded yet. Please wait and try again.');
       return;
     }
 
     setAddingStudent(true);
     try {
-      const { data, error } = await addStudentByCode(coachId, studentCodeInput);
-      
+      console.log('[Academy] add student attempt', { coachId, code });
+      const { data, error } = await addStudentByCode(coachId, code);
+
       if (error) {
-        Alert.alert('Error', error.message || 'Failed to add student.');
+        console.warn('[Academy] add student failed', error);
+        const debugSuffix = __DEV__ && error.debug
+          ? `\n\nDebug: ${JSON.stringify(error.debug)}`
+          : '';
+        Alert.alert('Error', `${error.message || 'Failed to add student.'}${debugSuffix}`);
         return;
       }
       

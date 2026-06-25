@@ -363,46 +363,104 @@ export default function AdminDashboard({ navigation }) {
           users:created_by(name, email)
         `)
         .order('created_at', { ascending: false })
-        .limit(100); // Increase limit to show more exercises
+        .limit(100);
 
       if (error) throw error;
-      
+
       const exercisesData = data || [];
       const exerciseIds = exercisesData.map(ex => ex.id).filter(Boolean);
 
       let routineLinksByExercise = {};
 
       if (exerciseIds.length > 0) {
-        const { data: routineLinks, error: routineLinksError } = await supabase
-          .from('routine_exercises')
-          .select(`
-            exercise_id,
-            routines!inner(
-              id,
-              name,
-              programs!inner(
-                id,
-                name
-              )
-            )
-          `)
-          .in('exercise_id', exerciseIds);
+        // Flat queries avoid nested-join + RLS issues that hide links in the admin table.
+        // Batch .in() to avoid URL length limits with many UUIDs.
+        const BATCH_SIZE = 40;
+        const routineLinks = [];
 
-        if (routineLinksError) {
-          console.error('Error fetching routine links for exercises:', routineLinksError);
-        } else {
-          routineLinksByExercise = routineLinks.reduce((acc, link) => {
-            if (!link || !link.exercise_id) {
-              return acc;
+        for (let i = 0; i < exerciseIds.length; i += BATCH_SIZE) {
+          const batch = exerciseIds.slice(i, i + BATCH_SIZE);
+          const { data: batchLinks, error: batchError } = await supabase
+            .from('routine_exercises')
+            .select('id, exercise_id, routine_id')
+            .in('exercise_id', batch);
+
+          if (batchError) {
+            console.error('[fetchExercises] routine_exercises batch failed', {
+              batchIndex: i / BATCH_SIZE,
+              batchSize: batch.length,
+              error: batchError.message,
+              code: batchError.code,
+            });
+          } else if (batchLinks?.length) {
+            routineLinks.push(...batchLinks);
+          }
+        }
+
+        console.log('[fetchExercises] routine_exercises links', {
+          exerciseCount: exerciseIds.length,
+          linkCount: routineLinks.length,
+        });
+
+        if (routineLinks.length > 0) {
+          const routineIds = [...new Set(routineLinks.map(link => link.routine_id).filter(Boolean))];
+
+          const { data: routinesData, error: routinesError } = await supabase
+            .from('routines')
+            .select('id, name, program_id')
+            .in('id', routineIds);
+
+          console.log('[fetchExercises] routines lookup', {
+            routineIds: routineIds.length,
+            routinesFound: routinesData?.length ?? 0,
+            error: routinesError?.message ?? null,
+          });
+
+          if (routinesError) {
+            console.error('[fetchExercises] Failed to load routines for links:', routinesError);
+          }
+
+          const programIds = [...new Set((routinesData || []).map(r => r.program_id).filter(Boolean))];
+          let programsById = {};
+
+          if (programIds.length > 0) {
+            const { data: programsData, error: programsError } = await supabase
+              .from('programs')
+              .select('id, name')
+              .in('id', programIds);
+
+            console.log('[fetchExercises] programs lookup', {
+              programIds: programIds.length,
+              programsFound: programsData?.length ?? 0,
+              error: programsError?.message ?? null,
+            });
+
+            if (programsError) {
+              console.error('[fetchExercises] Failed to load programs for links:', programsError);
+            } else {
+              programsById = (programsData || []).reduce((acc, program) => {
+                acc[program.id] = program;
+                return acc;
+              }, {});
             }
+          }
 
-            const routine = link.routines || {};
-            const program = routine.programs || {};
+          const routinesById = (routinesData || []).reduce((acc, routine) => {
+            acc[routine.id] = routine;
+            return acc;
+          }, {});
+
+          routineLinksByExercise = routineLinks.reduce((acc, link) => {
+            if (!link?.exercise_id) return acc;
+
+            const routine = routinesById[link.routine_id];
+            const program = routine?.program_id ? programsById[routine.program_id] : null;
 
             const routineEntry = {
-              id: routine.id || null,
-              name: routine.name || null,
-              program: program.id ? { id: program.id, name: program.name || null } : null
+              id: routine?.id || link.routine_id,
+              name: routine?.name || null,
+              routine_exercise_id: link.id,
+              program: program ? { id: program.id, name: program.name } : null,
             };
 
             if (!acc[link.exercise_id]) {
@@ -415,7 +473,7 @@ export default function AdminDashboard({ navigation }) {
       }
 
       const exercisesWithRelations = exercisesData.map(exercise => {
-        const linkedRoutines = (routineLinksByExercise[exercise.id] || []).filter(r => r.id && r.name);
+        const linkedRoutines = (routineLinksByExercise[exercise.id] || []).filter(r => r.id);
         const sortedRoutines = [...linkedRoutines].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         const programMap = new Map();
@@ -433,8 +491,17 @@ export default function AdminDashboard({ navigation }) {
           linkedRoutines: sortedRoutines,
           linkedPrograms: sortedPrograms,
           primaryRoutineName: sortedRoutines[0]?.name || null,
-          primaryProgramName: sortedPrograms[0]?.name || null
+          primaryProgramName: sortedPrograms[0]?.name || null,
+          routine_id: sortedRoutines[0]?.id || null,
+          program_id: sortedPrograms[0]?.id || null,
+          routine_exercise_id: sortedRoutines[0]?.routine_exercise_id || null,
         };
+      });
+
+      const linkedCount = exercisesWithRelations.filter(ex => ex.linkedRoutines.length > 0).length;
+      console.log('[fetchExercises] done', {
+        total: exercisesWithRelations.length,
+        withRoutineLinks: linkedCount,
       });
 
       setExercises(exercisesWithRelations);
@@ -567,7 +634,8 @@ export default function AdminDashboard({ navigation }) {
           onboarding_completed,
           time_commitment,
           focus_areas,
-          rating_type
+          rating_type,
+          student_code
         `)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -1800,7 +1868,8 @@ export default function AdminDashboard({ navigation }) {
     // Filter users based on search query
     const filteredUsers = users.filter(user => 
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.student_code?.toString().includes(searchQuery)
     );
 
     // Helper function to format date
@@ -1865,6 +1934,9 @@ export default function AdminDashboard({ navigation }) {
               <Text style={styles.userName}>{user.name || 'No Name'}</Text>
               <Text style={styles.userEmail}>{user.email}</Text>
               <Text style={styles.userJoined}>Joined {formatDate(user.created_at)}</Text>
+              {user.student_code ? (
+                <Text style={styles.userStudentCode}>Code {user.student_code}</Text>
+              ) : null}
             </View>
           </View>
         </View>

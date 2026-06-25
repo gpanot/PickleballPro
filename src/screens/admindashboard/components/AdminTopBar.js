@@ -5,14 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 
-const getPageInfo = (activeTab) => {
+const getPageTitle = (activeTab) => {
   switch (activeTab) {
-    case 'content':   return { title: 'Content Management', subtitle: 'Manage training programs, exercises, and routines' };
-    case 'dashboard': return { title: 'Dashboard',          subtitle: 'Overview of your admin panel' };
-    case 'users':     return { title: 'User Management',    subtitle: 'Manage users and their accounts' };
-    case 'coaches':   return { title: 'Coach Management',   subtitle: 'Manage coaches and their profiles' };
-    case 'feedback':  return { title: 'User Feedback',      subtitle: 'View and analyze user feedback' };
-    default:          return { title: activeTab.charAt(0).toUpperCase() + activeTab.slice(1), subtitle: '' };
+    case 'content':   return 'Content Management';
+    case 'dashboard': return 'Dashboard';
+    case 'users':     return 'User Management';
+    case 'coaches':   return 'Coach Management';
+    case 'feedback':  return 'User Feedback';
+    default:          return activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
   }
 };
 
@@ -29,7 +29,7 @@ export default function AdminTopBar({
   onOpenMobileDrawer,
   styles: parentStyles,
 }) {
-  const pageInfo = getPageInfo(activeTab);
+  const pageTitle = getPageTitle(activeTab);
   const isMobile = IS_MOBILE;
 
   return (
@@ -49,13 +49,9 @@ export default function AdminTopBar({
           </TouchableOpacity>
         )}
         <View style={parentStyles.topBarLeft}>
-          {!isMobile && <Text style={parentStyles.breadcrumb}>{pageInfo.title}</Text>}
           <Text style={[parentStyles.pageTitle, isMobile && localStyles.mobilePaneTitle]} numberOfLines={1}>
-            {pageInfo.title}
+            {pageTitle}
           </Text>
-          {!isMobile && pageInfo.subtitle ? (
-            <Text style={parentStyles.pageSubtitle}>{pageInfo.subtitle}</Text>
-          ) : null}
         </View>
       </View>
 

@@ -202,18 +202,24 @@ export default function LeaderboardScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  const filterSubtitle = selectedFilter === 'nearby'
+    ? 'Players within 50km'
+    : selectedFilter === 'global'
+    ? 'Global rankings'
+    : `${selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1)} players`;
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 Leaderboard</Text>
-        <Text style={styles.headerSubtitle}>
-          {selectedFilter === 'nearby' 
-            ? 'Players within 50km • Based on latest coach assessment' 
-            : selectedFilter === 'global' 
-            ? 'Global Rankings • Based on latest coach assessment' 
-            : `${selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1)} Players • Latest assessment`}
-        </Text>
+    <View style={styles.container}>
+      {/* Header — matches app standard */}
+      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
+        <View style={styles.headerContainer}>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.headerTitle}>Leaderboard</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>
+            {filterSubtitle} · based on latest coach assessment
+          </Text>
+        </View>
       </View>
 
       {/* Current User Card */}
@@ -310,29 +316,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-    backgroundColor: 'white',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  headerSafeArea: {
+    backgroundColor: '#FFFFFF',
+    zIndex: 10,
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1E293B',
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1F2937',
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '400',
   },
   currentUserCard: {
     flexDirection: 'row',

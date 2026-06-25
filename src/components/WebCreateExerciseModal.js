@@ -85,8 +85,26 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       setDuprRangeMin(editingExercise.dupr_range_min ? editingExercise.dupr_range_min.toString() : '');
       setDuprRangeMax(editingExercise.dupr_range_max ? editingExercise.dupr_range_max.toString() : '');
       setIsPublished(!!editingExercise.is_published);
-      setSelectedProgram(editingExercise.program_id || '');
-      setSelectedRoutine(editingExercise.routine_id || '');
+
+      const linkedProgramId = editingExercise.program_id
+        || editingExercise.linkedPrograms?.[0]?.id
+        || '';
+      const linkedRoutineId = editingExercise.routine_id
+        || editingExercise.linkedRoutines?.[0]?.id
+        || '';
+
+      console.log('[WebCreateExerciseModal] populate edit form', {
+        exerciseId: editingExercise.id,
+        linkedProgramId,
+        linkedRoutineId,
+        routine_exercise_id: editingExercise.routine_exercise_id
+          || editingExercise.linkedRoutines?.[0]?.routine_exercise_id,
+        linkedPrograms: editingExercise.linkedPrograms,
+        linkedRoutines: editingExercise.linkedRoutines,
+      });
+
+      setSelectedProgram(linkedProgramId);
+      setSelectedRoutine(linkedRoutineId);
       setShowProgramDropdown(false);
       setShowRoutineDropdown(false);
     } else {
@@ -98,32 +116,34 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     }
   }, [isEditing, editingExercise]);
 
-  // Filter routines when program changes
+  // Filter routines when program or allRoutines changes
   useEffect(() => {
     if (selectedProgram) {
       const filteredRoutines = allRoutines.filter(routine => routine.program_id === selectedProgram);
       setRoutines(filteredRoutines);
+      // Only clear the selected routine if it doesn't exist in this program's routines
+      // AND allRoutines has finished loading (length > 0) to avoid race condition on edit open
       if (selectedRoutine && filteredRoutines.length > 0 && !filteredRoutines.find(r => r.id === selectedRoutine)) {
         setSelectedRoutine('');
       }
+      // If allRoutines just loaded and the selected routine is now found, keep it
     } else {
       setRoutines([]);
       if (!isEditing) {
         setSelectedRoutine('');
       }
     }
-  }, [selectedProgram, allRoutines, selectedRoutine, isEditing]);
+  }, [selectedProgram, allRoutines]);
 
   const loadPrograms = async () => {
     try {
       const { data, error } = await supabase
         .from('programs')
-        .select('id, name, description, category, tier')
-        .eq('is_published', true)
+        .select('id, name, description, category, tier, is_published')
         .order('name');
       
       if (error) throw error;
-      console.log('Loaded programs:', data);
+      console.log('[WebCreateExerciseModal] Loaded programs:', data?.length, data?.map(p => p.name));
       setPrograms(data || []);
     } catch (error) {
       console.error('Error loading programs:', error);
@@ -139,12 +159,13 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           name, 
           description, 
           program_id,
-          programs!inner(name)
+          is_published,
+          programs(name)
         `)
-        .eq('is_published', true)
         .order('name');
       
       if (error) throw error;
+      console.log('[WebCreateExerciseModal] Loaded routines:', data?.length, data?.map(r => r.name));
       setAllRoutines(data || []);
     } catch (error) {
       console.error('Error loading routines:', error);
@@ -473,12 +494,32 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
         
         // Get original routine ID if editing
         let originalRoutineId = null;
+        let originalRoutineExerciseId = editingExercise?.routine_exercise_id
+          || editingExercise?.linkedRoutines?.[0]?.routine_exercise_id
+          || null;
+
         if (isEditing && editingExercise) {
-          // First try to get from editingExercise directly
           if (editingExercise.routine_id) {
             originalRoutineId = editingExercise.routine_id;
+          } else if (editingExercise.linkedRoutines?.[0]?.id) {
+            originalRoutineId = editingExercise.linkedRoutines[0].id;
+          } else if (originalRoutineExerciseId) {
+            const { data: routineExerciseData, error: routineExerciseError } = await supabase
+              .from('routine_exercises')
+              .select('routine_id')
+              .eq('id', originalRoutineExerciseId)
+              .single();
+
+            console.log('[WebCreateExerciseModal] resolved routine from routine_exercise_id', {
+              originalRoutineExerciseId,
+              routineExerciseData,
+              error: routineExerciseError?.message ?? null,
+            });
+
+            if (!routineExerciseError && routineExerciseData) {
+              originalRoutineId = routineExerciseData.routine_id;
+            }
           } else if (editingExercise.routine_exercise_id) {
-            // Fetch from routine_exercises table
             const { data: routineExerciseData, error: routineExerciseError } = await supabase
               .from('routine_exercises')
               .select('routine_id')
@@ -503,6 +544,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
           selectedRoutine,
           selectedProgram,
           originalRoutineId,
+          originalRoutineExerciseId,
           isEditing,
           routineWasCleared,
           programWasCleared,
@@ -518,12 +560,14 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
             routineWasCleared
           });
           
+          const routineExerciseIdToDelete = originalRoutineExerciseId || editingExercise?.routine_exercise_id;
+
           // If there's a routine_exercise_id, delete that specific entry
-          if (editingExercise?.routine_exercise_id) {
+          if (routineExerciseIdToDelete) {
             const { error: deleteError } = await supabase
               .from('routine_exercises')
               .delete()
-              .eq('id', editingExercise.routine_exercise_id);
+              .eq('id', routineExerciseIdToDelete);
             
             if (deleteError) {
               console.error('❌ Error removing exercise from old routine:', deleteError);
@@ -592,28 +636,56 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
               : 1;
 
             // Insert into routine_exercises
-            const { error: linkError } = await supabase
+            const linkPayload = {
+              routine_id: selectedRoutine,
+              exercise_id: exerciseId,
+              order_index: nextOrderIndex,
+              is_optional: false,
+            };
+
+            console.log('[WebCreateExerciseModal] inserting routine_exercises link', linkPayload);
+
+            const { data: insertedLink, error: linkError } = await supabase
               .from('routine_exercises')
-              .insert({
-                routine_id: selectedRoutine,
-                exercise_id: exerciseId,
-                order_index: nextOrderIndex,
-                is_optional: false
-              });
+              .insert(linkPayload)
+              .select('id, routine_id, exercise_id, order_index')
+              .single();
+
+            console.log('[WebCreateExerciseModal] routine_exercises insert result', {
+              insertedLink,
+              error: linkError?.message ?? null,
+              errorCode: linkError?.code ?? null,
+              errorDetails: linkError?.details ?? null,
+              errorHint: linkError?.hint ?? null,
+            });
 
             if (linkError) {
               console.error('🔗 Error linking exercise to routine:', linkError);
               
               Alert.alert(
                 'Partial Success', 
-                `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} but could not be linked to the routine (code ${linkError?.code || 'unknown'}).` +
-                '\n\nCheck the console for detailed diagnostics. This usually means the current user lacks permission to modify routine exercises.'
+                `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} but could not be linked to the routine.\n\n` +
+                `DB error: ${linkError.message} (${linkError.code || 'unknown'})\n\n` +
+                'This usually means the current user lacks permission to modify routine_exercises. Check console for [WebCreateExerciseModal] logs.'
               );
             } else {
+              // Verify the link is readable back (catches RLS read issues)
+              const { data: verifyLink, error: verifyError } = await supabase
+                .from('routine_exercises')
+                .select('id, routine_id, exercise_id')
+                .eq('id', insertedLink.id)
+                .maybeSingle();
+
+              console.log('[WebCreateExerciseModal] verify link read-back', {
+                verifyLink,
+                verifyError: verifyError?.message ?? null,
+              });
+
               console.log('✅ Exercise linked to routine successfully', {
                 routineId: selectedRoutine,
                 exerciseId,
-                orderIndex: nextOrderIndex
+                orderIndex: nextOrderIndex,
+                linkId: insertedLink?.id,
               });
               const selectedRoutineName = routines.find(r => r.id === selectedRoutine)?.name || allRoutines.find(r => r.id === selectedRoutine)?.name || 'the routine';
               Alert.alert('Success', `Exercise "${exerciseName}" ${isEditing ? 'updated' : 'created'} and linked to ${selectedRoutineName}!`);
