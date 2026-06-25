@@ -12,6 +12,7 @@ import {
   Image,
   Dimensions,
   Linking,
+  Clipboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,20 +25,12 @@ import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
-import { checkAdminAccess, supabase, getStudentCode } from '../lib/supabase';
+import { checkAdminAccess, checkCoachAccess, supabase, getStudentCode } from '../lib/supabase';
 
 import { tiers, levels } from '../data/mockData';
 
 const { width } = Dimensions.get('window');
 
-// Combined data for the merged profile/home screen
-
-const recentActivity = [
-  { id: 1, type: 'exercise', title: 'Dink Wall Drill', status: 'completed', time: '2 hours ago', points: '+15 XP' },
-  { id: 2, type: 'level', title: 'Level 2: Drives', status: 'unlocked', time: '1 day ago', points: '+50 XP' },
-  { id: 3, type: 'coach', title: 'Session with Sarah M.', status: 'scheduled', time: 'Tomorrow 2PM', points: '' },
-  { id: 4, type: 'exercise', title: 'Cross-Court Dinks', status: 'completed', time: '3 days ago', points: '+12 XP' },
-];
 
 
 export default function ProfileScreen({ onLogout, navigation }) {
@@ -46,6 +39,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const { getLogbookSummary } = useLogbook();
   const insets = useSafeAreaInsets();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCoach, setIsCoach] = useState(false);
   const [showDuprModal, setShowDuprModal] = useState(false);
   const [duprInput, setDuprInput] = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
@@ -104,6 +98,10 @@ export default function ProfileScreen({ onLogout, navigation }) {
     try {
       const { isAdmin: adminStatus } = await checkAdminAccess(authUser.id);
       setIsAdmin(adminStatus);
+      if (!adminStatus) {
+        const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
+        setIsCoach(coachStatus);
+      }
     } catch (error) {
       console.error('Error checking admin access:', error);
       setIsAdmin(false);
@@ -301,18 +299,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
   };
 
   const handleAvatarPress = () => {
-    if (Platform.OS === 'web') {
-      pickAvatarImage();
-    } else {
-      Alert.alert(
-        'Update Profile Picture',
-        'Choose a new profile picture',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Choose Photo', onPress: pickAvatarImage }
-        ]
-      );
-    }
+    pickAvatarImage();
   };
 
   const pickAvatarImage = async () => {
@@ -456,8 +443,6 @@ export default function ProfileScreen({ onLogout, navigation }) {
         ...prevUser,
         avatarUrl: publicUrl
       }));
-
-      Alert.alert('Success', 'Profile picture updated successfully!');
       
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -490,7 +475,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
         <Ionicons 
           name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
           size={24} 
-          color="#007AFF" 
+          color="#6366F1" 
         />
       </TouchableOpacity>
       <Text style={styles.topBarTitle}>Profile</Text>
@@ -501,7 +486,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const renderProfileSection = () => (
     <View style={styles.section}>
       <View style={styles.profileCard}>
-        <View style={styles.profileContent}>
+        {/* Compact horizontal layout: avatar left, info right */}
+        <View style={styles.profileRow}>
           {/* Avatar */}
           <TouchableOpacity 
             style={styles.avatarContainer}
@@ -535,135 +521,131 @@ export default function ProfileScreen({ onLogout, navigation }) {
               </>
             )}
           </TouchableOpacity>
-          
-          {/* Name */}
-          <TouchableOpacity onPress={handleNameEdit} activeOpacity={0.7} style={styles.nameContainer}>
-            <Text style={styles.userName}>{user.name || 'User'}</Text>
+
+          {/* Right info block */}
+          <View style={styles.profileInfo}>
+            {/* Name */}
+            <TouchableOpacity onPress={handleNameEdit} activeOpacity={0.7} style={styles.nameContainer}>
+              <Text style={styles.userName} numberOfLines={1}>{user.name || 'User'}</Text>
+              <Ionicons name="pencil-outline" size={13} color="#9CA3AF" style={styles.editIcon} />
+            </TouchableOpacity>
+
+            {/* Email */}
+            <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
+              {authUser?.email || user.email || ''}
+            </Text>
+
+            {/* City + Student code on same line */}
+            <View style={styles.profileMeta}>
+              {user.city && (
+                <View style={styles.cityChip}>
+                  <ModernIcon name="location" size={12} color="#6366F1" />
+                  <Text style={styles.cityText}>{user.city}</Text>
+                </View>
+              )}
+              {studentCode && (
+                <TouchableOpacity
+                  style={styles.studentCodeContainer}
+                  onPress={() => {
+                    Clipboard.setString(studentCode);
+                    Alert.alert('Copied!', 'Your student code has been copied to clipboard.');
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="card-outline" size={12} color="#6366F1" style={{ marginRight: 3 }} />
+                  <Text style={styles.studentCodeLabel}>Code: </Text>
+                  <Text style={styles.studentCodeValue}>{studentCode}</Text>
+                  <Ionicons name="copy-outline" size={11} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* DUPR row below — compact horizontal */}
+        <View style={styles.duprSection}>
+          <Text style={styles.duprLabel}>DUPR RATING</Text>
+          <TouchableOpacity onPress={handleDuprEdit} activeOpacity={0.7} style={styles.duprEditRow}>
+            <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
+            <Ionicons name="pencil-outline" size={13} color="#9CA3AF" style={{ marginLeft: 4 }} />
           </TouchableOpacity>
-          
-          {/* Email */}
-          <Text style={styles.userEmail} numberOfLines={2} ellipsizeMode="tail">
-            {authUser?.email || user.email || ''}
-          </Text>
-          
-          {/* City */}
-          {user.city && (
-            <View style={styles.cityContainer}>
-              <ModernIcon name="location" size={14} color="#6366F1" />
-              <Text style={styles.cityText}>{user.city}</Text>
-            </View>
-          )}
-          
-          {/* Student Code */}
-          {studentCode && (
-            <View style={styles.studentCodeContainer}>
-              <Text style={styles.studentCodeLabel}>Student Code:</Text>
-              <Text style={styles.studentCodeValue}>{studentCode}</Text>
-            </View>
-          )}
-          
-          {/* DUPR Rating Section */}
-          <View style={styles.duprSection}>
-            <Text style={styles.duprLabel}>DUPR RATING</Text>
-            <TouchableOpacity onPress={handleDuprEdit} activeOpacity={0.7}>
-              <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.syncButton} onPress={handleSyncDUPR}>
-              <ModernIcon name="sync" size={14} color="#6366F1" />
-              <Text style={styles.syncText}>Sync DUPR</Text>
-            </TouchableOpacity>
+          <TouchableOpacity style={styles.syncButton} onPress={handleSyncDUPR}>
+            <ModernIcon name="sync" size={13} color="#6366F1" />
+            <Text style={styles.syncText}>Sync DUPR</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+
+
+  const renderOverallStats = () => {
+    const logbookSummary = getLogbookSummary();
+    const totalSessions = logbookSummary.totalSessions || 0;
+    const totalHours = logbookSummary.totalHours || 0;
+    const daysActive = getDaysActive();
+
+    if (totalSessions === 0) return null;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Your Stats</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{totalSessions}</Text>
+            <Text style={styles.statLabel}>Sessions</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{totalHours}h</Text>
+            <Text style={styles.statLabel}>Total Hours</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>{daysActive}</Text>
+            <Text style={styles.statLabel}>Days Active</Text>
           </View>
         </View>
       </View>
-    </View>
-  );
-
-
-
-  const renderRecentActivity = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Recent Activity</Text>
-      <View style={styles.activityList}>
-        {recentActivity.map((activity) => (
-          <View key={activity.id} style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <ModernIcon 
-                name={activity.type === 'exercise' ? 'training' : activity.type === 'level' ? 'star' : 'coach'} 
-                size={16} 
-                color="#6B7280" 
-              />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>{activity.title}</Text>
-              <Text style={styles.activityTime}>{activity.time}</Text>
-            </View>
-            {activity.points && (
-              <Text style={styles.activityPoints}>{activity.points}</Text>
-            )}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-
-
-  const renderOverallStats = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Overall Statistics</Text>
-      
-      <View style={styles.statsGrid}>
-        <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>-</Text>
-          <Text style={styles.statLabel}>Levels Completed</Text>
-        </View>
-        
-        
-        <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>{getDaysActive()}</Text>
-          <Text style={styles.statLabel}>Days Active</Text>
-        </View>
-        
-        <View style={styles.overallStatCard}>
-          <Text style={styles.statNumber}>-</Text>
-          <Text style={styles.statLabel}>Exercises Done</Text>
-        </View>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const renderSettings = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Settings</Text>
       
-      {/* Admin Dashboard Button - Only show for admins */}
-      {isAdmin && (
-        <TouchableOpacity 
-          style={[styles.settingsItem, { backgroundColor: '#F0F9FF' }]} 
+      {/* Dashboard Button - show for admins and coaches */}
+      {(isAdmin || isCoach) && (
+        <TouchableOpacity
+          style={[styles.settingsItem, { backgroundColor: '#EEF2FF' }]}
           onPress={() => navigation?.navigate('Admin')}
         >
           <View style={styles.settingsItemLeft}>
-            <ModernIcon name="settings" size={20} color="#3B82F6" />
-            <Text style={[styles.settingsItemText, { color: '#3B82F6', fontWeight: '600' }]}>
-              Admin Dashboard
+            <ModernIcon name="settings" size={20} color="#6366F1" />
+            <Text style={[styles.settingsItemText, { color: '#6366F1', fontWeight: '600' }]}>
+              {isAdmin ? 'Admin Dashboard' : 'Coach Dashboard'}
             </Text>
           </View>
-          <ModernIcon name="action" size={8} color="#3B82F6" />
+          <ModernIcon name="action" size={8} color="#6366F1" />
         </TouchableOpacity>
       )}
       
-      {/* Create Coach Profile Button */}
-      <TouchableOpacity 
-        style={[styles.settingsItem, { backgroundColor: '#F0FDF4' }]} 
-        onPress={() => navigation?.navigate('CreateCoachProfile')}
-      >
-        <View style={styles.settingsItemLeft}>
-          <ModernIcon name="coach" size={20} color="#059669" />
-          <Text style={[styles.settingsItemText, { color: '#059669', fontWeight: '600' }]}>
-            Create Your Coach Profile
-          </Text>
-        </View>
-        <ModernIcon name="action" size={8} color="#059669" />
-      </TouchableOpacity>
+      {/* Coach profile — Become a Coach for non-coaches, Edit Coach Profile for coaches */}
+      {!isAdmin && (
+        <TouchableOpacity 
+          style={[styles.settingsItem, { backgroundColor: '#EEF2FF' }]} 
+          onPress={() => navigation?.navigate('CreateCoachProfile')}
+        >
+          <View style={styles.settingsItemLeft}>
+            <ModernIcon name="coach" size={20} color="#6366F1" />
+            <Text style={[styles.settingsItemText, { color: '#6366F1', fontWeight: '600' }]}>
+              {isCoach ? 'Edit Coach Profile' : 'Become a Coach'}
+            </Text>
+          </View>
+          <ModernIcon name="action" size={8} color="#6366F1" />
+        </TouchableOpacity>
+      )}
       
       <TouchableOpacity style={styles.settingsItem} onPress={handleSettings}>
         <View style={styles.settingsItemLeft}>
@@ -1088,39 +1070,54 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 24,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  profileContent: {
-    flexDirection: 'column',
+  profileRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  profileInfo: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  profileMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  cityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   avatarContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
     position: 'relative',
     overflow: 'hidden',
-    marginBottom: 16,
-    alignSelf: 'center',
+    flexShrink: 0,
   },
   avatarImage: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   avatarOverlay: {
     position: 'absolute',
@@ -1139,82 +1136,69 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   avatarText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: 'white',
   },
   nameContainer: {
-    alignItems: 'center',
-    marginBottom: 8,
-    width: '100%',
-  },
-  userName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
-    textAlign: 'center',
-  },
-  userEmail: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 16,
-  },
-  cityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    marginBottom: 2,
+  },
+  editIcon: {
+    marginLeft: 5,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  userEmail: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#6B7280',
+    marginBottom: 0,
   },
   cityText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: '#6366F1',
-    marginLeft: 6,
+    marginLeft: 3,
   },
   studentCodeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#F0F9FF',
-    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0F2FE',
+    borderColor: '#C7D2FE',
   },
   studentCodeLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#0369A1',
-    marginRight: 8,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6366F1',
+    marginRight: 1,
   },
   studentCodeValue: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#0369A1',
+    color: '#4F46E5',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   duprSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     width: '100%',
-    maxWidth: 300,
   },
   duprLabel: {
     fontSize: 12,
@@ -1224,11 +1208,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginRight: 12,
   },
+  duprEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   duprRating: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: '#1F2937',
-    marginRight: 12,
   },
   syncButton: {
     flexDirection: 'row',
@@ -1236,7 +1224,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F4FF',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#DBEAFE',
   },
@@ -1260,7 +1248,7 @@ const styles = StyleSheet.create({
   // Recent Activity
   activityList: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1302,28 +1290,39 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   // Overall Stats
-  statsGrid: {
+  statsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  overallStatCard: {
-    width: '48%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 14,
+    paddingVertical: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#E5E7EB',
+  },
   statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4F46E5',
-    marginBottom: 4,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#6366F1',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
   },
   // Settings
   settingsItem: {
@@ -1332,7 +1331,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'white',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1416,7 +1415,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 16,
     fontSize: 18,
     fontWeight: '600',
@@ -1430,7 +1429,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 16,
     fontSize: 18,
     fontWeight: '600',
@@ -1451,7 +1450,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     height: 48,
-    borderRadius: 12,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',

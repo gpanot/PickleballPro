@@ -44,7 +44,7 @@ const getSkillNamesFromFocusAreas = (focusAreas) => {
     .filter(Boolean);
 };
 
-export default function AdminDashboard({ navigation }) {
+export default function AdminDashboard({ navigation, adminRole, sessionRole, coachId }) {
   const { user, profile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   
@@ -130,7 +130,16 @@ export default function AdminDashboard({ navigation }) {
   const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 80 : 280);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
+  const isCoachSession = sessionRole === 'coach';
+  const COACH_ALLOWED_TABS = ['dashboard', 'content'];
+
   useEffect(() => {
+    // Redirect coaches away from tabs they should not access
+    if (isCoachSession && !COACH_ALLOWED_TABS.includes(activeTab)) {
+      setActiveTab('dashboard');
+      return;
+    }
+
     if (activeTab === 'dashboard') {
       fetchStats();
     } else if (activeTab === 'content') {
@@ -155,29 +164,43 @@ export default function AdminDashboard({ navigation }) {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const [programsRes, exercisesRes, coachesRes, usersRes, publishedProgramsRes] = await Promise.all([
-        supabase.from('programs').select('id', { count: 'exact' }),
-        supabase.from('exercises').select('id', { count: 'exact' }),
-        supabase.from('coaches').select('id', { count: 'exact' }),
-        supabase.from('users').select('id', { count: 'exact' }),
-        supabase.from('programs').select('id', { count: 'exact' }).eq('is_published', true)
-      ]);
+      if (isCoachSession) {
+        // Coaches see only their own programs and their linked students
+        const [myProgramsRes, myStudentsRes] = await Promise.all([
+          supabase.from('programs').select('id', { count: 'exact' }).eq('created_by', user.id),
+          supabase.from('coach_students').select('id', { count: 'exact' }).eq('coach_id', coachId),
+        ]);
 
-      setStats({
-        programs: programsRes.count || 0,
-        exercises: exercisesRes.count || 0,
-        coaches: coachesRes.count || 0,
-        users: usersRes.count || 0
-      });
+        setStats({
+          programs: myProgramsRes.count || 0,
+          students: myStudentsRes.count || 0,
+        });
+        setPublishedStats({});
+      } else {
+        const [programsRes, exercisesRes, coachesRes, usersRes, publishedProgramsRes] = await Promise.all([
+          supabase.from('programs').select('id', { count: 'exact' }),
+          supabase.from('exercises').select('id', { count: 'exact' }),
+          supabase.from('coaches').select('id', { count: 'exact' }),
+          supabase.from('users').select('id', { count: 'exact' }),
+          supabase.from('programs').select('id', { count: 'exact' }).eq('is_published', true),
+        ]);
 
-      setPublishedStats({
-        published_programs: publishedProgramsRes.count || 0
-      });
+        setStats({
+          programs: programsRes.count || 0,
+          exercises: exercisesRes.count || 0,
+          coaches: coachesRes.count || 0,
+          users: usersRes.count || 0,
+        });
+
+        setPublishedStats({
+          published_programs: publishedProgramsRes.count || 0,
+        });
+      }
 
       // Fetch dashboard-specific data
       await Promise.all([
         fetchRecentActivity(),
-        fetchPopularPrograms()
+        fetchPopularPrograms(),
       ]);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -196,12 +219,18 @@ export default function AdminDashboard({ navigation }) {
       await normalizeOrderIndices();
       
       // Fetch programs with routine and exercise counts
-      const { data: programsData, error: programsError } = await supabase
+      let programsQuery = supabase
         .from('programs')
         .select('*')
         .order('category', { ascending: true })
         .order('order_index', { ascending: true })
         .order('created_at', { ascending: false });
+
+      if (isCoachSession) {
+        programsQuery = programsQuery.eq('created_by', user.id);
+      }
+
+      const { data: programsData, error: programsError } = await programsQuery;
 
       if (programsError) throw programsError;
 
@@ -618,27 +647,75 @@ export default function AdminDashboard({ navigation }) {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id, 
-          name, 
-          email, 
-          avatar_url,
-          created_at, 
-          updated_at, 
-          is_active,
-          tier,
-          dupr_rating,
-          goal,
-          onboarding_completed,
-          time_commitment,
-          focus_areas,
-          rating_type,
-          student_code
-        `)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      let data, error;
+
+      if (isCoachSession) {
+        // Fetch only students linked to this coach via coach_students
+        const { data: linkRows, error: linkError } = await supabase
+          .from('coach_students')
+          .select('student_id')
+          .eq('coach_id', coachId);
+
+        if (linkError) throw linkError;
+
+        const studentIds = (linkRows || []).map(r => r.student_id).filter(Boolean);
+
+        if (studentIds.length === 0) {
+          setUsers([]);
+          setLoading(false);
+          return;
+        }
+
+        const result = await supabase
+          .from('users')
+          .select(`
+            id,
+            name,
+            email,
+            avatar_url,
+            created_at,
+            updated_at,
+            is_active,
+            tier,
+            dupr_rating,
+            goal,
+            onboarding_completed,
+            time_commitment,
+            focus_areas,
+            rating_type,
+            student_code
+          `)
+          .in('id', studentIds)
+          .order('created_at', { ascending: false });
+
+        data = result.data;
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from('users')
+          .select(`
+            id, 
+            name, 
+            email, 
+            avatar_url,
+            created_at, 
+            updated_at, 
+            is_active,
+            tier,
+            dupr_rating,
+            goal,
+            onboarding_completed,
+            time_commitment,
+            focus_areas,
+            rating_type,
+            student_code
+          `)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       setUsers(data || []);
@@ -895,28 +972,36 @@ export default function AdminDashboard({ navigation }) {
 
   const handleSignOut = () => {
     if (!navigation) {
-      Alert.alert('Error', 'Navigation is not available');
+      if (Platform.OS === 'web') {
+        window.alert('Navigation is not available');
+      } else {
+        Alert.alert('Error', 'Navigation is not available');
+      }
       return;
     }
 
-    Alert.alert(
-      'Exit Admin Dashboard',
-      'Return to your profile?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Exit',
-          style: 'default',
-          onPress: () => {
-            try {
-              navigation.goBack();
-            } catch (error) {
-              // no-op
-            }
-          },
-        },
-      ]
-    );
+    const doExit = () => {
+      try {
+        navigation.goBack();
+      } catch (error) {
+        // no-op
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Return to your profile?')) {
+        doExit();
+      }
+    } else {
+      Alert.alert(
+        'Exit Admin Dashboard',
+        'Return to your profile?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', style: 'default', onPress: doExit },
+        ]
+      );
+    }
   };
 
   const togglePublishStatus = async (type, id, currentStatus) => {
@@ -3231,6 +3316,7 @@ export default function AdminDashboard({ navigation }) {
         onSignOut={handleSignOut}
         mobileDrawerOpen={mobileDrawerOpen}
         onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
+        sessionRole={sessionRole}
         styles={styles}
       />
       <View style={[styles.mainContent, !isMobile && { marginLeft: sidebarWidth }]}>
@@ -3294,6 +3380,7 @@ export default function AdminDashboard({ navigation }) {
         visible={showCreateProgramModal}
         onClose={() => setShowCreateProgramModal(false)}
         onSuccess={handleProgramCreated}
+        sessionRole={sessionRole}
       />
 
       {/* Create Routine Modal */}
@@ -3301,6 +3388,7 @@ export default function AdminDashboard({ navigation }) {
         visible={showCreateRoutineModal}
         onClose={() => setShowCreateRoutineModal(false)}
         onSuccess={handleRoutineCreated}
+        sessionRole={sessionRole}
       />
       <WebCreateRoutineModal
         visible={showEditRoutineModal}
@@ -3316,6 +3404,7 @@ export default function AdminDashboard({ navigation }) {
         }}
         editingRoutine={selectedRoutine}
         programId={selectedRoutine?.program_id}
+        sessionRole={sessionRole}
       />
 
       {/* Create Exercise Modal */}
@@ -3323,6 +3412,7 @@ export default function AdminDashboard({ navigation }) {
         visible={showCreateExerciseModal}
         onClose={() => setShowCreateExerciseModal(false)}
         onSuccess={handleExerciseCreated}
+        sessionRole={sessionRole}
       />
 
       {/* Program Structure Modal */}
@@ -3344,6 +3434,7 @@ export default function AdminDashboard({ navigation }) {
           setSelectedProgram(null);
         }}
         onSave={handleProgramSaved}
+        sessionRole={sessionRole}
       />
 
       {/* Edit Exercise Modal */}
@@ -3359,6 +3450,7 @@ export default function AdminDashboard({ navigation }) {
           setSelectedExercise(null);
         }}
         editingExercise={selectedExercise}
+        sessionRole={sessionRole}
       />
 
       {/* User Logbook Modal */}

@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 
-const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   { id: 'dashboard',  label: 'Dashboard',         icon: 'grid-outline' },
   { id: 'content',    label: 'Content Management', icon: 'library-outline' },
   { id: 'users',      label: 'User Management',    icon: 'people-outline' },
@@ -24,7 +24,13 @@ const NAV_ITEMS = [
   { id: 'settings',   label: 'Settings',           icon: 'settings-outline' },
 ];
 
-function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile }) {
+const COACH_NAV_IDS = ['dashboard', 'content'];
+
+function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole }) {
+  const navItems = sessionRole === 'coach'
+    ? ALL_NAV_ITEMS.filter(item => COACH_NAV_IDS.includes(item.id))
+    : ALL_NAV_ITEMS;
+
   return (
     <View style={[localStyles.sidebar, isMobile ? localStyles.sidebarMobile : { width: sidebarCollapsed ? 80 : 280 }]}>
       {/* Header */}
@@ -36,7 +42,9 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
             </View>
             <View style={localStyles.logoTextContainer}>
               <Text style={localStyles.logoText}>PicklePro</Text>
-              <Text style={localStyles.logoSubtext}>Admin Dashboard</Text>
+              <Text style={localStyles.logoSubtext}>
+                {sessionRole === 'coach' ? 'Coach Dashboard' : 'Admin Dashboard'}
+              </Text>
             </View>
           </View>
         )}
@@ -54,7 +62,7 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
 
       {/* Nav items */}
       <View style={localStyles.navigationMenu}>
-        {NAV_ITEMS.map(tab => (
+        {navItems.map(tab => (
           <TouchableOpacity
             key={tab.id}
             style={[
@@ -125,6 +133,7 @@ export default function AdminSidebar({
   onSignOut,   // kept for back-compat, but we now call it "Exit"
   mobileDrawerOpen,
   onCloseMobileDrawer,
+  sessionRole,
   styles: _ignored, // parent passes styles but we use local ones now
 }) {
   const isMobile = IS_MOBILE;
@@ -136,20 +145,26 @@ export default function AdminSidebar({
         transparent
         animationType="slide"
         onRequestClose={onCloseMobileDrawer}
+        statusBarTranslucent
       >
-        <TouchableWithoutFeedback onPress={onCloseMobileDrawer}>
-          <View style={localStyles.drawerOverlay} />
-        </TouchableWithoutFeedback>
-        <SidebarContent
-          sidebarCollapsed={false}
-          activeTab={activeTab}
-          onChangeTab={(tab) => { onChangeTab(tab); onCloseMobileDrawer(); }}
-          profile={profile}
-          user={user}
-          onExit={onSignOut}
-          onToggleCollapse={onCloseMobileDrawer}
-          isMobile
-        />
+        <View style={localStyles.drawerContainer}>
+          <TouchableWithoutFeedback onPress={onCloseMobileDrawer}>
+            <View style={localStyles.drawerOverlay} />
+          </TouchableWithoutFeedback>
+          <View style={localStyles.drawerSheet}>
+            <SidebarContent
+              sidebarCollapsed={false}
+              activeTab={activeTab}
+              onChangeTab={(tab) => { onChangeTab(tab); onCloseMobileDrawer(); }}
+              profile={profile}
+              user={user}
+              onExit={onSignOut}
+              onToggleCollapse={onCloseMobileDrawer}
+              sessionRole={sessionRole}
+              isMobile
+            />
+          </View>
+        </View>
       </Modal>
     );
   }
@@ -163,6 +178,7 @@ export default function AdminSidebar({
       user={user}
       onExit={onSignOut}
       onToggleCollapse={onToggleCollapse}
+      sessionRole={sessionRole}
       isMobile={false}
     />
   );
@@ -183,35 +199,39 @@ const localStyles = StyleSheet.create({
     }),
   },
   sidebarMobile: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 280,
-    zIndex: 1001,
-    ...(Platform.OS === 'web' && {
-      height: '100vh',
-      position: 'fixed',
-      boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
-    }),
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRightWidth: 1,
+    borderRightColor: '#e4e4e7',
+  },
+  drawerContainer: {
+    flex: 1,
+    flexDirection: 'row',
   },
   drawerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  drawerSheet: {
     position: 'absolute',
-    top: 0,
     left: 0,
-    right: 0,
+    top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    ...(Platform.OS === 'web' && {
-      width: '100vw',
-      height: '100vh',
-    }),
+    width: '75%',
+    maxWidth: 300,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 16,
   },
   sidebarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f4f4f5',
   },
@@ -254,10 +274,10 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 13,
     marginHorizontal: 8,
-    marginVertical: 1,
-    borderRadius: 6,
+    marginVertical: 2,
+    borderRadius: 8,
     position: 'relative',
   },
   activeNavItem: {

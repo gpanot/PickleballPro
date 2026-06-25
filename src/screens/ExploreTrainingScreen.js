@@ -335,8 +335,8 @@ export default function ExploreTrainingScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#3B82F6']}
-            tintColor="#3B82F6"
+            colors={['#6366F1']}
+            tintColor="#6366F1"
           />
         }
       >
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#6366F1',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

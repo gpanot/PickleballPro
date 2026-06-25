@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,12 @@ import {
   Alert,
   TouchableWithoutFeedback,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import SwipeableRow from '../components/SwipeableRow';
+import EmptyState from '../components/EmptyState';
 import WebLinearGradient from '../components/WebLinearGradient';
 import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
@@ -19,14 +22,27 @@ import { useLogbook } from '../context/LogbookContext';
 import { usePreload } from '../context/PreloadContext';
 import skillsData from '../data/Commun_skills_tags.json';
 
+const ENTRIES_PAGE_SIZE = 10;
+
 export default function LogbookScreen({ navigation }) {
   const { user } = useUser();
   const { user: authUser } = useAuth();
-  const { logbookEntries, isLoading, deleteLogbookEntry, getLogbookSummary } = useLogbook();
+  const { logbookEntries, isLoading, deleteLogbookEntry, getLogbookSummary, refreshLogbook } = useLogbook();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshLogbook();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshLogbook]);
   const insets = useSafeAreaInsets();
 
   // State for collapsible summary
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(ENTRIES_PAGE_SIZE);
 
   // Feeling options
   const feelingOptions = [
@@ -58,7 +74,7 @@ export default function LogbookScreen({ navigation }) {
     { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
     { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
     { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
-    { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
+    { value: 'single', emoji: '👤', label: 'Single', color: '#6366F1' },
     { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
   ];
 
@@ -260,36 +276,40 @@ export default function LogbookScreen({ navigation }) {
             )}
           </View>
 
-          {/* Last 5 Sessions Average Mood */}
-          {summary.last5AverageFeeling > 0 && (
-            <View style={styles.last5FeelingCard}>
-              <View style={styles.last5FeelingHeader}>
-                <Text style={styles.last5FeelingTitle}>🎯 Last 5 Sessions Mood</Text>
-                <View style={styles.feelingDisplay}>
-                  <Text style={styles.feelingEmoji}>
-                    {getFeelingData(Math.round(summary.last5AverageFeeling)).emoji}
-                  </Text>
-                  <Text style={styles.feelingLabel}>
-                    {getFeelingData(Math.round(summary.last5AverageFeeling)).label}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Weekly Feeling Progress */}
-          {summary.weeklyAverageFeeling > 0 && (
-            <View style={styles.weeklyFeelingCard}>
-              <View style={styles.weeklyFeelingHeader}>
-                <Text style={styles.weeklyFeelingTitle}>📈 Weekly Progress Feeling</Text>
-                <View style={styles.feelingDisplay}>
-                  <Text style={styles.feelingEmoji}>
-                    {getFeelingData(Math.round(summary.weeklyAverageFeeling)).emoji}
-                  </Text>
-                  <Text style={styles.feelingLabel}>
-                    {getFeelingData(Math.round(summary.weeklyAverageFeeling)).label}
-                  </Text>
-                </View>
+          {/* Mood Trend — merged card */}
+          {(summary.last5AverageFeeling > 0 || summary.weeklyAverageFeeling > 0) && (
+            <View style={styles.moodTrendCard}>
+              <Text style={styles.moodTrendTitle}>Mood Trend</Text>
+              <View style={styles.moodTrendRow}>
+                {summary.last5AverageFeeling > 0 && (
+                  <View style={styles.moodTrendItem}>
+                    <Text style={styles.moodTrendLabel}>Last 5 sessions</Text>
+                    <View style={styles.feelingDisplay}>
+                      <Text style={styles.feelingEmoji}>
+                        {getFeelingData(Math.round(summary.last5AverageFeeling)).emoji}
+                      </Text>
+                      <Text style={[styles.feelingLabel, { color: getFeelingData(Math.round(summary.last5AverageFeeling)).color }]}>
+                        {getFeelingData(Math.round(summary.last5AverageFeeling)).label}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {summary.last5AverageFeeling > 0 && summary.weeklyAverageFeeling > 0 && (
+                  <View style={styles.moodTrendDivider} />
+                )}
+                {summary.weeklyAverageFeeling > 0 && (
+                  <View style={styles.moodTrendItem}>
+                    <Text style={styles.moodTrendLabel}>This week</Text>
+                    <View style={styles.feelingDisplay}>
+                      <Text style={styles.feelingEmoji}>
+                        {getFeelingData(Math.round(summary.weeklyAverageFeeling)).emoji}
+                      </Text>
+                      <Text style={[styles.feelingLabel, { color: getFeelingData(Math.round(summary.weeklyAverageFeeling)).color }]}>
+                        {getFeelingData(Math.round(summary.weeklyAverageFeeling)).label}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -298,7 +318,7 @@ export default function LogbookScreen({ navigation }) {
           {logbookEntries.length >= 3 && (() => {
             const coachScore = getCoachRecommendationScore();
             return (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.coachRecommendationCard}
                 onPress={() => navigation.navigate('Coach')}
                 activeOpacity={0.7}
@@ -311,13 +331,13 @@ export default function LogbookScreen({ navigation }) {
                   ]}>NO</Text>
                   <View style={styles.coachProgressBar}>
                     <View style={styles.coachProgressTrack} />
-                    <View 
+                    <View
                       style={[
                         styles.coachProgressBall,
                         { left: `${coachScore}%` }
                       ]}
                     >
-                      <Image 
+                      <Image
                         source={require('../../assets/images/icon_ball.png')}
                         style={styles.ballImage}
                         resizeMode="contain"
@@ -335,6 +355,7 @@ export default function LogbookScreen({ navigation }) {
               </TouchableOpacity>
             );
           })()}
+
         </>
       )}
     </View>
@@ -350,16 +371,16 @@ export default function LogbookScreen({ navigation }) {
           <Text style={styles.loadingText}>Loading your sessions...</Text>
         </View>
       ) : logbookEntries.length === 0 ? (
-        <View style={styles.emptyState}>
-          <WebIcon name="document-text" size={48} color="#D1D5DB" />
-          <Text style={styles.emptyStateTitle}>No sessions logged yet</Text>
-          <Text style={styles.emptyStateText}>
-            Tap the + button below to log your first training session!
-          </Text>
-        </View>
+        <EmptyState
+          emoji="📔"
+          title="No sessions logged yet"
+          subtitle="Tap the + button to log your first training session and start tracking your progress."
+          ctaLabel="Log a Session"
+          onCta={() => navigation.navigate('AddTrainingSession')}
+        />
       ) : (
         <View style={styles.entriesList}>
-          {logbookEntries.slice(0, 10).map((entry) => {
+          {logbookEntries.slice(0, visibleCount).map((entry) => {
             const feelingData = getFeelingData(entry.feeling);
             
             // Handle both old single focus and new multiple focus formats
@@ -370,11 +391,12 @@ export default function LogbookScreen({ navigation }) {
             const sessionTypeData = getSessionTypeData(entry.sessionType);
             
             return (
-              <TouchableWithoutFeedback
+              <SwipeableRow
                 key={entry.id}
+                onDelete={() => handleDeleteEntry(entry)}
+              >
+              <TouchableWithoutFeedback
                 onPress={() => navigation.navigate('EditTrainingSession', { entry })}
-                onLongPress={() => handleDeleteEntry(entry)}
-                delayLongPress={800}
               >
                 <View style={styles.entryCard}>
                   <View style={styles.entryHeader}>
@@ -396,6 +418,13 @@ export default function LogbookScreen({ navigation }) {
                         </Text>
                       </View>
                     </View>
+                    <TouchableOpacity
+                      style={styles.entryEditIcon}
+                      onPress={() => navigation.navigate('EditTrainingSession', { entry })}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="pencil-outline" size={16} color="#9CA3AF" />
+                    </TouchableOpacity>
                   </View>
                   
                   {/* What went good display */}
@@ -439,15 +468,24 @@ export default function LogbookScreen({ navigation }) {
                   {entry.notes && (
                     <Text style={styles.entryNotes}>{entry.notes}</Text>
                   )}
-                  
-                  {/* Visual hint for interactions */}
-                  <View style={styles.entryHint}>
-                    <Text style={styles.entryHintText}>Tap to edit • Hold to delete</Text>
-                  </View>
                 </View>
               </TouchableWithoutFeedback>
+              </SwipeableRow>
             );
           })}
+
+          {/* Load More */}
+          {logbookEntries.length > visibleCount && (
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={() => setVisibleCount(v => v + ENTRIES_PAGE_SIZE)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadMoreText}>
+                Load more ({logbookEntries.length - visibleCount} remaining)
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
@@ -464,6 +502,9 @@ export default function LogbookScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" colors={['#6366F1']} />
+        }
       >
         {renderSummary()}
         {renderLogbookEntries()}
@@ -526,7 +567,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -590,7 +631,7 @@ const styles = StyleSheet.create({
   // Total Hours Card
   totalHoursCard: {
     backgroundColor: '#F0F9FF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 12,
     alignItems: 'center',
     marginBottom: 12,
@@ -617,7 +658,7 @@ const styles = StyleSheet.create({
   // Session Type Hours Card
   sessionTypeHoursCard: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 10,
     marginBottom: 12,
     borderWidth: 1,
@@ -668,7 +709,7 @@ const styles = StyleSheet.create({
   skillsSection: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 10,
     borderWidth: 1,
     borderColor: '#F1F5F9',
@@ -705,42 +746,39 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 3,
   },
-  // Last 5 sessions feeling card
-  last5FeelingCard: {
+  // Merged mood trend card
+  moodTrendCard: {
     backgroundColor: '#F0F9FF',
-    borderRadius: 8,
-    padding: 8,
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E0F2FE',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  last5FeelingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  last5FeelingTitle: {
+  moodTrendTitle: {
     fontSize: 12,
     fontWeight: '600',
     color: '#0369A1',
+    marginBottom: 10,
   },
-  weeklyFeelingCard: {
-    backgroundColor: '#F0F9FF',
-    borderRadius: 8,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: '#E0F2FE',
-    marginBottom: 8,
-  },
-  weeklyFeelingHeader: {
+  moodTrendRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  weeklyFeelingTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0369A1',
+  moodTrendItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  moodTrendLabel: {
+    fontSize: 10,
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  moodTrendDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#BFDBFE',
+    marginHorizontal: 8,
   },
   feelingDisplay: {
     flexDirection: 'row',
@@ -758,7 +796,7 @@ const styles = StyleSheet.create({
   // Coach recommendation styles
   coachRecommendationCard: {
     backgroundColor: '#FEF7FF',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: '#F3E8FF',
@@ -872,7 +910,7 @@ const styles = StyleSheet.create({
   },
   entryCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -948,7 +986,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
@@ -981,7 +1019,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
@@ -1000,16 +1038,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
-  entryHint: {
-    alignItems: 'center',
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+  entryEditIcon: {
+    padding: 4,
+    marginLeft: 4,
   },
-  entryHintText: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
+  loadMoreButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: 'white',
+    marginTop: 4,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6366F1',
   },
   bottomSpacing: {
     height: 100, // Extra space to account for FAB

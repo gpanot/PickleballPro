@@ -85,7 +85,7 @@ export default function LogConfirmationScreen({ navigation, route }) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <WebLinearGradient
-        colors={['#10B981', '#059669']}
+        colors={['#6366F1', '#4F46E5']}
         style={styles.backgroundGradient}
       />
       

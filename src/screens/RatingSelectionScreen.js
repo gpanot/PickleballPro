@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 
-export default function RatingSelectionScreen({ navigation, onComplete, onGoBack }) {
+export default function RatingSelectionScreen({ navigation, onComplete, onGoBack, onSkip }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [ratingInput, setRatingInput] = useState('');
   const { updateUserRating } = useUser();
@@ -118,6 +118,11 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: '25%' }]} />
             </View>
+            {onSkip && (
+              <TouchableOpacity onPress={onSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.skipText}>Skip</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -404,5 +409,11 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#007AFF',
     borderRadius: 2,
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    paddingHorizontal: 4,
   },
 });

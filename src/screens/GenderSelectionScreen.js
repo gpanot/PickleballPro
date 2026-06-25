@@ -14,7 +14,7 @@ import ModernIcon from '../components/ModernIcon';
 
 const { width } = Dimensions.get('window');
 
-export default function GenderSelectionScreen({ navigation, onComplete, onGoBack }) {
+export default function GenderSelectionScreen({ navigation, onComplete, onGoBack, onSkip }) {
   const [selectedGender, setSelectedGender] = useState(null);
   const insets = useSafeAreaInsets();
 
@@ -97,6 +97,11 @@ export default function GenderSelectionScreen({ navigation, onComplete, onGoBack
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: '12.5%' }]} />
           </View>
+          {onSkip && (
+            <TouchableOpacity onPress={onSkip} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.skipText}>Skip</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -239,5 +244,11 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#007AFF',
     borderRadius: 2,
+  },
+  skipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    paddingHorizontal: 4,
   },
 });

@@ -48,6 +48,26 @@ export default function ProgramDetailScreen({ navigation, route }) {
   const [isProgramAlreadyAssigned, setIsProgramAlreadyAssigned] = React.useState(false);
   const [isCheckingAssignment, setIsCheckingAssignment] = React.useState(true);
 
+  // Progress tracker — which routine IDs have been "completed" (opened & scrolled through)
+  const [completedRoutineIds, setCompletedRoutineIds] = React.useState([]);
+  const PROGRESS_KEY = `@pickleHero_progress_${program.id}`;
+
+  // Load + save progress
+  React.useEffect(() => {
+    AsyncStorage.getItem(PROGRESS_KEY).then(v => {
+      if (v) setCompletedRoutineIds(JSON.parse(v));
+    }).catch(() => {});
+  }, [PROGRESS_KEY]);
+
+  const markRoutineCompleted = React.useCallback((routineId) => {
+    setCompletedRoutineIds(prev => {
+      if (prev.includes(routineId)) return prev;
+      const next = [...prev, routineId];
+      AsyncStorage.setItem(PROGRESS_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, [PROGRESS_KEY]);
+
   // Load persistent share section state
   React.useEffect(() => {
     const loadShareSectionState = async () => {
@@ -299,6 +319,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
   };
 
   const navigateToRoutine = (routine) => {
+    markRoutineCompleted(routine.id);
     console.log('🔍 [ProgramDetailScreen] Navigating to routine:', routine.name);
     console.log('📦 [ProgramDetailScreen] Routine data structure:', {
       id: routine.id,
@@ -706,32 +727,61 @@ export default function ProgramDetailScreen({ navigation, route }) {
               {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Tap to preview routine' : 'Tap to open • Long press to delete'}
             </Text>
           </View>
+
+          {/* Progress tracker bar */}
+          {program.routines.length > 0 && (() => {
+            const total = program.routines.length;
+            const done = completedRoutineIds.filter(id => program.routines.some(r => r.id === id)).length;
+            const pct = total > 0 ? done / total : 0;
+            return (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressLabelRow}>
+                  <Text style={styles.progressLabel}>Your progress</Text>
+                  <Text style={styles.progressCount}>{done} / {total} sessions</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${Math.round(pct * 100)}%` }]} />
+                </View>
+                {done === total && done > 0 && (
+                  <Text style={styles.progressComplete}>🎉 Program completed!</Text>
+                )}
+              </View>
+            );
+          })()}
           
-          {program.routines.map((routine) => (
-            <View key={routine.id} style={styles.routineCard}>
-              <TouchableOpacity
-                style={styles.routineContent}
-                onPress={() => navigateToRoutine(routine)}
-                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => deleteRoutine(routine.id)}
-              >
-                <View style={styles.routineInfo}>
-                  <Text style={styles.routineName}>{routine.name}</Text>
-                  {routine.description ? (
-                    <Text style={styles.routineDescription}>{routine.description}</Text>
-                  ) : null}
-                  <View style={styles.routineStats}>
-                    <Text style={styles.routineStatsText}>
-                      {routine.exercises?.length || 0} exercise{(routine.exercises?.length || 0) !== 1 ? 's' : ''}
-                    </Text>
+          {program.routines.map((routine) => {
+            const isDone = completedRoutineIds.includes(routine.id);
+            return (
+              <View key={routine.id} style={[styles.routineCard, isDone && styles.routineCardDone]}>
+                <TouchableOpacity
+                  style={styles.routineContent}
+                  onPress={() => navigateToRoutine(routine)}
+                  onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => deleteRoutine(routine.id)}
+                >
+                  <View style={styles.routineInfo}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {isDone && (
+                        <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                      )}
+                      <Text style={[styles.routineName, isDone && { color: '#6B7280' }]}>{routine.name}</Text>
+                    </View>
+                    {routine.description ? (
+                      <Text style={styles.routineDescription}>{routine.description}</Text>
+                    ) : null}
+                    <View style={styles.routineStats}>
+                      <Text style={styles.routineStatsText}>
+                        {routine.exercises?.length || 0} exercise{(routine.exercises?.length || 0) !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-                
-                <View style={styles.routineActions}>
-                  <Text style={styles.chevronText}>{'>'}</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          ))}
+                  
+                  <View style={styles.routineActions}>
+                    <Text style={styles.chevronText}>{'>'}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
 
           {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
@@ -1248,6 +1298,52 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  routineCardDone: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+    opacity: 0.85,
+  },
+  progressContainer: {
+    backgroundColor: '#F8FAFF',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EEF2FF',
+  },
+  progressLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  progressCount: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 6,
+    backgroundColor: '#6366F1',
+    borderRadius: 3,
+  },
+  progressComplete: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   routineContent: {
     flexDirection: 'row',

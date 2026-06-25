@@ -59,6 +59,7 @@ import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PreloadProvider } from './src/context/PreloadContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import { initializeDeepLinkHandling } from './src/lib/deepLinkHandler';
 
 const Stack = createStackNavigator();
@@ -101,6 +102,16 @@ function AppContent() {
     completeIntro();
   };
 
+  const handleIntroSkip = () => {
+    // Skip onboarding entirely — jump straight to main
+    completeIntro();
+    updateOnboardingData({ gender: 'other' });
+    completeGenderSelection();
+    updateUserRating(2.5, 'self');
+    completeNameSelection();
+    completeOnboarding();
+  };
+
   const handleAuthenticate = () => {
     console.log('Authentication triggered!');
     // For authenticated users, they should bypass onboarding entirely
@@ -135,6 +146,12 @@ function AppContent() {
     completeGenderSelection();
   };
 
+  const handleGenderSkip = () => {
+    // Default to 'other' and advance
+    updateOnboardingData({ gender: 'other' });
+    completeGenderSelection();
+  };
+
   const handleGenderGoBack = () => {
     console.log('Going back to intro from gender selection');
     goBackToIntro();
@@ -142,6 +159,11 @@ function AppContent() {
 
   const handleRatingComplete = () => {
     console.log('Rating selection completed!');
+  };
+
+  const handleRatingSkip = () => {
+    // Default rating of 2.5 and advance
+    updateUserRating(2.5, 'self');
   };
 
   const handleRatingGoBack = () => {
@@ -331,7 +353,7 @@ function AppContent() {
             {!hasCompletedIntro ? (
               <>
                 <Stack.Screen name="Intro">
-                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}
+                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} onSkip={handleIntroSkip} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -340,7 +362,7 @@ function AppContent() {
             ) : !hasSelectedGender ? (
               <>
                 <Stack.Screen name="GenderSelection">
-                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} onGoBack={handleGenderGoBack} />}
+                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} onGoBack={handleGenderGoBack} onSkip={handleGenderSkip} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -349,7 +371,7 @@ function AppContent() {
             ) : !hasSetRating ? (
               <>
                 <Stack.Screen name="RatingSelection">
-                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} onGoBack={handleRatingGoBack} />}
+                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} onGoBack={handleRatingGoBack} onSkip={handleRatingSkip} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -465,15 +487,17 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider style={{ flex: 1 }}>
-        <AuthProvider>
-          <UserProvider>
-            <PreloadProvider>
-              <LogbookProvider>
-                <AppContent />
-              </LogbookProvider>
-            </PreloadProvider>
-          </UserProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <UserProvider>
+              <PreloadProvider>
+                <LogbookProvider>
+                  <AppContent />
+                </LogbookProvider>
+              </PreloadProvider>
+            </UserProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

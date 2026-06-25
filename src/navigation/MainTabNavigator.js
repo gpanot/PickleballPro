@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TabIcon from '../components/TabIcon';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { checkCoachAccess, supabase } from '../lib/supabase';
+import { hapticLight } from '../lib/haptics';
 
 import ProgramScreen from '../screens/ProgramScreen';
 import LogbookScreen from '../screens/LogbookScreen';
@@ -16,9 +20,31 @@ const Tab = createBottomTabNavigator();
 export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2' }) {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
+  const { theme, isDark } = useTheme();
   const [isCoach, setIsCoach] = useState(false);
   const [coachPublished, setCoachPublished] = useState(false);
   const [checkingCoach, setCheckingCoach] = useState(true);
+  const [programBadge, setProgramBadge] = useState(false);
+
+  // Check for unread assigned programs (coach → student)
+  useEffect(() => {
+    if (!authUser?.id) return;
+    const checkBadge = async () => {
+      try {
+        const lastSeen = await AsyncStorage.getItem('@pickleHero_programTabLastSeen');
+        const since = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 7 * 24 * 3600 * 1000);
+        const { data } = await supabase
+          .from('user_programs')
+          .select('id, created_at')
+          .eq('user_id', authUser.id)
+          .eq('source', 'coach')
+          .gte('created_at', since.toISOString())
+          .limit(1);
+        setProgramBadge(Array.isArray(data) && data.length > 0);
+      } catch { /* ignore */ }
+    };
+    checkBadge();
+  }, [authUser?.id]);
   
   // Get props from route params if passed via initialParams
   const finalOnLogout = onLogout || route?.params?.onLogout;
@@ -90,15 +116,16 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
 
           return <TabIcon name={iconName} focused={focused} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#6366F1',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textTertiary,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'white',
-          borderTopWidth: 0,
-          shadowColor: '#000',
+          backgroundColor: theme.tabBg,
+          borderTopWidth: isDark ? 0.5 : 0,
+          borderTopColor: isDark ? theme.border : 'transparent',
+          shadowColor: theme.tabShadow,
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.1,
+          shadowOpacity: isDark ? 0.4 : 0.1,
           shadowRadius: 8,
           elevation: 8,
           paddingBottom: 12 + insets.bottom,
@@ -121,7 +148,31 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       <Tab.Screen 
         name="Training2" 
         component={ProgramScreen}
-        options={{ title: 'Program' }}
+        options={{
+          title: 'Program',
+          tabBarIcon: ({ focused, color, size }) => (
+            <View>
+              <TabIcon name="training2" focused={focused} size={size} color={color} />
+              {programBadge && (
+                <View style={{
+                  position: 'absolute', top: -2, right: -4,
+                  width: 8, height: 8, borderRadius: 4,
+                  backgroundColor: '#EF4444',
+                  borderWidth: 1.5, borderColor: '#fff',
+                }} />
+              )}
+            </View>
+          ),
+        }}
+        listeners={{
+          tabPress: () => {
+            hapticLight();
+            if (programBadge) {
+              setProgramBadge(false);
+              AsyncStorage.setItem('@pickleHero_programTabLastSeen', new Date().toISOString()).catch(() => {});
+            }
+          },
+        }}
       />
       {isCoach && coachPublished && (
         <Tab.Screen 
@@ -132,10 +183,12 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       <Tab.Screen 
         name="Leaderboard" 
         component={LeaderboardScreen}
+        listeners={{ tabPress: hapticLight }}
       />
       <Tab.Screen 
         name="Logbook" 
         component={LogbookScreen}
+        listeners={{ tabPress: hapticLight }}
       />
       {/* Feedback screen hidden for now */}
       {/* <Tab.Screen 

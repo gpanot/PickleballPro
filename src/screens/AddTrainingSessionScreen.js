@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useLogbook } from '../context/LogbookContext';
+import { hapticSuccess } from '../lib/haptics';
 import skillsData from '../data/Commun_skills_tags.json';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -73,7 +74,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
     { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
     { value: 'social',   emoji: '🎉', label: 'Social',   color: '#8B5CF6' },
     { value: 'class',    emoji: '🎓', label: 'Class',    color: '#F59E0B' },
-    { value: 'single',   emoji: '👤', label: 'Single',   color: '#3B82F6' },
+    { value: 'single',   emoji: '👤', label: 'Single',   color: '#6366F1' },
     { value: 'double',   emoji: '👥', label: 'Double',   color: '#10B981' },
   ];
 
@@ -102,6 +103,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
       createdAt: new Date().toISOString(),
     };
     addLogbookEntry(entry);
+    hapticSuccess();
     navigation.navigate('LogConfirmation', { entry, isTrainingSession });
   };
 
@@ -215,8 +217,27 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         {/* Session Type */}
         {!isTrainingSession && (
           <Section title="Session Type">
+            {/* Activity type row */}
+            <Text style={styles.subLabel}>Activity</Text>
             <View style={styles.chipRow}>
-              {sessionTypeOptions.map(opt => {
+              {sessionTypeOptions.filter(o => ['training','social','class'].includes(o.value)).map(opt => {
+                const active = sessionType === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.sessionChip, active && { backgroundColor: opt.color + '18', borderColor: opt.color }]}
+                    onPress={() => setSessionType(opt.value)}
+                  >
+                    <Text style={styles.chipEmoji}>{opt.emoji}</Text>
+                    <Text style={[styles.chipLabel, active && { color: opt.color, fontWeight: '600' }]}>{opt.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {/* Format row */}
+            <Text style={[styles.subLabel, { marginTop: 10 }]}>Format</Text>
+            <View style={styles.chipRow}>
+              {sessionTypeOptions.filter(o => ['single','double'].includes(o.value)).map(opt => {
                 const active = sessionType === opt.value;
                 return (
                   <TouchableOpacity
@@ -432,6 +453,14 @@ const styles = StyleSheet.create({
   },
   dateValue: { fontSize: 14, color: '#1F2937', flex: 1 },
 
+  subLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
   // Session type chips
   chipRow: {
     flexDirection: 'row',
@@ -455,21 +484,22 @@ const styles = StyleSheet.create({
   // Feeling
   feelingRow: {
     flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+    gap: 6,
   },
   feelingChip: {
     flex: 1,
-    minWidth: 58,
+    minHeight: 68,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 2,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
     backgroundColor: '#F9FAFB',
   },
-  feelingEmoji: { fontSize: 22, marginBottom: 5 },
-  feelingLabel: { fontSize: 11, fontWeight: '600', color: '#6B7280', textAlign: 'center' },
+  feelingEmoji: { fontSize: 24, marginBottom: 4 },
+  feelingLabel: { fontSize: 10, fontWeight: '600', color: '#6B7280', textAlign: 'center' },
 
   // Skill chips grid
   skillGrid: {

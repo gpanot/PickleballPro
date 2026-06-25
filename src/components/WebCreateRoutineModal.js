@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-export default function WebCreateRoutineModal({ visible, onClose, onSuccess, editingRoutine, programId }) {
+export default function WebCreateRoutineModal({ visible, onClose, onSuccess, editingRoutine, programId, sessionRole }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [routineTitle, setRoutineTitle] = useState('');
@@ -61,10 +61,10 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
   const fetchPrograms = async () => {
     try {
       setLoadingPrograms(true);
+      // Fetch programs the current user can access: published ones OR their own drafts
       const { data, error } = await supabase
         .from('programs')
         .select('id, name, description')
-        .eq('is_published', true)
         .order('name');
 
       if (error) throw error;
@@ -130,67 +130,44 @@ export default function WebCreateRoutineModal({ visible, onClose, onSuccess, edi
       });
 
       let data, error;
+      const isAdminSession = sessionRole !== 'coach';
 
       if (isEditing) {
         console.log('✏️ [WebCreateRoutineModal] Updating existing routine...');
-        console.log('🚨 [WebCreateRoutineModal] WARNING: Using direct table update - should use update_routine_as_user function!');
-        
-        // Update existing routine - TODO: Should use update_routine_as_user function
-        routineData.updated_at = new Date().toISOString();
-        const result = await supabase
-          .from('routines')
-          .update(routineData)
-          .eq('id', editingRoutine.id)
-          .select();
+        // Use update_routine_as_user RPC for both coaches and admins
+        const result = await supabase.rpc('update_routine_as_user', {
+          routine_id: editingRoutine.id,
+          routine_name: routineData.name,
+          routine_description: routineData.description,
+          routine_order_index: routineData.order_index,
+          routine_time_estimate_minutes: 30,
+          routine_is_published: routineData.is_published,
+        });
         data = result.data;
         error = result.error;
-        
+
         if (error) {
-          console.error('❌ [WebCreateRoutineModal] Direct update failed:', error);
+          console.error('❌ [WebCreateRoutineModal] update_routine_as_user failed:', error);
         } else {
-          console.log('✅ [WebCreateRoutineModal] Direct update succeeded:', data);
+          console.log('✅ [WebCreateRoutineModal] update_routine_as_user succeeded:', data);
         }
       } else {
-        console.log('➕ [WebCreateRoutineModal] Creating new routine...');
-        console.log('🔧 [WebCreateRoutineModal] Attempting to use create_routine_as_user function...');
-        
-        // Try to use the user function first
-        try {
-          const { data: userFunctionData, error: userFunctionError } = await supabase.rpc('create_routine_as_user', {
-            routine_program_id: selectedProgram.id,
-            routine_name: routineData.name,
-            routine_description: routineData.description,
-            routine_order_index: routineData.order_index,
-            routine_time_estimate_minutes: 30, // Default estimate
-            routine_is_published: routineData.is_published
-          });
-          
-          if (userFunctionError) {
-            console.error('❌ [WebCreateRoutineModal] User function failed:', userFunctionError);
-            console.log('🔄 [WebCreateRoutineModal] Falling back to direct insert...');
-            throw userFunctionError;
-          } else {
-            console.log('✅ [WebCreateRoutineModal] User function succeeded:', userFunctionData);
-            data = userFunctionData;
-            error = null;
-          }
-        } catch (userFunctionError) {
-          console.log('📱 [WebCreateRoutineModal] User function failed, trying direct insert...');
-          console.log('🚨 [WebCreateRoutineModal] WARNING: Using direct table insert - may fail due to RLS policies!');
-          
-          // Fallback to direct insert (original approach)
-          const result = await supabase
-            .from('routines')
-            .insert([routineData])
-            .select();
-          data = result.data;
-          error = result.error;
-          
-          if (error) {
-            console.error('❌ [WebCreateRoutineModal] Direct insert also failed:', error);
-          } else {
-            console.log('✅ [WebCreateRoutineModal] Direct insert succeeded:', data);
-          }
+        console.log('➕ [WebCreateRoutineModal] Creating new routine via create_routine_as_user...');
+        const result = await supabase.rpc('create_routine_as_user', {
+          routine_program_id: selectedProgram.id,
+          routine_name: routineData.name,
+          routine_description: routineData.description,
+          routine_order_index: routineData.order_index,
+          routine_time_estimate_minutes: 30,
+          routine_is_published: routineData.is_published,
+        });
+        data = result.data;
+        error = result.error;
+
+        if (error) {
+          console.error('❌ [WebCreateRoutineModal] create_routine_as_user failed:', error);
+        } else {
+          console.log('✅ [WebCreateRoutineModal] create_routine_as_user succeeded:', data);
         }
       }
 

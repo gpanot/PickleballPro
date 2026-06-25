@@ -22,6 +22,9 @@ import ModernIcon from '../components/ModernIcon';
 import { usePreload } from '../context/PreloadContext';
 import { useAuth } from '../context/AuthContext';
 import { getCoaches, transformCoachData, supabase } from '../lib/supabase';
+import { CoachSkeletonCard } from '../components/SkeletonCard';
+import SeededAvatar from '../components/SeededAvatar';
+import EmptyState from '../components/EmptyState';
 
 export default function CoachScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -375,7 +378,7 @@ export default function CoachScreen({ navigation }) {
       name: 'iMessage',
       iconType: 'emoji',
       icon: '💬',
-      color: '#007AFF',
+      color: '#6366F1',
       description: 'Message via iMessage (iOS only)'
     },
     zalo: {
@@ -690,24 +693,14 @@ export default function CoachScreen({ navigation }) {
       <View key={coach.id} style={styles.coachCard}>
         <View style={styles.coachHeader}>
           <TouchableOpacity 
-            style={styles.coachAvatar}
             onPress={() => handleAvatarPress(coach)}
             activeOpacity={0.7}
           >
-            {hasValidImage ? (
-              <Image 
-                source={{ uri: coach.image }} 
-                style={styles.coachAvatarImage}
-                resizeMode="cover"
-                onError={(error) => {
-                  console.log('❌ Failed to load coach avatar:', coach.name, coach.image, error);
-                }}
-              />
-            ) : (
-              <Text style={styles.coachAvatarText}>
-                {coach.name.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </Text>
-            )}
+            <SeededAvatar
+              uri={hasValidImage ? coach.image : null}
+              name={coach.name}
+              size={60}
+            />
           </TouchableOpacity>
         
         <View style={styles.coachInfo}>
@@ -975,9 +968,8 @@ export default function CoachScreen({ navigation }) {
       </View>
       
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Loading coaches...</Text>
+        <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          {[1, 2, 3, 4].map(i => <CoachSkeletonCard key={i} />)}
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
@@ -996,8 +988,8 @@ export default function CoachScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#3B82F6']}
-              tintColor="#3B82F6"
+              colors={['#6366F1']}
+              tintColor="#6366F1"
             />
           }
         >
@@ -1009,9 +1001,11 @@ export default function CoachScreen({ navigation }) {
             {filteredAndSortedCoaches.length > 0 ? (
               filteredAndSortedCoaches.map(renderCoachCard)
             ) : (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No coaches match your criteria</Text>
-              </View>
+              <EmptyState
+                emoji="🎾"
+                title="No coaches found"
+                subtitle="Try adjusting your search or filters to find coaches in your area."
+              />
             )}
           </View>
           
@@ -1122,8 +1116,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   filterChipActive: {
-    backgroundColor: '#4F46E5',
-    borderColor: '#4F46E5',
+    backgroundColor: '#6366F1',
+    borderColor: '#6366F1',
   },
   filterChipContent: {
     flexDirection: 'row',
@@ -1219,7 +1213,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -1315,7 +1309,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   contactButton: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#6366F1',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
@@ -1354,7 +1348,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#6366F1',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1525,7 +1519,7 @@ const styles = StyleSheet.create({
     width: 300,
     height: 300,
     borderRadius: 150,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,

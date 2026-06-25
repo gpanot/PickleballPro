@@ -16,7 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-export default function WebCreateProgramModal({ visible, onClose, onSuccess, editingProgram }) {
+export default function WebCreateProgramModal({ visible, onClose, onSuccess, editingProgram, sessionRole }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [programName, setProgramName] = useState('');
@@ -231,6 +231,8 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
     }
   };
 
+  const isCoachRole = sessionRole === 'coach';
+
   const handleCreateProgram = async () => {
     if (!programName.trim()) {
       Alert.alert('Error', 'Please enter a program name');
@@ -245,72 +247,71 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
 
     try {
       setLoading(true);
-      
-      // Debug: Check current user details
-      console.log('Current user:', user);
-      
-      // Check if user has admin role
-      const { data: profile, error: profileError } = await supabase
-        .from('users')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
-      
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-      } else {
-        console.log('User profile:', profile);
-      }
-      
+
       // Upload thumbnail to storage if provided
       let thumbnailUrl = null;
       if (thumbnail) {
         if (typeof thumbnail === 'string') {
-          // Check if it's a blob URL (local) - these should be re-uploaded
           if (thumbnail.startsWith('blob:')) {
-            console.log('🔄 Detected blob URL, re-uploading to storage...');
             thumbnailUrl = await uploadThumbnailToStorage(thumbnail);
           } else {
-            // If it's already a proper storage URL, keep it
             thumbnailUrl = thumbnail;
           }
         } else if (thumbnail.uri) {
-          // If it's a new image object, upload it to storage
           thumbnailUrl = await uploadThumbnailToStorage(thumbnail.uri);
         }
       }
-      
-      // Validate thumbnail URL before saving
+
       if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
         console.warn('⚠️ Blob URL detected, not saving to database:', thumbnailUrl);
-        thumbnailUrl = null; // Don't save blob URLs
+        thumbnailUrl = null;
         Alert.alert('Warning', 'Thumbnail upload failed. Program will be saved without thumbnail.');
-      }
-
-      // Create the program data
-      const programData = {
-        name: programName.trim(),
-        description: programDescription.trim() || 'New training program',
-        category: finalCategory,
-        tier: 'Beginner',
-        rating: rating,
-        added_count: userCount,
-        is_published: status === 'published',
-        thumbnail_url: thumbnailUrl,
-        is_coach_program: isCoachProgram,
-      };
-
-      // Add created_by only for new programs
-      if (!isEditing) {
-        programData.created_by = user.id;
       }
 
       let data, error;
 
-      if (isEditing) {
-        // Update existing program using database function
-        const result = await supabase
-          .rpc('update_program_as_admin', {
+      if (isCoachRole) {
+        // Coach path: use user-scoped RPCs that enforce created_by and block self-publishing
+        if (isEditing) {
+          const result = await supabase.rpc('update_program_as_user', {
+            program_id: editingProgram.id,
+            program_name: programName.trim(),
+            program_description: programDescription.trim() || 'New training program',
+            program_category: finalCategory,
+            program_tier: 'Beginner',
+            program_thumbnail_url: thumbnailUrl,
+            program_is_coach_program: isCoachProgram,
+          });
+          data = result.data;
+          error = result.error;
+        } else {
+          const result = await supabase.rpc('create_program_as_user', {
+            program_name: programName.trim(),
+            program_description: programDescription.trim() || 'New training program',
+            program_category: finalCategory,
+            program_tier: 'Beginner',
+            program_is_coach_program: isCoachProgram,
+            program_thumbnail_url: thumbnailUrl,
+          });
+          data = result.data;
+          error = result.error;
+        }
+      } else {
+        // Admin path: existing admin RPCs, all fields editable
+        const programData = {
+          name: programName.trim(),
+          description: programDescription.trim() || 'New training program',
+          category: finalCategory,
+          tier: 'Beginner',
+          rating: rating,
+          added_count: userCount,
+          is_published: status === 'published',
+          thumbnail_url: thumbnailUrl,
+          is_coach_program: isCoachProgram,
+        };
+
+        if (isEditing) {
+          const result = await supabase.rpc('update_program_as_admin', {
             program_id: editingProgram.id,
             program_name: programData.name,
             program_description: programData.description,
@@ -320,14 +321,12 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_added_count: programData.added_count,
             program_is_published: programData.is_published,
             program_thumbnail_url: programData.thumbnail_url,
-            program_is_coach_program: programData.is_coach_program
+            program_is_coach_program: programData.is_coach_program,
           });
-        data = result.data;
-        error = result.error;
-      } else {
-        // Create new program using database function
-        const result = await supabase
-          .rpc('create_program_as_admin', {
+          data = result.data;
+          error = result.error;
+        } else {
+          const result = await supabase.rpc('create_program_as_admin', {
             program_name: programData.name,
             program_description: programData.description,
             program_category: programData.category,
@@ -336,10 +335,11 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_added_count: programData.added_count,
             program_is_published: programData.is_published,
             program_thumbnail_url: programData.thumbnail_url,
-            program_is_coach_program: programData.is_coach_program
+            program_is_coach_program: programData.is_coach_program,
           });
-        data = result.data;
-        error = result.error;
+          data = result.data;
+          error = result.error;
+        }
       }
 
       if (error) throw error;
@@ -421,39 +421,41 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
               )}
             </TouchableOpacity>
 
-            <View style={styles.formRow}>
-              <View style={styles.formColumn}>
-                <Text style={styles.modalLabel}>Rating</Text>
-                <View style={styles.ratingContainer}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity
-                      key={star}
-                      onPress={() => setRating(star)}
-                      style={styles.starButton}
-                    >
-                      <Ionicons
-                        name={star <= rating ? "star" : "star-outline"}
-                        size={24}
-                        color={star <= rating ? "#FFB800" : "#D1D5DB"}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                  <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+            {!isCoachRole && (
+              <View style={styles.formRow}>
+                <View style={styles.formColumn}>
+                  <Text style={styles.modalLabel}>Rating</Text>
+                  <View style={styles.ratingContainer}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setRating(star)}
+                        style={styles.starButton}
+                      >
+                        <Ionicons
+                          name={star <= rating ? "star" : "star-outline"}
+                          size={24}
+                          color={star <= rating ? "#FFB800" : "#D1D5DB"}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                    <Text style={styles.ratingText}>{rating.toFixed(1)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.formColumn}>
+                  <Text style={styles.modalLabel}>User Count</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={userCount.toString()}
+                    onChangeText={(text) => setUserCount(parseInt(text) || 0)}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="numeric"
+                  />
                 </View>
               </View>
-
-              <View style={styles.formColumn}>
-                <Text style={styles.modalLabel}>User Count</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  value={userCount.toString()}
-                  onChangeText={(text) => setUserCount(parseInt(text) || 0)}
-                  placeholder="0"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
+            )}
 
             <Text style={styles.modalLabel}>Explore Category *</Text>
             <View style={styles.categoryContainer}>
@@ -522,74 +524,78 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
               </View>
             )}
 
-            <Text style={styles.modalLabel}>Status</Text>
-            <View style={styles.statusContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.statusOption,
-                  status === 'draft' && styles.statusOptionSelected
-                ]}
-                onPress={() => setStatus('draft')}
-              >
-                <View style={styles.statusOptionContent}>
-                  <Ionicons 
-                    name="document-outline" 
-                    size={20} 
-                    color={status === 'draft' ? '#3B82F6' : '#6B7280'} 
-                  />
-                  <View style={styles.statusOptionTextContainer}>
-                    <Text style={[
-                      styles.statusOptionTitle,
-                      status === 'draft' && styles.statusOptionTitleSelected
-                    ]}>
-                      Draft
-                    </Text>
-                    <Text style={[
-                      styles.statusOptionDescription,
-                      status === 'draft' && styles.statusOptionDescriptionSelected
-                    ]}>
-                      Save as draft for later editing
-                    </Text>
-                  </View>
-                </View>
-                {status === 'draft' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
-                )}
-              </TouchableOpacity>
+            {!isCoachRole && (
+              <>
+                <Text style={styles.modalLabel}>Status</Text>
+                <View style={styles.statusContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.statusOption,
+                      status === 'draft' && styles.statusOptionSelected
+                    ]}
+                    onPress={() => setStatus('draft')}
+                  >
+                    <View style={styles.statusOptionContent}>
+                      <Ionicons
+                        name="document-outline"
+                        size={20}
+                        color={status === 'draft' ? '#3B82F6' : '#6B7280'}
+                      />
+                      <View style={styles.statusOptionTextContainer}>
+                        <Text style={[
+                          styles.statusOptionTitle,
+                          status === 'draft' && styles.statusOptionTitleSelected
+                        ]}>
+                          Draft
+                        </Text>
+                        <Text style={[
+                          styles.statusOptionDescription,
+                          status === 'draft' && styles.statusOptionDescriptionSelected
+                        ]}>
+                          Save as draft for later editing
+                        </Text>
+                      </View>
+                    </View>
+                    {status === 'draft' && (
+                      <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
+                    )}
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.statusOption,
-                  status === 'published' && styles.statusOptionSelectedPublished
-                ]}
-                onPress={() => setStatus('published')}
-              >
-                <View style={styles.statusOptionContent}>
-                  <Ionicons 
-                    name="globe-outline" 
-                    size={20} 
-                    color={status === 'published' ? '#10B981' : '#6B7280'} 
-                  />
-                  <View style={styles.statusOptionTextContainer}>
-                    <Text style={[
-                      styles.statusOptionTitle,
-                      status === 'published' && styles.statusOptionTitleSelectedPublished
-                    ]}>
-                      Published
-                    </Text>
-                    <Text style={[
-                      styles.statusOptionDescription,
-                      status === 'published' && styles.statusOptionDescriptionSelectedPublished
-                    ]}>
-                      Make available to users immediately
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.statusOption,
+                      status === 'published' && styles.statusOptionSelectedPublished
+                    ]}
+                    onPress={() => setStatus('published')}
+                  >
+                    <View style={styles.statusOptionContent}>
+                      <Ionicons
+                        name="globe-outline"
+                        size={20}
+                        color={status === 'published' ? '#10B981' : '#6B7280'}
+                      />
+                      <View style={styles.statusOptionTextContainer}>
+                        <Text style={[
+                          styles.statusOptionTitle,
+                          status === 'published' && styles.statusOptionTitleSelectedPublished
+                        ]}>
+                          Published
+                        </Text>
+                        <Text style={[
+                          styles.statusOptionDescription,
+                          status === 'published' && styles.statusOptionDescriptionSelectedPublished
+                        ]}>
+                          Make available to users immediately
+                        </Text>
+                      </View>
+                    </View>
+                    {status === 'published' && (
+                      <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                    )}
+                  </TouchableOpacity>
                 </View>
-                {status === 'published' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                )}
-              </TouchableOpacity>
-            </View>
+              </>
+            )}
 
             <Text style={styles.modalLabel}>Coach Program Only</Text>
             <TouchableOpacity
@@ -610,21 +616,32 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             </TouchableOpacity>
 
             <View style={styles.infoSection}>
-              <View style={styles.infoItem}>
-                <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
-                <Text style={styles.infoText}>
-                  {status === 'draft' 
-                    ? 'Program will be saved as a draft. You can publish it later from the programs list.'
-                    : 'Program will be published immediately and available to users in the Explore section.'
-                  }
-                </Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Ionicons name="eye-outline" size={16} color="#6B7280" />
-                <Text style={styles.infoText}>
-                  Published programs appear on the Explore screen under their selected category.
-                </Text>
-              </View>
+              {isCoachRole ? (
+                <View style={styles.infoItem}>
+                  <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
+                  <Text style={styles.infoText}>
+                    Programs you create are saved as drafts. An admin can review and publish them to the public library when ready.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
+                    <Text style={styles.infoText}>
+                      {status === 'draft'
+                        ? 'Program will be saved as a draft. You can publish it later from the programs list.'
+                        : 'Program will be published immediately and available to users in the Explore section.'
+                      }
+                    </Text>
+                  </View>
+                  <View style={styles.infoItem}>
+                    <Ionicons name="eye-outline" size={16} color="#6B7280" />
+                    <Text style={styles.infoText}>
+                      Published programs appear on the Explore screen under their selected category.
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </ScrollView>

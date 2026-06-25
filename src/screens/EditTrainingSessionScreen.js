@@ -65,7 +65,7 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
     { value: 'training', emoji: '🏋️', label: 'Training', color: '#EF4444' },
     { value: 'social', emoji: '🎉', label: 'Social', color: '#8B5CF6' },
     { value: 'class', emoji: '🎓', label: 'Class', color: '#F59E0B' },
-    { value: 'single', emoji: '👤', label: 'Single', color: '#3B82F6' },
+    { value: 'single', emoji: '👤', label: 'Single', color: '#6366F1' },
     { value: 'double', emoji: '👥', label: 'Double', color: '#10B981' },
   ];
 
@@ -264,7 +264,7 @@ export default function EditTrainingSessionScreen({ navigation, route }) {
           <Ionicons 
             name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
             size={24} 
-            color="#007AFF" 
+            color="#6366F1" 
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Training Session</Text>
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#007AFF',
+    color: '#6366F1',
   },
   scrollView: {
     flex: 1,

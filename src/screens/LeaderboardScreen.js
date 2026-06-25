@@ -8,8 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Image,
 } from 'react-native';
+import SeededAvatar from '../components/SeededAvatar';
+import EmptyState from '../components/EmptyState';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { Globe, MapPin, User, Users } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import * as Location from 'expo-location';
@@ -27,11 +32,28 @@ export default function LeaderboardScreen({ navigation }) {
 
   useEffect(() => {
     loadLeaderboard();
-    getCurrentUserLocation();
+  }, [selectedFilter]);
+
+  useEffect(() => {
+    if (selectedFilter === 'nearby') {
+      getCurrentUserLocation();
+    }
   }, [selectedFilter]);
 
   const getCurrentUserLocation = async () => {
     try {
+      // Show rationale before requesting permission
+      await new Promise((resolve) => {
+        Alert.alert(
+          'Find Players Nearby',
+          'Allow location access to see players within 50km of you on the Nearby leaderboard.',
+          [
+            { text: 'Not Now', style: 'cancel', onPress: resolve },
+            { text: 'Allow', onPress: resolve },
+          ]
+        );
+      });
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         console.log('Location permission denied');
@@ -135,7 +157,8 @@ export default function LeaderboardScreen({ navigation }) {
         });
       }
 
-      // Sort by score descending
+      // Filter out zero-score users (no assessment yet) then sort
+      leaderboard = leaderboard.filter(u => u.score > 0);
       leaderboard.sort((a, b) => b.score - a.score);
 
       // Add rank
@@ -177,30 +200,53 @@ export default function LeaderboardScreen({ navigation }) {
   };
 
   const getRankIcon = (rank) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
+    // Returns a string label; medal rendering is done inline with RankMedal component
     return `#${rank}`;
   };
 
-  const FilterButton = ({ filter, label }) => (
-    <TouchableOpacity
-      style={[
-        styles.filterButton,
-        selectedFilter === filter && styles.filterButtonActive,
-      ]}
-      onPress={() => setSelectedFilter(filter)}
-    >
-      <Text
-        style={[
-          styles.filterButtonText,
-          selectedFilter === filter && styles.filterButtonTextActive,
-        ]}
+  const MEDAL_COLORS = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
+
+  const RankMedal = ({ rank, size = 22, style }) => {
+    const color = MEDAL_COLORS[rank] || '#fff';
+    const label = rank <= 3 ? `${rank}` : `#${rank}`;
+    return <Text style={[{ fontSize: size, color, fontWeight: '900' }, style]}>{label}</Text>;
+  };
+
+  const PodiumCard = ({ player, height, rank }) => {
+    if (!player) return <View style={{ flex: 1 }} />;
+    const medalColor = MEDAL_COLORS[rank];
+    const isCenter = rank === 1;
+    return (
+      <View style={[styles.podiumCard, isCenter && styles.podiumCardCenter]}>
+        <SeededAvatar
+          uri={player.avatar_url}
+          name={player.name}
+          size={52}
+          style={{ borderWidth: 2, borderColor: medalColor }}
+        />
+        <Text style={[styles.podiumMedal, { color: medalColor }]}>{rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</Text>
+        <Text style={styles.podiumName} numberOfLines={1}>{player.name || 'Player'}</Text>
+        <Text style={styles.podiumScore}>{player.score} pts</Text>
+        <View style={[styles.podiumBlock, { height, backgroundColor: medalColor + '33', borderTopColor: medalColor }]} />
+      </View>
+    );
+  };
+
+  const FilterButton = ({ filter, label, Icon }) => {
+    const isActive = selectedFilter === filter;
+    const iconColor = isActive ? '#fff' : '#64748B';
+    return (
+      <TouchableOpacity
+        style={[styles.filterButton, isActive && styles.filterButtonActive]}
+        onPress={() => setSelectedFilter(filter)}
       >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+        {Icon && <Icon size={14} color={iconColor} style={{ marginRight: 6 }} />}
+        <Text style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   const filterSubtitle = selectedFilter === 'nearby'
     ? 'Players within 50km'
@@ -226,7 +272,7 @@ export default function LeaderboardScreen({ navigation }) {
       {currentUserRank && (
         <View style={styles.currentUserCard}>
           <View style={styles.currentUserRankBadge}>
-            <Text style={styles.currentUserRankText}>{getRankIcon(currentUserRank)}</Text>
+            <RankMedal rank={currentUserRank} size={26} />
           </View>
           <View style={styles.currentUserInfo}>
             <Text style={styles.currentUserName}>Your Rank</Text>
@@ -238,11 +284,11 @@ export default function LeaderboardScreen({ navigation }) {
       {/* Filters */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <FilterButton filter="global" label="🌍 Global" />
-          <FilterButton filter="nearby" label="📍 Nearby" />
-          <FilterButton filter="male" label="👨 Male" />
-          <FilterButton filter="female" label="👩 Female" />
-          <FilterButton filter="other" label="⚥ Other" />
+          <FilterButton filter="global" label="Global" Icon={Globe} />
+          <FilterButton filter="nearby" label="Nearby" Icon={MapPin} />
+          <FilterButton filter="male" label="Male" Icon={User} />
+          <FilterButton filter="female" label="Female" Icon={User} />
+          <FilterButton filter="other" label="Other" Icon={Users} />
         </ScrollView>
       </View>
 
@@ -253,59 +299,104 @@ export default function LeaderboardScreen({ navigation }) {
           <Text style={styles.loadingText}>Loading rankings...</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {leaderboardData.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {selectedFilter === 'nearby'
-                  ? 'No players found nearby. Try enabling location or changing filters.'
-                  : 'No players found. Change filters to see more players!'}
-              </Text>
-            </View>
-          ) : (
-            leaderboardData.map((player) => (
-              <View
-                key={player.id}
-                style={[
-                  styles.playerCard,
-                  player.id === user?.id && styles.playerCardCurrent,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.rankBadge,
-                    { backgroundColor: getRankColor(player.rank) },
-                  ]}
-                >
-                  <Text style={styles.rankBadgeText}>
-                    {player.rank <= 3 ? getRankIcon(player.rank) : `#${player.rank}`}
-                  </Text>
-                </View>
+        <>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            {leaderboardData.length === 0 ? (
+              <EmptyState
+                emoji={selectedFilter === 'nearby' ? '📍' : '🏆'}
+                title={selectedFilter === 'nearby' ? 'No players found nearby' : 'No rankings yet'}
+                subtitle={selectedFilter === 'nearby'
+                  ? 'Try enabling location access or switch to Global rankings.'
+                  : 'Complete a coach assessment to earn your rank and appear on the board.'}
+              />
+            ) : (
+              <>
+                {/* Podium — top 3 */}
+                {leaderboardData.length >= 3 && (
+                  <View style={styles.podiumContainer}>
+                    <PodiumCard player={leaderboardData[1]} height={70} rank={2} />
+                    <PodiumCard player={leaderboardData[0]} height={100} rank={1} />
+                    <PodiumCard player={leaderboardData[2]} height={50} rank={3} />
+                  </View>
+                )}
 
+                {/* Rest of list (rank 4+) */}
+                {leaderboardData.slice(leaderboardData.length >= 3 ? 3 : 0).map((player) => (
+                  <View
+                    key={player.id}
+                    style={[
+                      styles.playerCard,
+                      player.id === user?.id && styles.playerCardCurrent,
+                    ]}
+                  >
+                    <View style={[styles.rankBadge, { backgroundColor: getRankColor(player.rank) }]}>
+                      <RankMedal rank={player.rank} size={16} />
+                    </View>
+                    <View style={styles.playerInfo}>
+                      <Text style={styles.playerName}>
+                        {player.name || 'Anonymous Player'}
+                        {player.id === user?.id && ' (You)'}
+                      </Text>
+                      <Text style={styles.playerTier}>
+                        {player.tier || 'No Tier'} • {player.city || 'Location not set'}
+                      </Text>
+                    </View>
+                    <View style={styles.playerScore}>
+                      <Text style={styles.scoreValue}>{player.score}</Text>
+                      <Text style={styles.scoreLabel}>pts</Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+          </ScrollView>
+
+          {/* Pinned current-user row */}
+          {currentUserRank && (
+            <View>
+              <View style={styles.pinnedUserRow}>
+                <View style={[styles.rankBadge, { backgroundColor: getRankColor(currentUserRank) }]}>
+                  <RankMedal rank={currentUserRank} size={16} />
+                </View>
                 <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>
-                    {player.name || 'Anonymous Player'}
-                    {player.id === user?.id && ' (You)'}
-                  </Text>
-                  <Text style={styles.playerTier}>
-                    {player.tier || 'No Tier'} • {player.city || 'Location not set'}
-                  </Text>
+                  <Text style={[styles.playerName, { color: '#6366F1' }]}>You</Text>
+                  <Text style={styles.playerTier}>{currentUserScore} points</Text>
                 </View>
-
-                <View style={styles.playerScore}>
-                  <Text style={styles.scoreValue}>{player.score}</Text>
-                  <Text style={styles.scoreLabel}>points</Text>
-                </View>
+                <Text style={styles.pinnedLabel}>Your rank</Text>
               </View>
-            ))
+              {/* Improvement nudge for non-top-3 */}
+              {currentUserRank > 3 && (
+                <TouchableOpacity
+                  style={styles.improveNudge}
+                  onPress={() => navigation.navigate('Training2')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trending-up-outline" size={16} color="#6366F1" style={{ marginRight: 6 }} />
+                  <Text style={styles.improveNudgeText}>Request a coach assessment to climb the ranks</Text>
+                  <Ionicons name="chevron-forward" size={14} color="#6366F1" />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
-        </ScrollView>
+          {/* Nudge when user has no rank yet */}
+          {!currentUserRank && (
+            <TouchableOpacity
+              style={styles.improveNudge}
+              onPress={() => navigation.navigate('Training2')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="star-outline" size={16} color="#6366F1" style={{ marginRight: 6 }} />
+              <Text style={styles.improveNudgeText}>Get a coach assessment to earn your ranking</Text>
+              <Ionicons name="chevron-forward" size={14} color="#6366F1" />
+            </TouchableOpacity>
+          )}
+        </>
       )}
     </View>
   );
@@ -390,7 +481,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   filterButton: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 10,
     backgroundColor: 'white',
     borderRadius: 20,
@@ -438,11 +531,113 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   emptyText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 22,
+  },
+  // Podium styles
+  podiumContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingTop: 16,
+    marginBottom: 20,
+    gap: 4,
+  },
+  podiumCard: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  podiumCardCenter: {
+    marginBottom: 0,
+  },
+  podiumAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    overflow: 'hidden',
+  },
+  podiumAvatarImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  podiumAvatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#6366F1',
+  },
+  podiumMedal: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  podiumName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 2,
+    maxWidth: 80,
+  },
+  podiumScore: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginBottom: 6,
+  },
+  podiumBlock: {
+    width: '100%',
+    borderTopWidth: 3,
+    borderRadius: 4,
+  },
+  // Pinned current user
+  pinnedUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#EEF2FF',
+    borderTopWidth: 1,
+    borderTopColor: '#C7D2FE',
+  },
+  pinnedLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6366F1',
+  },
+  improveNudge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: '#EEF2FF',
+    borderTopWidth: 1,
+    borderTopColor: '#C7D2FE',
+  },
+  improveNudgeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#6366F1',
+    fontWeight: '500',
   },
   playerCard: {
     flexDirection: 'row',

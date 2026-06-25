@@ -560,6 +560,7 @@ export const LogbookProvider = ({ children }) => {
     addLogbookEntry,
     updateLogbookEntry,
     deleteLogbookEntry,
+    refreshLogbook: loadLogbookEntries,
     getLogbookSummary,
     getEntriesInDateRange,
     getMonthlyBreakdown,

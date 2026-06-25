@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { hapticSuccess, hapticError } from '../lib/haptics';
 import {
   View,
   Text,
@@ -18,23 +19,32 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [authError, setAuthError] = useState('');
   const insets = useSafeAreaInsets();
   const { signIn } = useAuth();
+  const passwordRef = useRef(null);
 
   const validateForm = () => {
+    let valid = true;
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return false;
-    }
-    if (!email.includes('@') || !email.includes('.')) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return false;
+      setEmailError('Please enter your email');
+      valid = false;
+    } else if (!email.includes('@') || !email.includes('.')) {
+      setEmailError('Please enter a valid email address');
+      valid = false;
+    } else {
+      setEmailError('');
     }
     if (!password) {
-      Alert.alert('Error', 'Please enter your password');
-      return false;
+      setPasswordError('Please enter your password');
+      valid = false;
+    } else {
+      setPasswordError('');
     }
-    return true;
+    return valid;
   };
 
   const handleSignIn = async () => {
@@ -47,12 +57,15 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
       const { data, error } = await signIn(email, password);
       
       if (error) {
-        Alert.alert('Sign In Failed', error.message || 'Please check your credentials and try again.');
+        hapticError();
+        setAuthError(error.message || 'Please check your credentials and try again.');
         setIsLoading(false);
         return;
       }
+      setAuthError('');
 
       if (data?.user) {
+        hapticSuccess();
         console.log('Sign in successful! Waiting for auth state to update...');
         
         // Call onAuthenticate to trigger app state updates (complete onboarding)
@@ -134,7 +147,7 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
               <Ionicons 
                 name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
                 size={24} 
-                color="#007AFF" 
+                color="#6366F1" 
               />
             </TouchableOpacity>
             
@@ -144,34 +157,67 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
               <Text style={styles.subtitle}>Sign in to continue your training</Text>
             </View>
 
+
             {/* Form Section */}
             <View style={styles.formContainer}>
+              {/* General auth error */}
+              {!!authError && (
+                <View style={styles.authErrorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color="#b91c1c" />
+                  <Text style={styles.authErrorText}>{authError}</Text>
+                </View>
+              )}
+
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, emailError ? styles.inputError : null]}
                   placeholder="Enter your email"
                   placeholderTextColor="#9CA3AF"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(t) => { setEmail(t); if (emailError) setEmailError(''); if (authError) setAuthError(''); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="emailAddress"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                 />
+                {!!emailError && <Text style={styles.fieldError}>{emailError}</Text>}
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#9CA3AF"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
+                <View style={[styles.passwordWrapper, passwordError ? styles.inputError : null]}>
+                  <TextInput
+                    ref={passwordRef}
+                    style={styles.passwordInput}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#9CA3AF"
+                    value={password}
+                    onChangeText={(t) => { setPassword(t); if (passwordError) setPasswordError(''); if (authError) setAuthError(''); }}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="password"
+                    returnKeyType="go"
+                    onSubmitEditing={handleSignIn}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(v => !v)}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={22}
+                      color="#9CA3AF"
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
+
+              {!!passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
 
               <TouchableOpacity 
                 style={[
@@ -191,6 +237,14 @@ export default function AuthScreen({ onAuthenticate, navigation, onGoBack, onSig
                 onPress={handleForgotPassword}
               >
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Sign Up CTA */}
+            <View style={styles.signUpRow}>
+              <Text style={styles.signUpPrompt}>New here? </Text>
+              <TouchableOpacity onPress={handleSignUp} activeOpacity={0.7}>
+                <Text style={styles.signUpLink}>Create an account</Text>
               </TouchableOpacity>
             </View>
 
@@ -232,13 +286,13 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   title: {
-    fontSize: 48,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: '800',
     color: '#000000',
     textAlign: 'center',
-    lineHeight: 52,
-    letterSpacing: -1,
-    marginBottom: 16,
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 18,
@@ -274,12 +328,38 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    paddingHorizontal: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 20,
+    fontSize: 18,
+    color: '#000000',
+  },
+  eyeButton: {
+    paddingLeft: 8,
+    paddingVertical: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   signInButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#6366F1',
     borderRadius: 30,
     paddingVertical: 18,
     alignItems: 'center',
-    shadowColor: '#007AFF',
+    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -303,7 +383,47 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#6366F1',
     fontWeight: '600',
+  },
+  signUpRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  signUpPrompt: {
+    fontSize: 15,
+    color: '#6B7280',
+  },
+  signUpLink: {
+    fontSize: 15,
+    color: '#6366F1',
+    fontWeight: '700',
+  },
+  inputError: {
+    borderColor: '#EF4444',
+  },
+  fieldError: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  authErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  authErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#b91c1c',
+    fontWeight: '500',
   },
 });

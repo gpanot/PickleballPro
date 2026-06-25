@@ -18,10 +18,11 @@ import { useIsFocused } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase, transformProgramData } from '../../lib/supabase';
+import SeededAvatar from '../../components/SeededAvatar';
 
-const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
-const ACCENT_COLOR = '#F39C12';
+const PRIMARY_COLOR = '#6366F1';
+const SECONDARY_COLOR = '#F5F5F7';
+const ACCENT_COLOR = '#8B5CF6';
 
 export default function CoachDashboardScreen({ navigation }) {
   const { user: authUser } = useAuth();
@@ -36,6 +37,10 @@ export default function CoachDashboardScreen({ navigation }) {
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [studentCodeInput, setStudentCodeInput] = useState('');
   const [addingStudent, setAddingStudent] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignTarget, setAssignTarget] = useState(null); // student object
+  const [assigningProgramId, setAssigningProgramId] = useState(null);
+  const [assignLoading, setAssignLoading] = useState(false);
   
   // Tab state
   const [activeTab, setActiveTab] = useState('students'); // 'students' or 'programs'
@@ -258,6 +263,30 @@ export default function CoachDashboardScreen({ navigation }) {
     navigation.navigate('PlayerProfile', { studentId: student.id, student });
   };
 
+  const handleAssignProgram = async () => {
+    if (!assignTarget || !assigningProgramId) return;
+    setAssignLoading(true);
+    try {
+      const { error } = await supabase
+        .from('user_programs')
+        .upsert({
+          user_id: assignTarget.id,
+          program_id: assigningProgramId,
+          assigned_by_coach_id: coachId,
+          assigned_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,program_id' });
+      if (error) throw error;
+      Alert.alert('Done!', `Program assigned to ${assignTarget.name}.`);
+      setShowAssignModal(false);
+      setAssignTarget(null);
+      setAssigningProgramId(null);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to assign program.');
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   const handleRemoveStudent = async (student) => {
     Alert.alert(
       'Remove Student Connection',
@@ -451,15 +480,11 @@ export default function CoachDashboardScreen({ navigation }) {
                     onLongPress={() => handleRemoveStudent(student)}
                     android_ripple={{ color: 'rgba(0, 0, 0, 0.05)' }}
                   >
-                    <View style={styles.playerAvatar}>
-                      {student.avatarUrl ? (
-                        <Image source={{ uri: student.avatarUrl }} style={styles.avatarImage} />
-                      ) : (
-                        <Text style={styles.avatarText}>
-                          {student.name.charAt(0).toUpperCase()}
-                        </Text>
-                      )}
-                    </View>
+                    <SeededAvatar
+                      uri={student.avatarUrl}
+                      name={student.name}
+                      size={44}
+                    />
                     <View style={styles.playerInfo}>
                       <Text style={styles.playerName}>{student.name}</Text>
                       <View style={styles.playerMeta}>
@@ -472,10 +497,12 @@ export default function CoachDashboardScreen({ navigation }) {
                       </View>
                       {student.lastAssessmentDate ? (
                         <Text style={styles.lastAssessmentText} numberOfLines={1}>
-                          Last: {getRelativeTime(student.lastAssessmentDate)}
+                          Assessment: {getRelativeTime(student.lastAssessmentDate)}
                         </Text>
                       ) : (
-                        <Text style={styles.lastAssessmentText} numberOfLines={1}>No assessment</Text>
+                        <Text style={[styles.lastAssessmentText, { color: '#9CA3AF' }]} numberOfLines={1}>
+                          No assessment yet
+                        </Text>
                       )}
                     </View>
                     {student.lastAssessmentScore !== null && (
@@ -486,7 +513,21 @@ export default function CoachDashboardScreen({ navigation }) {
                       </View>
                     )}
                   </Pressable>
-                  {/* Start New Assessment button removed */}
+                  <TouchableOpacity
+                    style={styles.assignProgramBtn}
+                    onPress={() => {
+                      if (coachPrograms.length === 0) {
+                        Alert.alert('No Programs', 'Create a coach program first before assigning.');
+                        return;
+                      }
+                      setAssignTarget(student);
+                      setAssigningProgramId(coachPrograms[0].id);
+                      setShowAssignModal(true);
+                    }}
+                  >
+                    <Ionicons name="add-circle-outline" size={14} color={PRIMARY_COLOR} style={{ marginRight: 4 }} />
+                    <Text style={styles.assignProgramBtnText}>Assign Program</Text>
+                  </TouchableOpacity>
                 </View>
               ))
             )}
@@ -572,6 +613,59 @@ export default function CoachDashboardScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
+      {/* Assign Program Modal */}
+      <Modal
+        visible={showAssignModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAssignModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Program</Text>
+              <TouchableOpacity onPress={() => setShowAssignModal(false)}>
+                <Ionicons name="close" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalDescription}>
+              {assignTarget ? `Choose a program to assign to ${assignTarget.name}:` : ''}
+            </Text>
+            {coachPrograms.map(prog => (
+              <TouchableOpacity
+                key={prog.id}
+                style={[styles.programPickerItem, assigningProgramId === prog.id && styles.programPickerItemActive]}
+                onPress={() => setAssigningProgramId(prog.id)}
+              >
+                <Ionicons
+                  name={assigningProgramId === prog.id ? 'radio-button-on' : 'radio-button-off'}
+                  size={18}
+                  color={PRIMARY_COLOR}
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.programPickerText}>{prog.name}</Text>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowAssignModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalAddButton, (assignLoading || !assigningProgramId) && styles.modalAddButtonDisabled]}
+                onPress={handleAssignProgram}
+                disabled={assignLoading || !assigningProgramId}
+              >
+                {assignLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.modalAddText}>Assign</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Add Student Modal */}
       <Modal
         visible={showAddStudentModal}
@@ -637,6 +731,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: SECONDARY_COLOR,
   },
+  assignProgramBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: 6,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    alignSelf: 'flex-start',
+  },
+  assignProgramBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: PRIMARY_COLOR,
+  },
+  programPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  programPickerItemActive: {
+    borderColor: PRIMARY_COLOR,
+    backgroundColor: '#EEF2FF',
+  },
+  programPickerText: { fontSize: 14, color: '#1F2937', flex: 1 },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

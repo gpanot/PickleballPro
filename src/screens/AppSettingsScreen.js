@@ -11,9 +11,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import ModernIcon from '../components/ModernIcon';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AppSettingsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { themeMode, setThemeMode, isDark, theme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [autoPlay, setAutoPlay] = useState(false);
@@ -95,6 +97,44 @@ export default function AppSettingsScreen({ navigation }) {
               pushNotifications,
               setPushNotifications
             )}
+          </>
+        ))}
+
+        {/* Appearance */}
+        {renderSection('Appearance', (
+          <>
+            {/* Theme mode picker */}
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <ModernIcon name="settings" size={20} color="#6B7280" />
+                <View style={styles.settingTextContainer}>
+                  <Text style={styles.settingLabel}>Color Theme</Text>
+                  <Text style={styles.settingDescription}>Controls app light/dark mode</Text>
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {['light', 'system', 'dark'].map(mode => (
+                  <TouchableOpacity
+                    key={mode}
+                    onPress={() => setThemeMode(mode)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                      backgroundColor: themeMode === mode ? '#6366F1' : '#F3F4F6',
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 11,
+                      fontWeight: '600',
+                      color: themeMode === mode ? '#fff' : '#6B7280',
+                    }}>
+                      {mode === 'system' ? 'Auto' : mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </>
         ))}
 

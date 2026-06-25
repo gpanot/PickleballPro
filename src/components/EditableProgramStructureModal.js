@@ -19,7 +19,7 @@ import WebCreateExerciseModal from './WebCreateExerciseModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-export default function EditableProgramStructureModal({ visible, program, onClose, onSave }) {
+export default function EditableProgramStructureModal({ visible, program, onClose, onSave, sessionRole }) {
   const [editedProgram, setEditedProgram] = useState(program);
   const [selectedRoutine, setSelectedRoutine] = useState(null);
   const [selectedExercise, setSelectedExercise] = useState(null);
@@ -748,6 +748,7 @@ export default function EditableProgramStructureModal({ visible, program, onClos
           onClose={() => setShowProgramModal(false)}
           onSuccess={handleProgramUpdated}
           editingProgram={editedProgram}
+          sessionRole={sessionRole}
         />
 
         <WebCreateRoutineModal
@@ -756,6 +757,7 @@ export default function EditableProgramStructureModal({ visible, program, onClos
           onSuccess={handleRoutineUpdated}
           editingRoutine={selectedRoutine}
           programId={editedProgram.id}
+          sessionRole={sessionRole}
         />
 
         <WebCreateExerciseModal
@@ -763,6 +765,7 @@ export default function EditableProgramStructureModal({ visible, program, onClos
           onClose={() => setShowExerciseModal(false)}
           onSuccess={handleExerciseUpdated}
           editingExercise={selectedExercise}
+          sessionRole={sessionRole}
         />
 
         {/* Delete Confirmation Modal */}

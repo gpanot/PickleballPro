@@ -1,0 +1,610 @@
+{
+  "program": {
+    "name": "Tanner Pro Training",
+    "description": "A 5 session progression built on Tanner Tomassi's coaching philosophy: efficient mechanics, real game decision making, and relentless kitchen line control. Players move from dink fundamentals to hands battles, footwork patterns, and live ball pressure training.",
+    "category": "Pro Training",
+    "tier": "Intermediate",
+    "thumbnail_url": null,
+    "rating": 4.9,
+    "added_count": 0,
+    "is_published": true,
+    "is_coach_program": true,
+    "routines": [
+      {
+        "name": "Session 1 - Dink Foundation",
+        "description": "Build the push, not hit, dink mechanic and learn to control the kitchen line before adding any speed or pressure.",
+        "order_index": 1,
+        "time_estimate_minutes": 45,
+        "is_published": true,
+        "exercises": [
+          {
+            "code": "tanner_1.1",
+            "title": "Push Dink Wall Drill",
+            "goal_text": "20 consecutive dinks with a closed paddle face, no pop ups",
+            "instructions": "Stand at the kitchen line facing a partner or wall.\nKeep your wrist locked and imagine pushing through two stacked balls on your paddle.\nReach toward your target with a closed paddle face on contact.\nExtend out in front, do not flick at the ball.\nCount consecutive dinks that land in the kitchen without bouncing high.",
+            "target_value": 20,
+            "target_type": "streak",
+            "target_unit": "dinks",
+            "difficulty": 2,
+            "estimated_minutes": 8,
+            "skill_categories": ["dinks"],
+            "tips": [
+              "Think push, not hit, like pushing two stacked balls forward",
+              "Closed paddle face keeps the ball low and in the kitchen",
+              "Let the ball hit you, do not reach early"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "order_index": 1,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_1.2",
+            "title": "Straight Ahead Dink Game with Speedups",
+            "goal_text": "Sustain a controlled cross court dink rally and execute 5 clean speedups when the ball pops up",
+            "instructions": "Line up directly across from your partner at the kitchen line.\nExchange controlled dinks down the line, staying patient.\nWhenever the ball sits up or floats, accelerate the pace with a speedup.\nReset to dinking immediately after the speedup is returned.\nRepeat for 10 minutes, tracking how many clean speedups you land.",
+            "target_value": 5,
+            "target_type": "count",
+            "target_unit": "speedups",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories": ["dinks", "putaways"],
+            "tips": [
+              "This is how you take control of the kitchen line",
+              "Only speed up balls that are above net height",
+              "Stay low and lean into the kitchen after you dink"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 2,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_1.3",
+            "title": "Net Clip Discipline Drill",
+            "goal_text": "Recognize 10 net clipped balls in a row and correctly choose not to speed them up",
+            "instructions": "Play a normal dink rally with a partner.\nWhen a ball clips the top of the net, immediately reset to a soft dink instead of attacking it.\nA net clipped ball loses pace and is a low value target, do not get baited into a low percentage speedup.\nHave your partner track how many times you correctly held back versus incorrectly attacked.",
+            "target_value": 10,
+            "target_type": "streak",
+            "target_unit": "correct decisions",
+            "difficulty": 2,
+            "estimated_minutes": 7,
+            "skill_categories": ["dinks", "pressure_points"],
+            "tips": [
+              "A net clipped ball has lost most of its momentum",
+              "Speeding up a net ball is a common amateur mistake",
+              "Patience here sets up your next real opportunity"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "order_index": 3,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_1.4",
+            "title": "Closed Paddle Face Target Reach",
+            "goal_text": "Land 15 of 20 dinks inside a towel placed in the kitchen near the sideline",
+            "instructions": "Place a towel or target near the sideline corner of the kitchen.\nDink toward the target using a closed paddle face and a forward reach.\nFinish your reach out in front of your body, not across it.\nCount how many dinks land on or inside the target out of 20 attempts.",
+            "target_value": 15,
+            "target_type": "count",
+            "target_unit": "made shots",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories": ["dinks", "positioning"],
+            "tips": [
+              "An open paddle face sends the ball up, keep it closed",
+              "Finishing out in front keeps the shot low and accurate",
+              "Accuracy first, pace second"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 4,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_1.5",
+            "title": "Let It Hit You Mental Rep",
+            "goal_text": "Complete 10 dinks where you consciously delay contact and let the ball travel to you",
+            "instructions": "Start a slow dink rally with a partner.\nFocus only on patience, resist the urge to reach at the ball early.\nLet the ball come all the way to your paddle before initiating the push.\nCall out 'late' on any rep where you caught yourself reaching early, and reset the count.",
+            "target_value": 10,
+            "target_type": "streak",
+            "target_unit": "patient reps",
+            "difficulty": 2,
+            "estimated_minutes": 5,
+            "skill_categories": ["dinks", "conditioning"],
+            "tips": [
+              "This is a mental game shift as much as a mechanical one",
+              "Reaching early causes most pop up dinks",
+              "Stay relaxed, the ball will arrive"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "order_index": 5,
+            "is_optional": true
+          }
+        ]
+      },
+      {
+        "name": "Session 2 - Drive or Drop Decision Making",
+        "description": "Develop pickleball IQ by learning the exact scenarios where you should drive the third shot versus drop it, based on Tanner's return read system.",
+        "order_index": 2,
+        "time_estimate_minutes": 50,
+        "is_published": true,
+        "exercises": [
+          {
+            "code": "tanner_2.1",
+            "title": "Short and High Return Drive Drill",
+            "goal_text": "Drive 8 of 10 short, high returns with pace into the opponent's body or feet",
+            "instructions": "Have a feeder hit returns that bounce short and high in the court.\nRecognize this as a drive opportunity, the ball sits up and invites pace.\nStep in and drive the ball flat and low, targeting the body or feet of the opponent at the kitchen line.\nTrack makes versus misses out of 10 reps.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "made drives",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories": ["drives", "third_shot"],
+            "tips": [
+              "Short and high bounces are a green light to apply pressure",
+              "Target the body or feet, not open space",
+              "Drive flat, do not loop it"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 1,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_2.2",
+            "title": "Off Balance Deep Return Drive",
+            "goal_text": "Successfully drive 8 of 10 deep aggressive returns hit while off your back foot",
+            "instructions": "Have a feeder hit deep, aggressive returns that push you off your back foot.\nInstead of trying to drop from an unstable position, drive the ball back with pace.\nThe goal is to get an easier next ball to drop, not to win the point outright.\nReset to neutral positioning after each drive.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "made drives",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories": ["drives", "footwork"],
+            "tips": [
+              "When you are off balance and deep, drive instead of dropping",
+              "The drive buys you time and an easier follow up shot",
+              "Recover toward center immediately after contact"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 2,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_2.3",
+            "title": "Shallow Low Return Drop Drill",
+            "goal_text": "Land 8 of 10 third shot drops in the kitchen off a shallow, low feed",
+            "instructions": "Have a feeder hit returns that bounce shallow in the court but stay low.\nRecognize that a low ball does not give you the height to drive safely.\nHit a soft third shot drop that lands in the kitchen.\nFocus on arc and touch rather than pace.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "made drops",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories": ["drops", "third_shot"],
+            "tips": [
+              "Low shallow balls are a drop situation, not a drive situation",
+              "Prioritize arc and soft hands over power",
+              "Land it in the kitchen to neutralize the point"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 3,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_2.4",
+            "title": "Deep Soft Return Drop Drill",
+            "goal_text": "Land 8 of 10 drops off a deep but soft return near the baseline",
+            "instructions": "Have a feeder hit returns that land deep near the baseline but with soft pace.\nRecognize this as a drop scenario since the ball lacks the pace to drive effectively.\nUse a longer, smoother stroke to drop the ball into the kitchen from deep court.\nTrack consistency across 10 reps.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "made drops",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories": ["drops", "third_shot"],
+            "tips": [
+              "Deep and soft means drop, deep and hard usually means drive",
+              "Give yourself more swing path from deeper court position",
+              "Soft hands win this rep"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 4,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_2.5",
+            "title": "Live Read and React Decision Drill",
+            "goal_text": "Correctly identify drive versus drop and execute it on 7 of 10 randomized live feeds",
+            "instructions": "Have a feeder randomly mix all four return types from this session, short and high, deep and aggressive, shallow and low, deep and soft.\nReact in real time, calling out drive or drop before contact, then execute the correct shot.\nA feeder or coach scores each rep as a correct or incorrect decision plus a make or miss.\nThis simulates real match decision making under time pressure.",
+            "target_value": 7,
+            "target_type": "count",
+            "target_unit": "correct and made",
+            "difficulty": 5,
+            "estimated_minutes": 10,
+            "skill_categories": ["drives", "drops", "game_play"],
+            "tips": [
+              "This is the IQ rep, decision speed matters as much as execution",
+              "When in doubt, default to the drop, it is the lower risk shot",
+              "Call your decision out loud before contact to build the habit"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 5,
+            "is_optional": false
+          }
+        ]
+      },
+      {
+        "name": "Session 3 - Hands Battles and Fast Exchanges",
+        "description": "Sharpen reaction speed and hand quickness at the kitchen line through controlled hands battles, Tanner's favorite drill for developing fast hands and ball reading.",
+        "order_index": 3,
+        "time_estimate_minutes": 45,
+        "is_published": true,
+        "exercises": [
+          {
+            "code": "tanner_3.1",
+            "title": "Soft Dead Dink Trigger Drill",
+            "goal_text": "Initiate 10 clean hands battles by setting up with a dead dink before the exchange",
+            "instructions": "Start at the kitchen line with a partner, exchanging normal dinks.\nOn your turn, hit a soft, dead dink with very little pace.\nThis is the trigger, your partner will then accelerate the pace to start the hands battle.\nFocus only on setting up the trigger cleanly for this rep.",
+            "target_value": 10,
+            "target_type": "count",
+            "target_unit": "clean triggers",
+            "difficulty": 3,
+            "estimated_minutes": 8,
+            "skill_categories": ["dinks", "patterns"],
+            "tips": [
+              "The dead dink is intentionally low pace to invite an attack",
+              "This is how Tanner starts every hands battle rep",
+              "Stay ready immediately after you hit the dead dink"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 1,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_3.2",
+            "title": "Hands Battle Reaction Drill",
+            "goal_text": "Win or neutrally survive 6 of 10 hands battle exchanges",
+            "instructions": "After the dead dink trigger, your partner accelerates and the hands battle begins.\nBlock and counter punch volleys at the kitchen line, prioritizing soft hands over swinging.\nKeep your paddle up and out in front, reacting rather than initiating big swings.\nTrack how many exchanges you win outright or end in a neutral reset, not a clean loss.",
+            "target_value": 6,
+            "target_type": "count",
+            "target_unit": "won or neutral exchanges",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories": ["volleys", "defensive_saves"],
+            "tips": [
+              "This is how you develop fast hands and good ball reading",
+              "Block first, counter second, do not try to overpower every ball",
+              "Keep your paddle out in front, never let it drop"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 2,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_3.3",
+            "title": "Crosscourt Wide to Middle Coverage",
+            "goal_text": "Successfully return 8 of 10 reps moving from a wide dink to covering the middle",
+            "instructions": "Stand crosscourt from your partner at the kitchen line.\nPartner starts with a wide dink pulling you out to the sideline.\nReturn the wide dink, then immediately shuffle step back toward center.\nPartner then moves the next ball to the middle, you must cover it without crossing your feet.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "covered balls",
+            "difficulty": 3,
+            "estimated_minutes": 9,
+            "skill_categories": ["footwork", "positioning"],
+            "tips": [
+              "Get into the habit of recovering to the middle after being pulled wide",
+              "Use shuffle steps, do not cross your feet at the net",
+              "This pattern shows up constantly in doubles play"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 3,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_3.4",
+            "title": "Banger Crash Defense Drill",
+            "goal_text": "Successfully neutralize 6 of 10 hard driven balls from a partner crashing the net",
+            "instructions": "Position yourself at the kitchen line while your partner stands just inside the baseline.\nPartner feeds themselves a ball and drives it hard while crashing forward to the net.\nYour job is to handle the pace and chaos, blocking the drive into a controllable reset.\nDo not try to speed up the incoming drive, absorb the pace and reset to a dink.",
+            "target_value": 6,
+            "target_type": "count",
+            "target_unit": "clean neutralizations",
+            "difficulty": 4,
+            "estimated_minutes": 9,
+            "skill_categories": ["defensive_saves", "resets"],
+            "tips": [
+              "This simulates dealing with aggressive bangers crashing the net",
+              "Absorb pace with soft hands, do not match power with power",
+              "A clean reset is a win against an attacking drive"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 4,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_3.5",
+            "title": "Lob Recovery and Reset Drill",
+            "goal_text": "Recover and reset 7 of 10 overhead lobs hit to put you on defense",
+            "instructions": "Partner hits a lob over your head while you are at the kitchen line.\nTurn and track the ball, moving back with crossover steps rather than backpedaling flat footed.\nHit the ball back deep or as a controlled reset, then move back up to the kitchen line.\nTrack how many reps you recover from cleanly without giving up an easy put away.",
+            "target_value": 7,
+            "target_type": "count",
+            "target_unit": "clean recoveries",
+            "difficulty": 4,
+            "estimated_minutes": 9,
+            "skill_categories": ["lobs", "footwork", "defensive_saves"],
+            "tips": [
+              "Turn your hips and track the ball over your shoulder, do not backpedal",
+              "Recovering forward after the lob is just as important as the defense itself",
+              "Aim deep to buy yourself time to get back to the line"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 5,
+            "is_optional": true
+          }
+        ]
+      },
+      {
+        "name": "Session 4 - Flicks, Slices, and Tricky Returns",
+        "description": "Tackle the shots players avoid most: backhand flicks and slice returns, broken down into simple footwork and timing cues.",
+        "order_index": 4,
+        "time_estimate_minutes": 40,
+        "is_published": true,
+        "exercises": [
+          {
+            "code": "tanner_4.1",
+            "title": "Sideways Stance Backhand Flick Drill",
+            "goal_text": "Execute 8 of 10 backhand flicks with proper sideways stance and full body rotation",
+            "instructions": "Start in a square stance facing the net at the kitchen line.\nAs the ball approaches on your backhand side, turn your feet sideways before contact.\nRotate through your obliques and core, not just your arm, to generate pace.\nFlick the ball flat and aggressive at your target, tracking clean makes out of 10.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "clean flicks",
+            "difficulty": 4,
+            "estimated_minutes": 9,
+            "skill_categories": ["flicks", "footwork"],
+            "tips": [
+              "Turning sideways lets your whole body engage, not just your arm",
+              "A square stance flick will feel weak and awkward",
+              "This is simpler than it looks once the footwork is right"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 1,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_4.2",
+            "title": "Slice Return Timing Drill",
+            "goal_text": "Cleanly handle 8 of 10 slice serves or returns without mistiming contact",
+            "instructions": "Have a feeder hit slice serves or slice returns with sidespin.\nWatch the spin direction before committing to your paddle angle.\nAdjust your paddle face slightly against the spin direction to control the ball.\nFocus on a clean, controlled contact rather than trying to attack the slice.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "clean returns",
+            "difficulty": 3,
+            "estimated_minutes": 8,
+            "skill_categories": ["slices", "returns"],
+            "tips": [
+              "Slices are designed to mess with your timing, stay patient",
+              "Read the spin early, adjust your paddle angle accordingly",
+              "Control first, then look to attack on the next ball"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 2,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_4.3",
+            "title": "Good Dink to Pop Up Anticipation Drill",
+            "goal_text": "Correctly anticipate and attack 7 of 10 pop ups generated by your own aggressive dink",
+            "instructions": "Hit an aggressive, pressuring dink that is likely to generate a pop up.\nImmediately set your paddle head down and elbow up, leaning in to anticipate the pop up.\nWhen the pop up comes, attack it in one fluid motion without delay.\nAvoid the common mistake of standing flat footed and reaching late.",
+            "target_value": 7,
+            "target_type": "count",
+            "target_unit": "clean attacks",
+            "difficulty": 4,
+            "estimated_minutes": 8,
+            "skill_categories": ["putaways", "positioning"],
+            "tips": [
+              "Paddle head down, elbow up, lean in after a good aggressive dink",
+              "Anticipate the pop up instead of reacting late to it",
+              "One fluid motion beats a standing reach every time"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 3,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_4.4",
+            "title": "Drop Volley Discipline Drill",
+            "goal_text": "Correctly choose to apply pressure instead of attempting a low value drop volley on 9 of 10 reps",
+            "instructions": "Have a feeder hit a third shot drop to you at the kitchen line while standing at the baseline.\nResist the urge to attempt a drop volley back into the kitchen.\nInstead, hit a firm, controlled shot to keep your opponent back.\nOnly attempt the drop volley if the feed is clearly off balance and weak.",
+            "target_value": 9,
+            "target_type": "streak",
+            "target_unit": "correct decisions",
+            "difficulty": 3,
+            "estimated_minutes": 8,
+            "skill_categories": ["drops", "pressure_points"],
+            "tips": [
+              "A mistimed drop volley hands your opponent a free trip to the net",
+              "Apply pressure and keep them back unless the ball is clearly weak",
+              "This decision alone separates intermediate players from advanced ones"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 4,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_4.5",
+            "title": "Mixed Shot IQ Circuit",
+            "goal_text": "Score 30 of 40 total reps correctly across flicks, slices, anticipation, and drop volley decisions",
+            "instructions": "Run 10 reps each of the backhand flick, slice return, pop up anticipation, and drop volley discipline drills back to back.\nA coach or partner tracks correct decisions and clean execution across all 40 reps.\nThis circuit combines mechanics and decision making under light fatigue.\nUse this as a checkpoint before moving into full pressure training.",
+            "target_value": 30,
+            "target_type": "count",
+            "target_unit": "correct reps",
+            "difficulty": 5,
+            "estimated_minutes": 7,
+            "skill_categories": ["game_play", "patterns"],
+            "tips": [
+              "This circuit is a checkpoint, not a new skill",
+              "Fatigue exposes mechanical breakdowns, stay disciplined",
+              "Quality of decision matters as much as clean contact"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 5,
+            "is_optional": true
+          }
+        ]
+      },
+      {
+        "name": "Session 5 - Live Pressure and Mental Game",
+        "description": "Apply everything under match like pressure, including Tanner's mindset framework for handling nerves and tournament situations.",
+        "order_index": 5,
+        "time_estimate_minutes": 45,
+        "is_published": true,
+        "exercises": [
+          {
+            "code": "tanner_5.1",
+            "title": "Hold to Disguise Speedup Drill",
+            "goal_text": "Disguise 7 of 10 speedups by holding the shot before attacking",
+            "instructions": "Engage in a dink rally with a partner.\nWhen you get a speedup opportunity, briefly hold the shot rather than attacking immediately.\nThe hold creates hesitation in your opponent since they cannot predict the direction.\nAfter the hold, attack decisively at your chosen target.",
+            "target_value": 7,
+            "target_type": "count",
+            "target_unit": "disguised speedups",
+            "difficulty": 4,
+            "estimated_minutes": 9,
+            "skill_categories": ["disguise", "putaways"],
+            "tips": [
+              "If you hold, your opponent cannot guess where the speedup is going",
+              "The hold is a timing weapon, not a hesitation mistake",
+              "Commit fully once you decide to attack"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 1,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_5.2",
+            "title": "Full Point Live Play from Serve",
+            "goal_text": "Win or competitively contest 6 of 10 full points started from a live serve",
+            "instructions": "Play out full points starting from an actual serve and return.\nApply the drive versus drop decision rules from Session 2 on your third shot.\nUse the hands battle and dink control skills once you reach the kitchen line.\nTrack points won or lost out of 10 full point reps.",
+            "target_value": 6,
+            "target_type": "count",
+            "target_unit": "points won",
+            "difficulty": 5,
+            "estimated_minutes": 12,
+            "skill_categories": ["game_play", "patterns"],
+            "tips": [
+              "This is where all prior sessions come together",
+              "Stick to your decision rules even under live pressure",
+              "Reset your mindset after every point, win or lose"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 2,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_5.3",
+            "title": "Pressure Release Mindset Rep",
+            "goal_text": "Complete 5 pressure points while verbally practicing the weight transfer mindset cue",
+            "instructions": "Play single pressure points, such as serving at match point down.\nBefore each point, say out loud the cue, the pressure is on my opponent, not on me.\nFocus on competing freely rather than playing not to lose.\nDebrief after each point on whether you felt tight or free.",
+            "target_value": 5,
+            "target_type": "count",
+            "target_unit": "pressure points",
+            "difficulty": 4,
+            "estimated_minutes": 8,
+            "skill_categories": ["pressure_points", "conditioning"],
+            "tips": [
+              "Take the weight off your shoulders and put it on your opponent",
+              "Nervous opponents make mistakes, let the pressure work for you",
+              "This mental rep matters most in tournament settings"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 3,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_5.4",
+            "title": "First to the Net Wins Doubles Rule",
+            "goal_text": "Apply the simple net rule across 8 of 10 doubles points by reaching the kitchen line first",
+            "instructions": "Play doubles points with a partner against another team.\nAgree before each point that whoever can safely get to the kitchen line first should do so.\nFocus on transitioning quickly and safely rather than rushing recklessly.\nTrack how many points your team established net position first.",
+            "target_value": 8,
+            "target_type": "count",
+            "target_unit": "net position wins",
+            "difficulty": 4,
+            "estimated_minutes": 9,
+            "skill_categories": ["transitions", "communication"],
+            "tips": [
+              "Setting this rule with your partner keeps you both grounded",
+              "Nervous opponents at the net often make the first mistake",
+              "Transition with split steps, not a flat out sprint"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "order_index": 4,
+            "is_optional": false
+          },
+          {
+            "code": "tanner_5.5",
+            "title": "Tanner Pro Training Final Assessment",
+            "goal_text": "Score 35 of 50 total reps across a mixed live play checkpoint combining all five sessions",
+            "instructions": "Run a combined assessment covering dink control, drive or drop decisions, hands battles, flicks and slices, and live point play.\nA coach scores execution and decision making across 50 total reps.\nUse the results to identify which session the player should revisit.\nThis assessment marks the completion of the Tanner Pro Training program.",
+            "target_value": 35,
+            "target_type": "count",
+            "target_unit": "correct reps",
+            "difficulty": 5,
+            "estimated_minutes": 15,
+            "skill_categories": ["game_play", "patterns", "pressure_points"],
+            "tips": [
+              "This is a comprehensive checkpoint, not a new skill to learn",
+              "Use the result to plan the player's next training block",
+              "Celebrate progress, then set the next goal"
+            ],
+            "youtube_url": "",
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 4.5,
+            "order_index": 5,
+            "is_optional": false
+          }
+        ]
+      }
+    ]
+  }
+}

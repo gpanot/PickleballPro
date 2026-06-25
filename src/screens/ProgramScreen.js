@@ -27,6 +27,8 @@ import { usePreload } from '../context/PreloadContext';
 import WebIcon from '../components/WebIcon';
 import WebLinearGradient from '../components/WebLinearGradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useLastOpenedProgram } from '../hooks/useLastOpenedProgram';
+import { ProgramSkeletonCard, CoachSkeletonCard, ImageWithSkeleton } from '../components/SkeletonCard';
 
 const { width, height } = Dimensions.get('window');
 
@@ -100,8 +102,10 @@ export default function ProgramScreen({ navigation, route }) {
   const [hasAssessment, setHasAssessment] = React.useState(false);
   const [studentCode, setStudentCode] = React.useState(null);
   const [coaches, setCoaches] = React.useState([]); // Store all coaches
+  const [coachAvatarErrors, setCoachAvatarErrors] = React.useState({}); // Track failed avatar loads
   const coachProgramsLoadedRef = React.useRef(false);
   const coachRotateAnim = React.useRef(new Animated.Value(0)).current;
+  const { lastProgram, saveLastProgram } = useLastOpenedProgram();
   
   // Library tab state (ExploreTrainingScreen content)
   const [explorePrograms, setExplorePrograms] = React.useState([]);
@@ -939,6 +943,7 @@ export default function ProgramScreen({ navigation, route }) {
   };
 
   const navigateToProgram = (program) => {
+    saveLastProgram(program);
     navigation.navigate('ProgramDetail', { 
       program,
       onUpdateProgram: (updatedProgram) => {
@@ -1026,6 +1031,22 @@ export default function ProgramScreen({ navigation, route }) {
               : coach?.users?.avatar_url;
             // Prioritize user avatar over coach avatar
             let avatarUrl = userAvatarUrl || coach?.avatar_url;
+
+            // If still no avatar and we have a user_id, try a direct fetch
+            if (!avatarUrl && coach?.user_id) {
+              try {
+                const { data: userData } = await supabase
+                  .from('users')
+                  .select('avatar_url')
+                  .eq('id', coach.user_id)
+                  .maybeSingle();
+                if (userData?.avatar_url) {
+                  avatarUrl = userData.avatar_url;
+                }
+              } catch (_) {
+                // Silently ignore
+              }
+            }
             
             // Convert storage path to public URL if needed (same logic as transformCoachData)
             if (avatarUrl && !avatarUrl.startsWith('http') && !avatarUrl.startsWith('blob:')) {
@@ -1204,6 +1225,7 @@ export default function ProgramScreen({ navigation, route }) {
   };
 
   const navigateToCoachProgram = (program) => {
+    saveLastProgram(program);
     navigation.navigate('ProgramDetail', { 
       program,
       source: 'coach' 
@@ -1331,6 +1353,7 @@ export default function ProgramScreen({ navigation, route }) {
   };
 
   const navigateToLibraryProgram = (program) => {
+    saveLastProgram(program);
     navigation.navigate('ProgramDetail', { 
       program,
       source: 'library' 
@@ -1431,11 +1454,11 @@ export default function ProgramScreen({ navigation, route }) {
     const currentMessage = progressMessages[aiGenerationStep] || progressMessages[0];
 
     return (
-      <Modal
+        <Modal
         visible={isGeneratingAI}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => {}} // Prevent closing during generation
+        onRequestClose={() => setIsGeneratingAI(false)}
       >
         <View style={styles.aiGenerationOverlay}>
           <View style={styles.aiGenerationContent}>
@@ -1475,6 +1498,14 @@ export default function ProgramScreen({ navigation, route }) {
             <Text style={styles.aiGenerationNote}>
               🤖 Our AI is working hard to create your perfect program
             </Text>
+
+            <TouchableOpacity
+              style={styles.aiCancelButton}
+              onPress={() => setIsGeneratingAI(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.aiCancelText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1503,29 +1534,11 @@ export default function ProgramScreen({ navigation, route }) {
       </View>
     );
 
-    // Loading state
+    // Loading state — skeleton cards
     if (coachProgramsLoading) {
-      const spin = coachRotateAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
-      });
-
       return (
-        <View style={styles.coachProgramsContainer}>
-          <View style={styles.loadingContainer}>
-            <Animated.Image
-              source={require('../../assets/images/icon_ball.png')}
-              resizeMode="contain"
-              style={[
-                styles.loadingBall,
-                {
-                  transform: [{ rotate: spin }],
-                },
-              ]}
-            />
-            <Text style={styles.loadingText}>Loading coach programs...</Text>
-          </View>
-          {renderFindYourCoach()}
+        <View style={[styles.coachProgramsContainer, { paddingHorizontal: 16, paddingTop: 12 }]}>
+          {[1, 2, 3].map(i => <CoachSkeletonCard key={i} />)}
         </View>
       );
     }
@@ -1601,6 +1614,17 @@ export default function ProgramScreen({ navigation, route }) {
               </View>
             )}
             
+            {!studentCode && (
+              <TouchableOpacity
+                style={styles.findCoachCTAButton}
+                onPress={() => navigation.navigate('Coach')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="search" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.findCoachCTAText}>Find a Coach</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.stepsContainer}>
               <View style={styles.stepCard}>
                 <View style={[styles.stepIcon, { backgroundColor: '#DBEAFE' }]}>
@@ -1672,11 +1696,12 @@ export default function ProgramScreen({ navigation, route }) {
                   activeOpacity={0.7}
                 >
                   <View style={styles.coachCardContent}>
-                    {coach.avatar_url ? (
+                    {coach.avatar_url && !coachAvatarErrors[coach.id] ? (
                       <Image 
                         source={{ uri: coach.avatar_url }} 
                         style={styles.coachCardAvatar}
                         resizeMode="cover"
+                        onError={() => setCoachAvatarErrors(prev => ({ ...prev, [coach.id]: true }))}
                       />
                     ) : (
                       <View style={styles.coachCardAvatarFallback}>
@@ -1746,6 +1771,17 @@ export default function ProgramScreen({ navigation, route }) {
               </View>
             )}
             
+            {!studentCode && (
+              <TouchableOpacity
+                style={styles.findCoachCTAButton}
+                onPress={() => navigation.navigate('Coach')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="search" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Text style={styles.findCoachCTAText}>Find a Coach</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.stepsContainer}>
               <View style={styles.stepCard}>
                 <View style={[styles.stepIcon, { backgroundColor: '#DBEAFE' }]}>
@@ -1817,11 +1853,12 @@ export default function ProgramScreen({ navigation, route }) {
                   activeOpacity={0.7}
                 >
                   <View style={styles.coachCardContent}>
-                    {coach.avatar_url ? (
+                    {coach.avatar_url && !coachAvatarErrors[coach.id] ? (
                       <Image 
                         source={{ uri: coach.avatar_url }} 
                         style={styles.coachCardAvatar}
                         resizeMode="cover"
+                        onError={() => setCoachAvatarErrors(prev => ({ ...prev, [coach.id]: true }))}
                       />
                     ) : (
                       <View style={styles.coachCardAvatarFallback}>
@@ -1923,11 +1960,12 @@ export default function ProgramScreen({ navigation, route }) {
                 activeOpacity={0.7}
               >
                 <View style={styles.coachCardContent}>
-                  {coach.avatar_url ? (
+                  {coach.avatar_url && !coachAvatarErrors[coach.id] ? (
                     <Image 
                       source={{ uri: coach.avatar_url }} 
                       style={styles.coachCardAvatar}
                       resizeMode="cover"
+                      onError={() => setCoachAvatarErrors(prev => ({ ...prev, [coach.id]: true }))}
                     />
                   ) : (
                     <View style={styles.coachCardAvatarFallback}>
@@ -2009,24 +2047,9 @@ export default function ProgramScreen({ navigation, route }) {
   const renderLibraryContent = () => {
     // Loading state
     if (libraryLoading) {
-      const spin = libraryRotateAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
-      });
-
       return (
-        <View style={styles.loadingContainer}>
-          <Animated.Image
-            source={require('../../assets/images/icon_ball.png')}
-            resizeMode="contain"
-            style={[
-              styles.loadingBall,
-              {
-                transform: [{ rotate: spin }],
-              },
-            ]}
-          />
-          <Text style={styles.loadingText}>Loading programs...</Text>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          {[1, 2, 3, 4].map(i => <ProgramSkeletonCard key={i} />)}
         </View>
       );
     }
@@ -2126,8 +2149,8 @@ export default function ProgramScreen({ navigation, route }) {
                     >
                       <View style={styles.libraryThumbnailContainer}>
                         {program.thumbnail ? (
-                          <Image 
-                            source={{ uri: program.thumbnail }} 
+                          <ImageWithSkeleton
+                            source={{ uri: program.thumbnail }}
                             style={styles.libraryProgramThumbnail}
                             resizeMode="cover"
                           />
@@ -2158,8 +2181,8 @@ export default function ProgramScreen({ navigation, route }) {
                     >
                       <View style={styles.libraryThumbnailContainer}>
                         {program.thumbnail ? (
-                          <Image 
-                            source={{ uri: program.thumbnail }} 
+                          <ImageWithSkeleton
+                            source={{ uri: program.thumbnail }}
                             style={styles.libraryProgramThumbnail}
                             resizeMode="cover"
                           />
@@ -2375,6 +2398,24 @@ export default function ProgramScreen({ navigation, route }) {
         </View>
       </View>
       
+      {/* Continue where you left off */}
+      {lastProgram && (
+        <TouchableOpacity
+          style={styles.continueCard}
+          onPress={() => navigation.navigate('ProgramDetail', { program: lastProgram })}
+          activeOpacity={0.85}
+        >
+          <View style={styles.continueCardLeft}>
+            <Ionicons name="play-circle-outline" size={22} color="#6366F1" />
+            <View style={styles.continueCardText}>
+              <Text style={styles.continueLabel}>Continue where you left off</Text>
+              <Text style={styles.continueTitle} numberOfLines={1}>{lastProgram.title}</Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#6366F1" />
+        </TouchableOpacity>
+      )}
+
       {currentView === 'coach' ? (
         renderCoachProgramsContent()
       ) : currentView === 'library' ? (
@@ -2518,6 +2559,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
   },
+  continueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EEF2FF',
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  continueCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
+  continueCardText: { flex: 1 },
+  continueLabel: { fontSize: 10, color: '#6366F1', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  continueTitle: { fontSize: 14, color: '#1F2937', fontWeight: '600', marginTop: 1 },
   headerSafeArea: {
     backgroundColor: '#FFFFFF',
   },
@@ -3021,6 +3080,37 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontStyle: 'italic',
   },
+  aiCancelButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 32,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  aiCancelText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  findCoachCTAButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6366F1',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginHorizontal: 16,
+    marginBottom: 20,
+  },
+  findCoachCTAText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   // Tab Navigation Styles
   tabContainer: {
     flexDirection: 'row',
@@ -3430,6 +3520,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937',
     letterSpacing: 2,
+    flex: 1,
+    includeFontPadding: false,
   },
   shareButton: {
     backgroundColor: '#4F46E5',
