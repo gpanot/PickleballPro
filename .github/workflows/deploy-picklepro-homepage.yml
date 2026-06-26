@@ -1,0 +1,28 @@
+name: Deploy PicklePro Homepage to Vercel
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'Website/**'
+      - '.github/workflows/deploy-picklepro-homepage.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Website to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: prj_8M9pmkeVs9nNtUNJkdRsqZKqvp30
+          working-directory: ./Website
+          vercel-args: '--prod'
