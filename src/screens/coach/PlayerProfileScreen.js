@@ -937,7 +937,14 @@ function SparkLine({ values, color, height = 64, style }) {
                         <Text style={[styles.summarySkill, { flex: 2 }]}>{row.name}</Text>
                         <Text style={[styles.summaryScore, { flex: 1 }]}>{row.score}/{row.maxScore}</Text>
                         <View style={[styles.summaryLevelBadge, { flex: 1, backgroundColor: levelColor(row.level)+'20' }]}>
-                          <Text style={[styles.summaryLevelText, { color: levelColor(row.level) }]}>{row.level}</Text>
+                          <Text
+                            style={[styles.summaryLevelText, { color: levelColor(row.level) }]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.6}
+                          >
+                            {row.level}
+                          </Text>
                         </View>
                       </View>
                     ))}
@@ -1727,15 +1734,18 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   summaryLevelBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   summaryLevelText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
+    textAlign: 'center',
   },
   barItem: {
     marginBottom: 12,

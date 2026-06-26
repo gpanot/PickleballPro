@@ -7,12 +7,9 @@ import {
   TouchableWithoutFeedback,
   Platform,
   StyleSheet,
-  Dimensions,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 
 const ALL_NAV_ITEMS = [
   { id: 'dashboard',  label: 'Dashboard',         icon: 'grid-outline' },
@@ -24,12 +21,23 @@ const ALL_NAV_ITEMS = [
   { id: 'settings',   label: 'Settings',           icon: 'settings-outline' },
 ];
 
-const COACH_NAV_IDS = ['dashboard', 'content'];
+const COACH_NAV_IDS   = ['dashboard', 'content'];
+const MANAGER_NAV_IDS = ['dashboard', 'content', 'academy'];
 
 function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole }) {
-  const navItems = sessionRole === 'coach'
-    ? ALL_NAV_ITEMS.filter(item => COACH_NAV_IDS.includes(item.id))
-    : ALL_NAV_ITEMS;
+  const managerNavItem = { id: 'academy', label: 'My Academy', icon: 'school-outline' };
+
+  let navItems;
+  if (sessionRole === 'manager') {
+    const base = ALL_NAV_ITEMS.filter(item => MANAGER_NAV_IDS.includes(item.id));
+    // Insert Academy tab after Content
+    const contentIdx = base.findIndex(i => i.id === 'content');
+    navItems = [...base.slice(0, contentIdx + 1), managerNavItem, ...base.slice(contentIdx + 1)];
+  } else if (sessionRole === 'coach') {
+    navItems = ALL_NAV_ITEMS.filter(item => COACH_NAV_IDS.includes(item.id));
+  } else {
+    navItems = ALL_NAV_ITEMS;
+  }
 
   return (
     <View style={[localStyles.sidebar, isMobile ? localStyles.sidebarMobile : { width: sidebarCollapsed ? 80 : 280 }]}>
@@ -43,7 +51,9 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
             <View style={localStyles.logoTextContainer}>
               <Text style={localStyles.logoText}>PicklePro</Text>
               <Text style={localStyles.logoSubtext}>
-                {sessionRole === 'coach' ? 'Coach Dashboard' : 'Admin Dashboard'}
+                {sessionRole === 'manager' ? 'Academy Dashboard'
+                  : sessionRole === 'coach' ? 'Coach Dashboard'
+                  : 'Admin Dashboard'}
               </Text>
             </View>
           </View>
@@ -61,7 +71,7 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
       </View>
 
       {/* Nav items */}
-      <View style={localStyles.navigationMenu}>
+      <ScrollView style={localStyles.navigationMenuScroll} contentContainerStyle={localStyles.navigationMenu}>
         {navItems.map(tab => (
           <TouchableOpacity
             key={tab.id}
@@ -87,7 +97,7 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
             {activeTab === tab.id && <View style={localStyles.activeIndicator} />}
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* User / Exit section */}
       <View style={localStyles.userSection}>
@@ -134,9 +144,9 @@ export default function AdminSidebar({
   mobileDrawerOpen,
   onCloseMobileDrawer,
   sessionRole,
+  isMobile = false,
   styles: _ignored, // parent passes styles but we use local ones now
 }) {
-  const isMobile = IS_MOBILE;
 
   if (isMobile) {
     return (
@@ -201,8 +211,13 @@ const localStyles = StyleSheet.create({
   sidebarMobile: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderRightWidth: 1,
-    borderRightColor: '#e4e4e7',
+  },
+  navigationMenuScroll: {
+    flex: 1,
+  },
+  navigationMenu: {
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   drawerContainer: {
     flex: 1,
@@ -217,8 +232,8 @@ const localStyles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: '75%',
-    maxWidth: 300,
+    width: '85%',
+    maxWidth: 320,
     backgroundColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 0 },
@@ -265,10 +280,6 @@ const localStyles = StyleSheet.create({
     backgroundColor: '#f4f4f5',
     borderWidth: 1,
     borderColor: '#e4e4e7',
-  },
-  navigationMenu: {
-    flex: 1,
-    paddingTop: 16,
   },
   navItem: {
     flexDirection: 'row',

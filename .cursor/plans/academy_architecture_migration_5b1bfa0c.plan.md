@@ -4,34 +4,34 @@ overview: Add an Academy layer between Admin and Coach, introducing two new tabl
 todos:
   - id: migration-1
     content: "Write and apply migration: create_academies_table"
-    status: pending
+    status: completed
   - id: migration-2
     content: "Write and apply migration: create_academy_members_table (with unique constraint + indexes)"
-    status: pending
+    status: completed
   - id: migration-3
     content: "Write and apply migration: alter_programs_add_academy_id (nullable FK + index)"
-    status: pending
+    status: completed
   - id: migration-4
     content: "Write and apply migration: alter_coach_students_add_academy_id (nullable FK + index)"
-    status: pending
+    status: completed
   - id: migration-5
     content: "Write and apply migration: rls_academies (4 policies)"
-    status: pending
+    status: completed
   - id: migration-6
     content: "Write and apply migration: rls_academy_members (4 policies)"
-    status: pending
+    status: completed
   - id: migration-7
     content: "Write and apply migration: rls_programs_academy_addons (3 additive policies: published-member, manager-draft, manager-publish-update)"
-    status: pending
+    status: completed
   - id: migration-8
     content: "Write and apply migration: rls_coach_students_academy_addons (1 additive SELECT policy)"
-    status: pending
+    status: completed
   - id: rpc-a
     content: "Write and apply RPC: become_academy_manager (atomic bootstrap)"
-    status: pending
+    status: completed
   - id: rpc-b
     content: "Write and apply RPC: add_coach_to_academy"
-    status: pending
+    status: completed
   - id: open-q
     content: "RESOLVED: Q1 default=null, Q2 manager-only visibility, Q3 immediate membership, Q4 block multi-academy"
     status: completed

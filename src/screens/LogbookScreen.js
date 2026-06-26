@@ -315,7 +315,7 @@ export default function LogbookScreen({ navigation }) {
           )}
 
           {/* Coach Recommendation */}
-          {logbookEntries.length >= 3 && (() => {
+          {logbookEntries.length >= 1 && (() => {
             const coachScore = getCoachRecommendationScore();
             return (
               <TouchableOpacity

@@ -9,7 +9,7 @@ import {
   TextInput,
   Platform,
   Image,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,7 +44,7 @@ const getSkillNamesFromFocusAreas = (focusAreas) => {
     .filter(Boolean);
 };
 
-export default function AdminDashboard({ navigation, adminRole, sessionRole, coachId }) {
+export default function AdminDashboard({ navigation, adminRole, sessionRole, coachId, academyId }) {
   const { user, profile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   
@@ -121,21 +121,38 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [userToResetPassword, setUserToResetPassword] = useState(null);
   const [newPassword, setNewPassword] = useState('');
+  // Academy manager state
+  const [publishingProgramId, setPublishingProgramId] = useState(null);
+  const [academyMembers, setAcademyMembers] = useState([]);
+  const [academyInfo, setAcademyInfo] = useState(null);
+  const [addCoachEmail, setAddCoachEmail] = useState('');
+  const [addCoachRole, setAddCoachRole] = useState('coach');
+  const [addCoachLoading, setAddCoachLoading] = useState(false);
+  const [addCoachError, setAddCoachError] = useState('');
+  const [addCoachSuccess, setAddCoachSuccess] = useState('');
   
 
   // Responsive layout
   const isWeb = Platform.OS === 'web';
-  const screenWidth = Dimensions.get('window').width;
+  const { width: screenWidth } = useWindowDimensions();
   const isMobile = Platform.OS !== 'web' || screenWidth < 768;
   const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 80 : 280);
+  const scrollBottomPadding = Math.max(insets.bottom, 16) + 32;
+  const compactStatCardStyle = isMobile ? styles.dashboardStatCardCompact : null;
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  const isCoachSession = sessionRole === 'coach';
-  const COACH_ALLOWED_TABS = ['dashboard', 'content'];
+  const isCoachSession   = sessionRole === 'coach';
+  const isManagerSession = sessionRole === 'manager';
+  const COACH_ALLOWED_TABS   = ['dashboard', 'content'];
+  const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'academy'];
 
   useEffect(() => {
-    // Redirect coaches away from tabs they should not access
+    // Redirect restricted roles away from tabs they should not access
     if (isCoachSession && !COACH_ALLOWED_TABS.includes(activeTab)) {
+      setActiveTab('dashboard');
+      return;
+    }
+    if (isManagerSession && !MANAGER_ALLOWED_TABS.includes(activeTab)) {
       setActiveTab('dashboard');
       return;
     }
@@ -158,13 +175,34 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       fetchUsers();
     } else if (activeTab === 'feedback') {
       fetchFeedback();
+    } else if (activeTab === 'academy') {
+      fetchAcademyMembers();
     }
   }, [activeTab, contentTab]);
 
   const fetchStats = async () => {
     setLoading(true);
     try {
-      if (isCoachSession) {
+      if (isManagerSession) {
+        // Managers see all programs in their academy + their own students
+        const [academyProgramsRes, myStudentsRes] = await Promise.all([
+          supabase.from('programs').select('id', { count: 'exact' }).eq('academy_id', academyId),
+          coachId
+            ? supabase.from('coach_students').select('id', { count: 'exact' }).eq('coach_id', coachId)
+            : Promise.resolve({ count: 0 }),
+        ]);
+        const [membersRes] = await Promise.all([
+          supabase.from('academy_members').select('id', { count: 'exact' }).eq('academy_id', academyId),
+        ]);
+        setStats({
+          programs: academyProgramsRes.count || 0,
+          members: membersRes.count || 0,
+          students: myStudentsRes.count || 0,
+        });
+        setPublishedStats({
+          published_programs: 0,
+        });
+      } else if (isCoachSession) {
         // Coaches see only their own programs and their linked students
         const [myProgramsRes, myStudentsRes] = await Promise.all([
           supabase.from('programs').select('id', { count: 'exact' }).eq('created_by', user.id),
@@ -226,7 +264,10 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         .order('order_index', { ascending: true })
         .order('created_at', { ascending: false });
 
-      if (isCoachSession) {
+      if (isManagerSession) {
+        // Manager sees all programs scoped to their academy (any author)
+        programsQuery = programsQuery.eq('academy_id', academyId);
+      } else if (isCoachSession) {
         programsQuery = programsQuery.eq('created_by', user.id);
       }
 
@@ -274,7 +315,26 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         })
       );
 
-      setPrograms(programsWithCounts);
+      // For managers: enrich each program with author display name
+      let finalPrograms = programsWithCounts;
+      if (isManagerSession && programsWithCounts.length > 0) {
+        const authorIds = [...new Set(programsWithCounts.map(p => p.created_by).filter(Boolean))];
+        const { data: authorRows } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .in('id', authorIds);
+        const authorMap = (authorRows || []).reduce((acc, u) => {
+          acc[u.id] = u.name || u.email || 'Unknown';
+          return acc;
+        }, {});
+        finalPrograms = programsWithCounts.map(p => ({
+          ...p,
+          _authorName: authorMap[p.created_by] || null,
+          _isOwnProgram: p.created_by === user.id,
+        }));
+      }
+
+      setPrograms(finalPrograms);
     } catch (error) {
       console.error('Error fetching programs:', error);
       Alert.alert('Error', 'Failed to fetch programs');
@@ -761,6 +821,116 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
   };
 
+  const fetchAcademyMembers = async () => {
+    if (!academyId) return;
+    setLoading(true);
+    try {
+      // Fetch academy info
+      const { data: acad } = await supabase
+        .from('academies')
+        .select('id, name, slug, logo_url')
+        .eq('id', academyId)
+        .maybeSingle();
+      setAcademyInfo(acad);
+
+      // Fetch members with user profile
+      const { data: members, error } = await supabase
+        .from('academy_members')
+        .select('id, user_id, role, joined_at')
+        .eq('academy_id', academyId)
+        .order('joined_at', { ascending: true });
+
+      if (error) throw error;
+
+      // Enrich with user profiles
+      const memberIds = (members || []).map(m => m.user_id).filter(Boolean);
+      let profileMap = {};
+      if (memberIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('users')
+          .select('id, name, email, avatar_url')
+          .in('id', memberIds);
+        profileMap = (profiles || []).reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
+      }
+
+      setAcademyMembers(
+        (members || []).map(m => ({
+          ...m,
+          user: profileMap[m.user_id] || { name: 'Unknown', email: '' },
+        }))
+      );
+    } catch (error) {
+      console.error('Error fetching academy members:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePublishProgram = async (program) => {
+    if (!program || publishingProgramId) return;
+    setPublishingProgramId(program.id);
+    try {
+      const { error } = await supabase
+        .from('programs')
+        .update({ is_published: true })
+        .eq('id', program.id)
+        .eq('academy_id', academyId); // safety: only touch academy-scoped programs
+      if (error) throw error;
+      // Refresh list
+      await fetchPrograms();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to publish program');
+    } finally {
+      setPublishingProgramId(null);
+    }
+  };
+
+  const handleAddCoachToAcademy = async () => {
+    setAddCoachError('');
+    setAddCoachSuccess('');
+    if (!addCoachEmail.trim()) {
+      setAddCoachError('Please enter an email address.');
+      return;
+    }
+    setAddCoachLoading(true);
+    try {
+      // Look up user by email in public.users
+      const { data: userRow, error: lookupError } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('email', addCoachEmail.trim().toLowerCase())
+        .maybeSingle();
+
+      if (lookupError) throw lookupError;
+      if (!userRow) {
+        setAddCoachError('No user found with that email address. They must sign up first.');
+        return;
+      }
+
+      // Call the RPC
+      const { error: rpcError } = await supabase.rpc('add_coach_to_academy', {
+        target_academy_id: academyId,
+        target_user_id: userRow.id,
+        member_role: addCoachRole,
+      });
+
+      if (rpcError) {
+        // Surface the friendly error message from the RPC pre-checks
+        setAddCoachError(rpcError.message || 'Failed to add member.');
+        return;
+      }
+
+      setAddCoachSuccess(`${userRow.name || userRow.email} added to your academy as ${addCoachRole}.`);
+      setAddCoachEmail('');
+      setAddCoachRole('coach');
+      await fetchAcademyMembers();
+    } catch (err) {
+      setAddCoachError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setAddCoachLoading(false);
+    }
+  };
+
   const fetchCategories = async () => {
     setLoading(true);
     try {
@@ -1076,7 +1246,51 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       </View>
 
       {/* Main Stats Cards */}
-      <View style={styles.dashboardStatsGrid}>
+      <View style={[styles.dashboardStatsGrid, isManagerSession && isMobile && styles.dashboardStatsGridRow]}>
+        {isManagerSession ? (
+          <>
+            <View style={[styles.dashboardStatCard, compactStatCardStyle]}>
+              <View style={styles.dashboardStatHeader}>
+                <Ionicons name="library-outline" size={24} color="#6B7280" />
+              </View>
+              <Text style={styles.dashboardStatNumber}>{loading ? '—' : stats.programs?.toLocaleString() || '0'}</Text>
+              <Text style={styles.dashboardStatLabel}>Academy Programs</Text>
+              <View style={styles.dashboardStatTrend}>
+                <View style={styles.dashboardTrendBadge}>
+                  <Text style={styles.dashboardTrendText}>Total</Text>
+                </View>
+                <Text style={styles.dashboardStatSubtext}>All programs in your academy</Text>
+              </View>
+            </View>
+            <View style={[styles.dashboardStatCard, compactStatCardStyle]}>
+              <View style={styles.dashboardStatHeader}>
+                <Ionicons name="people-outline" size={24} color="#6B7280" />
+              </View>
+              <Text style={styles.dashboardStatNumber}>{loading ? '—' : stats.members?.toLocaleString() || '0'}</Text>
+              <Text style={styles.dashboardStatLabel}>Academy Members</Text>
+              <View style={styles.dashboardStatTrend}>
+                <View style={[styles.dashboardTrendBadge, styles.dashboardTrendSuccess]}>
+                  <Text style={[styles.dashboardTrendText, styles.dashboardTrendSuccessText]}>Active</Text>
+                </View>
+                <Text style={styles.dashboardStatSubtext}>Coaches, managers, staff</Text>
+              </View>
+            </View>
+            <View style={[styles.dashboardStatCard, compactStatCardStyle]}>
+              <View style={styles.dashboardStatHeader}>
+                <Ionicons name="person-outline" size={24} color="#6B7280" />
+              </View>
+              <Text style={styles.dashboardStatNumber}>{loading ? '—' : stats.students?.toLocaleString() || '0'}</Text>
+              <Text style={styles.dashboardStatLabel}>My Students</Text>
+              <View style={styles.dashboardStatTrend}>
+                <View style={styles.dashboardTrendBadge}>
+                  <Text style={styles.dashboardTrendText}>—</Text>
+                </View>
+                <Text style={styles.dashboardStatSubtext}>Students linked to you</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
         <View style={styles.dashboardStatCard}>
           <View style={styles.dashboardStatHeader}>
             <Ionicons name="people-outline" size={24} color="#6B7280" />
@@ -1132,6 +1346,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             <Text style={styles.dashboardStatSubtext}>Coach profiles</Text>
           </View>
         </View>
+          </>
+        )}
       </View>
 
       {/* Main Content Grid */}
@@ -1277,32 +1493,63 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       </View>
 
       {/* Content Tabs */}
-      <View style={styles.contentTabs}>
-        {[
-          { id: 'programs', label: 'Programs', icon: 'library-outline' },
-          { id: 'exercises', label: 'Exercises', icon: 'fitness-outline' },
-          { id: 'routines', label: 'Routines', icon: 'play-outline' },
-          { id: 'categories', label: 'Category Order (Library Tab)', icon: 'reorder-three-outline' }
-        ].map(tab => (
-          <TouchableOpacity
-            key={tab.id}
-            style={[styles.contentTab, contentTab === tab.id && styles.activeContentTab]}
-            onPress={() => setContentTab(tab.id)}
-          >
-            <Ionicons 
-              name={tab.icon} 
-              size={20} 
-              color={contentTab === tab.id ? '#000000' : '#6B7280'} 
-            />
-            <Text style={[styles.contentTabText, contentTab === tab.id && styles.activeContentTabText]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {isMobile ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.contentTabsScroll}
+          contentContainerStyle={styles.contentTabsScrollContent}
+        >
+          {[
+            { id: 'programs', label: 'Programs', icon: 'library-outline' },
+            { id: 'exercises', label: 'Exercises', icon: 'fitness-outline' },
+            { id: 'routines', label: 'Routines', icon: 'play-outline' },
+            { id: 'categories', label: 'Categories', icon: 'reorder-three-outline' }
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.contentTab, contentTab === tab.id && styles.activeContentTab]}
+              onPress={() => setContentTab(tab.id)}
+            >
+              <Ionicons 
+                name={tab.icon} 
+                size={20} 
+                color={contentTab === tab.id ? '#000000' : '#6B7280'} 
+              />
+              <Text style={[styles.contentTabText, contentTab === tab.id && styles.activeContentTabText]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.contentTabs}>
+          {[
+            { id: 'programs', label: 'Programs', icon: 'library-outline' },
+            { id: 'exercises', label: 'Exercises', icon: 'fitness-outline' },
+            { id: 'routines', label: 'Routines', icon: 'play-outline' },
+            { id: 'categories', label: 'Category Order (Library Tab)', icon: 'reorder-three-outline' }
+          ].map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              style={[styles.contentTab, contentTab === tab.id && styles.activeContentTab]}
+              onPress={() => setContentTab(tab.id)}
+            >
+              <Ionicons 
+                name={tab.icon} 
+                size={20} 
+                color={contentTab === tab.id ? '#000000' : '#6B7280'} 
+              />
+              <Text style={[styles.contentTabText, contentTab === tab.id && styles.activeContentTabText]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Search and Filter Bar */}
-      <View style={styles.searchFilterBar}>
+      <View style={[styles.searchFilterBar, isMobile && styles.searchFilterBarMobile]}>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#6B7280" />
           <TextInput
@@ -1334,6 +1581,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           handleViewProgramStructure={handleViewProgramStructure}
           handleEditProgramStructure={handleEditProgramStructure}
           handleDeleteProgram={handleDeleteProgram}
+          handlePublishProgram={handlePublishProgram}
+          publishingProgramId={publishingProgramId}
+          sessionRole={sessionRole}
           activeDropdown={activeDropdown}
           setActiveDropdown={setActiveDropdown}
           styles={styles}
@@ -2177,6 +2427,255 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
   };
 
+  const renderAcademyTab = () => (
+    <View style={styles.content}>
+      {/* Academy header */}
+      <View style={[styles.sectionHeader, { marginBottom: 8 }]}>
+        <View>
+          <Text style={styles.sectionTitle}>
+            {academyInfo ? academyInfo.name : 'My Academy'}
+          </Text>
+          <Text style={styles.sectionSubtitle}>
+            {academyInfo ? `@${academyInfo.slug}` : 'Manage your academy members'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Member stats strip */}
+      <View style={[styles.contentStatsGrid, { marginBottom: 24 }]}>
+        <View style={styles.contentStatCard}>
+          <View style={styles.contentStatIcon}>
+            <Ionicons name="people-outline" size={18} color="#3B82F6" />
+          </View>
+          <Text style={styles.contentStatNumber}>{academyMembers.length}</Text>
+          <Text style={styles.contentStatLabel}>Members</Text>
+          <Text style={styles.contentStatSubtext}>
+            {academyMembers.filter(m => m.role === 'coach').length} coaches
+          </Text>
+        </View>
+        <View style={styles.contentStatCard}>
+          <View style={styles.contentStatIcon}>
+            <Ionicons name="person-outline" size={18} color="#10B981" />
+          </View>
+          <Text style={styles.contentStatNumber}>
+            {academyMembers.filter(m => m.role === 'manager').length}
+          </Text>
+          <Text style={styles.contentStatLabel}>Managers</Text>
+          <Text style={styles.contentStatSubtext}>Academy managers</Text>
+        </View>
+        <View style={styles.contentStatCard}>
+          <View style={styles.contentStatIcon}>
+            <Ionicons name="shield-checkmark-outline" size={18} color="#F59E0B" />
+          </View>
+          <Text style={styles.contentStatNumber}>
+            {academyMembers.filter(m => m.role === 'staff').length}
+          </Text>
+          <Text style={styles.contentStatLabel}>Staff</Text>
+          <Text style={styles.contentStatSubtext}>Support staff</Text>
+        </View>
+      </View>
+
+      {/* Add member form */}
+      <View style={[styles.contentSection, { marginBottom: 24 }]}>
+        <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>
+          Add Member
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1, minWidth: 200 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
+              Email address
+            </Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: addCoachError ? '#EF4444' : '#E5E7EB',
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 14,
+                color: '#111827',
+                backgroundColor: '#FFFFFF',
+              }}
+              placeholder="coach@example.com"
+              placeholderTextColor="#9CA3AF"
+              value={addCoachEmail}
+              onChangeText={v => { setAddCoachEmail(v); setAddCoachError(''); setAddCoachSuccess(''); }}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+          </View>
+          <View style={{ minWidth: 130 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
+              Role
+            </Text>
+            <View style={{
+              borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
+              backgroundColor: '#FFFFFF', overflow: 'hidden',
+            }}>
+              {Platform.OS === 'web' ? (
+                <select
+                  value={addCoachRole}
+                  onChange={e => setAddCoachRole(e.target.value)}
+                  style={{
+                    width: '100%', border: 'none', outline: 'none',
+                    padding: '10px 12px', fontSize: 14, color: '#111827',
+                    backgroundColor: 'transparent', cursor: 'pointer',
+                  }}
+                >
+                  <option value="coach">Coach</option>
+                  <option value="staff">Staff</option>
+                  <option value="manager">Manager</option>
+                </select>
+              ) : (
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 12, paddingVertical: 10 }}
+                  onPress={() => setAddCoachRole(prev =>
+                    prev === 'coach' ? 'staff' : prev === 'staff' ? 'manager' : 'coach'
+                  )}
+                >
+                  <Text style={{ fontSize: 14, color: '#111827', textTransform: 'capitalize' }}>
+                    {addCoachRole}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <View style={{ justifyContent: 'flex-end', paddingBottom: 0 }}>
+            <Text style={{ fontSize: 12, color: 'transparent', marginBottom: 6 }}>Add</Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: addCoachLoading ? '#93C5FD' : '#3B82F6',
+                borderRadius: 8,
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+              }}
+              onPress={handleAddCoachToAcademy}
+              disabled={addCoachLoading}
+            >
+              {addCoachLoading
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
+              }
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
+                {addCoachLoading ? 'Adding...' : 'Add'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {addCoachError ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
+            <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+            <Text style={{ color: '#EF4444', fontSize: 13 }}>{addCoachError}</Text>
+          </View>
+        ) : null}
+        {addCoachSuccess ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
+            <Ionicons name="checkmark-circle-outline" size={16} color="#10B981" />
+            <Text style={{ color: '#10B981', fontSize: 13 }}>{addCoachSuccess}</Text>
+          </View>
+        ) : null}
+        <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 8 }}>
+          The user must already have a Pickleball Hero account. Existing academy members will be rejected by the server.
+        </Text>
+      </View>
+
+      {/* Members list */}
+      <View style={styles.contentSection}>
+        <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>
+          Members ({academyMembers.length})
+        </Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+            <Text style={styles.loadingText}>Loading members...</Text>
+          </View>
+        ) : academyMembers.length === 0 ? (
+          <View style={[styles.comingSoon, { paddingVertical: 48 }]}>
+            <Ionicons name="people-outline" size={28} color="#9CA3AF" />
+            <Text style={[styles.comingSoonText, { fontWeight: '600', color: '#374151', marginTop: 12 }]}>
+              No members yet
+            </Text>
+            <Text style={[styles.comingSoonSubtext, { marginTop: 4 }]}>
+              Add coaches and staff above to get started
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.modernTable}>
+            {/* Header */}
+            <View style={styles.modernTableHeader}>
+              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Member</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Role</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Joined</Text>
+            </View>
+            {academyMembers.map(member => (
+              <View key={member.id} style={styles.modernTableRow}>
+                {/* Member info */}
+                <View style={[styles.modernTableCell, { flex: 2 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    {member.user?.avatar_url ? (
+                      <Image
+                        source={{ uri: member.user.avatar_url }}
+                        style={{ width: 32, height: 32, borderRadius: 16 }}
+                      />
+                    ) : (
+                      <View style={{
+                        width: 32, height: 32, borderRadius: 16,
+                        backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#3B82F6' }}>
+                          {(member.user?.name || member.user?.email || '?').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View>
+                      <Text style={styles.programTitle} numberOfLines={1}>
+                        {member.user?.name || '—'}
+                      </Text>
+                      <Text style={styles.programMeta}>{member.user?.email || ''}</Text>
+                    </View>
+                  </View>
+                </View>
+                {/* Role badge */}
+                <View style={[styles.modernTableCell, { flex: 1 }]}>
+                  <View style={[
+                    styles.modernStatusChip,
+                    member.role === 'manager'
+                      ? { backgroundColor: '#FEF3C7' }
+                      : member.role === 'staff'
+                      ? { backgroundColor: '#F3F4F6' }
+                      : { backgroundColor: '#EFF6FF' },
+                  ]}>
+                    <Text style={[
+                      styles.modernStatusText,
+                      member.role === 'manager'
+                        ? { color: '#92400E' }
+                        : member.role === 'staff'
+                        ? { color: '#4B5563' }
+                        : { color: '#1D4ED8' },
+                    ]}>
+                      {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+                {/* Joined date */}
+                <View style={[styles.modernTableCell, { flex: 1.5 }]}>
+                  <Text style={styles.programMeta}>
+                    {member.joined_at
+                      ? new Date(member.joined_at).toLocaleDateString()
+                      : '—'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -2193,6 +2692,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         return renderAnalytics();
       case 'settings':
         return renderSettings();
+      case 'academy':
+        return renderAcademyTab();
       default:
         return renderOverview();
     }
@@ -3298,6 +3799,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       case 'feedback':
         fetchFeedback();
         break;
+      case 'academy':
+        fetchAcademyMembers();
+        break;
       default:
         fetchStats();
         break;
@@ -3317,6 +3821,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         mobileDrawerOpen={mobileDrawerOpen}
         onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
         sessionRole={sessionRole}
+        isMobile={isMobile}
         styles={styles}
       />
       <View style={[styles.mainContent, !isMobile && { marginLeft: sidebarWidth }]}>
@@ -3331,10 +3836,12 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           setShowAddCoachModal={setShowAddCoachModal}
           setShowAddUserModal={setShowAddUserModal}
           onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
+          isMobile={isMobile}
           styles={styles}
         />
         <ScrollView 
-          style={styles.contentScrollView} 
+          style={styles.contentScrollView}
+          contentContainerStyle={[styles.contentScrollContent, { paddingBottom: scrollBottomPadding }]}
           showsVerticalScrollIndicator={false}
           onScrollBeginDrag={() => {
             setActiveDropdown(null);

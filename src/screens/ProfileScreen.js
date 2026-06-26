@@ -26,6 +26,7 @@ import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
 import { checkAdminAccess, checkCoachAccess, supabase, getStudentCode } from '../lib/supabase';
+import StartAcademyModal from '../components/StartAcademyModal';
 
 import { tiers, levels } from '../data/mockData';
 
@@ -40,6 +41,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const insets = useSafeAreaInsets();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCoach, setIsCoach] = useState(false);
+  const [isManager, setIsManager] = useState(false);
+  const [showStartAcademyModal, setShowStartAcademyModal] = useState(false);
   const [showDuprModal, setShowDuprModal] = useState(false);
   const [duprInput, setDuprInput] = useState('');
   const [showNameModal, setShowNameModal] = useState(false);
@@ -99,8 +102,22 @@ export default function ProfileScreen({ onLogout, navigation }) {
       const { isAdmin: adminStatus } = await checkAdminAccess(authUser.id);
       setIsAdmin(adminStatus);
       if (!adminStatus) {
-        const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
-        setIsCoach(coachStatus);
+        // Check manager status (must come before coach check — broader tier)
+        const { data: managerRow } = await supabase
+          .from('academy_members')
+          .select('academy_id')
+          .eq('user_id', authUser.id)
+          .eq('role', 'manager')
+          .maybeSingle();
+        if (managerRow) {
+          setIsManager(true);
+          // Manager may also be a coach — fetch both
+          const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
+          setIsCoach(coachStatus);
+        } else {
+          const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
+          setIsCoach(coachStatus);
+        }
       }
     } catch (error) {
       console.error('Error checking admin access:', error);
@@ -615,8 +632,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Settings</Text>
       
-      {/* Dashboard Button - show for admins and coaches */}
-      {(isAdmin || isCoach) && (
+      {/* Dashboard Button — label and destination vary by role */}
+      {(isAdmin || isManager || isCoach) && (
         <TouchableOpacity
           style={[styles.settingsItem, { backgroundColor: '#EEF2FF' }]}
           onPress={() => navigation?.navigate('Admin')}
@@ -624,13 +641,29 @@ export default function ProfileScreen({ onLogout, navigation }) {
           <View style={styles.settingsItemLeft}>
             <ModernIcon name="settings" size={20} color="#6366F1" />
             <Text style={[styles.settingsItemText, { color: '#6366F1', fontWeight: '600' }]}>
-              {isAdmin ? 'Admin Dashboard' : 'Coach Dashboard'}
+              {isAdmin ? 'Admin Dashboard' : isManager ? 'Academy Dashboard' : 'Coach Dashboard'}
             </Text>
           </View>
           <ModernIcon name="action" size={8} color="#6366F1" />
         </TouchableOpacity>
       )}
-      
+
+      {/* Start Your Academy — only for coaches who are NOT already in any academy */}
+      {!isAdmin && isCoach && !isManager && (
+        <TouchableOpacity
+          style={[styles.settingsItem, { backgroundColor: '#F0FDF4' }]}
+          onPress={() => setShowStartAcademyModal(true)}
+        >
+          <View style={styles.settingsItemLeft}>
+            <Ionicons name="school-outline" size={20} color="#16A34A" />
+            <Text style={[styles.settingsItemText, { color: '#16A34A', fontWeight: '600' }]}>
+              Start Your Academy
+            </Text>
+          </View>
+          <ModernIcon name="action" size={8} color="#16A34A" />
+        </TouchableOpacity>
+      )}
+
       {/* Coach profile — Become a Coach for non-coaches, Edit Coach Profile for coaches */}
       {!isAdmin && (
         <TouchableOpacity 
@@ -1012,6 +1045,17 @@ export default function ProfileScreen({ onLogout, navigation }) {
       {renderNameEditModal()}
       {renderDeleteAccountModal()}
       {renderDeleteConfirmationModal()}
+
+      {/* Start Academy bootstrap modal (GAP-01 / GAP-10) */}
+      <StartAcademyModal
+        visible={showStartAcademyModal}
+        onClose={() => setShowStartAcademyModal(false)}
+        onSuccess={() => {
+          setShowStartAcademyModal(false);
+          // Re-run role check so the button immediately switches to "Academy Dashboard"
+          checkAdmin();
+        }}
+      />
     </View>
   );
 }

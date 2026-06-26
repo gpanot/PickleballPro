@@ -231,7 +231,10 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
     }
   };
 
-  const isCoachRole = sessionRole === 'coach';
+  // Both coaches and managers use the user-scoped RPCs (create_program_as_user /
+  // update_program_as_user). Managers are NOT in admin_users, so sending them
+  // through the admin RPC path would fail at the DB level.
+  const isCoachRole = sessionRole === 'coach' || sessionRole === 'manager';
 
   const handleCreateProgram = async () => {
     if (!programName.trim()) {
@@ -271,8 +274,37 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
       let data, error;
 
       if (isCoachRole) {
-        // Coach path: use user-scoped RPCs that enforce created_by and block self-publishing
-        if (isEditing) {
+        // GAP-03 (Option B): A manager editing a program they do NOT own uses a direct
+        // .update() gated by the `programs_update_academy_manager_publish` RLS UPDATE policy
+        // (WITH CHECK = null → allows any field update on academy-scoped programs where the
+        // caller is a manager of that academy). `update_program_as_user` would reject them
+        // because it checks `created_by = auth.uid()`.
+        const isManagerEditingOthersProgram =
+          sessionRole === 'manager' &&
+          isEditing &&
+          editingProgram?.created_by &&
+          editingProgram.created_by !== user?.id;
+
+        if (isManagerEditingOthersProgram) {
+          // Direct RLS-gated update — no RPC needed
+          const result = await supabase
+            .from('programs')
+            .update({
+              name: programName.trim(),
+              description: programDescription.trim() || 'New training program',
+              category: finalCategory,
+              tier: 'Beginner',
+              thumbnail_url: thumbnailUrl,
+              is_coach_program: isCoachProgram,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', editingProgram.id)
+            .select()
+            .single();
+          data = result.data;
+          error = result.error;
+        } else if (isEditing) {
+          // Own program — user-scoped RPC (coach or manager editing their own)
           const result = await supabase.rpc('update_program_as_user', {
             program_id: editingProgram.id,
             program_name: programName.trim(),
@@ -285,6 +317,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
           data = result.data;
           error = result.error;
         } else {
+          // Create — always user-scoped RPC
           const result = await supabase.rpc('create_program_as_user', {
             program_name: programName.trim(),
             program_description: programDescription.trim() || 'New training program',
@@ -620,7 +653,9 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
                 <View style={styles.infoItem}>
                   <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
                   <Text style={styles.infoText}>
-                    Programs you create are saved as drafts. An admin can review and publish them to the public library when ready.
+                    {sessionRole === 'manager'
+                      ? 'Programs you create are saved as drafts under your academy. You can publish them directly from the Content tab.'
+                      : 'Programs you create are saved as drafts. An admin or academy manager can review and publish them when ready.'}
                   </Text>
                 </View>
               ) : (

@@ -1,9 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Platform, Dimensions, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 
 const getPageTitle = (activeTab) => {
   switch (activeTab) {
@@ -27,10 +24,10 @@ export default function AdminTopBar({
   setShowAddCoachModal,
   setShowAddUserModal,
   onOpenMobileDrawer,
+  isMobile = false,
   styles: parentStyles,
 }) {
   const pageTitle = getPageTitle(activeTab);
-  const isMobile = IS_MOBILE;
 
   return (
     <View style={[
@@ -70,29 +67,56 @@ export default function AdminTopBar({
         </TouchableOpacity>
 
         {activeTab === 'content' && (
-          <>
-            <TouchableOpacity
-              style={parentStyles.primaryButton}
-              onPress={() => setShowCreateProgramModal(true)}
+          isMobile ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={localStyles.mobileActionRow}
             >
-              <Ionicons name="add" size={18} color="white" />
-              {!isMobile && <Text style={parentStyles.primaryButtonText}>Create Program</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={parentStyles.secondaryButton}
-              onPress={() => setShowCreateRoutineModal(true)}
-            >
-              <Ionicons name="add" size={18} color="#6B7280" />
-              {!isMobile && <Text style={parentStyles.secondaryButtonText}>Create Routine</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={parentStyles.secondaryButton}
-              onPress={() => setShowCreateExerciseModal(true)}
-            >
-              <Ionicons name="add" size={18} color="#6B7280" />
-              {!isMobile && <Text style={parentStyles.secondaryButtonText}>Create Exercise</Text>}
-            </TouchableOpacity>
-          </>
+              <TouchableOpacity
+                style={parentStyles.primaryButton}
+                onPress={() => setShowCreateProgramModal(true)}
+              >
+                <Ionicons name="add" size={18} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={parentStyles.secondaryButton}
+                onPress={() => setShowCreateRoutineModal(true)}
+              >
+                <Ionicons name="add" size={18} color="#6B7280" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={parentStyles.secondaryButton}
+                onPress={() => setShowCreateExerciseModal(true)}
+              >
+                <Ionicons name="add" size={18} color="#6B7280" />
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={parentStyles.primaryButton}
+                onPress={() => setShowCreateProgramModal(true)}
+              >
+                <Ionicons name="add" size={18} color="white" />
+                <Text style={parentStyles.primaryButtonText}>Create Program</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={parentStyles.secondaryButton}
+                onPress={() => setShowCreateRoutineModal(true)}
+              >
+                <Ionicons name="add" size={18} color="#6B7280" />
+                <Text style={parentStyles.secondaryButtonText}>Create Routine</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={parentStyles.secondaryButton}
+                onPress={() => setShowCreateExerciseModal(true)}
+              >
+                <Ionicons name="add" size={18} color="#6B7280" />
+                <Text style={parentStyles.secondaryButtonText}>Create Exercise</Text>
+              </TouchableOpacity>
+            </>
+          )
         )}
 
         {activeTab === 'coaches' && (
@@ -130,6 +154,14 @@ const localStyles = StyleSheet.create({
     fontWeight: '600',
   },
   mobileActions: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'flex-end',
+  },
+  mobileActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+    paddingLeft: 4,
   },
 });

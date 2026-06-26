@@ -8,10 +8,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
     flexDirection: 'row',
     ...(Platform.OS === 'web' && {
-      height: '100vh',
+      minHeight: '100dvh',
+      height: '100%',
+      maxHeight: '100dvh',
       overflow: 'hidden',
     }),
-    // Mobile: full screen column stacking handled by mainContent taking full width
   },
   
   // Sidebar Styles
@@ -183,8 +184,11 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     backgroundColor: '#F8FAFC',
+    minWidth: 0,
     ...(Platform.OS === 'web' && {
-      height: '100vh',
+      minHeight: '100dvh',
+      height: '100%',
+      maxHeight: '100dvh',
       overflow: 'hidden',
     }),
   },
@@ -199,6 +203,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f4f4f5',
+    flexWrap: screenWidth < 768 ? 'wrap' : 'nowrap',
+    gap: screenWidth < 768 ? 8 : 0,
     ...(Platform.OS === 'web' && {
       boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
     }),
@@ -207,7 +213,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pageTitle: {
-    fontSize: 24,
+    fontSize: screenWidth < 768 ? 18 : 24,
     fontWeight: '600', // Shadcn/UI uses semibold
     color: '#18181b', // zinc-900
     letterSpacing: -0.025,
@@ -253,7 +259,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#e4e4e7', // zinc-300
-    minWidth: 300,
+    minWidth: screenWidth < 768 ? 0 : 300,
+    flex: screenWidth < 768 ? 1 : undefined,
   },
   searchInput: {
     flex: 1,
@@ -282,6 +289,10 @@ const styles = StyleSheet.create({
   // Content Scroll View
   contentScrollView: {
     flex: 1,
+  },
+  contentScrollContent: {
+    flexGrow: 1,
+    paddingBottom: 32,
   },
   content: {
     padding: screenWidth < 768 ? 12 : 32,
@@ -816,20 +827,18 @@ const styles = StyleSheet.create({
   // Content Management Styles
   contentStatsGrid: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'nowrap',
+    gap: screenWidth < 768 ? 8 : 12,
     marginBottom: 20,
-    ...(screenWidth <= 768 && {
-      flexDirection: 'column',
-      gap: 8,
-    }),
   },
   contentStatCard: {
     backgroundColor: '#FFFFFF',
-    padding: 12,
+    padding: screenWidth < 768 ? 8 : 12,
     borderRadius: 8,
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
-    minHeight: 80,
+    minHeight: screenWidth < 768 ? 72 : 80,
     ...(Platform.OS === 'web' && {
       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
     }),
@@ -844,19 +853,20 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   contentStatNumber: {
-    fontSize: 18,
+    fontSize: screenWidth < 768 ? 16 : 18,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 2,
   },
   contentStatLabel: {
-    fontSize: 11,
+    fontSize: screenWidth < 768 ? 10 : 11,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 2,
+    textAlign: 'center',
   },
   contentStatSubtext: {
-    fontSize: 10,
+    fontSize: screenWidth < 768 ? 9 : 10,
     color: '#6B7280',
     textAlign: 'center',
   },
@@ -866,14 +876,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderRadius: 8,
     padding: 4,
+    ...(Platform.OS === 'web' && screenWidth < 768 && {
+      overflowX: 'auto',
+      flexWrap: 'nowrap',
+    }),
+  },
+  contentTabsScroll: {
+    marginBottom: 24,
+  },
+  contentTabsScrollContent: {
+    flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 4,
+    gap: 4,
   },
   contentTab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: screenWidth < 768 ? 10 : 16,
     paddingVertical: 8,
     borderRadius: 6,
     marginRight: 4,
+    flexShrink: 0,
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
     }),
@@ -885,10 +910,10 @@ const styles = StyleSheet.create({
     }),
   },
   contentTabText: {
-    fontSize: 14,
+    fontSize: screenWidth < 768 ? 12 : 14,
     fontWeight: '500',
     color: '#6B7280',
-    marginLeft: 8,
+    marginLeft: screenWidth < 768 ? 4 : 8,
   },
   activeContentTabText: {
     color: '#000000',
@@ -901,6 +926,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 24,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  searchFilterBarMobile: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
 
   // Secondary Button
@@ -1879,8 +1910,9 @@ const styles = StyleSheet.create({
   // Dashboard Styles
   dashboardQuickActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 32,
+    marginBottom: screenWidth < 768 ? 16 : 32,
   },
   dashboardPrimaryAction: {
     flexDirection: 'row',
@@ -1942,12 +1974,15 @@ const styles = StyleSheet.create({
   dashboardStatsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 20,
-    marginBottom: 32,
+    gap: screenWidth < 768 ? 8 : 20,
+    marginBottom: screenWidth < 768 ? 16 : 32,
+  },
+  dashboardStatsGridRow: {
+    flexWrap: 'nowrap',
   },
   dashboardStatCard: {
     backgroundColor: '#FFFFFF',
-    padding: 24,
+    padding: screenWidth < 768 ? 12 : 24,
     borderRadius: 12,
     flex: 1,
     minWidth: screenWidth > 768 ? '22%' : '45%',
@@ -1955,25 +1990,30 @@ const styles = StyleSheet.create({
       boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
     }),
   },
+  dashboardStatCardCompact: {
+    minWidth: 0,
+    padding: screenWidth < 768 ? 10 : 16,
+  },
   dashboardStatHeader: {
-    marginBottom: 16,
+    marginBottom: screenWidth < 768 ? 8 : 16,
   },
   dashboardStatNumber: {
-    fontSize: 32,
+    fontSize: screenWidth < 768 ? 22 : 32,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
   },
   dashboardStatLabel: {
-    fontSize: 14,
+    fontSize: screenWidth < 768 ? 11 : 14,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: screenWidth < 768 ? 6 : 12,
   },
   dashboardStatTrend: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: screenWidth < 768 ? 'column' : 'row',
+    alignItems: screenWidth < 768 ? 'flex-start' : 'center',
     justifyContent: 'space-between',
+    gap: screenWidth < 768 ? 4 : 0,
   },
   dashboardTrendBadge: {
     backgroundColor: '#f4f4f5', // zinc-100
@@ -2005,10 +2045,10 @@ const styles = StyleSheet.create({
     color: '#1d4ed8', // blue-700
   },
   dashboardStatSubtext: {
-    fontSize: 12,
+    fontSize: screenWidth < 768 ? 9 : 12,
     color: '#9CA3AF',
     flex: 1,
-    textAlign: 'right',
+    textAlign: screenWidth < 768 ? 'left' : 'right',
   },
 
   // Dashboard Main Grid

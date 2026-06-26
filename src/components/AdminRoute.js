@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '../context/AuthContext';
-import { checkAdminAccess, checkCoachAccess } from '../lib/supabase';
+import { checkAdminAccess, checkCoachAccess, supabase } from '../lib/supabase';
 import AdminDashboard from '../screens/AdminDashboard';
 
 export default function AdminRoute({ navigation }) {
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [sessionRole, setSessionRole] = useState(null); // 'admin' | 'coach' | null
+  const [sessionRole, setSessionRole] = useState(null); // 'admin' | 'manager' | 'coach' | null
   const [adminRole, setAdminRole] = useState(null);
   const [coachId, setCoachId] = useState(null);
+  const [academyId, setAcademyId] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -21,7 +22,7 @@ export default function AdminRoute({ navigation }) {
 
   const checkAccess = async () => {
     try {
-      // Admin check always wins — if in admin_users, role = 'admin' regardless of coaches table
+      // 1. Admin check always wins
       const { isAdmin: adminStatus, role, error: adminError } = await checkAdminAccess(user.id);
 
       if (adminError) {
@@ -34,7 +35,24 @@ export default function AdminRoute({ navigation }) {
         return;
       }
 
-      // Fallback: check coaches table
+      // 2. Academy manager check (precedes coach — broader tier)
+      const { data: managerRow, error: managerError } = await supabase
+        .from('academy_members')
+        .select('academy_id')
+        .eq('user_id', user.id)
+        .eq('role', 'manager')
+        .maybeSingle();
+
+      if (!managerError && managerRow) {
+        // Also fetch coach row so we keep coachId available (manager may also be a coach)
+        const { isCoach, coachId: cid } = await checkCoachAccess(user.id);
+        setSessionRole('manager');
+        setAcademyId(managerRow.academy_id);
+        if (isCoach) setCoachId(cid);
+        return;
+      }
+
+      // 3. Coach check
       const { isCoach, coachId: id } = await checkCoachAccess(user.id);
 
       if (isCoach) {
@@ -43,7 +61,7 @@ export default function AdminRoute({ navigation }) {
         return;
       }
 
-      // Neither admin nor coach — access denied (sessionRole stays null)
+      // 4. Neither admin, manager, nor coach — access denied
     } catch (error) {
       console.error('Error in access check:', error);
     } finally {
@@ -74,7 +92,7 @@ export default function AdminRoute({ navigation }) {
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Access Denied</Text>
         <Text style={styles.errorText}>
-          You don't have admin or coach access. Please contact an administrator.
+          You don't have admin, manager, or coach access. Please contact an administrator.
         </Text>
       </View>
     );
@@ -86,6 +104,7 @@ export default function AdminRoute({ navigation }) {
       adminRole={adminRole}
       sessionRole={sessionRole}
       coachId={coachId}
+      academyId={academyId}
     />
   );
 }

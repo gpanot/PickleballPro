@@ -30,10 +30,14 @@ export default function ProgramsTable({
   handleViewProgramStructure,
   handleEditProgramStructure,
   handleDeleteProgram,
+  handlePublishProgram,
+  publishingProgramId,
+  sessionRole,
   activeDropdown,
   setActiveDropdown,
   styles,
 }) {
+  const isManagerSession = sessionRole === 'manager';
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -158,6 +162,20 @@ export default function ProgramsTable({
                       <Text style={styles.programMeta}>
                         Created {new Date(program.created_at).toLocaleDateString()}
                       </Text>
+                      {isManagerSession && program._authorName && !program._isOwnProgram && (
+                        <View style={{
+                          marginTop: 3,
+                          alignSelf: 'flex-start',
+                          backgroundColor: '#EFF6FF',
+                          borderRadius: 4,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                        }}>
+                          <Text style={{ fontSize: 11, color: '#1D4ED8', fontWeight: '500' }}>
+                            by {program._authorName}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -219,6 +237,30 @@ export default function ProgramsTable({
                       {program.is_published ? 'Published' : 'Draft'}
                     </Text>
                   </View>
+                  {isManagerSession && !program.is_published && program.academy_id && (
+                    <TouchableOpacity
+                      style={{
+                        marginTop: 4,
+                        backgroundColor: '#F0FDF4',
+                        borderRadius: 4,
+                        paddingHorizontal: 6,
+                        paddingVertical: 3,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                      onPress={() => handlePublishProgram && handlePublishProgram(program)}
+                      disabled={publishingProgramId === program.id}
+                    >
+                      {publishingProgramId === program.id
+                        ? <ActivityIndicator size="small" color="#16A34A" />
+                        : <Ionicons name="cloud-upload-outline" size={11} color="#16A34A" />
+                      }
+                      <Text style={{ fontSize: 11, color: '#16A34A', fontWeight: '600' }}>
+                        Publish
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Rating */}
