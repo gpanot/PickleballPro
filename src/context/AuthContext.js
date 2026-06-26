@@ -24,6 +24,8 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [initializationComplete, setInitializationComplete] = useState(false);
+  // Tracks whether the user explicitly signed out vs. an auto-signout from token expiry
+  const explicitSignOut = React.useRef(false);
 
   useEffect(() => {
     // Add safety timeout to ensure loading state is eventually cleared
@@ -66,7 +68,11 @@ export const AuthProvider = ({ children }) => {
           await handleUserSignedIn(session.user);
         } else if (event === 'SIGNED_OUT') {
           console.log('🔄 Handling SIGNED_OUT event...');
-          await handleUserSignedOut();
+          // Only wipe backup if the user explicitly signed out.
+          // Supabase also fires SIGNED_OUT when auto-refresh fails (expired token) —
+          // in that case we want to keep the backup so recovery can attempt refreshSession.
+          await handleUserSignedOut({ clearBackup: explicitSignOut.current });
+          explicitSignOut.current = false;
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('🔄 Handling TOKEN_REFRESHED event...');
           await handleUserSignedIn(session.user);
@@ -478,18 +484,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const handleUserSignedOut = async () => {
+  const handleUserSignedOut = async ({ clearBackup = true } = {}) => {
     console.log('AuthContext: handleUserSignedOut called - clearing all auth state');
     setUser(null);
     setProfile(null);
     setIsAuthenticated(false);
     
-    // Clear backup session
-    try {
-      await AsyncStorage.removeItem(SESSION_BACKUP_KEY);
-      console.log('AuthContext: Backup session cleared');
-    } catch (error) {
-      console.error('AuthContext: Error clearing backup session:', error);
+    if (clearBackup) {
+      // Clear backup session only on explicit sign-out
+      try {
+        await AsyncStorage.removeItem(SESSION_BACKUP_KEY);
+        console.log('AuthContext: Backup session cleared');
+      } catch (error) {
+        console.error('AuthContext: Error clearing backup session:', error);
+      }
+    } else {
+      console.log('AuthContext: Keeping backup session for recovery (auto token expiry)');
     }
     
     console.log('AuthContext: ✅ User signed out successfully');
@@ -537,6 +547,8 @@ export const AuthProvider = ({ children }) => {
     console.log('AuthContext: handleSignOut called');
     try {
       setLoading(true);
+      // Mark as explicit so the SIGNED_OUT event knows to wipe the backup
+      explicitSignOut.current = true;
       console.log('AuthContext: Calling Supabase signOut...');
       const { error } = await signOut();
       
@@ -547,13 +559,13 @@ export const AuthProvider = ({ children }) => {
 
       console.log('AuthContext: Supabase signOut successful, clearing local state...');
       // Manually clear the state to ensure logout works on web
-      await handleUserSignedOut();
+      await handleUserSignedOut({ clearBackup: true });
       
       return { error: null };
     } catch (error) {
       console.error('AuthContext: Sign out error:', error);
       // Even if there's an error, clear local state
-      await handleUserSignedOut();
+      await handleUserSignedOut({ clearBackup: true });
       return { error };
     } finally {
       setLoading(false);
