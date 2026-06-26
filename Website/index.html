@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PicklePro - Scale Your Coaching Academy</title>
+    <link rel="stylesheet" href="site-nav.css">
     <style>
         * {
             margin: 0;
@@ -48,52 +49,6 @@
             color: #0f172a;
             background: #ffffff;
             overflow-x: hidden;
-        }
-
-        /* Navigation */
-        nav {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            border-bottom: 1px solid rgba(46, 204, 113, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.3rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 3rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: #0f172a;
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-            color: #10b981;
-        }
-
-        .nav-mobile-cta {
-            display: none;
         }
 
         /* Hero Section */
@@ -342,6 +297,7 @@
             font-size: 1.8rem;
             font-weight: 800;
             color: #0f172a;
+            opacity: 1;
         }
 
         /* Main Sections */
@@ -2128,30 +2084,6 @@
                 margin: 0.75rem auto;
             }
 
-            .nav-links {
-                display: none;
-            }
-
-            .nav-mobile-cta {
-                display: inline-block;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                text-decoration: none;
-                padding: 0.55rem 1rem;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 0.8rem;
-                white-space: nowrap;
-            }
-
-            nav {
-                padding: 0.75rem 1rem;
-            }
-
-            .logo {
-                font-size: 1.1rem;
-            }
-
             section h2 {
                 font-size: 2rem;
             }
@@ -2334,15 +2266,6 @@
             }
         }
 
-        @keyframes countUp {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-
         @keyframes shimmer {
             0% {
                 background-position: -1000px 0;
@@ -2469,40 +2392,6 @@
             opacity: 1;
             transform: translateY(0);
         }
-
-        /* Nav link animations */
-        nav a {
-            position: relative;
-            transition: color 0.3s ease;
-        }
-
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: #10b981;
-            transition: width 0.3s ease;
-        }
-
-        nav a:hover::after {
-            width: 100%;
-        }
-
-        /* Loading animation for stats */
-        .mock-card-value {
-            animation: countUp 0.8s ease-out forwards;
-            opacity: 0;
-        }
-
-        .mock-card:nth-child(1) .mock-card-value { animation-delay: 0.4s; }
-        .mock-card:nth-child(2) .mock-card-value { animation-delay: 0.5s; }
-        .mock-card:nth-child(3) .mock-card-value { animation-delay: 0.6s; }
-        .mock-card:nth-child(4) .mock-card-value { animation-delay: 0.7s; }
-        .mock-card:nth-child(5) .mock-card-value { animation-delay: 0.8s; }
-        .mock-card:nth-child(6) .mock-card-value { animation-delay: 0.9s; }
 
         /* Comparison table row animation */
         .comparison-table tbody tr {
@@ -3104,17 +2993,9 @@
 
     </style>
 </head>
-<body>
-    <!-- Navigation -->
-    <nav>
-        <div class="logo">PicklePro</div>
-        <ul class="nav-links">
-            <li><a href="#features">Features</a></li>
-            <li><a href="#how">How It Works</a></li>
-            <li><a href="#contact">Start Scaling</a></li>
-        </ul>
-        <a href="https://cal.id/guillaume-panot/piklepro-academy" class="nav-mobile-cta">Start Free Trial</a>
-    </nav>
+<body data-nav-page="academy">
+    <div id="site-nav-root"></div>
+    <script src="site-nav.js"></script>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -4022,16 +3903,18 @@
 
         document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
-        // Counter animation for numbers
+        // Counter animation for numbers (skip hero dashboard — always visible)
         function animateCounters() {
-            const cards = document.querySelectorAll('.mock-card-value, .roi-value, .stat-number');
+            const cards = document.querySelectorAll('.roi-value, .stat-number');
             
             cards.forEach(card => {
+                if (card.dataset.counted === 'true') return;
                 const text = card.textContent.trim();
-                const number = parseInt(text.replace(/[^\d]/g, ''));
+                const number = parseInt(text.replace(/[^\d]/g, ''), 10);
                 const suffix = text.replace(/\d+/g, '');
                 
                 if (!isNaN(number)) {
+                    card.dataset.counted = 'true';
                     let current = 0;
                     const increment = Math.ceil(number / 30);
                     const timer = setInterval(() => {
@@ -4046,6 +3929,33 @@
                 }
             });
         }
+
+        function animateDashboardCounters() {
+            document.querySelectorAll('.dashboard-mock .mock-card-value').forEach(card => {
+                if (card.dataset.counted === 'true') return;
+                const text = card.textContent.trim();
+                const number = parseInt(text.replace(/[^\d]/g, ''), 10);
+                const suffix = text.replace(/\d+/g, '');
+
+                if (isNaN(number)) return;
+
+                card.dataset.counted = 'true';
+                card.style.opacity = '1';
+                let current = 0;
+                const increment = Math.max(1, Math.ceil(number / 24));
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= number) {
+                        card.textContent = number + suffix;
+                        clearInterval(timer);
+                    } else {
+                        card.textContent = current + suffix;
+                    }
+                }, 25);
+            });
+        }
+
+        animateDashboardCounters();
 
         // Trigger counter animation when cards come into view
         const counterObserver = new IntersectionObserver((entries) => {
