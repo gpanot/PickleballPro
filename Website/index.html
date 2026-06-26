@@ -15,6 +15,33 @@
             scroll-behavior: smooth;
         }
 
+        :root {
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+            --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+            --duration-press: 160ms;
+            --duration-ui: 220ms;
+            --duration-scroll: 400ms;
+            --duration-hero: 500ms;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
+            .hero::before,
+            .hero::after {
+                animation: none;
+            }
+
+            .fade-in,
+            .fade-in.visible {
+                opacity: 1;
+                transform: none;
+                transition: opacity 0.2s ease;
+            }
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
@@ -112,13 +139,13 @@
             z-index: 2;
             max-width: 900px;
             margin: 0 auto;
-            animation: fadeInUp 0.8s ease-out;
+            animation: fadeInUp var(--duration-hero) var(--ease-out);
         }
 
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(30px);
+                transform: translateY(16px);
             }
             to {
                 opacity: 1;
@@ -153,7 +180,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 1.5rem;
-            animation: fadeInUp 0.8s ease-out 0.1s both;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 50ms both;
         }
 
         .hero-subtext {
@@ -161,7 +188,7 @@
             color: #64748b;
             margin-top: 1rem;
             margin-bottom: 2.5rem;
-            animation: fadeInUp 0.8s ease-out 0.2s both;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 100ms both;
             font-style: italic;
         }
 
@@ -197,14 +224,26 @@
             font-size: 1rem;
             border: none;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+            transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out);
             box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
             margin: 1rem 0.75rem;
         }
 
-        .cta-button:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 15px 40px rgba(16, 185, 129, 0.4);
+        .cta-button:active {
+            transform: scale(0.97);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .cta-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 24px rgba(16, 185, 129, 0.35);
+            }
+
+            .cta-button:active {
+                transform: scale(0.97) translateY(0);
+            }
         }
 
         .cta-button.secondary {
@@ -228,13 +267,13 @@
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
-            animation: slideUp 1s ease-out 0.3s both;
+            animation: slideUp var(--duration-hero) var(--ease-out) 150ms both;
         }
 
         @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(60px);
+                transform: translateY(24px);
             }
             to {
                 opacity: 1;
@@ -442,7 +481,7 @@
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
             border-radius: 12px;
             border-top: 3px solid #ef4444;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
             position: relative;
             overflow: hidden;
         }
@@ -518,7 +557,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 10px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
             color: #475569;
             font-weight: 600;
             font-size: 0.95rem;
@@ -561,7 +600,7 @@
             opacity: 0;
             transform: translateY(20px);
             pointer-events: none;
-            transition: all 0.4s ease;
+            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
             position: absolute;
             width: 100%;
             display: grid;
@@ -581,7 +620,7 @@
             padding-right: 1rem;
             opacity: 0;
             transform: translateX(-20px);
-            transition: all 0.5s ease 0.1s;
+            transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out) 40ms;
         }
 
         .feature-detail.active .feature-detail-text {
@@ -596,7 +635,7 @@
             min-height: 450px;
             opacity: 0;
             transform: scale(0.95);
-            transition: all 0.4s ease;
+            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
             pointer-events: none;
         }
 
@@ -885,7 +924,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
             position: relative;
             overflow: hidden;
         }
@@ -982,7 +1021,7 @@
             border-radius: 12px;
             text-align: center;
             border: 1px solid #e2e8f0;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
         }
 
         .roi-card:hover {
@@ -1291,7 +1330,7 @@
             border-radius: 12px;
             padding: 2rem;
             text-align: center;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
         }
 
         .integration-card:hover {
@@ -1353,8 +1392,8 @@
 
         .benefit-phone-mockup {
             opacity: 0;
-            transform: scale(0.9);
-            transition: all 0.4s ease;
+            transform: scale(0.95);
+            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
             position: absolute;
             pointer-events: none;
         }
@@ -1403,7 +1442,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             overflow: hidden;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
         }
 
         .benefit-item:hover {
@@ -1450,7 +1489,7 @@
         .benefit-content {
             max-height: 0;
             overflow: hidden;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
         }
 
         .benefit-item.open .benefit-content {
@@ -1728,7 +1767,7 @@
             border-radius: 16px;
             padding: 2.5rem;
             position: relative;
-            transition: all 0.3s ease;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
         }
 
         .pricing-card:hover {
@@ -2315,55 +2354,55 @@
 
         /* Hero animations */
         .hero h1 {
-            animation: fadeInUp 0.8s ease-out;
+            animation: fadeInUp var(--duration-hero) var(--ease-out);
         }
 
         .hero p {
-            animation: fadeInUp 0.8s ease-out 0.1s both;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 50ms both;
         }
 
         .hero .cta-button {
-            animation: fadeInUp 0.8s ease-out 0.2s both;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 100ms both;
         }
 
         .dashboard-mock {
-            animation: fadeInUp 0.8s ease-out 0.3s both;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 150ms both;
         }
 
         .mock-card {
-            animation: scaleIn 0.6s ease-out forwards;
+            animation: scaleIn 400ms var(--ease-out) forwards;
         }
 
-        .mock-card:nth-child(1) { animation-delay: 0.4s; }
-        .mock-card:nth-child(2) { animation-delay: 0.5s; }
-        .mock-card:nth-child(3) { animation-delay: 0.6s; }
-        .mock-card:nth-child(4) { animation-delay: 0.7s; }
-        .mock-card:nth-child(5) { animation-delay: 0.8s; }
-        .mock-card:nth-child(6) { animation-delay: 0.9s; }
+        .mock-card:nth-child(1) { animation-delay: 200ms; }
+        .mock-card:nth-child(2) { animation-delay: 250ms; }
+        .mock-card:nth-child(3) { animation-delay: 300ms; }
+        .mock-card:nth-child(4) { animation-delay: 350ms; }
+        .mock-card:nth-child(5) { animation-delay: 400ms; }
+        .mock-card:nth-child(6) { animation-delay: 450ms; }
 
         /* Tanner proof animations */
         .tanner-left {
-            animation: fadeInLeft 0.8s ease-out;
+            animation: fadeInLeft var(--duration-hero) var(--ease-out);
         }
 
         .tanner-right {
-            animation: fadeInRight 0.8s ease-out;
+            animation: fadeInRight var(--duration-hero) var(--ease-out);
         }
 
         /* Trial banner animation */
         .trial-banner {
-            animation: slideDown 0.6s ease-out;
+            animation: slideDown var(--duration-ui) var(--ease-out);
         }
 
         /* Timeline animations */
         .timeline-item {
-            animation: fadeInUp 0.6s ease-out forwards;
+            animation: fadeInUp var(--duration-ui) var(--ease-out) forwards;
         }
 
-        .timeline-item:nth-child(1) { animation-delay: 0s; }
-        .timeline-item:nth-child(3) { animation-delay: 0.2s; }
-        .timeline-item:nth-child(5) { animation-delay: 0.4s; }
-        .timeline-item:nth-child(7) { animation-delay: 0.6s; }
+        .timeline-item:nth-child(1) { animation-delay: 0ms; }
+        .timeline-item:nth-child(3) { animation-delay: 50ms; }
+        .timeline-item:nth-child(5) { animation-delay: 100ms; }
+        .timeline-item:nth-child(7) { animation-delay: 150ms; }
 
         /* Card hover animations */
         .problem-card,
@@ -2372,36 +2411,28 @@
         .integration-card,
         .benefit-item,
         .comparison-table tbody tr {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease;
         }
 
-        .problem-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
+        @media (hover: hover) and (pointer: fine) {
+            .problem-card:hover,
+            .roi-card:hover,
+            .pricing-card:hover,
+            .integration-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 24px rgba(16, 185, 129, 0.12);
+            }
+
+            .cta-button:hover::before {
+                left: 100%;
+            }
+
+            .nav-item:hover {
+                transform: translateX(2px);
+            }
         }
 
-        .roi-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
-        }
-
-        .pricing-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
-        }
-
-        .integration-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
-        }
-
-        /* Button animations */
-        .cta-button {
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
+        /* Button shimmer */
         .cta-button::before {
             content: '';
             position: absolute;
@@ -2410,54 +2441,28 @@
             width: 100%;
             height: 100%;
             background: rgba(255, 255, 255, 0.2);
-            transition: left 0.3s ease;
+            transition: left var(--duration-ui) var(--ease-out);
             z-index: -1;
         }
 
-        .cta-button:hover::before {
-            left: 100%;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(16, 185, 129, 0.3);
-        }
-
-        /* Feature navigator animations */
+        /* Feature navigator */
         .nav-item {
-            transition: all 0.3s ease;
-        }
-
-        .nav-item:hover {
-            transform: translateX(4px);
-        }
-
-        .feature-detail-text {
-            animation: fadeInLeft 0.5s ease-out;
-        }
-
-        .feature-detail-visual-container {
-            animation: fadeInRight 0.5s ease-out;
-        }
-
-        /* Benefit phone animation */
-        .benefit-phone-mockup {
-            animation: fadeInUp 0.6s ease-out;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
         }
 
         /* Example grid animations */
         .example-col {
-            animation: fadeInUp 0.6s ease-out forwards;
+            animation: fadeInUp var(--duration-ui) var(--ease-out) forwards;
         }
 
-        .example-col:nth-child(1) { animation-delay: 0.1s; }
-        .example-col:nth-child(2) { animation-delay: 0.2s; }
+        .example-col:nth-child(1) { animation-delay: 50ms; }
+        .example-col:nth-child(2) { animation-delay: 100ms; }
 
         /* Scroll fade-in enhancement */
         .fade-in {
             opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateY(16px);
+            transition: opacity var(--duration-scroll) var(--ease-out), transform var(--duration-scroll) var(--ease-out);
         }
 
         .fade-in.visible {
@@ -3554,7 +3559,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <img src="Assets/white_label.jpg" alt="Coach Management" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                    <img src="Assets/coach_management.jpg" alt="Coach Management" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3577,10 +3582,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <div class="phone-placeholder">
-                                        <div class="phone-placeholder-icon">SCREEN</div>
-                                        <div class="phone-placeholder-text">Add your mobile screenshot here</div>
-                                    </div>
+                                    <img src="Assets/white_label.jpg" alt="White-Label Platform" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3945,14 +3947,17 @@
     </footer>
 
     <script>
-        // Smooth scroll behavior
+        // Smooth scroll behavior (respect reduced motion)
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const scrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
+
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({
-                        behavior: 'smooth',
+                        behavior: scrollBehavior,
                         block: 'start'
                     });
                 }
@@ -4072,6 +4077,7 @@
 
     <script>
     // ========== READINESS QUIZ (rq) ==========
+    const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
     // ---------- DATA ----------
     const rqQuestions = [
@@ -4230,7 +4236,7 @@
         section.style.display = 'block';
         // smooth scroll into view
         setTimeout(() => {
-            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            section.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
         }, 50);
     }
 
@@ -4321,7 +4327,7 @@
         document.getElementById('rqProgressTrack').style.display = 'none';
         document.getElementById('rqStepCounter').textContent = 'Readiness Score';
         rqShowScreen('intro');
-        document.getElementById('quizSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('quizSection').scrollIntoView({ behavior: scrollBehavior, block: 'start' });
     }
 
     // ---------- SCORING ----------
