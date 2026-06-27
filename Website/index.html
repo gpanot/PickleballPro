@@ -4018,8 +4018,8 @@
             document.body.style.opacity = '1';
         });
 
-        // Auto-cycle "Built for Scaling" feature screenshots every 5 seconds
-        // Pauses when user manually clicks a nav item; resumes after 10s of inactivity
+        // Auto-cycle "Built for Scaling" feature screenshots every 2 seconds
+        // Pauses when user manually clicks a nav item; resumes after 8s of inactivity
         (function () {
             const featureOrder = ['curriculum', 'progress', 'logbook', 'coaching', 'whitelabel'];
             let currentIndex = 0;
@@ -4043,16 +4043,16 @@
                     if (userPaused) return;
                     currentIndex = (currentIndex + 1) % featureOrder.length;
                     activateFeature(currentIndex);
-                }, 5000);
+                }, 2000);
             }
 
             // Track manual clicks to pause auto-cycling temporarily
-            navItems.forEach((item, idx) => {
+            navItems.forEach((item) => {
                 item.addEventListener('click', () => {
                     userPaused = true;
                     currentIndex = featureOrder.indexOf(item.dataset.feature);
                     if (resumeTimer) clearTimeout(resumeTimer);
-                    resumeTimer = setTimeout(() => { userPaused = false; }, 10000);
+                    resumeTimer = setTimeout(() => { userPaused = false; }, 8000);
                 });
             });
 
@@ -4064,7 +4064,7 @@
                         if (entry.isIntersecting) {
                             startAuto();
                         } else {
-                            if (autoTimer) clearInterval(autoTimer);
+                            if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
                         }
                     });
                 }, { threshold: 0.2 });
@@ -4072,7 +4072,44 @@
             }
         })();
 
-        // Floating "Start Free Trial" button — appears when user scrolls into the ROI / Math section
+        // Auto-cycle "Anyone Can Coach / Your Academy Scaled" benefit phone mockups every 2 seconds
+        (function () {
+            const mockups = document.querySelectorAll('.benefit-phone-mockup');
+            if (!mockups.length) return;
+            const total = mockups.length;
+            let currentIndex = 0;
+            let autoTimer = null;
+
+            function activateMockup(index) {
+                mockups.forEach(m => m.classList.remove('active'));
+                mockups[index].classList.add('active');
+            }
+
+            function startAuto() {
+                if (autoTimer) clearInterval(autoTimer);
+                autoTimer = setInterval(() => {
+                    currentIndex = (currentIndex + 1) % total;
+                    activateMockup(currentIndex);
+                }, 2000);
+            }
+
+            const benefitsSection = document.querySelector('.benefits-section');
+            if (benefitsSection) {
+                const obs = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            startAuto();
+                        } else {
+                            if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+                        }
+                    });
+                }, { threshold: 0.2 });
+                obs.observe(benefitsSection);
+            }
+        })();
+
+        // Floating "Start Free Trial" button
+        // Shows when user reaches the ROI section, stays visible until end of page
         (function () {
             var fba = document.createElement('a');
             fba.href = 'https://cal.id/guillaume-panot/piklepro-academy';
@@ -4098,17 +4135,41 @@
             ].join(';');
             document.body.appendChild(fba);
 
+            function showFba() {
+                fba.style.opacity = '1';
+                fba.style.transform = 'translateY(0)';
+                fba.style.pointerEvents = 'auto';
+            }
+            function hideFba() {
+                fba.style.opacity = '0';
+                fba.style.transform = 'translateY(12px)';
+                fba.style.pointerEvents = 'none';
+            }
+
+            // Trigger: show once roi-section top crosses viewport
             var roiSection = document.querySelector('.roi-section');
             if (roiSection) {
-                var fbaObserver = new IntersectionObserver(function (entries) {
+                var showObserver = new IntersectionObserver(function (entries) {
                     entries.forEach(function (entry) {
-                        var visible = entry.isIntersecting;
-                        fba.style.opacity = visible ? '1' : '0';
-                        fba.style.transform = visible ? 'translateY(0)' : 'translateY(12px)';
-                        fba.style.pointerEvents = visible ? 'auto' : 'none';
+                        // boundingClientRect.top <= 0 means we've scrolled past the top edge
+                        if (entry.boundingClientRect.top <= window.innerHeight) {
+                            showFba();
+                            showObserver.disconnect(); // fire once, stay visible
+                        }
                     });
-                }, { threshold: 0.05 });
-                fbaObserver.observe(roiSection);
+                }, { threshold: 0, rootMargin: '0px 0px -10% 0px' });
+                showObserver.observe(roiSection);
+            }
+
+            // Hide only when footer comes into view (avoids overlapping footer CTA)
+            var footer = document.querySelector('footer');
+            if (footer) {
+                var footerObserver = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        if (entry.isIntersecting) { hideFba(); } else { showFba(); }
+                    });
+                }, { threshold: 0.1 });
+                footerObserver.observe(footer);
             }
         })();
     </script>
