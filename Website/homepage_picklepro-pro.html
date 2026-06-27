@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PicklePro - Scale Your Coaching Academy</title>
-    <link rel="stylesheet" href="site-nav.css">
     <style>
         * {
             margin: 0;
@@ -16,39 +15,58 @@
             scroll-behavior: smooth;
         }
 
-        :root {
-            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-            --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-            --duration-press: 160ms;
-            --duration-ui: 220ms;
-            --duration-scroll: 400ms;
-            --duration-hero: 500ms;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            html {
-                scroll-behavior: auto;
-            }
-
-            .hero::before,
-            .hero::after {
-                animation: none;
-            }
-
-            .fade-in,
-            .fade-in.visible {
-                opacity: 1;
-                transform: none;
-                transition: opacity 0.2s ease;
-            }
-        }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
             color: #0f172a;
             background: #ffffff;
             overflow-x: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(46, 204, 113, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #0f172a;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #10b981;
+        }
+
+        .nav-mobile-cta {
+            display: none;
         }
 
         /* Hero Section */
@@ -94,13 +112,13 @@
             z-index: 2;
             max-width: 900px;
             margin: 0 auto;
-            animation: fadeInUp var(--duration-hero) var(--ease-out);
+            animation: fadeInUp 0.8s ease-out;
         }
 
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(16px);
+                transform: translateY(30px);
             }
             to {
                 opacity: 1;
@@ -135,7 +153,7 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 1.5rem;
-            animation: fadeInUp var(--duration-hero) var(--ease-out) 50ms both;
+            animation: fadeInUp 0.8s ease-out 0.1s both;
         }
 
         .hero-subtext {
@@ -143,7 +161,7 @@
             color: #64748b;
             margin-top: 1rem;
             margin-bottom: 2.5rem;
-            animation: fadeInUp var(--duration-hero) var(--ease-out) 100ms both;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
             font-style: italic;
         }
 
@@ -179,26 +197,14 @@
             font-size: 1rem;
             border: none;
             cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
             margin: 1rem 0.75rem;
         }
 
-        .cta-button:active {
-            transform: scale(0.97);
-        }
-
-        @media (hover: hover) and (pointer: fine) {
-            .cta-button:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 12px 24px rgba(16, 185, 129, 0.35);
-            }
-
-            .cta-button:active {
-                transform: scale(0.97) translateY(0);
-            }
+        .cta-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 15px 40px rgba(16, 185, 129, 0.4);
         }
 
         .cta-button.secondary {
@@ -222,13 +228,13 @@
             border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
-            animation: slideUp var(--duration-hero) var(--ease-out) 150ms both;
+            animation: slideUp 1s ease-out 0.3s both;
         }
 
         @keyframes slideUp {
             from {
                 opacity: 0;
-                transform: translateY(24px);
+                transform: translateY(60px);
             }
             to {
                 opacity: 1;
@@ -297,7 +303,6 @@
             font-size: 1.8rem;
             font-weight: 800;
             color: #0f172a;
-            opacity: 1;
         }
 
         /* Main Sections */
@@ -437,7 +442,7 @@
             background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
             border-radius: 12px;
             border-top: 3px solid #ef4444;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
         }
@@ -513,7 +518,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 10px;
             cursor: pointer;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
             color: #475569;
             font-weight: 600;
             font-size: 0.95rem;
@@ -556,7 +561,7 @@
             opacity: 0;
             transform: translateY(20px);
             pointer-events: none;
-            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
+            transition: all 0.4s ease;
             position: absolute;
             width: 100%;
             display: grid;
@@ -576,7 +581,7 @@
             padding-right: 1rem;
             opacity: 0;
             transform: translateX(-20px);
-            transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out) 40ms;
+            transition: all 0.5s ease 0.1s;
         }
 
         .feature-detail.active .feature-detail-text {
@@ -591,7 +596,7 @@
             min-height: 450px;
             opacity: 0;
             transform: scale(0.95);
-            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
+            transition: all 0.4s ease;
             pointer-events: none;
         }
 
@@ -880,7 +885,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             backdrop-filter: blur(10px);
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
         }
@@ -977,7 +982,7 @@
             border-radius: 12px;
             text-align: center;
             border: 1px solid #e2e8f0;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
         }
 
         .roi-card:hover {
@@ -1286,7 +1291,7 @@
             border-radius: 12px;
             padding: 2rem;
             text-align: center;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
         }
 
         .integration-card:hover {
@@ -1348,8 +1353,8 @@
 
         .benefit-phone-mockup {
             opacity: 0;
-            transform: scale(0.95);
-            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
+            transform: scale(0.9);
+            transition: all 0.4s ease;
             position: absolute;
             pointer-events: none;
         }
@@ -1398,7 +1403,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 12px;
             overflow: hidden;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
         }
 
         .benefit-item:hover {
@@ -1445,7 +1450,7 @@
         .benefit-content {
             max-height: 0;
             overflow: hidden;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
         }
 
         .benefit-item.open .benefit-content {
@@ -1723,7 +1728,7 @@
             border-radius: 16px;
             padding: 2.5rem;
             position: relative;
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
         }
 
         .pricing-card:hover {
@@ -2059,140 +2064,86 @@
             color: #059669;
         }
 
-        /* ===== MOBILE RESPONSIVE ===== */
+        /* Responsive */
         @media (max-width: 768px) {
-
-            /* Hero */
-            .hero {
-                padding: 80px 1.25rem 3rem;
-            }
-
             .hero h1 {
-                font-size: 2rem;
-                letter-spacing: -0.5px;
+                font-size: 2.2rem;
             }
 
             .hero p {
-                font-size: 1rem;
-                margin-bottom: 1.5rem;
+                font-size: 1.1rem;
             }
 
             .hero-badge {
-                font-size: 0.72rem;
-                padding: 0.5rem 1rem;
-                margin-bottom: 1rem;
+                font-size: 0.75rem;
+                padding: 0.6rem 1.2rem;
             }
 
             .hero-subtext {
-                font-size: 0.88rem;
-                margin-bottom: 1.5rem;
-            }
-
-            .hero-skip-link {
-                font-size: 0.8rem;
+                font-size: 0.9rem;
             }
 
             .cta-button {
                 display: block;
-                width: 100%;
-                margin: 0.6rem 0;
+                width: calc(100% - 2rem);
+                margin: 0.75rem auto;
             }
 
-            /* Dashboard mock — 2-col compact KPI grid */
-            .dashboard-content {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
-                padding: 1rem;
-                min-height: auto;
+            .nav-links {
+                display: none;
             }
 
-            .mock-card {
-                padding: 0.9rem 1rem;
+            .nav-mobile-cta {
+                display: inline-block;
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                text-decoration: none;
+                padding: 0.55rem 1rem;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 0.8rem;
+                white-space: nowrap;
             }
 
-            .mock-card-title {
-                font-size: 0.72rem;
-                margin-bottom: 0.3rem;
+            nav {
+                padding: 0.75rem 1rem;
             }
 
-            .mock-card-value {
-                font-size: 1.3rem;
-            }
-
-            /* Sections */
-            section {
-                padding: 2.5rem 1.25rem;
+            .logo {
+                font-size: 1.1rem;
             }
 
             section h2 {
-                font-size: 1.7rem;
-                margin-bottom: 2rem;
-                letter-spacing: -0.3px;
+                font-size: 2rem;
             }
 
-            /* Tanner proof */
-            .tanner-proof {
-                padding: 2.5rem 1.25rem;
+            section {
+                padding: 3rem 1.5rem;
             }
 
-            .tanner-stats {
+            .dashboard-content {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.6rem;
                 padding: 1rem;
-                gap: 0.75rem;
             }
 
-            .stat-number {
-                font-size: 1.4rem;
+            .mock-card {
+                padding: 0.75rem 0.65rem;
             }
 
-            .stat-label {
-                font-size: 0.72rem;
+            .mock-card-title {
+                font-size: 0.65rem;
+                margin-bottom: 0.25rem;
             }
 
-            /* Steps — single col */
-            .steps-container {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-
-            /* ROI */
-            .roi-section h2 {
-                font-size: 1.7rem;
-            }
-
-            .breakeven-calculation {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .example-math {
-                padding: 1.25rem;
-            }
-
-            .example-math p {
-                font-size: 0.88rem;
-                line-height: 1.6;
-                word-break: break-word;
-            }
-
-            .example-math p:first-child {
-                font-size: 0.95rem;
-                font-weight: 700;
-                margin-bottom: 0.75rem;
-            }
-
-            .highlight-number {
-                display: block;
+            .mock-card-value {
                 font-size: 1.2rem;
-                margin: 0.4rem 0;
             }
 
-            /* Integrations */
-            .integrations-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
+            .steps-container {
+                gap: 2rem;
             }
 
-            /* Pricing */
             .pricing-grid {
                 grid-template-columns: 1fr;
             }
@@ -2203,58 +2154,89 @@
 
             .guarantee-hero {
                 padding: 2rem 1rem;
-                margin-bottom: 1.5rem;
+                margin-bottom: 2rem;
             }
 
             .guarantee-hero h2 {
-                font-size: 1.5rem;
+                font-size: 1.6rem;
             }
 
             .guarantee-text {
-                font-size: 0.92rem;
+                font-size: 0.95rem;
             }
 
             .early-pricing-tag {
-                font-size: 0.72rem;
-                padding: 0.45rem 0.75rem;
+                font-size: 0.75rem;
+                padding: 0.5rem 0.8rem;
             }
 
             .pricing-section h2 {
-                font-size: 1.7rem;
-            }
-
-            /* Comparison table */
-            .comparison-table {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+                font-size: 1.8rem;
             }
 
             .comparison-table table {
-                font-size: 0.8rem;
-                min-width: 420px;
+                font-size: 0.85rem;
             }
 
             .comparison-table th,
             .comparison-table td {
-                padding: 0.6rem 0.5rem;
+                padding: 0.75rem;
             }
 
             .comparison-section h2 {
-                font-size: 1.7rem;
+                font-size: 1.8rem;
             }
 
-            /* Trial banner */
+            .breakeven-calculation {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .example-math {
+                padding: 1.5rem;
+                border: 2px solid #10b981;
+            }
+
+            .example-math p {
+                font-size: 0.9rem;
+                line-height: 1.6;
+                word-break: break-word;
+            }
+
+            .example-math p:first-child {
+                font-size: 1rem;
+                font-weight: 700;
+                margin-bottom: 1rem;
+            }
+
+            .highlight-number {
+                display: block;
+                font-size: 1.3rem;
+                margin: 0.5rem 0;
+            }
+
+            .roi-section h2 {
+                font-size: 1.8rem;
+            }
+
+            .integrations-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-final {
+                padding: 2.5rem 1.5rem;
+            }
+
             .trial-banner h3 {
-                font-size: 1.4rem;
+                font-size: 1.5rem;
             }
 
             .trial-banner p {
-                font-size: 0.92rem;
+                font-size: 1rem;
             }
 
-            /* Implementation timeline */
             .implementation-section h2 {
-                font-size: 1.7rem;
+                font-size: 1.8rem;
             }
 
             .timeline-container {
@@ -2269,82 +2251,6 @@
             .timeline-item {
                 min-width: 100%;
                 max-width: 100%;
-            }
-
-            /* CTA */
-            .cta-final {
-                padding: 2.5rem 1.25rem;
-            }
-
-            /* Benefits section — phone image on top at full width */
-            .benefits-phone {
-                order: -1;
-            }
-
-            .phone-mockup.large {
-                width: 200px;
-            }
-
-            .benefits-content h2 {
-                font-size: 1.6rem;
-                text-align: center;
-            }
-
-            .benefits-subtitle {
-                text-align: center;
-                font-size: 0.95rem;
-            }
-
-            /* Benefit open state height */
-            .benefit-item.open .benefit-content {
-                max-height: 300px;
-            }
-
-            /* Feature navigator responsive — wrap the tabs on smaller screens */
-            .nav-sidebar {
-                gap: 0.5rem;
-            }
-
-            .nav-item {
-                padding: 0.6rem 0.75rem;
-                min-width: 90px;
-                font-size: 0.8rem;
-            }
-
-            /* Tanner proof two-col on tablet → single col */
-            .tanner-content {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-
-            .tanner-left h2 {
-                font-size: 1.7rem;
-                text-align: center;
-            }
-
-            .tanner-subheading {
-                text-align: center;
-            }
-
-            .tanner-quote {
-                font-size: 0.92rem;
-                padding: 1.25rem;
-            }
-
-            /* ROI grid single col */
-            .roi-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            /* Integrations 2-col */
-            .integrations-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.75rem;
-            }
-
-            .integration-card {
-                padding: 1.25rem;
             }
         }
 
@@ -2404,6 +2310,15 @@
             }
         }
 
+        @keyframes countUp {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
         @keyframes shimmer {
             0% {
                 background-position: -1000px 0;
@@ -2415,55 +2330,55 @@
 
         /* Hero animations */
         .hero h1 {
-            animation: fadeInUp var(--duration-hero) var(--ease-out);
+            animation: fadeInUp 0.8s ease-out;
         }
 
         .hero p {
-            animation: fadeInUp var(--duration-hero) var(--ease-out) 50ms both;
+            animation: fadeInUp 0.8s ease-out 0.1s both;
         }
 
         .hero .cta-button {
-            animation: fadeInUp var(--duration-hero) var(--ease-out) 100ms both;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
         }
 
         .dashboard-mock {
-            animation: fadeInUp var(--duration-hero) var(--ease-out) 150ms both;
+            animation: fadeInUp 0.8s ease-out 0.3s both;
         }
 
         .mock-card {
-            animation: scaleIn 400ms var(--ease-out) forwards;
+            animation: scaleIn 0.6s ease-out forwards;
         }
 
-        .mock-card:nth-child(1) { animation-delay: 200ms; }
-        .mock-card:nth-child(2) { animation-delay: 250ms; }
-        .mock-card:nth-child(3) { animation-delay: 300ms; }
-        .mock-card:nth-child(4) { animation-delay: 350ms; }
-        .mock-card:nth-child(5) { animation-delay: 400ms; }
-        .mock-card:nth-child(6) { animation-delay: 450ms; }
+        .mock-card:nth-child(1) { animation-delay: 0.4s; }
+        .mock-card:nth-child(2) { animation-delay: 0.5s; }
+        .mock-card:nth-child(3) { animation-delay: 0.6s; }
+        .mock-card:nth-child(4) { animation-delay: 0.7s; }
+        .mock-card:nth-child(5) { animation-delay: 0.8s; }
+        .mock-card:nth-child(6) { animation-delay: 0.9s; }
 
         /* Tanner proof animations */
         .tanner-left {
-            animation: fadeInLeft var(--duration-hero) var(--ease-out);
+            animation: fadeInLeft 0.8s ease-out;
         }
 
         .tanner-right {
-            animation: fadeInRight var(--duration-hero) var(--ease-out);
+            animation: fadeInRight 0.8s ease-out;
         }
 
         /* Trial banner animation */
         .trial-banner {
-            animation: slideDown var(--duration-ui) var(--ease-out);
+            animation: slideDown 0.6s ease-out;
         }
 
         /* Timeline animations */
         .timeline-item {
-            animation: fadeInUp var(--duration-ui) var(--ease-out) forwards;
+            animation: fadeInUp 0.6s ease-out forwards;
         }
 
-        .timeline-item:nth-child(1) { animation-delay: 0ms; }
-        .timeline-item:nth-child(3) { animation-delay: 50ms; }
-        .timeline-item:nth-child(5) { animation-delay: 100ms; }
-        .timeline-item:nth-child(7) { animation-delay: 150ms; }
+        .timeline-item:nth-child(1) { animation-delay: 0s; }
+        .timeline-item:nth-child(3) { animation-delay: 0.2s; }
+        .timeline-item:nth-child(5) { animation-delay: 0.4s; }
+        .timeline-item:nth-child(7) { animation-delay: 0.6s; }
 
         /* Card hover animations */
         .problem-card,
@@ -2472,28 +2387,36 @@
         .integration-card,
         .benefit-item,
         .comparison-table tbody tr {
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        @media (hover: hover) and (pointer: fine) {
-            .problem-card:hover,
-            .roi-card:hover,
-            .pricing-card:hover,
-            .integration-card:hover {
-                transform: translateY(-4px);
-                box-shadow: 0 12px 24px rgba(16, 185, 129, 0.12);
-            }
-
-            .cta-button:hover::before {
-                left: 100%;
-            }
-
-            .nav-item:hover {
-                transform: translateX(2px);
-            }
+        .problem-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
         }
 
-        /* Button shimmer */
+        .roi-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
+        }
+
+        .integration-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 32px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Button animations */
+        .cta-button {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
         .cta-button::before {
             content: '';
             position: absolute;
@@ -2502,34 +2425,94 @@
             width: 100%;
             height: 100%;
             background: rgba(255, 255, 255, 0.2);
-            transition: left var(--duration-ui) var(--ease-out);
+            transition: left 0.3s ease;
             z-index: -1;
         }
 
-        /* Feature navigator */
+        .cta-button:hover::before {
+            left: 100%;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Feature navigator animations */
         .nav-item {
-            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            transition: all 0.3s ease;
+        }
+
+        .nav-item:hover {
+            transform: translateX(4px);
+        }
+
+        .feature-detail-text {
+            animation: fadeInLeft 0.5s ease-out;
+        }
+
+        .feature-detail-visual-container {
+            animation: fadeInRight 0.5s ease-out;
+        }
+
+        /* Benefit phone animation */
+        .benefit-phone-mockup {
+            animation: fadeInUp 0.6s ease-out;
         }
 
         /* Example grid animations */
         .example-col {
-            animation: fadeInUp var(--duration-ui) var(--ease-out) forwards;
+            animation: fadeInUp 0.6s ease-out forwards;
         }
 
-        .example-col:nth-child(1) { animation-delay: 50ms; }
-        .example-col:nth-child(2) { animation-delay: 100ms; }
+        .example-col:nth-child(1) { animation-delay: 0.1s; }
+        .example-col:nth-child(2) { animation-delay: 0.2s; }
 
         /* Scroll fade-in enhancement */
         .fade-in {
             opacity: 0;
-            transform: translateY(16px);
-            transition: opacity var(--duration-scroll) var(--ease-out), transform var(--duration-scroll) var(--ease-out);
+            transform: translateY(30px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .fade-in.visible {
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* Nav link animations */
+        nav a {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+
+        nav a:hover::after {
+            width: 100%;
+        }
+
+        /* Loading animation for stats */
+        .mock-card-value {
+            animation: countUp 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        .mock-card:nth-child(1) .mock-card-value { animation-delay: 0.4s; }
+        .mock-card:nth-child(2) .mock-card-value { animation-delay: 0.5s; }
+        .mock-card:nth-child(3) .mock-card-value { animation-delay: 0.6s; }
+        .mock-card:nth-child(4) .mock-card-value { animation-delay: 0.7s; }
+        .mock-card:nth-child(5) .mock-card-value { animation-delay: 0.8s; }
+        .mock-card:nth-child(6) .mock-card-value { animation-delay: 0.9s; }
 
         /* Comparison table row animation */
         .comparison-table tbody tr {
@@ -3129,227 +3112,19 @@
         outline-offset: 2px;
     }
 
-    /* ===== MOBILE CAROUSEL — Built for Scaling ===== */
-    @media (max-width: 768px) {
-        /* Hide the desktop sidebar navigator + stacked details */
-        .feature-navigator {
-            display: none;
-        }
-
-        /* Show mobile carousel instead */
-        .mobile-feature-carousel {
-            display: block;
-        }
-
-        .mobile-feature-carousel .mfc-track-wrap {
-            overflow: hidden;
-            position: relative;
-        }
-
-        .mobile-feature-carousel .mfc-track {
-            display: flex;
-            transition: transform 0.35s cubic-bezier(0.23,1,0.32,1);
-            will-change: transform;
-        }
-
-        .mobile-feature-carousel .mfc-slide {
-            flex: 0 0 100%;
-            min-width: 0;
-        }
-
-        .mfc-image {
-            width: 100%;
-            border-radius: 16px;
-            overflow: hidden;
-            background: #0f172a;
-            aspect-ratio: 9 / 17;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.25rem;
-        }
-
-        .mfc-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .mfc-text-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 2px 12px rgba(15,23,42,0.06);
-        }
-
-        .mfc-badge {
-            display: inline-block;
-            background: rgba(16,185,129,0.12);
-            color: #059669;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.6rem;
-        }
-
-        .mfc-text-card h3 {
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 0.5rem;
-        }
-
-        .mfc-text-card p {
-            font-size: 0.9rem;
-            color: #475569;
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        .mfc-dots {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 1.25rem;
-        }
-
-        .mfc-nav-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 1px solid #e2e8f0;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #475569;
-            font-size: 1rem;
-            line-height: 1;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-        }
-
-        .mfc-nav-btn:active {
-            background: #f0fdf4;
-        }
-
-        /* ===== MOBILE CAROUSEL — Your Academy, Scaled ===== */
-        .mobile-steps-carousel {
-            display: block;
-        }
-
-        .how-it-works .steps-container {
-            display: none;
-        }
-
-        .mobile-steps-carousel .msc-track-wrap {
-            overflow: hidden;
-        }
-
-        .mobile-steps-carousel .msc-track {
-            display: flex;
-            transition: transform 0.35s cubic-bezier(0.23,1,0.32,1);
-            will-change: transform;
-        }
-
-        .mobile-steps-carousel .msc-slide {
-            flex: 0 0 100%;
-            text-align: center;
-            padding: 0 0.5rem;
-        }
-
-        .msc-slide .step-number {
-            font-size: 3rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 0.75rem;
-        }
-
-        .msc-slide h3 {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 0.5rem;
-        }
-
-        .msc-slide p {
-            font-size: 0.92rem;
-            color: #475569;
-            line-height: 1.6;
-            max-width: 280px;
-            margin: 0 auto;
-        }
-
-        .msc-dots {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .carousel-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #cbd5e1;
-            transition: background 0.2s, transform 0.2s;
-            cursor: pointer;
-        }
-
-        .carousel-dot.active {
-            background: #10b981;
-            transform: scale(1.3);
-        }
-
-        .msc-nav-row {
-            display: flex;
-            justify-content: center;
-            gap: 0.75rem;
-            margin-top: 1rem;
-        }
-
-        .msc-nav-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 1.5px solid #e2e8f0;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #475569;
-            font-size: 1.1rem;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-        }
-
-        .msc-nav-btn:active {
-            background: #f0fdf4;
-            border-color: #10b981;
-        }
-    }
-
-    /* Hide mobile carousels on desktop */
-    .mobile-feature-carousel,
-    .mobile-steps-carousel {
-        display: none;
-    }
-
     </style>
 </head>
-<body data-nav-page="academy">
-    <div id="site-nav-root"></div>
-    <script src="site-nav.js"></script>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">PicklePro</div>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how">How It Works</a></li>
+            <li><a href="#contact">Start Scaling</a></li>
+        </ul>
+        <a href="https://cal.id/guillaume-panot/piklepro-academy" class="nav-mobile-cta">Start Free Trial</a>
+    </nav>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -3824,59 +3599,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Mobile-only carousel for Built for Scaling -->
-            <div class="mobile-feature-carousel" id="mobileFeatureCarousel">
-                <div class="mfc-track-wrap">
-                    <div class="mfc-track" id="mfcTrack">
-                        <div class="mfc-slide">
-                            <div class="mfc-image"><img src="Assets/Unified_curriculum.jpg" alt="Unified Curriculum" /></div>
-                            <div class="mfc-text-card">
-                                <span class="mfc-badge">Solve Inconsistency</span>
-                                <h3>Unified Curriculum</h3>
-                                <p>Import your methodology once. Every coach teaches the same progression. Every student learns consistently.</p>
-                            </div>
-                        </div>
-                        <div class="mfc-slide">
-                            <div class="mfc-image"><img src="Assets/real_time_progress.jpg" alt="Real-Time Progress" /></div>
-                            <div class="mfc-text-card">
-                                <span class="mfc-badge">Real Visibility</span>
-                                <h3>Real-Time Progress</h3>
-                                <p>See where every student is, what they've completed, and who's ready to advance. Data-driven decisions at a glance.</p>
-                            </div>
-                        </div>
-                        <div class="mfc-slide">
-                            <div class="mfc-image"><img src="Assets/student_logbook.jpg" alt="Student Logbook" /></div>
-                            <div class="mfc-text-card">
-                                <span class="mfc-badge">Student Ownership</span>
-                                <h3>Student Logbook</h3>
-                                <p>Let students track their own progress. They log sessions, self-evaluate, and watch themselves improve.</p>
-                            </div>
-                        </div>
-                        <div class="mfc-slide">
-                            <div class="mfc-image"><img src="Assets/coach_management.jpg" alt="Coach Management" /></div>
-                            <div class="mfc-text-card">
-                                <span class="mfc-badge">Scale Smoothly</span>
-                                <h3>Coach Management</h3>
-                                <p>From 1 coach to 10. Manage assignments, track performance, and keep everyone aligned.</p>
-                            </div>
-                        </div>
-                        <div class="mfc-slide">
-                            <div class="mfc-image"><img src="Assets/white_label.jpg" alt="White-Label Platform" /></div>
-                            <div class="mfc-text-card">
-                                <span class="mfc-badge">Your Brand</span>
-                                <h3>White-Label Platform</h3>
-                                <p>Your academy name. Your logo. Your pricing. We handle the infrastructure so you can focus on coaching.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="mfc-dots">
-                    <button class="mfc-nav-btn" id="mfcPrev" aria-label="Previous">&#8592;</button>
-                    <div id="mfcDots" style="display:flex;gap:6px;align-items:center;"></div>
-                    <button class="mfc-nav-btn" id="mfcNext" aria-label="Next">&#8594;</button>
-                </div>
-            </div>
         </div>
     </section>
 
@@ -3899,36 +3621,6 @@
                     <div class="step-number">3</div>
                     <h3>Grow With Confidence</h3>
                     <p>Scale to 5, 10, or 20 coaches. Every student follows the same path forward.</p>
-                </div>
-            </div>
-
-            <!-- Mobile-only carousel for Your Academy, Scaled -->
-            <div class="mobile-steps-carousel" id="mobileStepsCarousel">
-                <div class="msc-track-wrap">
-                    <div class="msc-track" id="mscTrack">
-                        <div class="msc-slide">
-                            <div class="step-number">1</div>
-                            <h3>Import Your Curriculum</h3>
-                            <p>Bring your coaching methodology into the platform. Structure it by progression levels.</p>
-                        </div>
-                        <div class="msc-slide">
-                            <div class="step-number">2</div>
-                            <h3>Add Your Team</h3>
-                            <p>Invite coaches. They follow your framework. Students get consistent experience.</p>
-                        </div>
-                        <div class="msc-slide">
-                            <div class="step-number">3</div>
-                            <h3>Grow With Confidence</h3>
-                            <p>Scale to 5, 10, or 20 coaches. Every student follows the same path forward.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="msc-dots">
-                    <div id="mscDots" style="display:flex;gap:8px;align-items:center;"></div>
-                </div>
-                <div class="msc-nav-row">
-                    <button class="msc-nav-btn" id="mscPrev" aria-label="Previous">&#8592;</button>
-                    <button class="msc-nav-btn" id="mscNext" aria-label="Next">&#8594;</button>
                 </div>
             </div>
         </div>
@@ -4265,17 +3957,14 @@
     </footer>
 
     <script>
-        // Smooth scroll behavior (respect reduced motion)
-        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const scrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
-
+        // Smooth scroll behavior
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({
-                        behavior: scrollBehavior,
+                        behavior: 'smooth',
                         block: 'start'
                     });
                 }
@@ -4340,18 +4029,16 @@
 
         document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
 
-        // Counter animation for numbers (skip hero dashboard — always visible)
+        // Counter animation for numbers
         function animateCounters() {
-            const cards = document.querySelectorAll('.roi-value, .stat-number');
+            const cards = document.querySelectorAll('.mock-card-value, .roi-value, .stat-number');
             
             cards.forEach(card => {
-                if (card.dataset.counted === 'true') return;
                 const text = card.textContent.trim();
-                const number = parseInt(text.replace(/[^\d]/g, ''), 10);
+                const number = parseInt(text.replace(/[^\d]/g, ''));
                 const suffix = text.replace(/\d+/g, '');
                 
                 if (!isNaN(number)) {
-                    card.dataset.counted = 'true';
                     let current = 0;
                     const increment = Math.ceil(number / 30);
                     const timer = setInterval(() => {
@@ -4366,33 +4053,6 @@
                 }
             });
         }
-
-        function animateDashboardCounters() {
-            document.querySelectorAll('.dashboard-mock .mock-card-value').forEach(card => {
-                if (card.dataset.counted === 'true') return;
-                const text = card.textContent.trim();
-                const number = parseInt(text.replace(/[^\d]/g, ''), 10);
-                const suffix = text.replace(/\d+/g, '');
-
-                if (isNaN(number)) return;
-
-                card.dataset.counted = 'true';
-                card.style.opacity = '1';
-                let current = 0;
-                const increment = Math.max(1, Math.ceil(number / 24));
-                const timer = setInterval(() => {
-                    current += increment;
-                    if (current >= number) {
-                        card.textContent = number + suffix;
-                        clearInterval(timer);
-                    } else {
-                        card.textContent = current + suffix;
-                    }
-                }, 25);
-            });
-        }
-
-        animateDashboardCounters();
 
         // Trigger counter animation when cards come into view
         const counterObserver = new IntersectionObserver((entries) => {
@@ -4424,7 +4084,6 @@
 
     <script>
     // ========== READINESS QUIZ (rq) ==========
-    const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
     // ---------- DATA ----------
     const rqQuestions = [
@@ -4583,7 +4242,7 @@
         section.style.display = 'block';
         // smooth scroll into view
         setTimeout(() => {
-            section.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
     }
 
@@ -4674,7 +4333,7 @@
         document.getElementById('rqProgressTrack').style.display = 'none';
         document.getElementById('rqStepCounter').textContent = 'Readiness Score';
         rqShowScreen('intro');
-        document.getElementById('quizSection').scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+        document.getElementById('quizSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // ---------- SCORING ----------
@@ -4830,95 +4489,7 @@
     // Build questions on page load since the section is always visible
     document.addEventListener('DOMContentLoaded', function() {
         rqBuildQuestions();
-        initMobileCarousels();
     });
-
-    function initMobileCarousels() {
-        // Only run on mobile breakpoint
-        if (window.innerWidth > 768) return;
-
-        // ---- Feature Carousel (Built for Scaling) ----
-        (function() {
-            var track = document.getElementById('mfcTrack');
-            var dotsWrap = document.getElementById('mfcDots');
-            var prevBtn = document.getElementById('mfcPrev');
-            var nextBtn = document.getElementById('mfcNext');
-            if (!track) return;
-
-            var slides = track.querySelectorAll('.mfc-slide');
-            var total = slides.length;
-            var current = 0;
-
-            // Build dots
-            for (var i = 0; i < total; i++) {
-                var d = document.createElement('button');
-                d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
-                d.setAttribute('aria-label', 'Slide ' + (i + 1));
-                d.dataset.idx = i;
-                d.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
-                dotsWrap.appendChild(d);
-            }
-
-            function goTo(idx) {
-                current = (idx + total) % total;
-                track.style.transform = 'translateX(-' + (current * 100) + '%)';
-                dotsWrap.querySelectorAll('.carousel-dot').forEach(function(dot, i) {
-                    dot.classList.toggle('active', i === current);
-                });
-            }
-
-            prevBtn.addEventListener('click', function() { goTo(current - 1); });
-            nextBtn.addEventListener('click', function() { goTo(current + 1); });
-
-            // Touch swipe support
-            var startX = 0;
-            track.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
-            track.addEventListener('touchend', function(e) {
-                var diff = startX - e.changedTouches[0].clientX;
-                if (Math.abs(diff) > 40) goTo(diff > 0 ? current + 1 : current - 1);
-            }, { passive: true });
-        })();
-
-        // ---- Steps Carousel (Your Academy, Scaled) ----
-        (function() {
-            var track = document.getElementById('mscTrack');
-            var dotsWrap = document.getElementById('mscDots');
-            var prevBtn = document.getElementById('mscPrev');
-            var nextBtn = document.getElementById('mscNext');
-            if (!track) return;
-
-            var slides = track.querySelectorAll('.msc-slide');
-            var total = slides.length;
-            var current = 0;
-
-            for (var i = 0; i < total; i++) {
-                var d = document.createElement('button');
-                d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
-                d.setAttribute('aria-label', 'Step ' + (i + 1));
-                d.dataset.idx = i;
-                d.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
-                dotsWrap.appendChild(d);
-            }
-
-            function goTo(idx) {
-                current = (idx + total) % total;
-                track.style.transform = 'translateX(-' + (current * 100) + '%)';
-                dotsWrap.querySelectorAll('.carousel-dot').forEach(function(dot, i) {
-                    dot.classList.toggle('active', i === current);
-                });
-            }
-
-            prevBtn.addEventListener('click', function() { goTo(current - 1); });
-            nextBtn.addEventListener('click', function() { goTo(current + 1); });
-
-            var startX = 0;
-            track.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
-            track.addEventListener('touchend', function(e) {
-                var diff = startX - e.changedTouches[0].clientX;
-                if (Math.abs(diff) > 40) goTo(diff > 0 ? current + 1 : current - 1);
-            }, { passive: true });
-        })();
-    }
 
     </script>
 </body>
