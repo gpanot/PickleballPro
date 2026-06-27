@@ -2059,47 +2059,140 @@
             color: #059669;
         }
 
-        /* Responsive */
+        /* ===== MOBILE RESPONSIVE ===== */
         @media (max-width: 768px) {
+
+            /* Hero */
+            .hero {
+                padding: 80px 1.25rem 3rem;
+            }
+
             .hero h1 {
-                font-size: 2.2rem;
+                font-size: 2rem;
+                letter-spacing: -0.5px;
             }
 
             .hero p {
-                font-size: 1.1rem;
+                font-size: 1rem;
+                margin-bottom: 1.5rem;
             }
 
             .hero-badge {
-                font-size: 0.75rem;
-                padding: 0.6rem 1.2rem;
+                font-size: 0.72rem;
+                padding: 0.5rem 1rem;
+                margin-bottom: 1rem;
             }
 
             .hero-subtext {
-                font-size: 0.9rem;
+                font-size: 0.88rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .hero-skip-link {
+                font-size: 0.8rem;
             }
 
             .cta-button {
                 display: block;
-                width: calc(100% - 2rem);
-                margin: 0.75rem auto;
+                width: 100%;
+                margin: 0.6rem 0;
+            }
+
+            /* Dashboard mock — 2-col compact KPI grid */
+            .dashboard-content {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+                padding: 1rem;
+                min-height: auto;
+            }
+
+            .mock-card {
+                padding: 0.9rem 1rem;
+            }
+
+            .mock-card-title {
+                font-size: 0.72rem;
+                margin-bottom: 0.3rem;
+            }
+
+            .mock-card-value {
+                font-size: 1.3rem;
+            }
+
+            /* Sections */
+            section {
+                padding: 2.5rem 1.25rem;
             }
 
             section h2 {
-                font-size: 2rem;
+                font-size: 1.7rem;
+                margin-bottom: 2rem;
+                letter-spacing: -0.3px;
             }
 
-            section {
-                padding: 3rem 1.5rem;
+            /* Tanner proof */
+            .tanner-proof {
+                padding: 2.5rem 1.25rem;
             }
 
-            .dashboard-content {
-                grid-template-columns: 1fr;
+            .tanner-stats {
+                padding: 1rem;
+                gap: 0.75rem;
             }
 
+            .stat-number {
+                font-size: 1.4rem;
+            }
+
+            .stat-label {
+                font-size: 0.72rem;
+            }
+
+            /* Steps — single col */
             .steps-container {
-                gap: 2rem;
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
             }
 
+            /* ROI */
+            .roi-section h2 {
+                font-size: 1.7rem;
+            }
+
+            .breakeven-calculation {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .example-math {
+                padding: 1.25rem;
+            }
+
+            .example-math p {
+                font-size: 0.88rem;
+                line-height: 1.6;
+                word-break: break-word;
+            }
+
+            .example-math p:first-child {
+                font-size: 0.95rem;
+                font-weight: 700;
+                margin-bottom: 0.75rem;
+            }
+
+            .highlight-number {
+                display: block;
+                font-size: 1.2rem;
+                margin: 0.4rem 0;
+            }
+
+            /* Integrations */
+            .integrations-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            /* Pricing */
             .pricing-grid {
                 grid-template-columns: 1fr;
             }
@@ -2110,89 +2203,58 @@
 
             .guarantee-hero {
                 padding: 2rem 1rem;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
             }
 
             .guarantee-hero h2 {
-                font-size: 1.6rem;
+                font-size: 1.5rem;
             }
 
             .guarantee-text {
-                font-size: 0.95rem;
+                font-size: 0.92rem;
             }
 
             .early-pricing-tag {
-                font-size: 0.75rem;
-                padding: 0.5rem 0.8rem;
+                font-size: 0.72rem;
+                padding: 0.45rem 0.75rem;
             }
 
             .pricing-section h2 {
-                font-size: 1.8rem;
+                font-size: 1.7rem;
+            }
+
+            /* Comparison table */
+            .comparison-table {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             .comparison-table table {
-                font-size: 0.85rem;
+                font-size: 0.8rem;
+                min-width: 420px;
             }
 
             .comparison-table th,
             .comparison-table td {
-                padding: 0.75rem;
+                padding: 0.6rem 0.5rem;
             }
 
             .comparison-section h2 {
-                font-size: 1.8rem;
+                font-size: 1.7rem;
             }
 
-            .breakeven-calculation {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .example-math {
-                padding: 1.5rem;
-                border: 2px solid #10b981;
-            }
-
-            .example-math p {
-                font-size: 0.9rem;
-                line-height: 1.6;
-                word-break: break-word;
-            }
-
-            .example-math p:first-child {
-                font-size: 1rem;
-                font-weight: 700;
-                margin-bottom: 1rem;
-            }
-
-            .highlight-number {
-                display: block;
-                font-size: 1.3rem;
-                margin: 0.5rem 0;
-            }
-
-            .roi-section h2 {
-                font-size: 1.8rem;
-            }
-
-            .integrations-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .cta-final {
-                padding: 2.5rem 1.5rem;
-            }
-
+            /* Trial banner */
             .trial-banner h3 {
-                font-size: 1.5rem;
+                font-size: 1.4rem;
             }
 
             .trial-banner p {
-                font-size: 1rem;
+                font-size: 0.92rem;
             }
 
+            /* Implementation timeline */
             .implementation-section h2 {
-                font-size: 1.8rem;
+                font-size: 1.7rem;
             }
 
             .timeline-container {
@@ -2207,6 +2269,82 @@
             .timeline-item {
                 min-width: 100%;
                 max-width: 100%;
+            }
+
+            /* CTA */
+            .cta-final {
+                padding: 2.5rem 1.25rem;
+            }
+
+            /* Benefits section — phone image on top at full width */
+            .benefits-phone {
+                order: -1;
+            }
+
+            .phone-mockup.large {
+                width: 200px;
+            }
+
+            .benefits-content h2 {
+                font-size: 1.6rem;
+                text-align: center;
+            }
+
+            .benefits-subtitle {
+                text-align: center;
+                font-size: 0.95rem;
+            }
+
+            /* Benefit open state height */
+            .benefit-item.open .benefit-content {
+                max-height: 300px;
+            }
+
+            /* Feature navigator responsive — wrap the tabs on smaller screens */
+            .nav-sidebar {
+                gap: 0.5rem;
+            }
+
+            .nav-item {
+                padding: 0.6rem 0.75rem;
+                min-width: 90px;
+                font-size: 0.8rem;
+            }
+
+            /* Tanner proof two-col on tablet → single col */
+            .tanner-content {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .tanner-left h2 {
+                font-size: 1.7rem;
+                text-align: center;
+            }
+
+            .tanner-subheading {
+                text-align: center;
+            }
+
+            .tanner-quote {
+                font-size: 0.92rem;
+                padding: 1.25rem;
+            }
+
+            /* ROI grid single col */
+            .roi-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            /* Integrations 2-col */
+            .integrations-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .integration-card {
+                padding: 1.25rem;
             }
         }
 
@@ -2991,6 +3129,222 @@
         outline-offset: 2px;
     }
 
+    /* ===== MOBILE CAROUSEL — Built for Scaling ===== */
+    @media (max-width: 768px) {
+        /* Hide the desktop sidebar navigator + stacked details */
+        .feature-navigator {
+            display: none;
+        }
+
+        /* Show mobile carousel instead */
+        .mobile-feature-carousel {
+            display: block;
+        }
+
+        .mobile-feature-carousel .mfc-track-wrap {
+            overflow: hidden;
+            position: relative;
+        }
+
+        .mobile-feature-carousel .mfc-track {
+            display: flex;
+            transition: transform 0.35s cubic-bezier(0.23,1,0.32,1);
+            will-change: transform;
+        }
+
+        .mobile-feature-carousel .mfc-slide {
+            flex: 0 0 100%;
+            min-width: 0;
+        }
+
+        .mfc-image {
+            width: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #0f172a;
+            aspect-ratio: 9 / 17;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .mfc-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .mfc-text-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 12px rgba(15,23,42,0.06);
+        }
+
+        .mfc-badge {
+            display: inline-block;
+            background: rgba(16,185,129,0.12);
+            color: #059669;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.6rem;
+        }
+
+        .mfc-text-card h3 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .mfc-text-card p {
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .mfc-dots {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.25rem;
+        }
+
+        .mfc-nav-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid #e2e8f0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #475569;
+            font-size: 1rem;
+            line-height: 1;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+
+        .mfc-nav-btn:active {
+            background: #f0fdf4;
+        }
+
+        /* ===== MOBILE CAROUSEL — Your Academy, Scaled ===== */
+        .mobile-steps-carousel {
+            display: block;
+        }
+
+        .how-it-works .steps-container {
+            display: none;
+        }
+
+        .mobile-steps-carousel .msc-track-wrap {
+            overflow: hidden;
+        }
+
+        .mobile-steps-carousel .msc-track {
+            display: flex;
+            transition: transform 0.35s cubic-bezier(0.23,1,0.32,1);
+            will-change: transform;
+        }
+
+        .mobile-steps-carousel .msc-slide {
+            flex: 0 0 100%;
+            text-align: center;
+            padding: 0 0.5rem;
+        }
+
+        .msc-slide .step-number {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.75rem;
+        }
+
+        .msc-slide h3 {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .msc-slide p {
+            font-size: 0.92rem;
+            color: #475569;
+            line-height: 1.6;
+            max-width: 280px;
+            margin: 0 auto;
+        }
+
+        .msc-dots {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            transition: background 0.2s, transform 0.2s;
+            cursor: pointer;
+        }
+
+        .carousel-dot.active {
+            background: #10b981;
+            transform: scale(1.3);
+        }
+
+        .msc-nav-row {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .msc-nav-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1.5px solid #e2e8f0;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #475569;
+            font-size: 1.1rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+
+        .msc-nav-btn:active {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+    }
+
+    /* Hide mobile carousels on desktop */
+    .mobile-feature-carousel,
+    .mobile-steps-carousel {
+        display: none;
+    }
+
     </style>
 </head>
 <body data-nav-page="academy">
@@ -3470,6 +3824,59 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Mobile-only carousel for Built for Scaling -->
+            <div class="mobile-feature-carousel" id="mobileFeatureCarousel">
+                <div class="mfc-track-wrap">
+                    <div class="mfc-track" id="mfcTrack">
+                        <div class="mfc-slide">
+                            <div class="mfc-image"><img src="Assets/Unified_curriculum.jpg" alt="Unified Curriculum" /></div>
+                            <div class="mfc-text-card">
+                                <span class="mfc-badge">Solve Inconsistency</span>
+                                <h3>Unified Curriculum</h3>
+                                <p>Import your methodology once. Every coach teaches the same progression. Every student learns consistently.</p>
+                            </div>
+                        </div>
+                        <div class="mfc-slide">
+                            <div class="mfc-image"><img src="Assets/real_time_progress.jpg" alt="Real-Time Progress" /></div>
+                            <div class="mfc-text-card">
+                                <span class="mfc-badge">Real Visibility</span>
+                                <h3>Real-Time Progress</h3>
+                                <p>See where every student is, what they've completed, and who's ready to advance. Data-driven decisions at a glance.</p>
+                            </div>
+                        </div>
+                        <div class="mfc-slide">
+                            <div class="mfc-image"><img src="Assets/student_logbook.jpg" alt="Student Logbook" /></div>
+                            <div class="mfc-text-card">
+                                <span class="mfc-badge">Student Ownership</span>
+                                <h3>Student Logbook</h3>
+                                <p>Let students track their own progress. They log sessions, self-evaluate, and watch themselves improve.</p>
+                            </div>
+                        </div>
+                        <div class="mfc-slide">
+                            <div class="mfc-image"><img src="Assets/coach_management.jpg" alt="Coach Management" /></div>
+                            <div class="mfc-text-card">
+                                <span class="mfc-badge">Scale Smoothly</span>
+                                <h3>Coach Management</h3>
+                                <p>From 1 coach to 10. Manage assignments, track performance, and keep everyone aligned.</p>
+                            </div>
+                        </div>
+                        <div class="mfc-slide">
+                            <div class="mfc-image"><img src="Assets/white_label.jpg" alt="White-Label Platform" /></div>
+                            <div class="mfc-text-card">
+                                <span class="mfc-badge">Your Brand</span>
+                                <h3>White-Label Platform</h3>
+                                <p>Your academy name. Your logo. Your pricing. We handle the infrastructure so you can focus on coaching.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mfc-dots">
+                    <button class="mfc-nav-btn" id="mfcPrev" aria-label="Previous">&#8592;</button>
+                    <div id="mfcDots" style="display:flex;gap:6px;align-items:center;"></div>
+                    <button class="mfc-nav-btn" id="mfcNext" aria-label="Next">&#8594;</button>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -3492,6 +3899,36 @@
                     <div class="step-number">3</div>
                     <h3>Grow With Confidence</h3>
                     <p>Scale to 5, 10, or 20 coaches. Every student follows the same path forward.</p>
+                </div>
+            </div>
+
+            <!-- Mobile-only carousel for Your Academy, Scaled -->
+            <div class="mobile-steps-carousel" id="mobileStepsCarousel">
+                <div class="msc-track-wrap">
+                    <div class="msc-track" id="mscTrack">
+                        <div class="msc-slide">
+                            <div class="step-number">1</div>
+                            <h3>Import Your Curriculum</h3>
+                            <p>Bring your coaching methodology into the platform. Structure it by progression levels.</p>
+                        </div>
+                        <div class="msc-slide">
+                            <div class="step-number">2</div>
+                            <h3>Add Your Team</h3>
+                            <p>Invite coaches. They follow your framework. Students get consistent experience.</p>
+                        </div>
+                        <div class="msc-slide">
+                            <div class="step-number">3</div>
+                            <h3>Grow With Confidence</h3>
+                            <p>Scale to 5, 10, or 20 coaches. Every student follows the same path forward.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="msc-dots">
+                    <div id="mscDots" style="display:flex;gap:8px;align-items:center;"></div>
+                </div>
+                <div class="msc-nav-row">
+                    <button class="msc-nav-btn" id="mscPrev" aria-label="Previous">&#8592;</button>
+                    <button class="msc-nav-btn" id="mscNext" aria-label="Next">&#8594;</button>
                 </div>
             </div>
         </div>
@@ -4393,7 +4830,95 @@
     // Build questions on page load since the section is always visible
     document.addEventListener('DOMContentLoaded', function() {
         rqBuildQuestions();
+        initMobileCarousels();
     });
+
+    function initMobileCarousels() {
+        // Only run on mobile breakpoint
+        if (window.innerWidth > 768) return;
+
+        // ---- Feature Carousel (Built for Scaling) ----
+        (function() {
+            var track = document.getElementById('mfcTrack');
+            var dotsWrap = document.getElementById('mfcDots');
+            var prevBtn = document.getElementById('mfcPrev');
+            var nextBtn = document.getElementById('mfcNext');
+            if (!track) return;
+
+            var slides = track.querySelectorAll('.mfc-slide');
+            var total = slides.length;
+            var current = 0;
+
+            // Build dots
+            for (var i = 0; i < total; i++) {
+                var d = document.createElement('button');
+                d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+                d.setAttribute('aria-label', 'Slide ' + (i + 1));
+                d.dataset.idx = i;
+                d.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
+                dotsWrap.appendChild(d);
+            }
+
+            function goTo(idx) {
+                current = (idx + total) % total;
+                track.style.transform = 'translateX(-' + (current * 100) + '%)';
+                dotsWrap.querySelectorAll('.carousel-dot').forEach(function(dot, i) {
+                    dot.classList.toggle('active', i === current);
+                });
+            }
+
+            prevBtn.addEventListener('click', function() { goTo(current - 1); });
+            nextBtn.addEventListener('click', function() { goTo(current + 1); });
+
+            // Touch swipe support
+            var startX = 0;
+            track.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
+            track.addEventListener('touchend', function(e) {
+                var diff = startX - e.changedTouches[0].clientX;
+                if (Math.abs(diff) > 40) goTo(diff > 0 ? current + 1 : current - 1);
+            }, { passive: true });
+        })();
+
+        // ---- Steps Carousel (Your Academy, Scaled) ----
+        (function() {
+            var track = document.getElementById('mscTrack');
+            var dotsWrap = document.getElementById('mscDots');
+            var prevBtn = document.getElementById('mscPrev');
+            var nextBtn = document.getElementById('mscNext');
+            if (!track) return;
+
+            var slides = track.querySelectorAll('.msc-slide');
+            var total = slides.length;
+            var current = 0;
+
+            for (var i = 0; i < total; i++) {
+                var d = document.createElement('button');
+                d.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+                d.setAttribute('aria-label', 'Step ' + (i + 1));
+                d.dataset.idx = i;
+                d.addEventListener('click', function() { goTo(parseInt(this.dataset.idx)); });
+                dotsWrap.appendChild(d);
+            }
+
+            function goTo(idx) {
+                current = (idx + total) % total;
+                track.style.transform = 'translateX(-' + (current * 100) + '%)';
+                dotsWrap.querySelectorAll('.carousel-dot').forEach(function(dot, i) {
+                    dot.classList.toggle('active', i === current);
+                });
+            }
+
+            prevBtn.addEventListener('click', function() { goTo(current - 1); });
+            nextBtn.addEventListener('click', function() { goTo(current + 1); });
+
+            var startX = 0;
+            track.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive: true });
+            track.addEventListener('touchend', function(e) {
+                var diff = startX - e.changedTouches[0].clientX;
+                if (Math.abs(diff) > 40) goTo(diff > 0 ? current + 1 : current - 1);
+            }, { passive: true });
+        })();
+    }
 
     </script>
 </body>
