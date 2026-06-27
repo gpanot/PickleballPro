@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PicklePro - Scale Your Coaching Academy</title>
+    <link rel="stylesheet" href="site-nav.css">
     <style>
         * {
             margin: 0;
@@ -23,50 +24,17 @@
             overflow-x: hidden;
         }
 
-        /* Navigation */
-        nav {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            border-bottom: 1px solid rgba(46, 204, 113, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.3rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 3rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: #0f172a;
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-            color: #10b981;
-        }
-
-        .nav-mobile-cta {
-            display: none;
+        @media (prefers-reduced-motion: reduce) {
+            .hero::before,
+            .hero::after {
+                animation: none;
+            }
+            .fade-in,
+            .fade-in.visible {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
         }
 
         /* Hero Section */
@@ -2089,30 +2057,6 @@
                 margin: 0.75rem auto;
             }
 
-            .nav-links {
-                display: none;
-            }
-
-            .nav-mobile-cta {
-                display: inline-block;
-                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-                color: white;
-                text-decoration: none;
-                padding: 0.55rem 1rem;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 0.8rem;
-                white-space: nowrap;
-            }
-
-            nav {
-                padding: 0.75rem 1rem;
-            }
-
-            .logo {
-                font-size: 1.1rem;
-            }
-
             section h2 {
                 font-size: 2rem;
             }
@@ -3116,15 +3060,8 @@
 </head>
 <body>
     <!-- Navigation -->
-    <nav>
-        <div class="logo">PicklePro</div>
-        <ul class="nav-links">
-            <li><a href="#features">Features</a></li>
-            <li><a href="#how">How It Works</a></li>
-            <li><a href="#contact">Start Scaling</a></li>
-        </ul>
-        <a href="https://cal.id/guillaume-panot/piklepro-academy" class="nav-mobile-cta">Start Free Trial</a>
-    </nav>
+    <div id="site-nav-root"></div>
+    <script src="site-nav.js"></script>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -3286,7 +3223,7 @@
                 </div>
                 <div class="tanner-right">
                     <div class="tanner-image-placeholder">
-                        <img src="Assets/tanner_academy.png" alt="Tanner Academy Live Interface" />
+                        <img src="Assets/tanner_academy.png" loading="lazy" alt="Tanner Academy Live Interface" />
                     </div>
                 </div>
             </div>
@@ -3500,7 +3437,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <img src="Assets/Unified_curriculum.jpg" alt="Unified Curriculum" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                    <img src="Assets/Unified_curriculum.jpg" loading="lazy" alt="Unified Curriculum" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3523,7 +3460,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <img src="Assets/real_time_progress.jpg" alt="Real-Time Progress" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                    <img src="Assets/real_time_progress.jpg" loading="lazy" alt="Real-Time Progress" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3546,7 +3483,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <img src="Assets/student_logbook.jpg" alt="Student Logbook" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                    <img src="Assets/student_logbook.jpg" loading="lazy" alt="Student Logbook" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3569,7 +3506,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <img src="Assets/coach_management.jpg" alt="Coach Management" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                    <img src="Assets/coach_management.jpg" loading="lazy" alt="Coach Management" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3592,7 +3529,7 @@
                         <div class="feature-detail-visual-container">
                             <div class="phone-mockup">
                                 <div class="phone-screen">
-                                    <img src="Assets/white_label.jpg" alt="White-Label Platform" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                    <img src="Assets/white_label.jpg" loading="lazy" alt="White-Label Platform" style="width:100%;height:100%;object-fit:cover;display:block;" />
                                 </div>
                             </div>
                         </div>
@@ -3634,28 +3571,28 @@
                     <div class="benefit-phone-mockup active" data-benefit="0">
                         <div class="phone-mockup large">
                             <div class="phone-screen">
-                                <img src="Assets/unified_team_communication.jpg" alt="Unified Team Communication" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                <img src="Assets/unified_team_communication.jpg" loading="lazy" alt="Unified Team Communication" style="width:100%;height:100%;object-fit:cover;display:block;" />
                             </div>
                         </div>
                     </div>
                     <div class="benefit-phone-mockup" data-benefit="1">
                         <div class="phone-mockup large">
                             <div class="phone-screen">
-                                <img src="Assets/Evaluation_student.jpg" alt="Student Progress Visibility" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                <img src="Assets/Evaluation_student.jpg" loading="lazy" alt="Student Progress Visibility" style="width:100%;height:100%;object-fit:cover;display:block;" />
                             </div>
                         </div>
                     </div>
                     <div class="benefit-phone-mockup" data-benefit="2">
                         <div class="phone-mockup large">
                             <div class="phone-screen">
-                                <img src="Assets/consistent_student_experience.jpg" alt="Consistent Student Experience" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                <img src="Assets/consistent_student_experience.jpg" loading="lazy" alt="Consistent Student Experience" style="width:100%;height:100%;object-fit:cover;display:block;" />
                             </div>
                         </div>
                     </div>
                     <div class="benefit-phone-mockup" data-benefit="3">
                         <div class="phone-mockup large">
                             <div class="phone-screen">
-                                <img src="Assets/data_driven_decision.jpg" alt="Data-Driven Decisions" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                <img src="Assets/data_driven_decision.jpg" loading="lazy" alt="Data-Driven Decisions" style="width:100%;height:100%;object-fit:cover;display:block;" />
                             </div>
                         </div>
                     </div>
@@ -4080,6 +4017,100 @@
         window.addEventListener('load', () => {
             document.body.style.opacity = '1';
         });
+
+        // Auto-cycle "Built for Scaling" feature screenshots every 5 seconds
+        // Pauses when user manually clicks a nav item; resumes after 10s of inactivity
+        (function () {
+            const featureOrder = ['curriculum', 'progress', 'logbook', 'coaching', 'whitelabel'];
+            let currentIndex = 0;
+            let autoTimer = null;
+            let userPaused = false;
+            let resumeTimer = null;
+
+            function activateFeature(index) {
+                const feature = featureOrder[index];
+                navItems.forEach(i => i.classList.remove('active'));
+                featureDetails.forEach(d => d.classList.remove('active'));
+                const navItem = document.querySelector(`.nav-item[data-feature="${feature}"]`);
+                const detail = document.getElementById(`${feature}-detail`);
+                if (navItem) navItem.classList.add('active');
+                if (detail) detail.classList.add('active');
+            }
+
+            function startAuto() {
+                if (autoTimer) clearInterval(autoTimer);
+                autoTimer = setInterval(() => {
+                    if (userPaused) return;
+                    currentIndex = (currentIndex + 1) % featureOrder.length;
+                    activateFeature(currentIndex);
+                }, 5000);
+            }
+
+            // Track manual clicks to pause auto-cycling temporarily
+            navItems.forEach((item, idx) => {
+                item.addEventListener('click', () => {
+                    userPaused = true;
+                    currentIndex = featureOrder.indexOf(item.dataset.feature);
+                    if (resumeTimer) clearTimeout(resumeTimer);
+                    resumeTimer = setTimeout(() => { userPaused = false; }, 10000);
+                });
+            });
+
+            // Only start cycling when section is visible in viewport
+            const featureSection = document.querySelector('.feature-navigator');
+            if (featureSection) {
+                const sectionObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            startAuto();
+                        } else {
+                            if (autoTimer) clearInterval(autoTimer);
+                        }
+                    });
+                }, { threshold: 0.2 });
+                sectionObserver.observe(featureSection);
+            }
+        })();
+
+        // Floating "Start Free Trial" button — appears when user scrolls into the ROI / Math section
+        (function () {
+            var fba = document.createElement('a');
+            fba.href = 'https://cal.id/guillaume-panot/piklepro-academy';
+            fba.textContent = 'Start Free Trial →';
+            fba.setAttribute('aria-label', 'Start your free trial');
+            fba.style.cssText = [
+                'position:fixed',
+                'bottom:24px',
+                'right:24px',
+                'z-index:900',
+                'background:linear-gradient(135deg,#10b981 0%,#059669 100%)',
+                'color:#fff',
+                'font-weight:700',
+                'font-size:0.9rem',
+                'text-decoration:none',
+                'padding:0.75rem 1.4rem',
+                'border-radius:100px',
+                'box-shadow:0 8px 24px rgba(16,185,129,0.35)',
+                'opacity:0',
+                'transform:translateY(12px)',
+                'transition:opacity 0.3s ease,transform 0.3s ease',
+                'pointer-events:none',
+            ].join(';');
+            document.body.appendChild(fba);
+
+            var roiSection = document.querySelector('.roi-section');
+            if (roiSection) {
+                var fbaObserver = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        var visible = entry.isIntersecting;
+                        fba.style.opacity = visible ? '1' : '0';
+                        fba.style.transform = visible ? 'translateY(0)' : 'translateY(12px)';
+                        fba.style.pointerEvents = visible ? 'auto' : 'none';
+                    });
+                }, { threshold: 0.05 });
+                fbaObserver.observe(roiSection);
+            }
+        })();
     </script>
 
     <script>
