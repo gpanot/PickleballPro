@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, transformProgramData, getLogbookEntriesByUserId } from '../../lib/supabase';
 import { Modal } from 'react-native';
+import SeededAvatar from '../../components/SeededAvatar';
 
 const PRIMARY_COLOR = '#27AE60';
 const SECONDARY_COLOR = '#F4F5F7';
@@ -568,15 +569,12 @@ function SparkLine({ values, color, height = 64, style }) {
           {/* Player Info Row - Hidden in student view */}
           {!isStudentView && (
             <View style={styles.playerInfoRow}>
-              {player?.avatar_url ? (
-                <Image source={{ uri: player.avatar_url }} style={styles.compactAvatar} />
-              ) : (
-                <View style={styles.compactAvatarFallback}>
-                  <Text style={styles.compactAvatarText}>
-                    {player?.name?.charAt(0).toUpperCase() || 'P'}
-                  </Text>
-                </View>
-              )}
+              <SeededAvatar
+                uri={player?.avatar_url}
+                name={player?.name || ''}
+                size={56}
+                style={styles.compactAvatar}
+              />
               <View style={styles.compactInfo}>
                 <Text style={styles.compactName} numberOfLines={1}>
                   {player?.name || 'Player'}

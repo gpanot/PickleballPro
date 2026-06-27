@@ -33,12 +33,12 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       try {
         const lastSeen = await AsyncStorage.getItem('@pickleHero_programTabLastSeen');
         const since = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 7 * 24 * 3600 * 1000);
+        // user_programs uses added_at (not created_at) and has no source column
         const { data } = await supabase
           .from('user_programs')
-          .select('id, created_at')
+          .select('id, added_at')
           .eq('user_id', authUser.id)
-          .eq('source', 'coach')
-          .gte('created_at', since.toISOString())
+          .gte('added_at', since.toISOString())
           .limit(1);
         setProgramBadge(Array.isArray(data) && data.length > 0);
       } catch { /* ignore */ }

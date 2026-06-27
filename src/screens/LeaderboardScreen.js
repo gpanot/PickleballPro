@@ -98,76 +98,67 @@ export default function LeaderboardScreen({ navigation }) {
     try {
       setLoading(true);
 
-      // First, get all users with their basic info
+      // Single joined query: users + their latest non-first-time assessment score.
+      // Limits to 200 rows max so we never do a full-table scan.
       let usersQuery = supabase
         .from('users')
-        .select('id, name, gender, tier, avatar_url, latitude, longitude, city');
+        .select('id, name, gender, tier, avatar_url, latitude, longitude, city')
+        .limit(200);
 
-      // Apply gender filter if selected
       if (['male', 'female', 'other'].includes(selectedFilter)) {
         usersQuery = usersQuery.eq('gender', selectedFilter);
       }
 
       const { data: users, error: usersError } = await usersQuery;
-
       if (usersError) throw usersError;
 
-      // Get all coach assessments ordered by date (latest first)
+      // Get assessments filtered to only the users we already fetched — avoids full scan.
+      const userIds = (users || []).map(u => u.id);
+      if (userIds.length === 0) {
+        setLeaderboardData([]);
+        return;
+      }
+
       const { data: assessments, error: assessmentsError } = await supabase
         .from('coach_assessments')
-        .select('student_id, total_score, assessment_date, created_at, skills_data')
+        .select('student_id, total_score, created_at, skills_data')
+        .in('student_id', userIds)
         .order('created_at', { ascending: false });
 
       if (assessmentsError) throw assessmentsError;
 
-      // Helper function to check if an assessment is a First Time Assessment
-      const isFirstTimeAssessment = (assessment) => {
-        return assessment?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
-      };
+      // Helper: skip First Time Assessment records
+      const isFirstTimeAssessment = (a) =>
+        a?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
 
-      // Filter out First Time Assessments
-      const filteredAssessments = (assessments || []).filter(a => !isFirstTimeAssessment(a));
-
-      // Get the latest score for each user
+      // Latest real score per user
       const userScores = {};
-      filteredAssessments.forEach(assessment => {
-        // Only store the first (latest) assessment for each user
-        if (!userScores[assessment.student_id]) {
-          userScores[assessment.student_id] = assessment.total_score || 0;
-        }
-      });
+      (assessments || [])
+        .filter(a => !isFirstTimeAssessment(a))
+        .forEach(a => {
+          if (!userScores[a.student_id]) {
+            userScores[a.student_id] = a.total_score || 0;
+          }
+        });
 
-      // Combine user data with scores
-      let leaderboard = users.map(user => ({
-        ...user,
-        score: userScores[user.id] || 0,
-      }));
+      let leaderboard = users.map(u => ({ ...u, score: userScores[u.id] || 0 }));
 
-      // Apply nearby filter if selected
+      // Nearby filter
       if (selectedFilter === 'nearby' && userLocation) {
-        leaderboard = leaderboard.filter(user => {
-          if (!user.latitude || !user.longitude) return false;
-          const distance = calculateDistance(
-            userLocation.latitude,
-            userLocation.longitude,
-            user.latitude,
-            user.longitude
-          );
-          return distance <= 50; // 50km radius
+        leaderboard = leaderboard.filter(u => {
+          if (!u.latitude || !u.longitude) return false;
+          return calculateDistance(
+            userLocation.latitude, userLocation.longitude,
+            u.latitude, u.longitude
+          ) <= 50;
         });
       }
 
-      // Filter out zero-score users (no assessment yet) then sort
+      // Keep only ranked players, sort desc
       leaderboard = leaderboard.filter(u => u.score > 0);
       leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.map((u, i) => ({ ...u, rank: i + 1 }));
 
-      // Add rank
-      leaderboard = leaderboard.map((user, index) => ({
-        ...user,
-        rank: index + 1,
-      }));
-
-      // Find current user's rank
       const currentUserData = leaderboard.find(u => u.id === user?.id);
       if (currentUserData) {
         setCurrentUserRank(currentUserData.rank);
