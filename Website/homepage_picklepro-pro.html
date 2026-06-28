@@ -4697,19 +4697,18 @@
                 fba.style.pointerEvents = 'none';
             }
 
-            // Trigger: show once roi-section top crosses viewport
-            var roiSection = document.querySelector('.roi-section');
-            if (roiSection) {
+            // Trigger: show once "Built With Real Coaches" section enters viewport
+            var triggerSection = document.querySelector('.tanner-proof');
+            if (triggerSection) {
                 var showObserver = new IntersectionObserver(function (entries) {
                     entries.forEach(function (entry) {
-                        // boundingClientRect.top <= 0 means we've scrolled past the top edge
-                        if (entry.boundingClientRect.top <= window.innerHeight) {
+                        if (entry.isIntersecting) {
                             showFba();
                             showObserver.disconnect(); // fire once, stay visible
                         }
                     });
-                }, { threshold: 0, rootMargin: '0px 0px -10% 0px' });
-                showObserver.observe(roiSection);
+                }, { threshold: 0.1 });
+                showObserver.observe(triggerSection);
             }
 
             // Hide only when footer comes into view (avoids overlapping footer CTA)
