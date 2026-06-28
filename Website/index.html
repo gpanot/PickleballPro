@@ -1268,6 +1268,11 @@
             margin: 2rem auto;
         }
 
+        .simulator-controls-3 {
+            grid-template-columns: 1fr 1fr 1fr;
+            max-width: 900px;
+        }
+
         .simulator-control {
             text-align: left;
         }
@@ -1290,12 +1295,28 @@
             accent-color: #007AFF;
         }
 
+        .simulator-total {
+            color: #475569;
+            font-size: 0.9rem;
+            margin: 0 0 1.75rem;
+        }
+
+        .simulator-total strong {
+            color: #0f172a;
+            font-weight: 800;
+        }
+
         .simulator-results {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 1.25rem;
             max-width: 800px;
             margin: 0 auto 1.5rem;
+        }
+
+        .simulator-results-revenue {
+            max-width: 420px;
+            margin-bottom: 1.25rem;
         }
 
         .simulator-result-card {
@@ -1312,6 +1333,20 @@
         .simulator-result-card.savings {
             background: #E8F5FF;
             border: 2px solid #007AFF;
+        }
+
+        .simulator-result-card.revenue {
+            background: #0f172a;
+            border: none;
+        }
+
+        .simulator-result-card.revenue .simulator-result-label {
+            color: #cbd5e1;
+        }
+
+        .simulator-result-card.revenue .simulator-result-value {
+            color: #ffffff;
+            font-size: 1.9rem;
         }
 
         .simulator-result-label {
@@ -1339,6 +1374,7 @@
 
         @media (max-width: 768px) {
             .simulator-controls,
+            .simulator-controls-3,
             .simulator-results {
                 grid-template-columns: 1fr;
             }
@@ -3861,38 +3897,51 @@
                 </div>
             </div>
 
-            <!-- Savings Simulator -->
+            <!-- Savings & ROI Simulator -->
             <div class="simulator-section">
-                <h3>See What You'd Save</h3>
+                <h3>See Your Revenue, ROI, and Savings</h3>
                 <p class="example-intro">Drag the sliders to match your academy.</p>
 
-                <div class="simulator-controls">
+                <div class="simulator-controls simulator-controls-3">
                     <div class="simulator-control">
-                        <label>Coaches: <span id="simCoachesVal">12</span></label>
-                        <input type="range" id="simCoaches" min="1" max="50" value="12" oninput="updateSimulator()">
+                        <label>Coaches: <span id="simCoachesVal">10</span></label>
+                        <input type="range" id="simCoaches" min="1" max="50" value="10" oninput="updateSimulator()">
                     </div>
                     <div class="simulator-control">
-                        <label>Students: <span id="simStudentsVal">247</span></label>
-                        <input type="range" id="simStudents" min="10" max="500" value="247" oninput="updateSimulator()">
+                        <label>Students per coach: <span id="simStudentsPerCoachVal">8</span></label>
+                        <input type="range" id="simStudentsPerCoach" min="3" max="50" value="8" oninput="updateSimulator()">
+                    </div>
+                    <div class="simulator-control">
+                        <label>Rate per hour: <span id="simRateVal">$75</span></label>
+                        <input type="range" id="simRate" min="40" max="150" step="5" value="75" oninput="updateSimulator()">
+                    </div>
+                </div>
+
+                <p class="simulator-total">Total students: <strong id="simTotalStudents">80</strong> &nbsp;&middot;&nbsp; assumes 4 sessions/student/month</p>
+
+                <div class="simulator-results simulator-results-revenue">
+                    <div class="simulator-result-card revenue">
+                        <p class="simulator-result-label">Projected monthly revenue</p>
+                        <p class="simulator-result-value" id="simRevenue">$24,000/mo</p>
                     </div>
                 </div>
 
                 <div class="simulator-results">
                     <div class="simulator-result-card">
                         <p class="simulator-result-label">Admin cost without PicklePro</p>
-                        <p class="simulator-result-value" id="simAdminCost">$4,800/mo</p>
+                        <p class="simulator-result-value" id="simAdminCost">$4,000/mo</p>
                     </div>
                     <div class="simulator-result-card highlight">
                         <p class="simulator-result-label">PicklePro platform cost</p>
-                        <p class="simulator-result-value" id="simPlatformCost">$699/mo</p>
+                        <p class="simulator-result-value" id="simPlatformCost">$999/mo</p>
                     </div>
                     <div class="simulator-result-card savings">
                         <p class="simulator-result-label">You save</p>
-                        <p class="simulator-result-value" id="simSavings">$4,101/mo</p>
+                        <p class="simulator-result-value" id="simSavings">$3,001/mo</p>
                     </div>
                 </div>
 
-                <p class="simulator-note" id="simNote">Same system, unlimited coaches, zero added admin overhead.</p>
+                <p class="simulator-note" id="simNote">PicklePro costs just 4.2% of your monthly revenue to run 10 coaches and 80 students.</p>
             </div>
         </div>
     </section>
@@ -4351,17 +4400,25 @@
             });
         });
 
-        // Savings Simulator
+        // Revenue, ROI & Savings Simulator
         function updateSimulator() {
             const coachesEl = document.getElementById('simCoaches');
-            const studentsEl = document.getElementById('simStudents');
-            if (!coachesEl || !studentsEl) return;
+            const perCoachEl = document.getElementById('simStudentsPerCoach');
+            const rateEl = document.getElementById('simRate');
+            if (!coachesEl || !perCoachEl || !rateEl) return;
 
             const coaches = parseInt(coachesEl.value, 10);
-            const students = parseInt(studentsEl.value, 10);
+            const studentsPerCoach = parseInt(perCoachEl.value, 10);
+            const rate = parseInt(rateEl.value, 10);
+            const sessionsPerMonth = 4;
+
+            const totalStudents = coaches * studentsPerCoach;
+            const monthlyRevenue = totalStudents * sessionsPerMonth * rate;
 
             document.getElementById('simCoachesVal').textContent = coaches;
-            document.getElementById('simStudentsVal').textContent = students;
+            document.getElementById('simStudentsPerCoachVal').textContent = studentsPerCoach;
+            document.getElementById('simRateVal').textContent = '$' + rate;
+            document.getElementById('simTotalStudents').textContent = totalStudents.toLocaleString('en-US');
 
             const adminCost = Math.max(1500, Math.round(coaches * 400));
             let platformCost = 399;
@@ -4369,14 +4426,16 @@
             else if (coaches > 3) platformCost = 699;
 
             const savings = adminCost - platformCost;
-            const fmt = n => '$' + n.toLocaleString('en-US');
+            const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
+            const roiPercent = monthlyRevenue > 0 ? (platformCost / monthlyRevenue * 100) : 0;
 
+            document.getElementById('simRevenue').textContent = fmt(monthlyRevenue) + '/mo';
             document.getElementById('simAdminCost').textContent = fmt(adminCost) + '/mo';
             document.getElementById('simPlatformCost').textContent = fmt(platformCost) + '/mo';
             document.getElementById('simSavings').textContent = fmt(savings) + '/mo';
 
             document.getElementById('simNote').textContent =
-                `Same system scales past ${Math.max(coaches * 2, 50)} coaches with zero added admin overhead.`;
+                `PicklePro costs just ${roiPercent.toFixed(1)}% of your monthly revenue to run ${coaches} coaches and ${totalStudents.toLocaleString('en-US')} students.`;
         }
         document.addEventListener('DOMContentLoaded', updateSimulator);
 
