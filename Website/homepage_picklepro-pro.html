@@ -3940,7 +3940,7 @@
                     </div>
                 </div>
 
-                <p class="simulator-total">Total students: <strong id="simTotalStudents">80</strong> &nbsp;&middot;&nbsp; assumes 4 sessions/student/month</p>
+                <p class="simulator-total">Total students: <strong id="simTotalStudents">80</strong> &nbsp;&middot;&nbsp; assumes <select id="simSessions" onchange="updateSimulator()" style="font-size:0.88rem;font-weight:700;color:#007AFF;border:1px solid #93c5fd;border-radius:6px;padding:0.1rem 0.3rem;background:#EFF8FF;cursor:pointer;appearance:none;-webkit-appearance:none;"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select> sessions/student/month</p>
 
                 <div class="simulator-results">
                     <div class="simulator-result-card revenue">
@@ -4430,7 +4430,8 @@
             const coaches = parseInt(coachesEl.value, 10);
             const studentsPerCoach = parseInt(perCoachEl.value, 10);
             const rate = parseInt(rateEl.value, 10);
-            const sessionsPerMonth = 4;
+            const sessionsEl = document.getElementById('simSessions');
+            const sessionsPerMonth = sessionsEl ? parseInt(sessionsEl.value, 10) : 4;
 
             const totalStudents = coaches * studentsPerCoach;
             const monthlyRevenue = totalStudents * sessionsPerMonth * rate;
