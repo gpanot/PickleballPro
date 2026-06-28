@@ -773,29 +773,39 @@
         @media (max-width: 1024px) {
             .feature-navigator {
                 grid-template-columns: 1fr;
+                padding: 1.5rem;
             }
 
             .nav-sidebar {
                 flex-direction: row;
                 overflow-x: auto;
-                gap: 0.8rem;
+                gap: 0.6rem;
+                padding-bottom: 0.25rem;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+
+            .nav-sidebar::-webkit-scrollbar {
+                display: none;
             }
 
             .nav-item {
                 flex-shrink: 0;
                 flex-direction: column;
                 text-align: center;
-                padding: 1rem;
-                min-width: 130px;
+                padding: 0.75rem 1rem;
+                min-width: 90px;
+                gap: 0.5rem;
             }
 
             .nav-icon {
-                width: 28px;
-                height: 28px;
+                width: 22px;
+                height: 22px;
             }
 
             .nav-item span {
-                font-size: 0.85rem;
+                font-size: 0.78rem;
+                line-height: 1.2;
             }
 
             .feature-detail {
@@ -803,39 +813,45 @@
                 min-height: auto;
             }
 
+            /* Phone mockup first, text below on tablet/mobile */
+            .feature-detail-visual-container {
+                order: -1;
+                min-height: auto;
+                margin-top: 0;
+                margin-bottom: 1.5rem;
+            }
+
+            .feature-detail-text {
+                order: 1;
+            }
+
             .nav-content {
                 min-height: auto;
             }
 
-            .feature-detail-visual-container {
-                min-height: 400px;
-                margin-top: 2rem;
-            }
-
             .detail-visual {
-                height: 350px;
+                height: 300px;
             }
         }
 
         @media (max-width: 768px) {
             .feature-navigator {
-                gap: 1.5rem;
-            }
-
-            .nav-sidebar {
-                flex-wrap: wrap;
-                gap: 0.8rem;
+                gap: 1rem;
+                padding: 1rem;
             }
 
             .nav-item {
-                flex: 1;
-                min-width: 100px;
-                padding: 0.8rem;
+                min-width: 76px;
+                padding: 0.6rem 0.7rem;
+            }
+
+            .nav-item span {
+                font-size: 0.72rem;
             }
 
             .detail-visual {
-                height: 280px;
-                margin-top: 1.5rem;
+                height: 240px;
+                margin-top: 0;
             }
 
             .detail-header h3 {
@@ -844,6 +860,10 @@
 
             .detail-list li {
                 font-size: 0.9rem;
+            }
+
+            .phone-mockup {
+                width: 220px;
             }
         }
 
