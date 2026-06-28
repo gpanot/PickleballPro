@@ -1308,15 +1308,15 @@
 
         .simulator-results {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 1.25rem;
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto 1.5rem;
         }
 
+        /* revenue card is just the first column — hide the separate row */
         .simulator-results-revenue {
-            max-width: 420px;
-            margin-bottom: 1.25rem;
+            display: none;
         }
 
         .simulator-result-card {
@@ -1374,9 +1374,32 @@
 
         @media (max-width: 768px) {
             .simulator-controls,
-            .simulator-controls-3,
-            .simulator-results {
+            .simulator-controls-3 {
                 grid-template-columns: 1fr;
+            }
+
+            /* 2×2 compact grid on mobile so all 4 KPIs stay visible */
+            .simulator-results {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.6rem;
+                max-width: 100%;
+            }
+
+            .simulator-result-card {
+                padding: 0.75rem 0.6rem;
+            }
+
+            .simulator-result-label {
+                font-size: 0.72rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .simulator-result-value {
+                font-size: 1.1rem;
+            }
+
+            .simulator-result-card.revenue .simulator-result-value {
+                font-size: 1.1rem;
             }
         }
 
@@ -3919,14 +3942,11 @@
 
                 <p class="simulator-total">Total students: <strong id="simTotalStudents">80</strong> &nbsp;&middot;&nbsp; assumes 4 sessions/student/month</p>
 
-                <div class="simulator-results simulator-results-revenue">
+                <div class="simulator-results">
                     <div class="simulator-result-card revenue">
-                        <p class="simulator-result-label">Projected monthly revenue</p>
+                        <p class="simulator-result-label">Monthly revenue</p>
                         <p class="simulator-result-value" id="simRevenue">$24,000/mo</p>
                     </div>
-                </div>
-
-                <div class="simulator-results">
                     <div class="simulator-result-card">
                         <p class="simulator-result-label">Admin cost without PicklePro</p>
                         <p class="simulator-result-value" id="simAdminCost">$4,000/mo</p>
