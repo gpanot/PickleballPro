@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Club Sessions — Full Flow v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&family=Bangers&display=swap" rel="stylesheet">
+<style>
+  body[data-canvas-theme="dark"]{
+    --canvas-page-bg:#0f0f0f;--canvas-shell:#1a1a1a;--canvas-shell2:#2a2a2a;
+    --canvas-menu-text:#fff;--canvas-menu-sub:#888;--canvas-menu-border:rgba(255,255,255,0.08);
+    --canvas-menu-surface:#1e1e1e;--canvas-accent:#a3e635;
+    --canvas-active-bg:rgba(163,230,53,.12);--canvas-active-border:rgba(163,230,53,.3);
+  }
+  body[data-canvas-theme="light"]{
+    --canvas-page-bg:#eeeeee;--canvas-shell:#e5e5e8;--canvas-shell2:#d4d4d8;
+    --canvas-menu-text:#111;--canvas-menu-sub:#777;--canvas-menu-border:rgba(0,0,0,0.08);
+    --canvas-menu-surface:#f1f1f3;--canvas-accent:#4d7c0f;
+    --canvas-active-bg:rgba(77,124,15,.10);--canvas-active-border:rgba(77,124,15,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--canvas-page-bg);font-family:'DM Sans',sans-serif;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:24px;gap:28px;transition:background .2s}
+
+  .phone{width:390px;height:844px;border-radius:48px;overflow:hidden;position:relative;flex-shrink:0;box-shadow:0 0 0 10px var(--canvas-shell),0 0 0 12px var(--canvas-shell2),0 40px 80px rgba(0,0,0,.5)}
+  .sw{position:absolute;inset:0;overflow:hidden;display:none;flex-direction:column}
+  .sw.active{display:flex}
+  .sb{flex:1;overflow-y:auto;scrollbar-width:none}
+  .sb::-webkit-scrollbar{display:none}
+
+  .menu{width:320px;color:var(--canvas-menu-text)}
+  .menu h3{font-size:12px;color:var(--canvas-menu-sub);text-transform:uppercase;letter-spacing:.08em;margin:16px 0 6px}
+  .menu-item{padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--canvas-menu-sub);border:1px solid transparent}
+  .menu-item.active{background:var(--canvas-active-bg);color:var(--canvas-accent);border-color:var(--canvas-active-border)}
+  .theme-toggle{display:flex;gap:8px;margin-top:6px}
+  .theme-btn{flex:1;padding:8px;border-radius:8px;border:1px solid var(--canvas-menu-border);background:var(--canvas-menu-surface);color:var(--canvas-menu-sub);font-size:12px;font-weight:700;cursor:pointer;text-align:center}
+  .theme-btn.active{color:var(--canvas-accent);border-color:var(--canvas-accent)}
+
+  @keyframes pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+  .pop-in{animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes itemIn{0%{transform:translateY(18px) scale(.7);opacity:0}100%{transform:translateY(0) scale(1);opacity:1}}
+  .stagger{animation:itemIn .5s cubic-bezier(.2,1.3,.4,1) backwards}
+  @keyframes slideUp{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
+  .sheet-in{animation:slideUp .3s cubic-bezier(.2,1,.3,1)}
+  @keyframes ringPulse{0%,100%{box-shadow:0 0 0 0 rgba(163,230,53,.25)}50%{box-shadow:0 0 0 8px rgba(163,230,53,.08)}}
+
+  .icon{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:middle}
+  .icon-sm{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:middle}
+  .icon-lg{width:28px;height:28px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:middle}
+  .icon-xl{width:40px;height:40px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:middle}
+
+  .sw{font-family:'DM Sans',sans-serif}
+  .sec-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#52525b;margin-bottom:10px}
+  .topbar{padding:52px 20px 14px;display:flex;align-items:center;justify-content:space-between}
+  .tb-back{color:#a1a1aa;width:28px;cursor:pointer;display:flex;align-items:center}
+  .tb-title{font-size:16px;font-weight:800;color:#fff}
+  .tb-act{font-size:13px;font-weight:700;color:#a3e635;cursor:pointer}
+  .tb-more{color:#a1a1aa;cursor:pointer;display:flex;align-items:center;width:28px;justify-content:flex-end}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;color:#a1a1aa;margin-bottom:6px}
+  .input{background:#1a1a1a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:13px 14px;color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .input .ph{color:#52525b;font-weight:500}
+  .input-left{display:flex;align-items:center;gap:10px;color:#fff}
+  .input-left .icon{color:#52525b}
+  .row2{display:flex;gap:10px}
+  .row2 .field{flex:1}
+
+  .seg{display:flex;background:#1a1a1a;border-radius:12px;padding:3px;border:1px solid rgba(255,255,255,0.08)}
+  .seg-opt{flex:1;text-align:center;padding:9px 0;font-size:12px;font-weight:800;color:#a1a1aa;border-radius:9px;cursor:pointer}
+  .seg-opt.on{background:#2e2e2e;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+
+  .stepper{display:flex;align-items:center;gap:16px}
+  .stepper .sb-btn{width:36px;height:36px;border-radius:10px;background:#1f1f1f;border:1px solid rgba(255,255,255,0.08);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .stepper .sb-val{font-size:18px;font-weight:800;color:#fff;min-width:28px;text-align:center}
+
+  .toggle{width:42px;height:24px;border-radius:100px;background:#2a2a2a;position:relative;cursor:pointer;flex-shrink:0}
+  .toggle.on{background:#a3e635}
+  .toggle .kn{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .15s}
+  .toggle.on .kn{left:21px}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+  .toggle-row .tr-txt{font-size:13px;font-weight:700;color:#fff}
+  .toggle-row .tr-sub{font-size:11px;color:#52525b;margin-top:2px}
+
+  .adv-header{display:flex;align-items:center;justify-content:space-between;padding:14px 0;cursor:pointer;border-top:1px solid rgba(255,255,255,0.07);margin-top:6px}
+  .adv-header .at{font-size:13px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px}
+  .adv-chev{color:#52525b;transition:transform .2s}
+  .adv-body{display:none;padding-bottom:6px}
+  .adv-body.open{display:block}
+  .adv-chev.open{transform:rotate(180deg)}
+
+  .footer{position:absolute;bottom:0;left:0;right:0;padding:14px 20px 28px;background:linear-gradient(to top, #0a0a0a 65%, rgba(10,10,10,0));}
+  .footer.above-nav{bottom:64px}
+
+  .bottom-nav{position:absolute;left:0;right:0;bottom:0;height:64px;background:#0d0d0d;border-top:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-around;z-index:20;padding-bottom:4px}
+  .bottom-nav.hidden{display:none}
+  .bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;color:#52525b;cursor:pointer}
+  .bn-item .icon{width:20px;height:20px}
+  .bn-item span{font-size:10px;font-weight:700}
+  .bn-item.active{color:#a3e635}
+  #profile .sb, #profile-no-club .sb{padding-bottom:74px}
+
+  .btn-flat-primary{width:100%;background:#a3e635;color:#0a0a0a;font-weight:800;font-size:15px;padding:15px;border-radius:14px;text-align:center;cursor:pointer;border:none;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 12px rgba(163,230,53,.25)}
+  .btn-flat-primary.disabled{background:#1f1f1f;color:#52525b;cursor:default;box-shadow:none}
+  .btn-flat-secondary{width:100%;background:transparent;color:#a1a1aa;font-weight:700;font-size:14px;padding:14px;border-radius:14px;text-align:center;cursor:pointer;border:1px solid rgba(255,255,255,0.12);margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-flat-destructive{width:100%;background:rgba(239,68,68,0.1);color:#f87171;font-weight:800;font-size:15px;padding:15px;border-radius:14px;text-align:center;cursor:pointer;border:1px solid rgba(239,68,68,0.25);display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-flat-ghost{background:transparent;color:#a3e635;font-weight:700;font-size:13px;padding:6px 0;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px}
+
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:100px;font-size:11px;font-weight:800}
+  .pill-draft{background:rgba(96,165,250,0.12);color:#60a5fa}
+  .pill-live{background:rgba(163,230,53,0.13);color:#a3e635}
+  .pill-full{background:rgba(239,68,68,0.12);color:#f87171}
+  .pill-gold{background:rgba(250,204,21,0.13);color:#facc15}
+  .pill-info{background:rgba(96,165,250,0.12);color:#60a5fa}
+  .pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  .card{background:#131313;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+
+  .sheet-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:flex-end;z-index:5}
+  .sheet{background:#161616;border-radius:22px 22px 0 0;padding:10px 20px 28px;width:100%;border-top:1px solid rgba(255,255,255,0.08);box-shadow:0 -8px 30px rgba(0,0,0,.5)}
+  .sheet-handle{width:40px;height:4px;background:#2a2a2a;border-radius:3px;margin:0 auto 18px}
+  .sheet-icon{width:48px;height:48px;border-radius:14px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;color:#f87171;margin-bottom:14px}
+  .sheet-title{font-size:17px;font-weight:800;color:#fff;margin-bottom:8px}
+  .sheet-body{font-size:13px;color:#a1a1aa;line-height:1.5;margin-bottom:18px}
+
+  .status-pills{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+  .status-pill{flex-shrink:0;padding:7px 13px;border-radius:100px;font-size:11px;font-weight:800;background:#1a1a1a;color:#a1a1aa;border:1px solid rgba(255,255,255,0.07);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
+  .status-pill.on{background:#2a2a2a;color:#fff;border-color:rgba(255,255,255,0.2)}
+
+  /* avatar system — deterministic initials, no emoji */
+  .avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0;color:#fff;font-family:'DM Sans'}
+  .av-c1{background:linear-gradient(135deg,#65a30d,#a3e635)}
+  .av-c2{background:linear-gradient(135deg,#0891b2,#22d3ee)}
+  .av-c3{background:linear-gradient(135deg,#c026d3,#e879f9)}
+  .av-c4{background:linear-gradient(135deg,#ea580c,#fb923c)}
+  .av-c5{background:linear-gradient(135deg,#4f46e5,#818cf8)}
+  .av-c6{background:linear-gradient(135deg,#dc2626,#f87171)}
+  .av-42{width:42px;height:42px;font-size:15px}
+  .av-40{width:40px;height:40px;font-size:14px}
+  .av-34{width:34px;height:34px;font-size:12px}
+  .av-56{width:56px;height:56px;font-size:20px;border-radius:16px}
+
+  .member-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+  .m-av-wrap{position:relative;flex-shrink:0}
+  .m-av-wrap .avatar{filter:none}
+  .m-av-wrap.waiting .avatar{opacity:0.4;filter:grayscale(0.4)}
+  .m-av-wrap.requested .avatar{opacity:0;background:transparent !important}
+  .m-av-wrap.requested::before{content:'';position:absolute;inset:0;border:2px dashed #52525b;border-radius:50%}
+  .m-av-wrap.requested::after{content:'+';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#52525b;font-weight:800;font-size:16px}
+  .m-av-wrap.declined .avatar{opacity:0.25;filter:grayscale(1)}
+  .m-name{font-size:13px;font-weight:700;color:#fff}
+  .m-sub{font-size:11px;color:#52525b;margin-top:1px;display:flex;align-items:center;gap:4px}
+  .m-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;max-width:150px}
+  .chip{font-size:10px;font-weight:800;padding:5px 9px;border-radius:100px;cursor:pointer;border:1px solid transparent;display:flex;align-items:center;gap:4px}
+  .chip.paid{background:rgba(163,230,53,0.13);color:#a3e635}
+  .chip.unpaid{background:#1a1a1a;color:#52525b;border-color:rgba(255,255,255,0.08)}
+  .chip.checked{background:rgba(96,165,250,0.12);color:#60a5fa}
+  .chip.noshow{background:rgba(239,68,68,0.12);color:#f87171}
+  .chip.unmarked{background:#1a1a1a;color:#52525b;border-color:rgba(255,255,255,0.08)}
+  .chip.confirm-act{background:rgba(163,230,53,0.13);color:#a3e635}
+  .chip.waitlist-act{background:rgba(250,204,21,0.13);color:#facc15}
+  .chip.decline-act{background:rgba(239,68,68,0.1);color:#f87171}
+
+  /* ===================== SIGNUP SCREENS ===================== */
+  #su-auth, #su-nickname, #su-dupr, #su-gender{background:radial-gradient(ellipse at top, #131a08 0%, #0a0a0a 55%)}
+  .su-wrap{padding:80px 24px 0;text-align:center}
+  .su-dots{display:flex;justify-content:center;gap:6px;margin-bottom:30px}
+  .su-dot{width:7px;height:7px;border-radius:50%;background:#2a2a2a}
+  .su-dot.on{background:#a3e635}
+  .su-badge{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#1a2e0a,#0f1a05);border:1px solid rgba(163,230,53,0.25);display:flex;align-items:center;justify-content:center;color:#a3e635;margin:0 auto 22px;animation:ringPulse 2.4s ease-in-out infinite}
+  .su-q{font-size:25px;font-weight:900;color:#fff;margin-bottom:10px;line-height:1.25}
+  .su-sub{font-size:13px;color:#a1a1aa;margin-bottom:30px;line-height:1.5}
+  .su-social-btn{width:100%;background:#161616;border:1px solid rgba(255,255,255,0.1);color:#fff;font-weight:700;font-size:14px;padding:15px;border-radius:14px;text-align:center;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px}
+  .dupr-card{background:#131313;border:1px solid rgba(255,255,255,0.07);border-radius:20px;padding:24px;margin-top:8px}
+  .dupr-val{font-size:44px;font-weight:900;color:#a3e635;margin-bottom:2px}
+  .dupr-slider-track{height:8px;background:#222;border-radius:4px;margin:22px 0 8px;position:relative}
+  .dupr-slider-fill{position:absolute;left:0;top:0;height:100%;width:55%;background:linear-gradient(to right,#65a30d,#a3e635);border-radius:4px}
+  .dupr-slider-knob{position:absolute;top:50%;left:55%;width:26px;height:26px;background:#fff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 2px 10px rgba(0,0,0,0.5);border:3px solid #a3e635}
+  .dupr-scale{display:flex;justify-content:space-between;font-size:10px;color:#52525b;font-weight:700;margin-top:2px}
+  .gender-opt{background:#141414;border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:16px;margin-bottom:10px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between}
+  .gender-opt.on{border-color:#a3e635;background:rgba(163,230,53,0.07)}
+  .gender-opt .icon{color:#a3e635;opacity:0}
+  .gender-opt.on .icon{opacity:1}
+
+  /* ===================== HOME / CLUB DETAIL / SEARCH shared list styles ===================== */
+  #home, #club-detail, #search{background:#0a0a0a}
+  #home .sb, #club-detail .sb, #search .sb{padding:0 20px 174px}
+  .search-input{background:#141414;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:12px 14px;color:#52525b;font-size:13px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  .mine-card{background:#131313;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:13px;margin-bottom:10px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .mine-ic{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .mine-ic.club{background:linear-gradient(135deg,#1a2e0a,#0f1a05);color:#a3e635;border:1px solid rgba(163,230,53,0.2)}
+  .mine-ic.booked{background:linear-gradient(135deg,#0c1b2e,#08121f);color:#60a5fa;border:1px solid rgba(96,165,250,0.2)}
+  .mine-name{font-size:13px;font-weight:800;color:#fff}
+  .mine-sub{font-size:11px;color:#52525b;margin-top:2px;display:flex;align-items:center;gap:4px}
+  .role-tag{font-size:9px;font-weight:800;padding:4px 9px;border-radius:100px;margin-left:auto;flex-shrink:0}
+  .role-tag.hosting{background:rgba(250,204,21,0.13);color:#facc15}
+  .role-tag.booked{background:rgba(96,165,250,0.12);color:#60a5fa}
+  .fab{position:absolute;bottom:24px;right:20px;width:56px;height:56px;border-radius:50%;background:#a3e635;display:flex;align-items:center;justify-content:center;color:#0a0a0a;box-shadow:0 4px 20px rgba(163,230,53,0.45);cursor:pointer;z-index:3}
+  .sess-card{background:#131313;border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:14px;margin-bottom:12px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .sc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px}
+  .sc-name{font-size:14px;font-weight:800;color:#fff}
+  .sc-venue{font-size:12px;color:#a1a1aa;margin-top:3px;display:flex;align-items:center;gap:5px}
+  .sc-time{font-size:11px;color:#71717a;margin-top:7px;font-weight:700;display:flex;align-items:center;gap:5px}
+  .sc-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:11px}
+  .spots{font-size:11px;font-weight:800;color:#a3e635;display:flex;align-items:center;gap:4px}
+  .spots.low{color:#f87171}
+  .upast-toggle{display:flex;background:#141414;border-radius:12px;padding:3px;border:1px solid rgba(255,255,255,0.06);margin-bottom:16px}
+  .upast-opt{flex:1;text-align:center;padding:9px 0;font-size:12px;font-weight:800;color:#a1a1aa;border-radius:9px;cursor:pointer}
+  .upast-opt.on{background:#2a2a2a;color:#fff}
+
+  /* ===================== CLUB DETAIL header ===================== */
+  .club-hero{display:flex;align-items:center;gap:14px;margin-bottom:18px;background:linear-gradient(135deg,#141f0a,#0d1207);border:1px solid rgba(163,230,53,0.15);border-radius:18px;padding:16px}
+  .club-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#65a30d,#a3e635);display:flex;align-items:center;justify-content:center;color:#0a0a0a;flex-shrink:0;box-shadow:0 4px 14px rgba(163,230,53,.25)}
+  .club-name{font-family:'Bangers';font-size:22px;color:#fff;letter-spacing:.02em}
+  .club-meta{font-size:11.5px;color:#a1a1aa;margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .edit-pencil{margin-left:auto;color:#71717a;cursor:pointer;padding:8px;flex-shrink:0}
+
+  /* ===================== CLUB CREATE/EDIT/QUICK ===================== */
+  #club-quick, #club-create, #club-edit{background:#0a0a0a}
+  #club-quick .sb, #club-create .sb, #club-edit .sb{padding:0 20px 140px}
+  .icon-picker{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+  .icon-opt{width:46px;height:46px;border-radius:13px;background:#161616;border:2px solid transparent;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;color:#a1a1aa}
+  .icon-opt.on{border-color:#a3e635;color:#a3e635;background:rgba(163,230,53,.08)}
+  .quick-create-box{padding:64px 24px 0;text-align:center}
+  .quick-badge{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#1a2e0a,#0f1a05);border:1px solid rgba(163,230,53,0.25);display:flex;align-items:center;justify-content:center;color:#a3e635;margin:0 auto 18px}
+
+  /* ===================== SESSION CREATE/PREVIEW/PUBLISHED/EDIT ===================== */
+  #session-create, #session-edit{background:#0a0a0a}
+  #session-create .sb, #session-edit .sb{padding:0 20px 140px}
+  #session-preview{background:#0a0a0a}
+  #session-preview .sb{padding:0 20px 160px}
+  .preview-banner{background:rgba(96,165,250,0.08);border:1px solid rgba(96,165,250,0.2);border-radius:12px;padding:11px 12px;font-size:12px;color:#60a5fa;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .sess-name{font-family:'Bangers';font-size:24px;letter-spacing:.03em;color:#fff;margin-bottom:8px}
+  .meta-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#a1a1aa;margin-bottom:6px}
+  .meta-row .icon{color:#71717a}
+  .meta-row b{color:#fff;font-weight:700}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .dg-item{background:#141414;border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:11px 12px}
+  .dg-item .dl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#52525b;margin-bottom:4px;display:flex;align-items:center;gap:5px}
+  .dg-item .dv{font-size:13px;font-weight:700;color:#fff}
+  .notes-box{background:#141414;border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:12px;font-size:13px;color:#a1a1aa;line-height:1.5;margin-top:14px}
+  .warn-banner{background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.25);border-radius:12px;padding:11px 12px;font-size:12px;color:#facc15;font-weight:700;margin-bottom:16px;display:flex;align-items:flex-start;gap:8px}
+
+  #session-published{background:#0a0a0a}
+  #session-published .sb{padding:0 20px 164px}
+  .hero{background:linear-gradient(145deg,#0e1a08 0%,#10130a 50%,#1a1404 100%);border:1px solid rgba(163,230,53,0.18);border-radius:18px;padding:18px;margin-bottom:16px;position:relative;overflow:hidden}
+  .hero::before{content:'';position:absolute;top:-40%;right:-20%;width:160px;height:160px;background:radial-gradient(circle,rgba(163,230,53,.12),transparent 70%);pointer-events:none}
+  .hero .sess-name{font-size:22px;margin-bottom:10px}
+  .fill-track{height:7px;background:#1f1f1f;border-radius:4px;overflow:hidden;margin-top:12px}
+  .fill-bar{height:100%;background:linear-gradient(to right,#65a30d,#a3e635);width:100%}
+  .fill-label{font-size:11px;color:#a1a1aa;margin-top:7px;font-weight:700;display:flex;align-items:center;gap:5px}
+  .avatars{display:flex;margin-top:14px}
+  .av-stack{width:34px;height:34px;border-radius:50%;border:2px solid #0e1407;margin-left:-9px;font-size:12px}
+  .av-stack:first-child{margin-left:0}
+  .av-more{background:#1c1c1c;color:#a1a1aa;font-size:11px;font-weight:800;border:2px solid #0e1407}
+  .row-link{display:flex;align-items:center;justify-content:space-between;padding:14px 2px;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;gap:10px}
+  .row-link .rl-l{font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px}
+  .row-link .rl-l .icon{color:#71717a}
+  .row-link.danger .rl-l, .row-link.danger .rl-l .icon{color:#f87171}
+  .row-link .rl-r{font-size:12px;color:#52525b;display:flex;align-items:center;gap:4px}
+
+  /* ===================== ROSTER/APPROVAL ===================== */
+  #roster{background:#0a0a0a}
+  #roster .sb{padding:0 20px 104px}
+
+  /* ===================== SESSION DETAIL (player) ===================== */
+  #session-detail{background:#0a0a0a}
+  #session-detail .sb{padding:0 20px 214px}
+  .venue-card{background:#131313;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start}
+  .venue-ic{width:38px;height:38px;border-radius:11px;background:#1c1c1c;color:#71717a;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .vc-name{font-size:14px;font-weight:800;color:#fff;margin-bottom:3px}
+  .vc-addr{font-size:12px;color:#71717a}
+  .roster-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+  .ra-empty{width:40px;height:40px;border-radius:50%;background:#161616;border:2px dashed #2a2a2a;color:#3f3f46;display:flex;align-items:center;justify-content:center}
+  .level-check{font-size:12.5px;font-weight:700;margin-top:10px;padding:9px 12px;border-radius:10px;display:flex;align-items:center;gap:8px}
+  .level-check.in-range{background:rgba(163,230,53,0.08);color:#a3e635}
+  .level-check.out-range{background:rgba(250,204,21,0.08);color:#facc15}
+
+  /* ===================== BOOKING CONFIRMATION / MY BOOKING ===================== */
+  #booking-confirm{background:radial-gradient(ellipse at top, #102008 0%, #0a0a0a 55%)}
+  #booking-confirm .sb{padding:70px 24px 0;text-align:center}
+  #session-cancelled, #booking-cancelled{background:radial-gradient(ellipse at top, #1a0a0a 0%, #0a0a0a 55%)}
+  #session-cancelled .sb, #booking-cancelled .sb{padding:70px 24px 140px;text-align:center}
+  .confirm-check{width:76px;height:76px;border-radius:50%;background:rgba(163,230,53,0.12);border:1px solid rgba(163,230,53,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;color:#a3e635}
+  #my-booking{background:#0a0a0a}
+  #my-booking .sb{padding:0 20px 204px}
+
+  /* ===================== EMPTY STATE ===================== */
+  #empty-host, #empty-player{background:#0a0a0a}
+  #empty-host .sb, #empty-player .sb{padding:90px 24px 64px;text-align:center}
+  .empty-badge{width:88px;height:88px;border-radius:24px;margin:0 auto 22px;display:flex;align-items:center;justify-content:center;position:relative}
+  .empty-badge.host{background:linear-gradient(135deg,#1a2e0a,#0f1a05);border:1px solid rgba(163,230,53,0.25);color:#a3e635}
+  .empty-badge.player{background:linear-gradient(135deg,#0c1b2e,#08121f);border:1px solid rgba(96,165,250,0.25);color:#60a5fa}
+  .empty-title{font-size:20px;font-weight:900;color:#fff;margin-bottom:8px}
+  .empty-sub{font-size:13px;color:#a1a1aa;line-height:1.6;margin-bottom:28px}
+</style>
+</head>
+<body data-canvas-theme="dark">
+
+<!-- ============ ICON SPRITE (lucide-style, inline, no external deps) ============ -->
+<svg style="display:none" aria-hidden="true">
+<defs>
+<symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></symbol>
+<symbol id="i-calendar-x" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="15" x2="14" y2="19"/><line x1="14" y1="15" x2="10" y2="19"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+<symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/><circle cx="5" cy="12" r="1.2"/></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+<symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/></symbol>
+<symbol id="i-dollar" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2"/></symbol>
+<symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+<symbol id="i-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+<symbol id="i-log-in" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></symbol>
+<symbol id="i-waves" viewBox="0 0 24 24"><path d="M2 12c1.5 1.5 3.5 1.5 5 0s3.5-1.5 5 0 3.5 1.5 5 0 3.5-1.5 5 0"/><path d="M2 18c1.5 1.5 3.5 1.5 5 0s3.5-1.5 5 0 3.5 1.5 5 0 3.5-1.5 5 0"/></symbol>
+<symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+</defs>
+</svg>
+
+<div class="phone">
+
+  <!-- ============ SIGNUP: AUTH ============ -->
+  <div class="sw active" id="su-auth">
+    <div class="su-wrap">
+      <div class="su-dots"><div class="su-dot on"></div><div class="su-dot"></div><div class="su-dot"></div><div class="su-dot"></div></div>
+      <div class="su-badge"><svg class="icon-xl"><use href="#i-target"/></svg></div>
+      <div class="su-q">Welcome to&nbsp;Club&nbsp;Sessions</div>
+      <div class="su-sub">Find or host pickleball sessions, no Reclub account needed.</div>
+    </div>
+    <div class="footer" style="position:absolute;bottom:40px">
+      <div class="su-social-btn" onclick="pushAndShow('su-nickname')"><svg class="icon"><use href="#i-log-in"/></svg> Continue with Google</div>
+      <div class="su-social-btn" onclick="pushAndShow('su-nickname')"><svg class="icon"><use href="#i-log-in"/></svg> Continue with Apple</div>
+    </div>
+  </div>
+
+  <!-- ============ SIGNUP: NICKNAME ============ -->
+  <div class="sw" id="su-nickname">
+    <div class="topbar" style="padding:52px 20px 0"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div></div>
+    <div class="su-wrap" style="padding-top:24px">
+      <div class="su-dots"><div class="su-dot on"></div><div class="su-dot on"></div><div class="su-dot"></div><div class="su-dot"></div></div>
+      <div class="su-badge"><svg class="icon-lg"><use href="#i-user"/></svg></div>
+      <div class="su-q">What should we call you?</div>
+      <div class="su-sub">This is how other players will see you.</div>
+      <div class="field" style="text-align:left">
+        <div class="input"><span class="ph">Your nickname</span></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="pushAndShow('su-dupr')">Continue <svg class="icon"><use href="#i-arrow-right"/></svg></div>
+    </div>
+  </div>
+
+  <!-- ============ SIGNUP: DUPR ============ -->
+  <div class="sw" id="su-dupr">
+    <div class="topbar" style="padding:52px 20px 0"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div></div>
+    <div class="su-wrap" style="padding-top:16px">
+      <div class="su-dots"><div class="su-dot on"></div><div class="su-dot on"></div><div class="su-dot on"></div><div class="su-dot"></div></div>
+      <div class="su-badge"><svg class="icon-lg"><use href="#i-target"/></svg></div>
+      <div class="su-q">What's your level?</div>
+      <div class="su-sub">DUPR or self-rated, helps hosts and helps you know what to expect.</div>
+      <div class="dupr-card">
+        <div class="dupr-val">3.2</div>
+        <div style="font-size:11px;color:#52525b;font-weight:700;letter-spacing:.05em">DUPR RATING</div>
+        <div class="dupr-slider-track"><div class="dupr-slider-fill"></div><div class="dupr-slider-knob"></div></div>
+        <div class="dupr-scale"><span>2.0</span><span>3.5</span><span>5.0+</span></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="pushAndShow('su-gender')">Continue <svg class="icon"><use href="#i-arrow-right"/></svg></div>
+    </div>
+  </div>
+
+  <!-- ============ SIGNUP: GENDER ============ -->
+  <div class="sw" id="su-gender">
+    <div class="topbar" style="padding:52px 20px 0"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div></div>
+    <div class="su-wrap" style="padding-top:16px">
+      <div class="su-dots"><div class="su-dot on"></div><div class="su-dot on"></div><div class="su-dot on"></div><div class="su-dot on"></div></div>
+      <div class="su-badge"><svg class="icon-lg"><use href="#i-check-circle"/></svg></div>
+      <div class="su-q">One last thing</div>
+      <div class="su-sub">How do you identify?</div>
+      <div style="text-align:left">
+        <div class="gender-opt on" onclick="selectGender(this)"><span>Male</span><svg class="icon"><use href="#i-check"/></svg></div>
+        <div class="gender-opt" onclick="selectGender(this)"><span>Female</span><svg class="icon"><use href="#i-check"/></svg></div>
+        <div class="gender-opt" onclick="selectGender(this)"><span>Prefer not to say</span><svg class="icon"><use href="#i-check"/></svg></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="replaceAndShow('home')">Done, go to Club Sessions <svg class="icon"><use href="#i-arrow-right"/></svg></div>
+    </div>
+  </div>
+
+  <!-- ============ #1 HOME ============ -->
+  <div class="sw" id="home">
+    <div class="sb">
+      <div class="topbar"><div class="tb-title">Club Sessions</div><div class="tb-profile-link" onclick="pushAndShow('profile')" style="justify-content:flex-end"><div class="avatar av-c1" style="width:30px;height:30px;font-size:12px">G</div></div></div>
+      <div style="padding:0 20px">
+        <div class="search-input"><svg class="icon icon-sm"><use href="#i-search"/></svg> Search clubs or sessions</div>
+
+        <div class="sec-label">Mine</div>
+        <div class="mine-card stagger" onclick="pushAndShow('club-detail')">
+          <div class="mine-ic club"><svg class="icon"><use href="#i-shield"/></svg></div>
+          <div><div class="mine-name">Challengers 2</div><div class="mine-sub"><svg class="icon icon-sm"><use href="#i-calendar"/></svg> 3 upcoming sessions</div></div>
+          <div class="role-tag hosting">HOSTING</div>
+        </div>
+        <div class="mine-card stagger" style="animation-delay:.05s" onclick="pushAndShow('session-detail')">
+          <div class="mine-ic booked"><svg class="icon"><use href="#i-calendar"/></svg></div>
+          <div><div class="mine-name">Morning Open Play</div><div class="mine-sub"><svg class="icon icon-sm"><use href="#i-clock"/></svg> Mon, Jun 29 &middot; 9:00 AM</div></div>
+          <div class="role-tag booked">BOOKED</div>
+        </div>
+
+        <div class="sec-label" style="margin-top:18px">Browse public sessions</div>
+        <div class="sess-card stagger" style="animation-delay:.1s" onclick="pushAndShow('session-detail')">
+          <div class="sc-top">
+            <div><div class="sc-name">Evening Social</div><div class="sc-venue"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg> MM Pickleball Club D2 &middot; 6.0 km</div></div>
+            <span class="pill pill-live"><span class="pill-dot"></span>PUBLIC</span>
+          </div>
+          <div class="sc-time"><svg class="icon icon-sm"><use href="#i-clock"/></svg> Tue, Jun 30 &middot; 6:30 PM &middot; 2 hours</div>
+          <div class="sc-bottom"><div class="spots"><svg class="icon icon-sm"><use href="#i-users"/></svg> 14 spots left</div><div style="font-size:11px;color:#52525b">Social &middot; All levels</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="fab" onclick="pushAndShow('session-create')"><svg class="icon-lg"><use href="#i-plus"/></svg></div>
+  </div>
+
+  <!-- ============ #2 CLUB DETAIL (shared) ============ -->
+  <div class="sw" id="club-detail">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Club</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div class="club-hero">
+          <div class="club-icon"><svg class="icon-lg"><use href="#i-shield"/></svg></div>
+          <div style="flex:1">
+            <div class="club-name">Challengers 2</div>
+            <div class="club-meta"><svg class="icon icon-sm"><use href="#i-target"/></svg>Public &middot; Pickleball &middot; All levels &middot; <svg class="icon icon-sm"><use href="#i-users"/></svg>12</div>
+          </div>
+          <div class="edit-pencil" onclick="pushAndShow('club-edit')"><svg class="icon"><use href="#i-edit"/></svg></div>
+        </div>
+
+        <div class="upast-toggle">
+          <div class="upast-opt on">Upcoming</div>
+          <div class="upast-opt">Past</div>
+        </div>
+
+        <div class="sess-card stagger" onclick="pushAndShow('session-published')">
+          <div class="sc-top">
+            <div><div class="sc-name">Pickleball Social with GuiGui</div><div class="sc-venue"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg> 002 Pickleball Club &middot; 4.3 km</div></div>
+            <span class="pill pill-live"><span class="pill-dot"></span>LIVE</span>
+          </div>
+          <div class="sc-time"><svg class="icon icon-sm"><use href="#i-clock"/></svg> Wed, Jul 1 &middot; 10:00 AM &middot; 1 hour</div>
+          <div class="sc-bottom"><div class="spots"><svg class="icon icon-sm"><use href="#i-users"/></svg> 7 spots left</div><div style="font-size:11px;color:#52525b">Social &middot; All levels</div></div>
+        </div>
+        <div class="sess-card stagger" style="animation-delay:.05s" onclick="pushAndShow('session-preview')">
+          <div class="sc-top">
+            <div><div class="sc-name">Saturday Round Robin</div><div class="sc-venue"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg> 002 Pickleball Club</div></div>
+            <span class="pill pill-draft"><span class="pill-dot"></span>DRAFT</span>
+          </div>
+          <div class="sc-time"><svg class="icon icon-sm"><use href="#i-clock"/></svg> Sat, Jul 4 &middot; 8:00 AM &middot; 2 hours</div>
+        </div>
+      </div>
+    </div>
+    <div class="fab" onclick="pushAndShow('session-create')"><svg class="icon-lg"><use href="#i-plus"/></svg></div>
+  </div>
+
+  <!-- ============ #3 QUICK-CREATE CLUB ============ -->
+  <div class="sw" id="club-quick">
+    <div class="topbar" style="padding:52px 20px 0;justify-content:flex-end"><div class="tb-back" onclick="replaceAndShow('home')"><svg class="icon-lg"><use href="#i-x"/></svg></div></div>
+    <div class="quick-create-box" style="padding-top:30px">
+      <div class="quick-badge"><svg class="icon-lg"><use href="#i-shield"/></svg></div>
+      <div class="su-q" style="font-size:21px">Looks like you don't have a club yet</div>
+      <div class="su-sub">What's your club name? Details can be updated later.</div>
+      <div class="field" style="text-align:left">
+        <div class="input"><span class="ph">e.g. Saturday Smashers</span></div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="replaceAndShow('session-create')">Create club &amp; continue <svg class="icon"><use href="#i-arrow-right"/></svg></div>
+    </div>
+  </div>
+
+  <!-- ============ #4 CREATE CLUB (full) ============ -->
+  <div class="sw" id="club-create">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Create Club</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div class="sec-label">Identity</div>
+        <div class="field"><label>Club name</label><div class="input"><span class="ph">e.g. Challengers 2</span></div></div>
+        <div class="field"><label>Icon</label>
+          <div class="icon-picker">
+            <div class="icon-opt on"><svg class="icon"><use href="#i-shield"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-award"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-target"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-zap"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-waves"/></svg></div>
+          </div>
+        </div>
+        <div class="field"><label>Sport</label>
+          <div class="seg"><div class="seg-opt on">Pickleball</div><div class="seg-opt">Running</div><div class="seg-opt">Swimming</div></div>
+        </div>
+        <div class="sec-label" style="margin-top:18px">Access</div>
+        <div class="field"><label>Privacy</label>
+          <div class="seg"><div class="seg-opt on">Public</div><div class="seg-opt">Private</div></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="tr-txt">Auto-approve new members</div><div class="tr-sub">Booking a session auto-enrolls as a club member</div></div>
+          <div class="toggle on"><div class="kn"></div></div>
+        </div>
+        <div class="field" style="margin-top:8px"><label>Level</label><div class="input"><span>All levels</span><svg class="icon"><use href="#i-chevron-down"/></svg></div></div>
+      </div>
+    </div>
+    <div class="footer"><div class="btn-flat-primary" onclick="replaceAndShow('club-detail')">Create club</div></div>
+  </div>
+
+  <!-- ============ #5 EDIT CLUB ============ -->
+  <div class="sw" id="club-edit">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Edit Club</div><div class="tb-act" onclick="replaceAndShow('club-detail')">Save</div></div>
+      <div style="padding:0 20px">
+        <div class="sec-label">Identity</div>
+        <div class="field"><label>Club name</label><div class="input"><span>Challengers 2</span></div></div>
+        <div class="field"><label>Icon</label>
+          <div class="icon-picker">
+            <div class="icon-opt on"><svg class="icon"><use href="#i-shield"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-award"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-target"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-zap"/></svg></div>
+            <div class="icon-opt"><svg class="icon"><use href="#i-waves"/></svg></div>
+          </div>
+        </div>
+        <div class="sec-label" style="margin-top:18px">Access</div>
+        <div class="field"><label>Privacy</label>
+          <div class="seg"><div class="seg-opt on">Public</div><div class="seg-opt">Private</div></div>
+        </div>
+        <div class="toggle-row">
+          <div><div class="tr-txt">Auto-approve new members</div></div>
+          <div class="toggle on"><div class="kn"></div></div>
+        </div>
+        <div class="sec-label" style="margin-top:18px">Managers</div>
+        <div class="member-row"><div class="m-av-wrap"><div class="avatar av-c1 av-42">G</div></div><div><div class="m-name">GuiGui</div><div class="m-sub">Creator</div></div></div>
+        <div class="member-row"><div class="m-av-wrap"><div class="avatar av-c3 av-42">P</div></div><div><div class="m-name">Phoebe</div><div class="m-sub">Manager</div></div></div>
+        <div class="btn-flat-ghost"><svg class="icon icon-sm"><use href="#i-plus"/></svg> Add manager</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ #6 CREATE SESSION ============ -->
+  <div class="sw" id="session-create">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Create Session</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div class="sec-label">Basics</div>
+        <div class="field"><label>Sport</label><div class="seg"><div class="seg-opt on">Pickleball</div><div class="seg-opt">Running</div><div class="seg-opt">Swimming</div></div></div>
+        <div class="field"><label>Format</label><div class="seg"><div class="seg-opt on">Social</div><div class="seg-opt">Round Robin</div><div class="seg-opt">Singles</div></div></div>
+        <div class="field"><label>Session name</label><div class="input"><span>Pickleball Social with GuiGui</span></div></div>
+
+        <div class="sec-label" style="margin-top:18px">Date &amp; time</div>
+        <div class="row2">
+          <div class="field"><label>Date</label><div class="input"><span>Wed, Jul 1</span><svg class="icon"><use href="#i-calendar"/></svg></div></div>
+          <div class="field"><label>Start time</label><div class="input"><span>10:00 AM</span><svg class="icon"><use href="#i-clock"/></svg></div></div>
+        </div>
+        <div class="field"><label>Duration</label><div class="input"><span>1 hour</span><svg class="icon"><use href="#i-chevron-down"/></svg></div></div>
+
+        <div class="sec-label" style="margin-top:18px">Venue</div>
+        <div class="field"><div class="input"><span class="ph">Search venue or paste map link</span><svg class="icon"><use href="#i-map-pin"/></svg></div></div>
+        <div class="btn-flat-ghost" style="margin-bottom:6px"><svg class="icon icon-sm"><use href="#i-plus"/></svg> To be determined</div>
+
+        <div class="sec-label" style="margin-top:18px">Capacity</div>
+        <div class="field"><label>Number of players (target, not a hard cap)</label>
+          <div class="stepper"><div class="sb-btn"><svg class="icon"><use href="#i-minus"/></svg></div><div class="sb-val">12</div><div class="sb-btn"><svg class="icon"><use href="#i-plus"/></svg></div></div>
+        </div>
+
+        <div class="adv-header" onclick="toggleAdv()"><div class="at"><svg class="icon icon-sm"><use href="#i-target"/></svg> Advanced options</div><div class="adv-chev open" id="adv-chev"><svg class="icon"><use href="#i-chevron-down"/></svg></div></div>
+        <div class="adv-body open" id="adv-body">
+          <div class="toggle-row"><div><div class="tr-txt">Require approval to join</div><div class="tr-sub">Default off &middot; requests go straight to Confirmed when off</div></div><div class="toggle"><div class="kn"></div></div></div>
+          <div class="field" style="margin-top:8px"><label>Meet fee</label><div class="seg"><div class="seg-opt on">None</div><div class="seg-opt">Per person</div></div></div>
+          <div class="row2">
+            <div class="field"><label>Min level</label><div class="input"><span class="ph">None</span><svg class="icon"><use href="#i-chevron-down"/></svg></div></div>
+            <div class="field"><label>Max level</label><div class="input"><span class="ph">None</span><svg class="icon"><use href="#i-chevron-down"/></svg></div></div>
+          </div>
+          <div class="field"><label>Host role</label><div class="seg"><div class="seg-opt on">Host &amp; play</div><div class="seg-opt">Host only</div></div></div>
+          <div class="field"><label>Notes</label><div class="input" style="height:60px;align-items:flex-start"><span class="ph">Add any notes for players...</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><div class="btn-flat-primary" onclick="pushAndShow('session-preview')">Review session <svg class="icon"><use href="#i-arrow-right"/></svg></div></div>
+  </div>
+
+  <!-- ============ #7 PREVIEW / DRAFT ============ -->
+  <div class="sw" id="session-preview">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Preview</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div class="preview-banner pop-in"><svg class="icon icon-sm"><use href="#i-info"/></svg> This is exactly what players will see once published</div>
+        <span class="pill pill-draft" style="margin-bottom:10px"><span class="pill-dot"></span>DRAFT &middot; NOT VISIBLE</span>
+        <div class="sess-name">Pickleball Social with GuiGui</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-shield"/></svg> <b>Challengers 2</b></div>
+        <div class="meta-row"><svg class="icon"><use href="#i-calendar"/></svg> <b>Wed, Jul 1</b> &middot; 10:00 AM &middot; 1 hour</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-map-pin"/></svg> <b>002 Pickleball Club</b>, Quan 2, Ho Chi Minh</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-users"/></svg> <b>0 / 12</b> confirmed</div>
+        <div class="detail-grid">
+          <div class="dg-item"><div class="dl"><svg class="icon icon-sm"><use href="#i-zap"/></svg>Format</div><div class="dv">Social</div></div>
+          <div class="dg-item"><div class="dl"><svg class="icon icon-sm"><use href="#i-shield"/></svg>Privacy</div><div class="dv">Public</div></div>
+          <div class="dg-item"><div class="dl"><svg class="icon icon-sm"><use href="#i-dollar"/></svg>Fee</div><div class="dv">None</div></div>
+          <div class="dg-item"><div class="dl"><svg class="icon icon-sm"><use href="#i-target"/></svg>Level range</div><div class="dv">All levels</div></div>
+        </div>
+        <div class="sec-label" style="margin-top:18px">Notes</div>
+        <div class="notes-box">No notes added.</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="replaceAndShow('session-published')"><svg class="icon"><use href="#i-check"/></svg> Publish session</div>
+      <div class="btn-flat-secondary" onclick="goBack()"><svg class="icon"><use href="#i-edit"/></svg> Edit</div>
+    </div>
+  </div>
+
+  <!-- ============ #8 PUBLISHED (host mgmt) ============ -->
+  <div class="sw" id="session-published">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Your Session</div><div class="tb-more"><svg class="icon"><use href="#i-more"/></svg></div></div>
+      <div style="padding:0 20px">
+        <div class="hero pop-in">
+          <span class="pill pill-live"><span class="pill-dot"></span>LIVE</span>
+          <span class="pill pill-gold" style="margin-left:6px"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg>VENUE SET</span>
+          <div class="sess-name" style="margin-top:10px">Pickleball Social with GuiGui</div>
+          <div class="meta-row" style="color:#a1a1aa"><svg class="icon"><use href="#i-calendar"/></svg> Wed, Jul 1 &middot; 10:00 AM</div>
+          <div class="meta-row" style="color:#a1a1aa"><svg class="icon"><use href="#i-map-pin"/></svg> 002 Pickleball Club</div>
+          <div class="fill-track"><div class="fill-bar"></div></div>
+          <div class="fill-label"><svg class="icon icon-sm"><use href="#i-users"/></svg> 12 / 12 confirmed &middot; target reached</div>
+          <div class="avatars">
+            <div class="avatar av-stack av-c1">G</div><div class="avatar av-stack av-c2">P</div><div class="avatar av-stack av-c3">M</div><div class="avatar av-stack av-c4">D</div><div class="avatar av-stack av-c5">E</div><div class="avatar av-stack av-more">+7</div>
+          </div>
+        </div>
+        <div class="sec-label">Manage</div>
+        <div class="row-link" onclick="pushAndShow('roster')"><div class="rl-l"><svg class="icon"><use href="#i-users"/></svg>Roster &amp; approvals</div><div class="rl-r">12 confirmed <svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div></div>
+        <div class="row-link" onclick="pushAndShow('session-edit')"><div class="rl-l"><svg class="icon"><use href="#i-edit"/></svg>Edit session details</div><div class="rl-r"><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div></div>
+        <div class="row-link"><div class="rl-l"><svg class="icon"><use href="#i-share"/></svg>Share session link</div><div class="rl-r"><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div></div>
+        <div class="row-link danger" style="border-bottom:none" onclick="pushAndShow('cancel-sheet')"><div class="rl-l"><svg class="icon"><use href="#i-trash"/></svg>Cancel session</div><div class="rl-r"><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div></div>
+      </div>
+    </div>
+    <div class="footer above-nav">
+      <div class="btn-flat-primary" onclick="replaceAndShow('home')"><svg class="icon"><use href="#i-check"/></svg> Done, go to Club Sessions</div>
+    </div>
+  </div>
+
+  <!-- ============ #9 EDIT SESSION ============ -->
+  <div class="sw" id="session-edit">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Edit Session</div><div class="tb-act" onclick="replaceAndShow('session-published')">Save</div></div>
+      <div style="padding:0 20px">
+        <div class="warn-banner"><svg class="icon icon-sm"><use href="#i-alert"/></svg> 12 players have booked this session. Changing date, time, or venue will notify all of them.</div>
+        <div class="sec-label">Basics</div>
+        <div class="field"><label>Session name</label><div class="input"><span>Pickleball Social with GuiGui</span></div></div>
+        <div class="row2">
+          <div class="field"><label>Date</label><div class="input"><span>Wed, Jul 1</span><svg class="icon"><use href="#i-calendar"/></svg></div></div>
+          <div class="field"><label>Start time</label><div class="input"><span>10:00 AM</span><svg class="icon"><use href="#i-clock"/></svg></div></div>
+        </div>
+        <div class="field"><label>Venue</label><div class="input"><span>002 Pickleball Club</span><svg class="icon"><use href="#i-map-pin"/></svg></div></div>
+        <div class="field"><label>Number of players (target)</label><div class="stepper"><div class="sb-btn"><svg class="icon"><use href="#i-minus"/></svg></div><div class="sb-val">12</div><div class="sb-btn"><svg class="icon"><use href="#i-plus"/></svg></div></div></div>
+      </div>
+    </div>
+    <div class="footer"><div class="btn-flat-primary" onclick="replaceAndShow('session-published')"><svg class="icon"><use href="#i-check"/></svg> Save changes</div></div>
+  </div>
+
+  <!-- ============ #10 CANCEL SESSION SHEET ============ -->
+  <div class="sw" id="cancel-sheet">
+    <div class="sb" style="position:relative">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Your Session</div><div style="width:28px"></div></div>
+      <div class="sheet-overlay">
+        <div class="sheet sheet-in">
+          <div class="sheet-handle"></div>
+          <div class="sheet-icon"><svg class="icon"><use href="#i-alert"/></svg></div>
+          <div class="sheet-title">Cancel this session?</div>
+          <div class="sheet-body">12 players have booked this session and will be notified immediately if you cancel. This can't be undone.</div>
+          <div class="btn-flat-destructive" onclick="replaceAndShow('session-cancelled')"><svg class="icon"><use href="#i-trash"/></svg> Cancel session</div>
+          <div class="btn-flat-secondary" onclick="goBack()">Stay</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ #11/#12 ROSTER ============ -->
+  <div class="sw" id="roster">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Roster</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div class="status-pills">
+          <div class="status-pill on">All &middot; 15</div>
+          <div class="status-pill" style="color:#a3e635"><span class="pill-dot"></span>Confirmed &middot; 12</div>
+          <div class="status-pill" style="color:#facc15"><span class="pill-dot"></span>Waiting &middot; 2</div>
+          <div class="status-pill" style="color:#60a5fa"><span class="pill-dot"></span>Requested &middot; 1</div>
+          <div class="status-pill" style="color:#f87171"><span class="pill-dot"></span>Declined &middot; 0</div>
+        </div>
+
+        <div class="sec-label">Confirmed</div>
+        <div class="member-row">
+          <div class="m-av-wrap"><div class="avatar av-c1 av-42">G</div></div>
+          <div><div class="m-name">GuiGui (Host)</div><div class="m-sub"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Booked Jun 27</div></div>
+          <div class="m-actions"><div class="chip paid"><svg class="icon icon-sm"><use href="#i-dollar"/></svg>PAID</div><div class="chip checked"><svg class="icon icon-sm"><use href="#i-check"/></svg>IN</div></div>
+        </div>
+        <div class="member-row">
+          <div class="m-av-wrap"><div class="avatar av-c3 av-42">P</div></div>
+          <div><div class="m-name">Phoebe</div><div class="m-sub"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Booked Jun 27</div></div>
+          <div class="m-actions"><div class="chip paid"><svg class="icon icon-sm"><use href="#i-dollar"/></svg>PAID</div><div class="chip unmarked">&mdash;</div></div>
+        </div>
+        <div class="member-row">
+          <div class="m-av-wrap"><div class="avatar av-c2 av-42">M</div></div>
+          <div><div class="m-name">Minh N.</div><div class="m-sub"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Booked Jun 28</div></div>
+          <div class="m-actions"><div class="chip unpaid">UNPAID</div><div class="chip noshow"><svg class="icon icon-sm"><use href="#i-x"/></svg>NO-SHOW</div></div>
+        </div>
+
+        <div class="sec-label" style="margin-top:18px">Waiting list</div>
+        <div class="member-row">
+          <div class="m-av-wrap waiting"><div class="avatar av-c4 av-42">D</div></div>
+          <div><div class="m-name">David</div><div class="m-sub">Session at target &middot; held in reserve</div></div>
+          <div class="m-actions"><div class="chip confirm-act"><svg class="icon icon-sm"><use href="#i-check"/></svg>CONFIRM</div></div>
+        </div>
+        <div class="member-row">
+          <div class="m-av-wrap waiting"><div class="avatar av-c5 av-42">E</div></div>
+          <div><div class="m-name">Esteban</div><div class="m-sub">Below level range &middot; held in reserve</div></div>
+          <div class="m-actions"><div class="chip confirm-act"><svg class="icon icon-sm"><use href="#i-check"/></svg>CONFIRM</div></div>
+        </div>
+
+        <div class="sec-label" style="margin-top:18px">Requested</div>
+        <div class="member-row" style="border-bottom:none">
+          <div class="m-av-wrap requested"><div class="avatar av-c6 av-42"></div></div>
+          <div><div class="m-name">Linh T.</div><div class="m-sub">Requested 2h ago</div></div>
+          <div class="m-actions"><div class="chip confirm-act"><svg class="icon icon-sm"><use href="#i-check"/></svg></div><div class="chip waitlist-act"><svg class="icon icon-sm"><use href="#i-clock"/></svg></div><div class="chip decline-act"><svg class="icon icon-sm"><use href="#i-x"/></svg></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ #13 SEARCH / CALENDAR ============ -->
+  <div class="sw" id="search">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Find a session</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div class="search-input"><svg class="icon icon-sm"><use href="#i-search"/></svg> Search venue, host, or date</div>
+        <div class="seg" style="margin-bottom:12px"><div class="seg-opt on"><svg class="icon icon-sm" style="margin-right:5px"><use href="#i-users"/></svg>List</div><div class="seg-opt"><svg class="icon icon-sm" style="margin-right:5px"><use href="#i-calendar"/></svg>Calendar</div></div>
+        <div class="upast-toggle"><div class="upast-opt on">Upcoming</div><div class="upast-opt">Past</div></div>
+
+        <div class="sess-card stagger" onclick="pushAndShow('session-detail')">
+          <div class="sc-top"><div><div class="sc-name">Pickleball Social with GuiGui</div><div class="sc-venue"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg>002 Pickleball Club &middot; 4.3 km</div></div><span class="pill pill-live"><span class="pill-dot"></span>PUBLIC</span></div>
+          <div class="sc-time"><svg class="icon icon-sm"><use href="#i-clock"/></svg> Wed, Jul 1 &middot; 10:00 AM &middot; 1 hour</div>
+          <div class="sc-bottom"><div class="spots low"><svg class="icon icon-sm"><use href="#i-alert"/></svg>FULL</div><div style="font-size:11px;color:#52525b">Social &middot; All levels</div></div>
+        </div>
+        <div class="sess-card stagger" style="animation-delay:.05s">
+          <div class="sc-top"><div><div class="sc-name">Morning Open Play</div><div class="sc-venue"><svg class="icon icon-sm"><use href="#i-map-pin"/></svg>Next11 Pickleball &middot; 2.1 km</div></div><span class="pill pill-live"><span class="pill-dot"></span>PUBLIC</span></div>
+          <div class="sc-time"><svg class="icon icon-sm"><use href="#i-clock"/></svg> Mon, Jun 29 &middot; 9:00 AM &middot; 1.5 hours</div>
+          <div class="sc-bottom"><div class="spots low"><svg class="icon icon-sm"><use href="#i-users"/></svg>2 spots left</div><div style="font-size:11px;color:#52525b">Round Robin &middot; 2.5+</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ #14 SESSION DETAIL (player, shared) ============ -->
+  <div class="sw" id="session-detail">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Session</div><div class="tb-more"><svg class="icon"><use href="#i-share"/></svg></div></div>
+      <div style="padding:0 20px">
+        <span class="pill pill-full"><svg class="icon icon-sm"><use href="#i-alert"/></svg>FULL &middot; 2 OVER TARGET</span>
+        <div class="sess-name" style="margin-top:10px">Pickleball Social with GuiGui</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-shield"/></svg> Challengers 2</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-calendar"/></svg> Wed, Jul 1 &middot; 10:00 AM &middot; 1 hour</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-zap"/></svg> Social &middot; Level 2.5&ndash;3.5</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-dollar"/></svg> No fee</div>
+        <div class="level-check in-range"><svg class="icon icon-sm"><use href="#i-check-circle"/></svg>Your level: 3.2 &middot; within range</div>
+
+        <div class="venue-card">
+          <div class="venue-ic"><svg class="icon"><use href="#i-map-pin"/></svg></div>
+          <div><div class="vc-name">002 Pickleball Club</div><div class="vc-addr">28 D. Thao Dien, Quan 2, Ho Chi Minh &middot; 4.3 km</div></div>
+        </div>
+
+        <div class="sec-label">Who's playing &middot; 12/12</div>
+        <div class="roster-grid">
+          <div class="avatar av-c1 av-40">G</div><div class="avatar av-c2 av-40">P</div><div class="avatar av-c3 av-40">M</div><div class="avatar av-c4 av-40">D</div><div class="avatar av-c5 av-40">E</div><div class="ra-empty">+7</div>
+        </div>
+
+        <div class="sec-label" style="margin-top:18px">Host's notes</div>
+        <div class="notes-box">No notes added.</div>
+      </div>
+    </div>
+    <div class="footer above-nav">
+      <div class="btn-flat-primary disabled"><svg class="icon"><use href="#i-x"/></svg> Session full</div>
+      <div class="btn-flat-secondary" onclick="pushAndShow('booking-confirm')"><svg class="icon"><use href="#i-clock"/></svg> Request to join waiting list</div>
+    </div>
+  </div>
+
+  <!-- ============ #15 BOOKING CONFIRMATION ============ -->
+  <div class="sw" id="booking-confirm">
+    <div class="sb">
+      <div class="confirm-check pop-in"><svg class="icon-xl"><use href="#i-check"/></svg></div>
+      <div class="su-q">You're confirmed!</div>
+      <div class="su-sub">Pickleball Social with GuiGui<br>Wed, Jul 1 &middot; 10:00 AM &middot; 002 Pickleball Club</div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary"><svg class="icon"><use href="#i-calendar"/></svg> Add to calendar</div>
+      <div class="btn-flat-secondary" onclick="replaceAndShow('home')">Back to Club Sessions</div>
+    </div>
+  </div>
+
+  <!-- ============ #16 MY BOOKING / CANCEL ============ -->
+  <div class="sw" id="my-booking">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">My Booking</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <span class="pill pill-live"><span class="pill-dot"></span>YOU'RE CONFIRMED</span>
+        <div class="sess-name" style="margin-top:10px">Morning Open Play</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-calendar"/></svg> Mon, Jun 29 &middot; 9:00 AM &middot; 1.5 hours</div>
+        <div class="meta-row"><svg class="icon"><use href="#i-map-pin"/></svg> Next11 Pickleball</div>
+        <div class="venue-card" style="margin-top:14px">
+          <div class="venue-ic"><svg class="icon"><use href="#i-map-pin"/></svg></div>
+          <div><div class="vc-name">Next11 Pickleball</div><div class="vc-addr">2.1 km away</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer above-nav"><div class="btn-flat-destructive" onclick="pushAndShow('cancel-booking-sheet')"><svg class="icon"><use href="#i-x"/></svg> Cancel my spot</div></div>
+  </div>
+
+  <!-- ============ CANCEL BOOKING SHEET (part of #16) ============ -->
+  <div class="sw" id="cancel-booking-sheet">
+    <div class="sb" style="position:relative">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">My Booking</div><div style="width:28px"></div></div>
+      <div class="sheet-overlay">
+        <div class="sheet sheet-in">
+          <div class="sheet-handle"></div>
+          <div class="sheet-icon"><svg class="icon"><use href="#i-alert"/></svg></div>
+          <div class="sheet-title">Cancel your spot?</div>
+          <div class="sheet-body">If someone is on the waiting list, your spot will automatically go to them. The host will be notified.</div>
+          <div class="btn-flat-destructive" onclick="replaceAndShow('booking-cancelled')"><svg class="icon"><use href="#i-x"/></svg> Cancel my spot</div>
+          <div class="btn-flat-secondary" onclick="goBack()">Stay</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROFILE — has a club (was missing entirely) ============ -->
+  <div class="sw" id="profile">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Profile</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+          <div class="avatar av-c1 av-56">G</div>
+          <div>
+            <div class="club-name" style="font-family:'DM Sans';font-size:17px;font-weight:800">GuiGui</div>
+            <div class="club-meta"><svg class="icon icon-sm"><use href="#i-target"/></svg>DUPR 3.2 &middot; Male</div>
+          </div>
+          <div class="edit-pencil" style="margin-left:auto"><svg class="icon"><use href="#i-edit"/></svg></div>
+        </div>
+
+        <div class="sec-label">My club</div>
+        <div class="mine-card stagger" onclick="pushAndShow('club-detail')">
+          <div class="mine-ic club"><svg class="icon"><use href="#i-shield"/></svg></div>
+          <div><div class="mine-name">Challengers 2</div><div class="mine-sub"><svg class="icon icon-sm"><use href="#i-users"/></svg> Creator &middot; 12 members</div></div>
+          <div class="role-tag hosting">MANAGE</div>
+        </div>
+        <div class="notes-box" style="display:flex;align-items:center;gap:8px"><svg class="icon icon-sm"><use href="#i-info"/></svg> You can only create one club. Add managers from the club's edit screen if you need help running it.</div>
+
+        <div class="sec-label" style="margin-top:18px">Account</div>
+        <div class="row-link"><div class="rl-l"><svg class="icon"><use href="#i-user"/></svg>Edit profile</div><div class="rl-r"><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div></div>
+        <div class="row-link" style="border-bottom:none"><div class="rl-l"><svg class="icon"><use href="#i-log-in"/></svg>Sign out</div><div class="rl-r"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROFILE — no club yet ============ -->
+  <div class="sw" id="profile-no-club">
+    <div class="sb">
+      <div class="topbar"><div class="tb-back" onclick="goBack()"><svg class="icon-lg"><use href="#i-chevron-left"/></svg></div><div class="tb-title">Profile</div><div style="width:28px"></div></div>
+      <div style="padding:0 20px">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px">
+          <div class="avatar av-c2 av-56">D</div>
+          <div>
+            <div class="club-name" style="font-family:'DM Sans';font-size:17px;font-weight:800">David</div>
+            <div class="club-meta"><svg class="icon icon-sm"><use href="#i-target"/></svg>DUPR 2.8 &middot; Male</div>
+          </div>
+          <div class="edit-pencil" style="margin-left:auto"><svg class="icon"><use href="#i-edit"/></svg></div>
+        </div>
+
+        <div class="sec-label">My club</div>
+        <div class="card" style="text-align:center;padding:28px 16px">
+          <div class="quick-badge" style="margin-bottom:14px"><svg class="icon-lg"><use href="#i-shield"/></svg></div>
+          <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:6px">You haven't created a club yet</div>
+          <div style="font-size:12px;color:#a1a1aa;line-height:1.5;margin-bottom:18px">Create one to start hosting sessions. You can only run one club, so take a moment to set it up properly.</div>
+          <div class="btn-flat-primary" onclick="pushAndShow('club-create')"><svg class="icon"><use href="#i-plus"/></svg> Create your club</div>
+        </div>
+
+        <div class="sec-label" style="margin-top:18px">Account</div>
+        <div class="row-link"><div class="rl-l"><svg class="icon"><use href="#i-user"/></svg>Edit profile</div><div class="rl-r"><svg class="icon icon-sm"><use href="#i-chevron-down"/></svg></div></div>
+        <div class="row-link" style="border-bottom:none"><div class="rl-l"><svg class="icon"><use href="#i-log-in"/></svg>Sign out</div><div class="rl-r"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ #17 EMPTY STATE — host variant ============ -->
+  <div class="sw" id="empty-host">
+    <div class="sb">
+      <div class="topbar"><div class="tb-title">Club Sessions</div><div class="tb-profile-link" onclick="pushAndShow('profile-no-club')" style="justify-content:flex-end"><div class="avatar av-c2" style="width:30px;height:30px;font-size:12px">D</div></div></div>
+      <div class="empty-badge host"><svg class="icon-xl"><use href="#i-shield"/></svg></div>
+      <div class="empty-title">No club yet</div>
+      <div class="empty-sub">Set up your club from your profile, then post your first session, players can find and book it right away.</div>
+      <div style="padding:0 24px"><div class="btn-flat-primary" onclick="pushAndShow('profile-no-club')"><svg class="icon"><use href="#i-user"/></svg> Go to my profile</div></div>
+    </div>
+  </div>
+
+  <!-- ============ #17 EMPTY STATE — player variant ============ -->
+  <div class="sw" id="empty-player">
+    <div class="sb">
+      <div class="topbar"><div class="tb-title">Club Sessions</div><div style="width:28px"></div></div>
+      <div class="empty-badge player"><svg class="icon-xl"><use href="#i-calendar-x"/></svg></div>
+      <div class="empty-title">No sessions near you yet</div>
+      <div class="empty-sub">Be the first to find a session as new clubs join, or search by venue or date.</div>
+      <div style="padding:0 24px"><div class="btn-flat-primary" onclick="pushAndShow('search')"><svg class="icon"><use href="#i-search"/></svg> Browse sessions</div></div>
+    </div>
+  </div>
+
+  <!-- ============ SESSION CANCELLED (terminal state, was missing) ============ -->
+  <div class="sw" id="session-cancelled">
+    <div class="sb">
+      <div class="confirm-check pop-in" style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171"><svg class="icon-xl"><use href="#i-check"/></svg></div>
+      <div class="su-q">Session cancelled</div>
+      <div class="su-sub">12 players have been notified. The session no longer appears in search or your club.</div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="replaceAndShow('club-detail')">Back to club</div>
+      <div class="btn-flat-secondary" onclick="replaceAndShow('home')">Go to Club Sessions home</div>
+    </div>
+  </div>
+
+  <!-- ============ BOOKING CANCELLED (terminal state, was missing) ============ -->
+  <div class="sw" id="booking-cancelled">
+    <div class="sb">
+      <div class="confirm-check pop-in" style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171"><svg class="icon-xl"><use href="#i-check"/></svg></div>
+      <div class="su-q">Your spot is cancelled</div>
+      <div class="su-sub">If someone was waiting, they've been moved up and notified. The host has also been notified.</div>
+    </div>
+    <div class="footer">
+      <div class="btn-flat-primary" onclick="replaceAndShow('home')">Back to Club Sessions home</div>
+    </div>
+  </div>
+
+  <!-- ============ PERSISTENT BOTTOM NAV — was missing entirely ============
+       Single shared element, shown/hidden per screen by JS based on whether
+       that screen is part of the normal Club Sessions tab flow (show) or a
+       full-screen modal-style flow: signup, create/edit forms, sheets, and
+       terminal confirmations (hide), matching how the rest of the app
+       already behaves (see the Play tab screenshot reference). -->
+  <div class="bottom-nav hidden" id="bottom-nav">
+    <div class="bn-item"><svg class="icon"><use href="#i-users"/></svg><span>Circle</span></div>
+    <div class="bn-item"><svg class="icon"><use href="#i-shield"/></svg><span>Squadd</span></div>
+    <div class="bn-item"><svg class="icon"><use href="#i-zap"/></svg><span>Play</span></div>
+    <div class="bn-item active"><svg class="icon"><use href="#i-calendar"/></svg><span>Club Sessions</span></div>
+  </div>
+
+</div>
+
+<div class="menu">
+  <h3>Canvas theme</h3>
+  <div class="theme-toggle">
+    <div class="theme-btn active" onclick="setCanvasTheme('dark', event)">Dark</div>
+    <div class="theme-btn" onclick="setCanvasTheme('light', event)">Light</div>
+  </div>
+
+  <h3>Signup (first tap into tab)</h3>
+  <div class="menu-item active" onclick="jumpTo('su-auth')">0a. Auth</div>
+  <div class="menu-item" onclick="jumpTo('su-nickname')">0b. Nickname</div>
+  <div class="menu-item" onclick="jumpTo('su-dupr')">0c. DUPR / level</div>
+  <div class="menu-item" onclick="jumpTo('su-gender')">0d. Gender &rarr; done</div>
+
+  <h3>Profile (club creation lives here, not Home)</h3>
+  <div class="menu-item" onclick="jumpTo('profile')">Profile &middot; has a club</div>
+  <div class="menu-item" onclick="jumpTo('profile-no-club')">Profile &middot; no club yet</div>
+
+  <h3>Shared (#1, #2, #13, #14, #17)</h3>
+  <div class="menu-item" onclick="jumpTo('home')">1. Club Sessions home</div>
+  <div class="menu-item" onclick="jumpTo('club-detail')">2. Club detail</div>
+  <div class="menu-item" onclick="jumpTo('search')">13. Search / Calendar</div>
+  <div class="menu-item" onclick="jumpTo('session-detail')">14. Session detail</div>
+  <div class="menu-item" onclick="jumpTo('empty-host')">17a. Empty state (host)</div>
+  <div class="menu-item" onclick="jumpTo('empty-player')">17b. Empty state (player)</div>
+
+  <h3>Host flow</h3>
+  <div class="menu-item" onclick="jumpTo('club-quick')">3. Quick-create club</div>
+  <div class="menu-item" onclick="jumpTo('club-create')">4. Create club (full)</div>
+  <div class="menu-item" onclick="jumpTo('club-edit')">5. Edit club</div>
+  <div class="menu-item" onclick="jumpTo('session-create')">6. Create session</div>
+  <div class="menu-item" onclick="jumpTo('session-preview')">7. Preview / Draft</div>
+  <div class="menu-item" onclick="jumpTo('session-published')">8. Published (mgmt)</div>
+  <div class="menu-item" onclick="jumpTo('session-edit')">9. Edit session</div>
+  <div class="menu-item" onclick="jumpTo('cancel-sheet')">10. Cancel session sheet</div>
+  <div class="menu-item" onclick="jumpTo('roster')">11&amp;12. Roster + Approvals</div>
+
+  <h3>Player flow</h3>
+  <div class="menu-item" onclick="jumpTo('booking-confirm')">15. Booking confirmation</div>
+  <div class="menu-item" onclick="jumpTo('my-booking')">16. My booking / cancel</div>
+  <div class="menu-item" onclick="jumpTo('cancel-booking-sheet')">16b. Cancel booking sheet</div>
+
+  <h3>What changed in v2</h3>
+  <div style="font-size:12px;color:var(--canvas-menu-sub);line-height:1.7;padding:0 12px">
+    All emoji replaced with inline lucide-style SVG icons (sprite at top of file,
+    no external dependency). Player/manager avatars are deterministic colored
+    initials, not photos or emoji. Club icon and empty states use a gradient
+    icon badge instead of emoji pairs. Cards, hero sections, and sheets got
+    shadow/depth and a subtle gradient wash. Roster avatars carry the
+    confirmed/faded/dashed states visually, not just via chips.
+  </div>
+</div>
+
+<script>
+/* ---- Real navigation stack, so back always returns to wherever the
+   person actually came from, instead of a hardcoded screen per button. ---- */
+let navStack = [];
+let currentScreenId = 'su-auth';
+
+/* Screens that are part of the normal Club Sessions tab browsing/management
+   flow keep the persistent bottom nav visible, matching how the rest of the
+   app behaves (Circle/Squadd/Play already show it on their content screens).
+   Full-screen modal-style flows — signup, create/edit forms, bottom sheets,
+   and terminal confirmations — hide it, same as the rest of the app does
+   for equivalent modal flows. */
+const NAV_VISIBLE_SCREENS = new Set([
+  'home', 'empty-host', 'empty-player',
+  'club-detail', 'search', 'session-detail',
+  'roster', 'profile', 'profile-no-club',
+  'my-booking', 'session-published'
+]);
+
+function renderScreen(id){
+  document.querySelectorAll('.sw').forEach(s=>s.classList.remove('active'));
+  const target = document.getElementById(id);
+  target.classList.add('active');
+  currentScreenId = id;
+  document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));
+  if(event && event.currentTarget && event.currentTarget.classList.contains('menu-item')) event.currentTarget.classList.add('active');
+  const nav = document.getElementById('bottom-nav');
+  nav.classList.toggle('hidden', !NAV_VISIBLE_SCREENS.has(id));
+  replayAnims(target);
+}
+
+/* Drilling into something (a card, a FAB, a list row): remember where we
+   were, so the destination's back chevron returns here. */
+function pushAndShow(id){
+  navStack.push(currentScreenId);
+  renderScreen(id);
+}
+
+/* Completing something (Save, Publish, Create, a destructive confirm,
+   an explicit "Done"/"Back to X" exit): move forward WITHOUT pushing the
+   form/sheet we just finished, so back from the destination skips it
+   entirely instead of re-showing a finished form. */
+function replaceAndShow(id){
+  renderScreen(id);
+}
+
+/* The actual back chevron: pop the stack and show whatever was really
+   there, defaulting to home if the stack is empty (shouldn't happen in
+   practice since tab-root screens never carry a back chevron). */
+function goBack(){
+  const prev = navStack.pop() || 'home';
+  renderScreen(prev);
+}
+
+/* Menu (debug navigator only, not part of the in-app flow): jumping
+   anywhere directly resets the stack, since the menu isn't a real
+   screen a person would ever "go back" to. */
+function jumpTo(id){
+  navStack = [];
+  renderScreen(id);
+}
+function replayAnims(scope){
+  scope.querySelectorAll('.stagger, .pop-in, .sheet-in').forEach(el=>{
+    el.style.animation='none';
+    void el.offsetWidth;
+    el.style.animation='';
+  });
+}
+function setCanvasTheme(mode, e){
+  document.body.setAttribute('data-canvas-theme', mode);
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active'));
+  if(e && e.currentTarget) e.currentTarget.classList.add('active');
+}
+function toggleAdv(){
+  document.getElementById('adv-body').classList.toggle('open');
+  document.getElementById('adv-chev').classList.toggle('open');
+}
+function selectGender(el){
+  el.parentElement.querySelectorAll('.gender-opt').forEach(o=>o.classList.remove('on'));
+  el.classList.add('on');
+}
+document.querySelectorAll('.toggle').forEach(t=>{
+  t.addEventListener('click', ()=> t.classList.toggle('on'));
+});
+document.querySelectorAll('.seg, .upast-toggle, .status-pills').forEach(seg=>{
+  seg.querySelectorAll('.seg-opt, .upast-opt, .status-pill').forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      seg.querySelectorAll('.seg-opt, .upast-opt, .status-pill').forEach(o=>o.classList.remove('on'));
+      opt.classList.add('on');
+    });
+  });
+});
+document.querySelectorAll('.icon-opt').forEach(ic=>{
+  ic.addEventListener('click', ()=>{
+    ic.parentElement.querySelectorAll('.icon-opt').forEach(o=>o.classList.remove('on'));
+    ic.classList.add('on');
+  });
+});
+</script>
+
+</body>
+</html>

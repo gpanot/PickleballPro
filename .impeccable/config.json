@@ -11,8 +11,12 @@
     "ignoreFiles": [
       "chrome-extension/content.js",
       "Website/site-nav.css",
+      "Website/homepage_picklepro-pro.html",
       "Website/index.html",
-      "Website/homepage_picklepro-pro.html"
+      "Website/privacy.html",
+      "Website/terms.html",
+      "Website/players.html",
+      "src/screens/ProgramScreen.js"
     ],
     "ignoreValues": []
   }

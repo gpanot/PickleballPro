@@ -1,0 +1,4552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PicklePro - Scale Your Coaching Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        :root {
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+            --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+            --duration-press: 160ms;
+            --duration-ui: 220ms;
+            --duration-scroll: 400ms;
+            --duration-hero: 500ms;
+            --font-display: 'Bricolage Grotesque', Georgia, serif;
+            --font-body: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
+            --ink: #0f172a;
+            --brand: #059669;
+            --brand-bright: #10b981;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            html {
+                scroll-behavior: auto;
+            }
+
+            .hero::before,
+            .hero::after {
+                animation: none;
+            }
+
+            .fade-in,
+            .fade-in.visible {
+                opacity: 1;
+                transform: none;
+                transition: opacity 0.2s ease;
+            }
+        }
+
+        body {
+            font-family: var(--font-body);
+            line-height: 1.6;
+            color: #0f172a;
+            background: #ffffff;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .logo {
+            font-family: var(--font-display);
+            text-wrap: balance;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(46, 204, 113, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--brand);
+            letter-spacing: -0.02em;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #0f172a;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #10b981;
+        }
+
+        .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+        .nav-mobile-cta {
+            display: none;
+            background: #10b981;
+            color: white;
+            text-decoration: none;
+            padding: 0.55rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .nav-toggle {
+            display: none;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 5px;
+            padding: 0;
+        }
+
+        .nav-toggle span {
+            display: block;
+            width: 18px;
+            height: 2px;
+            background: #0f172a;
+            border-radius: 1px;
+            transition: transform var(--duration-ui) var(--ease-out), opacity var(--duration-ui) var(--ease-out);
+        }
+
+        .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+        .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .nav-drawer { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(15, 23, 42, 0.4); }
+        .nav-drawer.open { display: block; }
+        .nav-drawer-panel {
+            position: absolute; top: 0; right: 0; width: min(320px, 88vw); height: 100%;
+            background: white; padding: 5rem 1.5rem 2rem;
+            box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+            transform: translateX(100%);
+            transition: transform var(--duration-ui) var(--ease-out);
+        }
+        .nav-drawer.open .nav-drawer-panel { transform: translateX(0); }
+        .nav-drawer-links { list-style: none; display: flex; flex-direction: column; gap: 0.25rem; }
+        .nav-drawer-links a {
+            display: block; padding: 0.9rem 0.5rem; text-decoration: none; color: #0f172a;
+            font-weight: 700; font-size: 1.05rem; border-bottom: 1px solid #f1f5f9;
+        }
+        .nav-drawer-links a:hover, .nav-drawer-links a.active { color: #10b981; }
+        .nav-drawer-cta {
+            display: block; margin-top: 1.5rem; text-align: center; background: #10b981;
+            color: white; text-decoration: none; padding: 0.9rem 1rem; border-radius: 10px; font-weight: 700;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 140px 2rem 80px;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0f9ff 100%);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            left: -5%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(30px); }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 900px;
+            margin: 0 auto;
+            animation: fadeInUp var(--duration-hero) var(--ease-out);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.2rem, 5vw, 3.75rem);
+            font-weight: 800;
+            line-height: 1.08;
+            margin-bottom: 1.5rem;
+            color: #0f172a;
+            letter-spacing: -0.03em;
+        }
+
+        .hero p {
+            font-size: 1.4rem;
+            color: #475569;
+            margin-bottom: 2.5rem;
+            font-weight: 500;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 0.7rem 1.8rem;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 50ms both;
+        }
+
+        .hero-subtext {
+            font-size: 0.95rem;
+            color: #64748b;
+            margin-top: 1rem;
+            margin-bottom: 2.5rem;
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 100ms both;
+            font-style: italic;
+        }
+
+        .hero-skip-link {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-top: -1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero-skip-link a {
+            color: #10b981;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .hero-skip-link a:hover {
+            text-decoration: underline;
+        }
+
+        .hero {
+            text-align: center;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform var(--duration-press) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+            margin: 1rem 0.75rem;
+        }
+
+        .cta-button:active {
+            transform: scale(0.97);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .cta-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+            }
+
+            .cta-button:active {
+                transform: scale(0.97) translateY(0);
+            }
+        }
+
+        .cta-button.secondary {
+            background: white;
+            color: #10b981;
+            border: 2px solid #10b981;
+            box-shadow: none;
+        }
+
+        .cta-button.secondary:hover {
+            background: #f0fdf4;
+        }
+
+        /* Hero product visual */
+        .hero-visual {
+            margin-top: 3rem;
+            max-width: 920px;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: left;
+        }
+
+        .hero-visual img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+        }
+
+        .hero-visual figcaption {
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            color: #64748b;
+            text-align: center;
+            font-weight: 500;
+        }
+
+                .mock-card-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        /* Main Sections */
+        section {
+            padding: 6rem 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        section h2 {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 4rem;
+            color: #0f172a;
+            letter-spacing: -1px;
+            text-align: center;
+        }
+
+        /* Tanner Proof Section */
+        .tanner-proof {
+            background: linear-gradient(135deg, #f0fdf4 0%, #f0f4ff 100%);
+            padding: 5rem 2rem;
+            border-bottom: 2px solid #e0e7ff;
+        }
+
+        .tanner-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .tanner-left h2 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .tanner-subheading {
+            font-size: 1.1rem;
+            color: #10b981;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .tanner-left p {
+            font-size: 1rem;
+            color: #475569;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+
+        .tanner-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin: 2rem 0;
+            padding: 2rem;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            display: block;
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tanner-quote {
+            background: white;
+            padding: 2rem;
+            margin: 2rem 0;
+            font-size: 1rem;
+            color: #1e293b;
+            font-style: italic;
+            border-radius: 12px;
+            line-height: 1.8;
+            border: 1px solid #e2e8f0;
+            box-shadow: inset 0 3px 0 #10b981;
+        }
+
+        .tanner-quote cite {
+            display: block;
+            margin-top: 1rem;
+            font-style: normal;
+            color: #10b981;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .tanner-image-placeholder {
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .tanner-image-placeholder img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 20px;
+        }
+
+        /* Problem Section */
+        .problems {
+            background: white;
+        }
+
+        .problems-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .problem-card {
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            border-top: 3px solid #ef4444;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .problem-card:nth-child(2) {
+            border-top-color: #f59e0b;
+        }
+
+        .problem-card:nth-child(3) {
+            border-top-color: #3b82f6;
+        }
+
+        .problem-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
+        }
+
+        .problem-card h3 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+
+        .problem-card p {
+            color: #475569;
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        /* Features Section */
+        .features {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f9f5ff 100%);
+            color: #0f172a;
+        }
+
+        .features h2 {
+            color: #0f172a;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        /* Feature Navigator */
+        .feature-navigator {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 3rem;
+            margin-bottom: 4rem;
+            align-items: start;
+            background: white;
+            border: 1px solid #e0e7ff;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .nav-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            padding: 1rem 1.2rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            color: #475569;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .nav-item:hover {
+            background: #f0fdf4;
+            border-color: #10b981;
+            color: #0f172a;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border-color: #10b981;
+            color: #059669;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+        }
+
+        .nav-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            color: #10b981;
+        }
+
+        .nav-icon svg {
+            width: 100%;
+            height: 100%;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .nav-content {
+            position: relative;
+            min-height: 450px;
+        }
+
+        .feature-detail {
+            opacity: 0;
+            transform: translateY(20px);
+            pointer-events: none;
+            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
+            position: absolute;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: start;
+        }
+
+        .feature-detail.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+            position: relative;
+        }
+
+        .feature-detail-text {
+            padding-right: 1rem;
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out) 40ms;
+        }
+
+        .feature-detail.active .feature-detail-text {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .feature-detail-visual-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 450px;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
+            pointer-events: none;
+        }
+
+        .feature-detail.active .feature-detail-visual-container {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        .phone-mockup {
+            position: relative;
+            width: 280px;
+            aspect-ratio: 9 / 19.5;
+            background: #0f172a;
+            border: 8px solid #0f172a;
+            border-radius: 40px;
+            padding: 0;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .phone-mockup::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 130px;
+            height: 24px;
+            background: #0f172a;
+            border-radius: 0 0 16px 16px;
+            z-index: 10;
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .phone-placeholder {
+            width: 100%;
+            height: 100%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #cbd5e1;
+            padding: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .phone-placeholder-icon {
+            font-size: 0.75rem;
+            margin-bottom: 1rem;
+            opacity: 0.4;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .phone-placeholder-text {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #cbd5e1;
+        }
+
+        .detail-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-badge {
+            display: inline-block;
+            background: rgba(16, 185, 129, 0.15);
+            color: #059669;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.8rem;
+        }
+
+        .detail-header h3 {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-content > p {
+            color: #475569;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-list {
+            list-style: none;
+            margin-bottom: 2rem;
+        }
+
+        .detail-list li {
+            padding: 0.6rem 0;
+            padding-left: 1.8rem;
+            position: relative;
+            color: #475569;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .detail-list li:before {
+            content: '+';
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: 900;
+            font-size: 1rem;
+        }
+
+        .detail-visual {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%);
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            border-radius: 16px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(16, 185, 129, 0.6);
+            font-weight: 600;
+            margin-top: 2rem;
+            position: relative;
+            overflow: hidden;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400" opacity="0.05"><rect x="20" y="40" width="160" height="320" rx="20" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="100" cy="25" r="5" fill="currentColor"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .detail-visual::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 2px dashed rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            pointer-events: none;
+        }
+
+        .detail-visual::after {
+            content: 'Mobile Screenshot Placeholder\ADrag image here or add via CSS';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(16, 185, 129, 0.4);
+            white-space: pre-line;
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        .curriculum-visual::after {
+            content: 'Curriculum Structure\AScreenshot';
+            white-space: pre-line;
+        }
+
+        .progress-visual::after {
+            content: 'Progress Dashboard\AScreenshot';
+            white-space: pre-line;
+        }
+
+        .logbook-visual::after {
+            content: 'Student Logbook\AScreenshot';
+            white-space: pre-line;
+        }
+
+        .coaching-visual::after {
+            content: 'Coach Dashboard\AScreenshot';
+            white-space: pre-line;
+        }
+
+        .whitelabel-visual::after {
+            content: 'White-Label Interface\AScreenshot';
+            white-space: pre-line;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .feature-navigator {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-sidebar {
+                flex-direction: row;
+                overflow-x: auto;
+                gap: 0.8rem;
+            }
+
+            .nav-item {
+                flex-shrink: 0;
+                flex-direction: column;
+                text-align: center;
+                padding: 1rem;
+                min-width: 130px;
+            }
+
+            .nav-icon {
+                width: 28px;
+                height: 28px;
+            }
+
+            .nav-item span {
+                font-size: 0.85rem;
+            }
+
+            .feature-detail {
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+
+            .nav-content {
+                min-height: auto;
+            }
+
+            .feature-detail-visual-container {
+                min-height: 400px;
+                margin-top: 2rem;
+            }
+
+            .detail-visual {
+                height: 350px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .feature-navigator {
+                gap: 1.5rem;
+            }
+
+            .nav-sidebar {
+                flex-wrap: wrap;
+                gap: 0.8rem;
+            }
+
+            .nav-item {
+                flex: 1;
+                min-width: 100px;
+                padding: 0.8rem;
+            }
+
+            .detail-visual {
+                height: 280px;
+                margin-top: 1.5rem;
+            }
+
+            .detail-header h3 {
+                font-size: 1.3rem;
+            }
+
+            .detail-list li {
+                font-size: 0.9rem;
+            }
+        }
+
+        .feature-item {
+            padding: 2.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981 0%, transparent 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .feature-item:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-item:hover {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateY(-8px);
+        }
+
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        .feature-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: white;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .feature-item h3 {
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-bottom: 0.8rem;
+            color: white;
+        }
+
+        .feature-item p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        /* ROI Section */
+        .roi-section {
+            background: linear-gradient(135deg, #f9f5ff 0%, #fef3c7 100%);
+            padding: 6rem 2rem;
+        }
+
+        .roi-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        }
+
+        .roi-intro {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #475569;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .roi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .roi-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+        }
+
+        .roi-card:hover {
+            border-color: #10b981;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+            transform: translateY(-4px);
+        }
+
+        .roi-icon {
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+            color: #10b981;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .roi-card h3 {
+            font-size: 1.2rem;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .roi-value {
+            font-size: 2rem;
+            font-weight: 900;
+            color: #10b981;
+            margin: 1rem 0 0.5rem;
+        }
+
+        .roi-subtext {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 1.5rem;
+        }
+
+        .roi-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.8;
+        }
+
+        .roi-list li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .roi-list li:before {
+            content: '+';
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        /* Breakeven Section */
+        .breakeven-section {
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            border: 2px solid #10b981;
+            margin-bottom: 3rem;
+        }
+
+        .breakeven-section h3 {
+            font-size: 1.5rem;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .breakeven-section > p:first-of-type {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #475569;
+            margin-bottom: 2rem;
+        }
+
+        .breakeven-calculation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .calc-box {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .calc-label {
+            font-size: 0.85rem;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .calc-number {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #10b981;
+            margin: 0;
+        }
+
+        .calc-symbol {
+            font-size: 1.5rem;
+            color: #cbd5e1;
+            font-weight: bold;
+        }
+
+        .breakeven-note {
+            text-align: center;
+            color: #10b981;
+            font-weight: 600;
+            font-size: 1rem;
+            margin-top: 2rem;
+        }
+
+        .breakeven-grid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .breakeven-card {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            min-width: 180px;
+        }
+
+        .breakeven-label {
+            font-size: 0.85rem;
+            color: #475569;
+            margin: 0 0 0.75rem 0;
+            font-weight: 600;
+        }
+
+        .breakeven-amount {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #10b981;
+            margin: 0;
+        }
+
+        .breakeven-detail {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin: 0.5rem 0 0 0;
+        }
+
+        .breakeven-vs {
+            font-size: 1.2rem;
+            color: #cbd5e1;
+            font-weight: bold;
+        }
+
+        .example-note {
+            background: #f0fdf4;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid #bbf7d0;
+            margin-top: 2rem;
+        }
+
+        .example-note p {
+            color: #10b981;
+            font-weight: 600;
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Example Section */
+        .example-section h3 {
+            font-size: 1.5rem;
+            color: #0f172a;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .example-intro {
+            text-align: center;
+            font-size: 1rem;
+            color: #475569;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+
+        .example-section h3 {
+            font-size: 1.5rem;
+            color: #0f172a;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .example-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .example-col {
+            background: #f8fafc;
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .example-col.highlight {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
+        }
+
+        .example-col h4 {
+            font-size: 1.1rem;
+            color: #0f172a;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+        }
+
+        .example-col.highlight h4 {
+            color: #10b981;
+        }
+
+        .example-list {
+            list-style: none;
+            padding: 0;
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.8;
+        }
+
+        .example-list li {
+            padding: 0.5rem 0;
+        }
+
+        .example-math {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid #10b981;
+        }
+
+        .example-math p {
+            font-size: 1rem;
+            color: #475569;
+            margin: 0.7rem 0;
+        }
+
+        .highlight-number {
+            color: #10b981;
+            font-weight: 900;
+            font-size: 1.1rem;
+        }
+
+        /* Integrations Section */
+        .integrations-section {
+            background: white;
+            padding: 6rem 2rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .integrations-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .integrations-intro {
+            text-align: center;
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 3rem;
+        }
+
+        .integrations-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .integration-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+        }
+
+        .integration-card:hover {
+            border-color: #10b981;
+            background: #f0fdf4;
+            box-shadow: 0 8px 16px rgba(15, 23, 42, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .integration-logo {
+            height: 36px;
+            width: auto;
+            max-width: 120px;
+            margin: 0 auto 1rem;
+            display: block;
+            object-fit: contain;
+        }
+
+        .integration-wordmark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 36px;
+            margin-bottom: 1rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            background: #f1f5f9;
+            color: #334155;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .integration-card h3 {
+            font-size: 1.1rem;
+            color: #0f172a;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+        }
+
+        .integration-card p {
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .integrations-note {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-top: 2rem;
+        }
+
+        /* Benefits Section */
+        .benefits-section {
+            background: white;
+            padding: 6rem 2rem;
+        }
+
+        .benefits-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .benefits-phone {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .benefit-phone-mockup {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity var(--duration-ui) var(--ease-out), transform var(--duration-ui) var(--ease-out);
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .benefit-phone-mockup.active {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+            position: relative;
+        }
+
+        .phone-mockup.large {
+            width: 320px;
+        }
+
+        .benefits-content h2 {
+            font-size: 2.8rem;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+            text-align: left;
+        }
+
+        .italic-text {
+            font-style: italic;
+            color: #10b981;
+        }
+
+        .benefits-subtitle {
+            font-size: 1.1rem;
+            color: #475569;
+            margin-bottom: 2.5rem;
+            line-height: 1.8;
+            text-align: left;
+        }
+
+        .benefits-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .benefit-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+        }
+
+        .benefit-item:hover {
+            border-color: #10b981;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+        }
+
+        .benefit-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.3rem 1.5rem;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.3s ease;
+        }
+
+        .benefit-item:hover .benefit-toggle {
+            background: #f1f5f9;
+        }
+
+        .benefit-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .toggle-icon {
+            font-size: 1.5rem;
+            color: #10b981;
+            font-weight: 300;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+        }
+
+        .benefit-item.open .toggle-icon {
+            transform: rotate(45deg);
+        }
+
+        .benefit-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+        }
+
+        .benefit-item.open .benefit-content {
+            max-height: 200px;
+            padding: 0 1.5rem 1.5rem;
+            background: rgba(16, 185, 129, 0.03);
+        }
+
+        .benefit-content p {
+            color: #475569;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .tanner-content {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .tanner-left h2 {
+                font-size: 1.8rem;
+                text-align: center;
+            }
+
+            .tanner-stats {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .roi-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .example-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .integrations-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1.5rem;
+            }
+
+            .benefits-layout {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+
+            .benefits-content h2 {
+                font-size: 2rem;
+                text-align: center;
+            }
+
+            .benefits-subtitle {
+                text-align: center;
+            }
+
+            .benefits-phone {
+                order: -1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .benefits-section {
+                padding: 3rem 1.5rem;
+            }
+
+            .benefits-layout {
+                gap: 2rem;
+            }
+
+            .benefits-content h2 {
+                font-size: 1.5rem;
+            }
+
+            .benefit-toggle {
+                padding: 1rem;
+            }
+
+            .benefit-title {
+                font-size: 0.95rem;
+            }
+        }
+
+        .steps-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+            position: relative;
+        }
+
+        .step-item {
+            text-align: center;
+            position: relative;
+        }
+
+        .step-number {
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: #059669;
+            margin-bottom: 1rem;
+            line-height: 1;
+        }
+
+        .step-item h3 {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 0.8rem;
+        }
+
+        .step-item p {
+            color: #475569;
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+
+        .step-item::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 60px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, #e2e8f0 50%, transparent 100%);
+            transform: translateX(-50%);
+        }
+
+        .step-item:last-child::before {
+            display: none;
+        }
+
+        /* Trial Banner */
+        .trial-banner {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            padding: 3rem 2rem;
+            color: white;
+        }
+
+        .trial-content {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .trial-banner h3 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 900;
+        }
+
+        .trial-banner p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            opacity: 0.95;
+            margin: 0;
+        }
+
+        /* Implementation Timeline */
+        .implementation-section {
+            background: white;
+            padding: 6rem 2rem;
+        }
+
+        .implementation-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .implementation-intro {
+            text-align: center;
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 3rem;
+        }
+
+        .timeline-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 0 auto 3rem;
+        }
+
+        .timeline-item {
+            background: white;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            flex: 1;
+            min-width: 200px;
+            max-width: 240px;
+        }
+
+        .timeline-number {
+            font-size: 0.8rem;
+            font-weight: 900;
+            color: #10b981;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+
+        .timeline-content h4 {
+            font-size: 1.1rem;
+            color: #0f172a;
+            margin: 0 0 0.75rem 0;
+            font-weight: 700;
+        }
+
+        .timeline-content p {
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .timeline-arrow {
+            font-size: 1.5rem;
+            color: #10b981;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .timeline-note {
+            text-align: center;
+            font-size: 1rem;
+            color: #475569;
+            line-height: 1.8;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Pricing Section */
+        .pricing-section {
+            background: white;
+            padding: 6rem 2rem;
+        }
+
+        .pricing-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-intro {
+            text-align: center;
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 3rem;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .pricing-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 2.5rem;
+            position: relative;
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+        }
+
+        .pricing-card:hover {
+            border-color: #10b981;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.1);
+        }
+
+        .pricing-card.featured {
+            border-color: #10b981;
+            background: #f0fdf4;
+            transform: scale(1.05);
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #10b981;
+            color: white;
+            padding: 0.4rem 1.2rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.3rem;
+            color: #0f172a;
+            margin: 1rem 0 0.75rem;
+            font-weight: 700;
+        }
+
+        .pricing-from {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin: 0;
+            margin-bottom: -0.5rem;
+        }
+
+        .price {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #10b981;
+            margin: 1.5rem 0 0.5rem;
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .pricing-description {
+            font-size: 0.95rem;
+            color: #475569;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .pricing-features {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            color: #475569;
+        }
+
+        .pricing-features li {
+            padding: 0.6rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .pricing-features li:before {
+            content: '+';
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .pricing-card .cta-button {
+            width: 100%;
+        }
+
+        .pricing-note {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        /* Guarantee Section */
+        .guarantee-hero {
+            text-align: center;
+            margin-bottom: 4rem;
+            padding: 3rem 2rem;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+            border-radius: 20px;
+            border: 2px solid #10b981;
+        }
+
+        .guarantee-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 0.6rem 1.5rem;
+            border-radius: 25px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1.5rem;
+        }
+
+        .guarantee-hero h2 {
+            font-size: 2.2rem;
+            color: #0f172a;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+
+        .guarantee-text {
+            font-size: 1rem;
+            color: #475569;
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .early-pricing-tag {
+            display: block;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+            margin-top: -1rem;
+        }
+
+        .founding-price {
+            font-size: 0.85rem;
+            color: #059669;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .founding-price strike {
+            color: #cbd5e1;
+            margin-right: 0.5rem;
+        }
+
+        .button-note {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 0.75rem;
+            font-style: italic;
+        }
+
+        .pricing-faq {
+            text-align: center;
+            color: #475569;
+            font-size: 0.95rem;
+            margin-top: 2rem;
+        }
+
+        .pricing-faq a {
+            color: #10b981;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .pricing-faq a:hover {
+            color: #059669;
+            text-decoration: underline;
+        }
+
+        /* Comparison Section */
+        .comparison-section {
+            background: linear-gradient(135deg, #f9f5ff 0%, #f0fdf4 100%);
+            padding: 6rem 2rem;
+        }
+
+        .comparison-section h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+
+        .comparison-intro {
+            text-align: center;
+            font-size: 1rem;
+            color: #64748b;
+            margin-bottom: 3rem;
+        }
+
+        .comparison-table {
+            overflow-x: auto;
+            margin-bottom: 2rem;
+        }
+
+        .comparison-table table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .comparison-table thead {
+            background: #0f172a;
+            color: white;
+        }
+
+        .comparison-table th {
+            padding: 1.5rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-right: 1px solid #e2e8f0;
+        }
+
+        .comparison-table th:last-child {
+            border-right: none;
+            background: #10b981;
+        }
+
+        .comparison-table th .highlight-checkmark {
+            color: white;
+            font-weight: 700;
+        }
+
+        .comparison-table td {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .comparison-table td:last-child {
+            border-right: none;
+            background: #f0fdf4;
+            font-weight: 600;
+            color: #10b981;
+        }
+
+        .comparison-table tbody tr:hover td {
+            background: #f8fafc;
+        }
+
+        .comparison-table tbody tr:hover td:last-child {
+            background: #ecfdf5;
+        }
+
+        .comparison-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-summary {
+            background: white;
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: inset 0 3px 0 #10b981;
+        }
+
+        .comparison-summary p {
+            color: #475569;
+            font-size: 1rem;
+            line-height: 1.8;
+            margin: 0;
+        }
+
+        /* CTA Section */
+        .cta-final {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            text-align: center;
+            border-radius: 16px;
+            padding: 4rem 2rem;
+            margin-top: 2rem;
+            box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18);
+        }
+
+        .cta-final h2 {
+            color: white;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta-final p {
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+            color: rgba(255, 255, 255, 0.95);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Footer */
+        footer {
+            background: #0f172a;
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        footer p {
+            margin-bottom: 0.5rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        footer a {
+            color: #10b981;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        footer a:hover {
+            color: #059669;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+
+            .hero p {
+                font-size: 1.1rem;
+            }
+
+            .hero-badge {
+                font-size: 0.75rem;
+                padding: 0.6rem 1.2rem;
+            }
+
+            .hero-subtext {
+                font-size: 0.9rem;
+            }
+
+            .cta-button {
+                display: block;
+                width: calc(100% - 2rem);
+                margin: 0.75rem auto;
+            }
+
+            .nav-links { display: none; }
+            .nav-toggle { display: inline-flex; }
+            .nav-mobile-cta { display: none; }
+
+            nav {
+                padding: 0.75rem 1rem;
+            }
+
+            .logo {
+                font-size: 1.1rem;
+            }
+
+            section h2 {
+                font-size: 2rem;
+            }
+
+            section {
+                padding: 3rem 1.5rem;
+            }
+
+            .dashboard-content {
+                grid-template-columns: 1fr;
+            }
+
+            .steps-container {
+                gap: 2rem;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+
+            .guarantee-hero {
+                padding: 2rem 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .guarantee-hero h2 {
+                font-size: 1.6rem;
+            }
+
+            .guarantee-text {
+                font-size: 0.95rem;
+            }
+
+            .early-pricing-tag {
+                font-size: 0.75rem;
+                padding: 0.5rem 0.8rem;
+            }
+
+            .pricing-section h2 {
+                font-size: 1.8rem;
+            }
+
+            .comparison-table table {
+                font-size: 0.85rem;
+            }
+
+            .comparison-table th,
+            .comparison-table td {
+                padding: 0.75rem;
+            }
+
+            .comparison-section h2 {
+                font-size: 1.8rem;
+            }
+
+            .breakeven-calculation {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .example-math {
+                padding: 1.5rem;
+                border: 2px solid #10b981;
+            }
+
+            .example-math p {
+                font-size: 0.9rem;
+                line-height: 1.6;
+                word-break: break-word;
+            }
+
+            .example-math p:first-child {
+                font-size: 1rem;
+                font-weight: 700;
+                margin-bottom: 1rem;
+            }
+
+            .highlight-number {
+                display: block;
+                font-size: 1.3rem;
+                margin: 0.5rem 0;
+            }
+
+            .roi-section h2 {
+                font-size: 1.8rem;
+            }
+
+            .integrations-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .cta-final {
+                padding: 2.5rem 1.5rem;
+            }
+
+            .trial-banner h3 {
+                font-size: 1.5rem;
+            }
+
+            .trial-banner p {
+                font-size: 1rem;
+            }
+
+            .implementation-section h2 {
+                font-size: 1.8rem;
+            }
+
+            .timeline-container {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .timeline-arrow {
+                display: none;
+            }
+
+            .timeline-item {
+                min-width: 100%;
+                max-width: 100%;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+
+        /* Hero animations */
+        .hero h1 {
+            animation: fadeInUp var(--duration-hero) var(--ease-out);
+        }
+
+        .hero p {
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 50ms both;
+        }
+
+        .hero .cta-button {
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 100ms both;
+        }
+
+        .dashboard-mock {
+            animation: fadeInUp var(--duration-hero) var(--ease-out) 150ms both;
+        }
+
+        .mock-card {
+            animation: scaleIn 400ms var(--ease-out) forwards;
+        }
+
+        .mock-card:nth-child(1) { animation-delay: 200ms; }
+        .mock-card:nth-child(2) { animation-delay: 250ms; }
+        .mock-card:nth-child(3) { animation-delay: 300ms; }
+        .mock-card:nth-child(4) { animation-delay: 350ms; }
+        .mock-card:nth-child(5) { animation-delay: 400ms; }
+        .mock-card:nth-child(6) { animation-delay: 450ms; }
+
+        /* Tanner proof animations */
+        .tanner-left {
+            animation: fadeInLeft var(--duration-hero) var(--ease-out);
+        }
+
+        .tanner-right {
+            animation: fadeInRight var(--duration-hero) var(--ease-out);
+        }
+
+        /* Trial banner animation */
+        .trial-banner {
+            animation: slideDown var(--duration-ui) var(--ease-out);
+        }
+
+        /* Timeline animations */
+        .timeline-item {
+            animation: fadeInUp var(--duration-ui) var(--ease-out) forwards;
+        }
+
+        .timeline-item:nth-child(1) { animation-delay: 0ms; }
+        .timeline-item:nth-child(3) { animation-delay: 50ms; }
+        .timeline-item:nth-child(5) { animation-delay: 100ms; }
+        .timeline-item:nth-child(7) { animation-delay: 150ms; }
+
+        /* Card hover animations */
+        .problem-card,
+        .roi-card,
+        .pricing-card,
+        .integration-card,
+        .benefit-item,
+        .comparison-table tbody tr {
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .problem-card:hover,
+            .roi-card:hover,
+            .pricing-card:hover,
+            .integration-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+            }
+
+            .cta-button:hover::before {
+                left: 100%;
+            }
+
+            .nav-item:hover {
+                transform: translateX(2px);
+            }
+        }
+
+        /* Button shimmer */
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left var(--duration-ui) var(--ease-out);
+            z-index: -1;
+        }
+
+        /* Feature navigator */
+        .nav-item {
+            transition: transform var(--duration-ui) var(--ease-out), box-shadow var(--duration-ui) var(--ease-out), border-color var(--duration-ui) ease, background var(--duration-ui) ease;
+        }
+
+        /* Example grid animations */
+        .example-col {
+            animation: fadeInUp var(--duration-ui) var(--ease-out) forwards;
+        }
+
+        .example-col:nth-child(1) { animation-delay: 50ms; }
+        .example-col:nth-child(2) { animation-delay: 100ms; }
+
+        /* Scroll fade-in enhancement */
+        .fade-in {
+            opacity: 1;
+            transform: none;
+            transition: transform var(--duration-scroll) var(--ease-out);
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .fade-in { transform: translateY(10px); }
+            .fade-in.visible { transform: translateY(0); }
+        }
+
+        /* Nav link animations */
+        nav a {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: #10b981;
+            transform: scaleX(0);
+            transform-origin: left center;
+            transition: transform 0.3s ease;
+        }
+
+        nav a:hover::after,
+        nav a.active::after {
+            transform: scaleX(1);
+        }
+
+        /* Loading animation for stats */
+        .mock-card-value {
+            animation: countUp 0.8s ease-out forwards;
+            opacity: 0;
+        }
+
+        .mock-card:nth-child(1) .mock-card-value { animation-delay: 0.4s; }
+        .mock-card:nth-child(2) .mock-card-value { animation-delay: 0.5s; }
+        .mock-card:nth-child(3) .mock-card-value { animation-delay: 0.6s; }
+        .mock-card:nth-child(4) .mock-card-value { animation-delay: 0.7s; }
+        .mock-card:nth-child(5) .mock-card-value { animation-delay: 0.8s; }
+        .mock-card:nth-child(6) .mock-card-value { animation-delay: 0.9s; }
+
+        /* Comparison table row animation */
+        .comparison-table tbody tr {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .comparison-table tbody tr:nth-child(1) { animation-delay: 0.1s; }
+        .comparison-table tbody tr:nth-child(2) { animation-delay: 0.15s; }
+        .comparison-table tbody tr:nth-child(3) { animation-delay: 0.2s; }
+        .comparison-table tbody tr:nth-child(4) { animation-delay: 0.25s; }
+        .comparison-table tbody tr:nth-child(5) { animation-delay: 0.3s; }
+        .comparison-table tbody tr:nth-child(6) { animation-delay: 0.35s; }
+        .comparison-table tbody tr:nth-child(7) { animation-delay: 0.4s; }
+        .comparison-table tbody tr:nth-child(8) { animation-delay: 0.45s; }
+        .comparison-table tbody tr:nth-child(9) { animation-delay: 0.5s; }
+        .comparison-table tbody tr:nth-child(10) { animation-delay: 0.55s; }
+
+        /* Stats animation */
+        .stat {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .stat:nth-child(1) { animation-delay: 0.1s; }
+        .stat:nth-child(2) { animation-delay: 0.2s; }
+        .stat:nth-child(3) { animation-delay: 0.3s; }
+
+    /* ===== READINESS QUIZ STYLES ===== */
+
+
+    .rq-section {
+        background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 70%);
+        padding: 1rem 0 2rem;
+    }
+
+    .rq-quiz-shell, .rq-quiz-shell * {
+        box-sizing: border-box;
+    }
+
+    .rq-quiz-shell {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 4rem;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Top bar */
+    .rq-quiz-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 2.5rem;
+    }
+
+    .rq-quiz-logo {
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: #0f172a;
+        letter-spacing: -0.5px;
+    }
+
+    .rq-quiz-logo span {
+        color: #10b981;
+    }
+
+    .rq-quiz-step-counter {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    /* Progress bar */
+    .rq-progress-track {
+        width: 100%;
+        height: 6px;
+        background: #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 3rem;
+    }
+
+    .rq-progress-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #10b981, #059669);
+        border-radius: 10px;
+        transform: scaleX(0);
+        transform-origin: left center;
+        transition: transform 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    /* Card stage */
+    .rq-stage {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+    }
+
+    .rq-screen {
+        display: none;
+        animation: fadeSlideIn 0.45s ease both;
+    }
+
+    .rq-screen.rq-active {
+        display: block;
+    }
+
+    @keyframes fadeSlideIn {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Intro screen */
+    .rq-intro-eyebrow {
+        display: inline-block;
+        background: #ecfdf5;
+        color: #059669;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        padding: 0.45rem 0.9rem;
+        border-radius: 20px;
+        margin-bottom: 1.5rem;
+        border: 1px solid #a7f3d0;
+    }
+
+    .rq-intro-h1 {
+        font-size: 2.3rem;
+        font-weight: 900;
+        line-height: 1.15;
+        letter-spacing: -1px;
+        margin-bottom: 1.2rem;
+    }
+
+    .rq-intro-h1 em {
+        font-style: normal;
+        color: #10b981;
+    }
+
+    .rq-intro-p {
+        font-size: 1.05rem;
+        color: #475569;
+        line-height: 1.65;
+        margin-bottom: 2.2rem;
+        max-width: 540px;
+    }
+
+    .rq-intro-meta {
+        display: flex;
+        gap: 1.8rem;
+        margin-bottom: 2.4rem;
+        flex-wrap: wrap;
+    }
+
+    .rq-intro-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .rq-intro-meta-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #10b981;
+        flex-shrink: 0;
+    }
+
+    /* Question screen */
+    .rq-q-eyebrow {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #10b981;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        margin-bottom: 0.8rem;
+    }
+
+    .rq-q-title {
+        font-size: 1.65rem;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.3px;
+        margin-bottom: 0.5rem;
+    }
+
+    .rq-q-hint {
+        font-size: 0.9rem;
+        color: #94a3b8;
+        margin-bottom: 1.8rem;
+    }
+
+    .rq-options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .rq-option {
+        display: flex;
+        align-items: center;
+        gap: 0.9rem;
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 1rem 1.2rem;
+        cursor: pointer;
+        transition: all 0.18s ease;
+        text-align: left;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e293b;
+        font-family: inherit;
+        width: 100%;
+    }
+
+    .rq-option:hover {
+        border-color: #6ee7b7;
+        background: #f0fdf4;
+        transform: translateX(2px);
+    }
+
+    .rq-option.selected {
+        border-color: #10b981;
+        background: #ecfdf5;
+        box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
+    }
+
+    .rq-option-check {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 2px solid #cbd5e1;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.18s ease;
+    }
+
+    .rq-option.multi .rq-option-check {
+        border-radius: 6px;
+    }
+
+    .rq-option.selected .rq-option-check {
+        background: #10b981;
+        border-color: #10b981;
+    }
+
+    .rq-option-check svg {
+        width: 12px;
+        height: 12px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    .rq-option.selected .rq-option-check svg {
+        opacity: 1;
+    }
+
+    .rq-multi-note {
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-top: 1rem;
+        font-style: italic;
+    }
+
+    /* Nav buttons */
+    .rq-quiz-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 2.2rem;
+    }
+
+    .rq-btn-back {
+        background: none;
+        border: none;
+        color: #64748b;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+        font-family: inherit;
+        padding: 0.6rem 0.8rem;
+        border-radius: 8px;
+        transition: background 0.15s ease;
+    }
+
+    .rq-btn-back:hover {
+        background: #f1f5f9;
+    }
+
+    .rq-btn-back:disabled {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .rq-btn-primary {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border: none;
+        font-weight: 700;
+        font-size: 1rem;
+        padding: 0.95rem 2.2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    }
+
+    .rq-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+    }
+
+    .rq-btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .rq-btn-primary-large {
+        width: 100%;
+        padding: 1.1rem 2rem;
+        font-size: 1.05rem;
+    }
+
+    /* Loading screen */
+    .rq-loading-screen {
+        text-align: center;
+        padding: 3rem 0;
+    }
+
+    .rq-loading-spinner {
+        width: 52px;
+        height: 52px;
+        border: 4px solid #d1fae5;
+        border-top-color: #10b981;
+        border-radius: 50%;
+        margin: 0 auto 1.8rem;
+        animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .rq-loading-text {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.4rem;
+        min-height: 1.4rem;
+    }
+
+    /* Results screen */
+    .rq-results-header {
+        text-align: center;
+        margin-bottom: 2.2rem;
+    }
+
+    .rq-results-eyebrow {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        margin-bottom: 1.2rem;
+    }
+
+    .rq-score-gauge-wrap {
+        position: relative;
+        width: 220px;
+        height: 220px;
+        margin: 0 auto 1.5rem;
+    }
+
+    .rq-score-gauge-wrap svg {
+        width: 100%;
+        height: 100%;
+        transform: rotate(-90deg);
+    }
+
+    .rq-gauge-bg {
+        fill: none;
+        stroke: #e2e8f0;
+        stroke-width: 14;
+    }
+
+    .rq-gauge-fill {
+        fill: none;
+        stroke: #10b981;
+        stroke-width: 14;
+        stroke-linecap: round;
+        stroke-dasharray: 565.5;
+        stroke-dashoffset: 565.5;
+        transition: stroke-dashoffset 1.2s cubic-bezier(0.65, 0, 0.35, 1);
+    }
+
+    .rq-score-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+
+    .rq-score-number {
+        font-size: 3.2rem;
+        font-weight: 900;
+        color: #0f172a;
+        letter-spacing: -1px;
+        line-height: 1;
+    }
+
+    .rq-score-out-of {
+        font-size: 0.9rem;
+        color: #94a3b8;
+        font-weight: 700;
+        margin-top: 0.2rem;
+    }
+
+    .rq-band-badge {
+        display: inline-block;
+        padding: 0.5rem 1.1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 1.2rem;
+    }
+
+    .rq-band-badge.low {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .rq-band-badge.mid {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .rq-band-badge.high {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .rq-results-headline {
+        font-size: 1.7rem;
+        font-weight: 900;
+        text-align: center;
+        letter-spacing: -0.5px;
+        margin-bottom: 1rem;
+        line-height: 1.3;
+    }
+
+    .rq-results-body {
+        font-size: 1rem;
+        color: #475569;
+        line-height: 1.7;
+        text-align: center;
+        max-width: 540px;
+        margin: 0 auto 2rem;
+    }
+
+    .rq-results-body strong {
+        color: #0f172a;
+    }
+
+    .rq-insight-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.8rem;
+    }
+
+    .rq-insight-card-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #10b981;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 0.9rem;
+    }
+
+    .rq-insight-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.7rem;
+        padding: 0.6rem 0;
+        font-size: 0.92rem;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .rq-insight-row:last-child {
+        border-bottom: none;
+    }
+
+    .rq-insight-icon {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #ecfdf5;
+        color: #10b981;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 900;
+        flex-shrink: 0;
+        margin-top: 0.1rem;
+    }
+
+    .rq-results-cta-block {
+        text-align: center;
+    }
+
+    .rq-results-cta-note {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin-top: 1rem;
+        font-style: italic;
+    }
+
+    .rq-restart-link {
+        display: block;
+        text-align: center;
+        margin-top: 1.5rem;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .rq-restart-link:hover {
+        color: #64748b;
+    }
+
+    /* Mobile */
+    @media (max-width: 600px) {
+        .rq-quiz-shell {
+            padding: 1.5rem 1.2rem 3rem;
+        }
+
+        .rq-intro-h1 {
+            font-size: 1.8rem;
+        }
+
+        .rq-intro-p {
+            font-size: 0.98rem;
+        }
+
+        .rq-q-title {
+            font-size: 1.35rem;
+        }
+
+        .rq-score-gauge-wrap {
+            width: 180px;
+            height: 180px;
+        }
+
+        .rq-score-number {
+            font-size: 2.5rem;
+        }
+
+        .rq-results-headline {
+            font-size: 1.4rem;
+        }
+
+        .rq-intro-meta {
+            gap: 1rem;
+        }
+    }
+
+    .rq-visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    .disclosure-block {
+        margin-top: 2.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #f8fafc;
+        overflow: hidden;
+    }
+    .disclosure-block summary {
+        cursor: pointer;
+        padding: 1.25rem 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        list-style: none;
+    }
+    .disclosure-block summary::-webkit-details-marker { display: none; }
+    .disclosure-block .disclosure-body {
+        padding: 0 1.5rem 1.5rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .rq-quiz-shell button:focus-visible, .rq-option:focus-visible {
+        outline: 3px solid #059669;
+        outline-offset: 2px;
+    }
+
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">PicklePro</div>
+        <ul class="nav-links">
+            <li><a href="#proof">Proof</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how">How It Works</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#contact">Book a Call</a></li>
+        </ul>
+        <div class="nav-actions">
+            <a href="https://cal.id/guillaume-panot/piklepro-academy" class="nav-mobile-cta">Start Free Trial</a>
+            <button type="button" class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navDrawer" aria-label="Open menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+    <div class="nav-drawer" id="navDrawer" hidden>
+        <div class="nav-drawer-panel" role="dialog" aria-label="Site menu">
+            <ul class="nav-drawer-links">
+                <li><a href="#proof">Proof</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#how">How It Works</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#contact">Book a Call</a></li>
+            </ul>
+            <a href="https://cal.id/guillaume-panot/piklepro-academy" class="nav-drawer-cta">Start Free Trial</a>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div style="height: 3.2rem;"></div>
+            <h1>You Built the Brand.<br>Now Build the Network.</h1>
+            <p>Standardize your curriculum across coaches and cities, so growth doesn't dilute what made you successful.</p>
+            
+            <button class="cta-button" onclick="openReadinessQuiz()">Check My Readiness Score</button>
+            <p class="hero-subtext">90-second readiness check — start without creating an account.</p>
+            <p class="hero-skip-link">Prefer to talk first? <a href="https://cal.id/guillaume-panot/piklepro-academy">Book a 30-minute call &rarr;</a></p>
+
+            <figure class="hero-visual">
+                <img src="Assets/tanner_academy.png" alt="Tanner Tomassi Academy running on PicklePro — unified curriculum across coaches" width="920" height="520" loading="eager">
+                <figcaption>Live with Tanner Tomassi's academy: 40+ students, 3 coaches, one curriculum.</figcaption>
+            </figure>
+        </div>
+    </section>
+
+
+    <!-- ===== READINESS QUIZ SECTION ===== -->
+<section id="quizSection" class="rq-section">
+<div class="rq-quiz-shell">
+
+    <div class="rq-quiz-topbar">
+        <div class="rq-quiz-logo">Pickle<span>Pro</span></div>
+        <div class="rq-quiz-step-counter" id="rqStepCounter">Readiness Score</div>
+    </div>
+
+    <div class="rq-progress-track" id="rqProgressTrack" style="display:none;">
+        <div class="rq-progress-fill" id="rqProgressFill"></div>
+    </div>
+
+    <div class="rq-stage">
+
+        <!-- INTRO SCREEN -->
+        <div class="rq-screen rq-active" data-rqscreen="intro">
+            <div class="rq-intro">
+                <div class="rq-intro-eyebrow">Free 90-Second Diagnostic</div>
+                <h2 class="rq-intro-h1">What's Your <em>National Academy</em><br>Readiness Score?</h2>
+                <p class="rq-intro-p">Answer 7 quick questions about how your academy runs today. You'll get a personalized score and a breakdown of exactly what's standing between you and expanding past your home city.</p>
+                <div class="rq-intro-meta">
+                    <div class="rq-intro-meta-item"><span class="rq-intro-meta-dot"></span>7 questions</div>
+                    <div class="rq-intro-meta-item"><span class="rq-intro-meta-dot"></span>90 seconds</div>
+                    <div class="rq-intro-meta-item"><span class="rq-intro-meta-dot"></span>Instant results</div>
+                </div>
+                <button class="rq-btn-primary rq-btn-primary-large" onclick="rqStartQuiz()">Get My Readiness Score</button>
+            </div>
+        </div>
+
+        <!-- QUESTION SCREENS WILL BE INJECTED HERE -->
+        <div id="rqQuestionContainer"></div>
+
+        <!-- LOADING SCREEN -->
+        <div class="rq-screen" data-rqscreen="loading">
+            <div class="rq-loading-screen">
+                <div class="rq-loading-spinner"></div>
+                <div class="rq-loading-text" id="rqLoadingText">Calculating your score...</div>
+            </div>
+        </div>
+
+        <!-- RESULTS SCREEN -->
+        <div class="rq-screen" data-rqscreen="results">
+            <div class="rq-results-header">
+                <div class="rq-results-eyebrow">Your Result</div>
+                <div class="rq-score-gauge-wrap">
+                    <svg viewBox="0 0 200 200">
+                        <circle class="rq-gauge-bg" cx="100" cy="100" r="90"></circle>
+                        <circle class="rq-gauge-fill" id="rqGaugeFill" cx="100" cy="100" r="90"></circle>
+                    </svg>
+                    <div class="rq-score-center">
+                        <div class="rq-score-number" id="rqScoreNumber">0</div>
+                        <div class="rq-score-out-of">/ 100</div>
+                    </div>
+                </div>
+                <div id="rqBandBadge"></div>
+                <h2 class="rq-results-headline" id="rqResultsHeadline"></h2>
+                <p class="rq-results-body" id="rqResultsBody"></p>
+            </div>
+
+            <div class="rq-insight-card">
+                <div class="rq-insight-card-title">What's holding you back</div>
+                <div id="rqInsightRows"></div>
+            </div>
+
+            <div class="rq-results-cta-block">
+                <button class="rq-btn-primary rq-btn-primary-large" onclick="rqGoToBooking()">See How PicklePro Fixes This — Book Your Call</button>
+                <p class="rq-results-cta-note">30-minute call with a 30-day trial — no credit card to start.</p>
+            </div>
+
+            <a href="#" class="rq-restart-link" onclick="rqRestartQuiz(); return false;">Retake the assessment</a>
+        </div>
+
+    </div>
+</div>
+</section>
+
+    <!-- Proof of Concept: Tanner Academy -->
+    <section class="tanner-proof" id="proof">
+        <div class="container">
+            <div class="tanner-content">
+                <div class="tanner-left">
+                    <h2>Built With Real Coaches</h2>
+                    <p class="tanner-subheading">Tanner Tomassi's Academy is live on PicklePro</p>
+                    <p>Tanner runs one of the fastest-growing pickleball academies in North America. With 62.5K TikTok followers and a published book, Tanner needed to scale his coaching without losing the consistency that made his academy work.</p>
+                    <p><strong>Result:</strong> 40+ students, 3 coaches, and one curriculum taught the same way in every session.</p>
+                    
+                    <div class="tanner-stats">
+                        <div class="stat">
+                            <div class="stat-number">62.5K</div>
+                            <div class="stat-label">TikTok Followers</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">40+</div>
+                            <div class="stat-label">Active Students</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-number">3</div>
+                            <div class="stat-label">Coaches (Unified)</div>
+                        </div>
+                    </div>
+
+                    <blockquote class="tanner-quote">
+                        "PicklePro let me scale from 1 coach to 3 without losing what makes my academy special. My students get the same progression, same standards, every single session."
+                        <cite>Tanner Tomassi, Pro Coach & Academy Founder</cite>
+                    </blockquote>
+                </div>
+                <div class="tanner-right">
+                    <div class="tanner-image-placeholder">
+                        <img src="Assets/tanner_academy.png" alt="Tanner Academy Live Interface" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problems Section -->
+    <section class="problems">
+        <div class="container">
+            <h2>The Academy Scaling Problem</h2>
+            <div class="problems-grid">
+                <div class="problem-card fade-in">
+                    <h3>Inconsistent Teaching</h3>
+                    <p>Multiple coaches = multiple approaches. How do you ensure every student gets the same progression?</p>
+                </div>
+                <div class="problem-card fade-in">
+                    <h3>No Progress Visibility</h3>
+                    <p>Spreadsheets don't scale. You can't see who's improving, who's stuck, or when to advance.</p>
+                </div>
+                <div class="problem-card fade-in">
+                    <h3>Manual Assessments</h3>
+                    <p>Evaluating at 10-hour checkpoints takes time and is scattered across different systems.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI & Financial Impact Section -->
+    <section class="roi-section">
+        <div class="container">
+            <h2>The Math: Why PicklePro Pays for Itself</h2>
+            <p class="roi-intro">You don't need massive growth to break even. Here's what coaches see in practice:</p>
+
+            <div class="roi-grid">
+                <div class="roi-card fade-in">
+                    <div class="roi-icon">SCALE</div>
+                    <h3>Scale Without Admin Headcount</h3>
+                    <p class="roi-value">$1,500+</p>
+                    <p class="roi-subtext">in monthly admin costs eliminated</p>
+                    <ul class="roi-list">
+                        <li>Start at $399/mo (1-3 coaches)</li>
+                        <li>Scale to $699/mo (4-10 coaches)</li>
+                        <li>Grow to $999/mo (10+ coaches)</li>
+                        <li>Still costs less than 1 admin hire</li>
+                    </ul>
+                </div>
+
+                <div class="roi-card fade-in">
+                    <div class="roi-icon">CONSISTENCY</div>
+                    <h3>Ensure Brand Consistency</h3>
+                    <p class="roi-value">+25-30%</p>
+                    <p class="roi-subtext">student retention improvement</p>
+                    <ul class="roi-list">
+                        <li>All coaches teach the same curriculum</li>
+                        <li>Students don't feel lost switching coaches</li>
+                        <li>Quality doesn't vary by geography</li>
+                        <li>Your brand stays unified</li>
+                    </ul>
+                </div>
+
+                <div class="roi-card fade-in">
+                    <div class="roi-icon">GROWTH</div>
+                    <h3>Grow Geographically Without Risk</h3>
+                    <p class="roi-value">Unlimited</p>
+                    <p class="roi-subtext">coaches you can manage</p>
+                    <ul class="roi-list">
+                        <li>Hire coaches in new cities/states</li>
+                        <li>No training or curriculum inconsistency risk</li>
+                        <li>Maintain quality across your entire network</li>
+                        <li>Same platform handles 3 or 300 coaches</li>
+                    </ul>
+                </div>
+            </div>
+
+            <details class="disclosure-block example-section">
+                <summary>See the full ROI breakdown (247 students, 12 coaches)</summary>
+                <div class="disclosure-body">
+                <h3>The Real Cost (It's Lower Than You Think) with 247 Students & 12 Coaches</h3>
+                
+                <p class="example-intro">Running a scaled academy: 12 coaches across multiple cities, 247 students buying 10-hour packages at $50-75/hour. Monthly revenue from packages and hourly coaching: about $60,000 (mid-range for this size academy).</p>
+                
+                <div class="example-grid">
+                    <div class="example-col">
+                        <h4>Without PicklePro</h4>
+                        <ul class="example-list">
+                            <li>Managing 12 coaches manually (nightmare)</li>
+                            <li>Each coach teaching their own way</li>
+                            <li>Students get different progressions per coach</li>
+                            <li>Tracking 247 students across 12 coaches? Impossible</li>
+                            <li>Monthly revenue: ~$60,000</li>
+                            <li>Need 1-2 full-time admin staff ($4,000-6,000/mo)</li>
+                            <li>High coach churn due to inconsistency</li>
+                        </ul>
+                    </div>
+                    <div class="example-col highlight">
+                        <h4>With PicklePro</h4>
+                        <ul class="example-list">
+                            <li>All 12 coaches on the same curriculum</li>
+                            <li>Unified progression for all 247 students</li>
+                            <li>Real-time dashboard of all coach performance</li>
+                            <li>Automatic assessments at 10-hour checkpoints</li>
+                            <li>Monthly revenue: ~$60,000</li>
+                            <li>No admin hire needed - PicklePro handles it</li>
+                            <li>All coaches aligned, quality consistent</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="example-math">
+                    <p><strong>The Math:</strong></p>
+                    <p>Monthly academy revenue (packages & hourly): <span class="highlight-number">$60,000</span></p>
+                    <p>Without PicklePro - Admin staff cost: <span class="highlight-number">-$5,000</span></p>
+                    <p>With PicklePro - Platform cost: <span class="highlight-number">-$699</span></p>
+                    <p style="font-weight: 900; font-size: 1.1rem; margin-top: 1rem;">You save: <span class="highlight-number">$4,301/month</span> by not hiring admin staff</p>
+                    <p style="margin-top: 0.5rem; color: #10b981; font-weight: 600;">PicklePro is only 1.2% of your monthly revenue to perfectly manage 12 coaches and 247 students.</p>
+                </div>
+
+                <div class="example-note">
+                    <p>The real win: You can scale to 20, 30, or 50 coaches with zero additional admin overhead. Same system, unlimited coaches, perfect consistency.</p>
+                </div>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <!-- Integrations Section -->
+    <section class="integrations-section">
+        <div class="container">
+            <h2>Works With Your Stack</h2>
+            <p class="integrations-intro">PicklePro integrates with the tools you already use</p>
+            
+            <div class="integrations-grid">
+                <div class="integration-card">
+                    <span class="integration-wordmark">Stripe</span>
+                    <h3>Stripe</h3>
+                    <p>Process payments, manage subscriptions, automate billing</p>
+                </div>
+                <div class="integration-card">
+                    <img class="integration-logo" src="Assets/DUPR_logo.png" alt="DUPR logo" width="120" height="36">
+                    <h3>DUPR</h3>
+                    <p>Pull student ratings, track skill progression by official levels</p>
+                </div>
+                <div class="integration-card">
+                    <span class="integration-wordmark">Court Reserve</span>
+                    <h3>Court Reserve</h3>
+                    <p>Sync court bookings, manage academy schedules seamlessly</p>
+                </div>
+                <div class="integration-card">
+                    <span class="integration-wordmark">OpenCourt</span>
+                    <h3>OpenCourt</h3>
+                    <p>Connect with the pickleball community, find matches and events</p>
+                </div>
+            </div>
+            <p class="integrations-note">More integrations coming. Contact us about API access for custom connections.</p>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2>Built for Scaling</h2>
+            
+            <!-- Feature Navigator -->
+            <div class="feature-navigator">
+                <div class="nav-sidebar">
+                    <div class="nav-item active" data-feature="curriculum">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        </div>
+                        <span>Unified Curriculum</span>
+                    </div>
+                    <div class="nav-item" data-feature="progress">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 17"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                        </div>
+                        <span>Real-Time Progress</span>
+                    </div>
+                    <div class="nav-item" data-feature="logbook">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </div>
+                        <span>Student Logbook</span>
+                    </div>
+                    <div class="nav-item" data-feature="coaching">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
+                        </div>
+                        <span>Coach Management</span>
+                    </div>
+                    <div class="nav-item" data-feature="whitelabel">
+                        <div class="nav-icon">
+                            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path></svg>
+                        </div>
+                        <span>White-Label</span>
+                    </div>
+                </div>
+
+                <div class="nav-content">
+                    <div class="feature-detail active" id="curriculum-detail">
+                        <div class="feature-detail-text">
+                            <div class="detail-header">
+                                <span class="feature-badge">Solve Inconsistency</span>
+                                <h3>Unified Curriculum</h3>
+                            </div>
+                            <p>Stop juggling different coaching approaches. Import your methodology once. Every coach teaches the same progression. Every student learns consistently.</p>
+                            <ul class="detail-list">
+                                <li>Standardized progression levels</li>
+                                <li>Reusable exercises and drills</li>
+                                <li>DUPR-rated difficulty tiers</li>
+                                <li>All coaches on the same playbook</li>
+                            </ul>
+                        </div>
+                        <div class="feature-detail-visual-container">
+                            <div class="phone-mockup">
+                                <div class="phone-screen">
+                                    <img src="Assets/Unified_curriculum.jpg" alt="Unified Curriculum" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-detail" id="progress-detail">
+                        <div class="feature-detail-text">
+                            <div class="detail-header">
+                                <span class="feature-badge">Real Visibility</span>
+                                <h3>Real-Time Progress</h3>
+                            </div>
+                            <p>No more guessing. See where every student is, what they've completed, and who's ready to advance. Data-driven decisions at a glance.</p>
+                            <ul class="detail-list">
+                                <li>Live student progress dashboard</li>
+                                <li>Automatic completion tracking</li>
+                                <li>Ready-to-advance indicators</li>
+                                <li>Coach-by-coach performance insights</li>
+                            </ul>
+                        </div>
+                        <div class="feature-detail-visual-container">
+                            <div class="phone-mockup">
+                                <div class="phone-screen">
+                                    <img src="Assets/real_time_progress.jpg" alt="Real-Time Progress" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-detail" id="logbook-detail">
+                        <div class="feature-detail-text">
+                            <div class="detail-header">
+                                <span class="feature-badge">Student Ownership</span>
+                                <h3>Student Logbook</h3>
+                            </div>
+                            <p>Let students track their own progress. They log sessions, self-evaluate, and watch themselves improve. Especially powerful for building women's confidence.</p>
+                            <ul class="detail-list">
+                                <li>Session tracking (duration, focus)</li>
+                                <li>Self-evaluation after every practice</li>
+                                <li>Personal progress statistics</li>
+                                <li>Builds confidence and awareness</li>
+                            </ul>
+                        </div>
+                        <div class="feature-detail-visual-container">
+                            <div class="phone-mockup">
+                                <div class="phone-screen">
+                                    <img src="Assets/student_logbook.jpg" alt="Student Logbook" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-detail" id="coaching-detail">
+                        <div class="feature-detail-text">
+                            <div class="detail-header">
+                                <span class="feature-badge">Scale Smoothly</span>
+                                <h3>Coach Management</h3>
+                            </div>
+                            <p>From 1 coach to 10. Manage assignments, track their performance, and keep everyone aligned. No spreadsheets needed.</p>
+                            <ul class="detail-list">
+                                <li>Assign students to coaches</li>
+                                <li>Track coach metrics</li>
+                                <li>Centralized scheduling</li>
+                                <li>Performance dashboards per coach</li>
+                            </ul>
+                        </div>
+                        <div class="feature-detail-visual-container">
+                            <div class="phone-mockup">
+                                <div class="phone-screen">
+                                    <img src="Assets/coach_management.jpg" alt="Coach Management" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feature-detail" id="whitelabel-detail">
+                        <div class="feature-detail-text">
+                            <div class="detail-header">
+                                <span class="feature-badge">Your Brand</span>
+                                <h3>White-Label Platform</h3>
+                            </div>
+                            <p>Your academy name. Your logo. Your pricing. Your students. We handle the infrastructure so you can focus on coaching.</p>
+                            <ul class="detail-list">
+                                <li>Custom branding and domain</li>
+                                <li>Your app icon and colors</li>
+                                <li>Control your own pricing</li>
+                                <li>Direct student relationships</li>
+                            </ul>
+                        </div>
+                        <div class="feature-detail-visual-container">
+                            <div class="phone-mockup">
+                                <div class="phone-screen">
+                                    <img src="Assets/white_label.jpg" alt="White-Label Platform" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works" id="how">
+        <div class="container">
+            <h2>Your Academy, Scaled</h2>
+            <div class="steps-container">
+                <div class="step-item fade-in">
+                    <div class="step-number">1</div>
+                    <h3>Import Your Curriculum</h3>
+                    <p>Bring your coaching methodology into the platform. Structure it by progression levels.</p>
+                </div>
+                <div class="step-item fade-in">
+                    <div class="step-number">2</div>
+                    <h3>Add Your Team</h3>
+                    <p>Invite coaches. They follow your framework. Students get consistent experience.</p>
+                </div>
+                <div class="step-item fade-in">
+                    <div class="step-number">3</div>
+                    <h3>Grow With Confidence</h3>
+                    <p>Scale to 5, 10, or 20 coaches. Every student follows the same path forward.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section with Phone Mockup -->
+    <section class="benefits-section">
+        <div class="container">
+            <div class="benefits-layout">
+                <div class="benefits-phone">
+                    <div class="benefit-phone-mockup active" data-benefit="0">
+                        <div class="phone-mockup large">
+                            <div class="phone-screen">
+                                <img src="Assets/unified_team_communication.jpg" alt="Unified Team Communication" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="benefit-phone-mockup" data-benefit="1">
+                        <div class="phone-mockup large">
+                            <div class="phone-screen">
+                                <img src="Assets/Evaluation_student.jpg" alt="Student Progress Visibility" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="benefit-phone-mockup" data-benefit="2">
+                        <div class="phone-mockup large">
+                            <div class="phone-screen">
+                                <img src="Assets/consistent_student_experience.jpg" alt="Consistent Student Experience" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="benefit-phone-mockup" data-benefit="3">
+                        <div class="phone-mockup large">
+                            <div class="phone-screen">
+                                <img src="Assets/data_driven_decision.jpg" alt="Data-Driven Decisions" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="benefits-content">
+                    <h2>Anyone Can Coach.<br><span class="italic-text">Winners Build Systems.</span></h2>
+                    <p class="benefits-subtitle">Turn coaching expertise into a scalable academy. Keep your team aligned. Keep your students progressing. Keep your business growing.</p>
+
+                    <div class="benefits-list">
+                        <div class="benefit-item">
+                            <div class="benefit-toggle" onclick="toggleBenefit(this)">
+                                <span class="benefit-title">Unified Team Communication</span>
+                                <span class="toggle-icon">+</span>
+                            </div>
+                            <div class="benefit-content">
+                                <p>Coaches stay on the same page. Students know what's expected. Everyone works toward the same goals without confusion or miscommunication.</p>
+                            </div>
+                        </div>
+
+                        <div class="benefit-item">
+                            <div class="benefit-toggle" onclick="toggleBenefit(this)">
+                                <span class="benefit-title">Student Progress Visibility</span>
+                                <span class="toggle-icon">+</span>
+                            </div>
+                            <div class="benefit-content">
+                                <p>Real-time dashboards show where every student is. No guessing. No spreadsheets. Know exactly who's ready to level up and who needs extra support.</p>
+                            </div>
+                        </div>
+
+                        <div class="benefit-item">
+                            <div class="benefit-toggle" onclick="toggleBenefit(this)">
+                                <span class="benefit-title">Consistent Student Experience</span>
+                                <span class="toggle-icon">+</span>
+                            </div>
+                            <div class="benefit-content">
+                                <p>Whether a student trains with Coach A or Coach B, they get the same curriculum, same standards, same progression. Quality doesn't depend on who's teaching.</p>
+                            </div>
+                        </div>
+
+                        <div class="benefit-item">
+                            <div class="benefit-toggle" onclick="toggleBenefit(this)">
+                                <span class="benefit-title">Data-Driven Decisions</span>
+                                <span class="toggle-icon">+</span>
+                            </div>
+                            <div class="benefit-content">
+                                <p>Analytics show what's working. See student engagement, completion rates, progress trends. Optimize your academy based on real data, not intuition.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Implementation Timeline -->
+    <section class="implementation-section">
+        <details class="disclosure-block">
+            <summary>8-day implementation timeline</summary>
+            <div class="disclosure-body">
+        <div class="container">
+            <h2>You're Live in 8 Days</h2>
+            <p class="implementation-intro">Get your coaches aligned faster than you think. Here's how:</p>
+
+            <div class="timeline-container">
+                <div class="timeline-item">
+                    <div class="timeline-number">DAY 1</div>
+                    <div class="timeline-content">
+                        <h4>Demo & Setup</h4>
+                        <p>30-min call with our team. We set up your academy, add your branding, bring in your first coaches.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">→</div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">DAYS 2-3</div>
+                    <div class="timeline-content">
+                        <h4>Curriculum Upload</h4>
+                        <p>We guide you through uploading your curriculum. Drills, progressions, assessments — everything gets organized and ready to teach.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">→</div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">DAYS 4-7</div>
+                    <div class="timeline-content">
+                        <h4>Coach Onboarding</h4>
+                        <p>Your coaches log in, explore the curriculum, ask questions. We answer them. They get comfortable with how to teach it.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-arrow">→</div>
+
+                <div class="timeline-item">
+                    <div class="timeline-number">DAY 8</div>
+                    <div class="timeline-content">
+                        <h4>Live with Students</h4>
+                        <p>First students enroll. All your coaches are teaching from the same playbook. You have visibility into every student, every coach, every lesson.</p>
+                    </div>
+                </div>
+            </div>
+
+            <p class="timeline-note"><strong>One week later,</strong> your coaches are aligned on the same curriculum and you have visibility across every student.</p>
+        </div>
+            </div>
+        </details>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing-section" id="pricing">
+        <div class="container">
+            <div class="guarantee-hero">
+                <div class="guarantee-badge">ZERO RISK GUARANTEE</div>
+                <h2>Try PicklePro For 30 Days.<br>If You Don't Love It, You Pay Nothing.</h2>
+                <p class="guarantee-text">Full access for 30 days with no credit card upfront. If PicklePro isn't the best decision you make for your academy this year, we'll refund you in full.</p>
+            </div>
+
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <h3>Starter</h3>
+                    <p class="pricing-from">from</p>
+                    <p class="price">$399<span>/month</span></p>
+                    <p class="pricing-description">Launch your academy with a tight team.</p>
+                    <ul class="pricing-features">
+                        <li>Up to 3 coaches</li>
+                        <li>Unlimited students</li>
+                        <li>Full white-label academy</li>
+                        <li>Stripe, DUPR, Court Reserve, OpenCourt</li>
+                        <li>Dedicated onboarding</li>
+                        <li>Email support</li>
+                    </ul>
+                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
+                    <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                </div>
+
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">MOST POPULAR</div>
+                    <div class="early-pricing-tag">FOUNDING: Lock in 20% Off</div>
+                    <h3>Growth</h3>
+                    <p class="pricing-from">from</p>
+                    <p class="price">$699<span>/month</span></p>
+                    <p class="founding-price"><strike>$879</strike> $699 forever (first 25 customers)</p>
+                    <p class="pricing-description">Scale your academy to 10 coaches.</p>
+                    <ul class="pricing-features">
+                        <li>Up to 10 coaches</li>
+                        <li>Unlimited students</li>
+                        <li>Full white-label academy</li>
+                        <li>All integrations</li>
+                        <li>Dedicated onboarding</li>
+                        <li>Priority support (email & chat)</li>
+                    </ul>
+                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
+                    <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                </div>
+
+                <div class="pricing-card">
+                    <h3>Scale</h3>
+                    <p class="pricing-from">from</p>
+                    <p class="price">$999<span>/month</span></p>
+                    <p class="pricing-description">Multi-city networks and enterprise.</p>
+                    <ul class="pricing-features">
+                        <li>Unlimited coaches</li>
+                        <li>Unlimited students</li>
+                        <li>Full white-label academy</li>
+                        <li>All integrations</li>
+                        <li>Dedicated account manager</li>
+                        <li>Priority phone & chat support</li>
+                    </ul>
+                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
+                    <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                </div>
+            </div>
+
+            <p class="pricing-faq">Questions? <a href="mailto:hello@picklepro.app">Email us</a> or <a href="https://cal.id/guillaume-panot/piklepro-academy">schedule a call</a>.</p>
+        </div>
+    </section>
+
+    <!-- Competitive Comparison -->
+    <section class="comparison-section">
+        <details class="disclosure-block">
+            <summary>Compare PicklePro to DIY, generic LMS, and custom dev</summary>
+            <div class="disclosure-body">
+        <div class="container">
+            <h2>Why PicklePro Wins</h2>
+            <p class="comparison-intro">Compared to building your own, using generic tools, or hiring developers</p>
+
+            <div class="comparison-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Build It Yourself</th>
+                            <th>Generic Platforms<br>(Kajabi, Teachable)</th>
+                            <th>Hire a Developer<br>(Custom)</th>
+                            <th><span class="highlight-checkmark">PicklePro</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Multi-Coach Standardization</strong></td>
+                            <td>No</td>
+                            <td>No</td>
+                            <td>Yes (if specified)</td>
+                            <td><strong>Yes - Built-in</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Student Self-Evaluation Logbook</strong></td>
+                            <td>No</td>
+                            <td>No</td>
+                            <td>Yes ($15K+)</td>
+                            <td><strong>Yes - Included</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>10-Hour Auto-Assessment Checkpoints</strong></td>
+                            <td>No</td>
+                            <td>No</td>
+                            <td>Yes ($10K+)</td>
+                            <td><strong>Yes - Included</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Real-Time Progress Dashboard</strong></td>
+                            <td>No</td>
+                            <td>Yes - Basic</td>
+                            <td>Yes ($5K+)</td>
+                            <td><strong>Yes - Advanced</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>DUPR Integration</strong></td>
+                            <td>No</td>
+                            <td>No</td>
+                            <td>Yes ($5K+)</td>
+                            <td><strong>Yes - Included</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Stripe + Court Reserve Integration</strong></td>
+                            <td>No</td>
+                            <td>Yes - Limited</td>
+                            <td>Yes ($3K+)</td>
+                            <td><strong>Yes - Full</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Time to Launch</strong></td>
+                            <td>6-12 months</td>
+                            <td>1-2 weeks</td>
+                            <td>3-6 months</td>
+                            <td><strong>1 week</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cost</strong></td>
+                            <td>$50K+ dev</td>
+                            <td>$199-299/mo</td>
+                            <td>$30K-80K dev</td>
+                            <td><strong>$399/mo or revenue share</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Ongoing Support</strong></td>
+                            <td>You handle it</td>
+                            <td>Generic support</td>
+                            <td>Monthly maintenance ($2K+)</td>
+                            <td><strong>Pickleball experts</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>White-Label</strong></td>
+                            <td>Yes - Full control</td>
+                            <td>No - Limited</td>
+                            <td>Yes - Full control</td>
+                            <td><strong>Yes - Fully branded</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="comparison-summary">
+                <p><strong>The Real Cost of Waiting:</strong> Every month you delay is a month of manual admin work, inconsistent coaching, and preventable student churn. Losing 2-3 students pays for PicklePro for a full year.</p>
+            </div>
+        </div>
+            </div>
+        </details>
+    </section>
+
+    <!-- Final CTA -->
+    <section>
+        <div class="container">
+            <div class="cta-final" id="contact">
+                <h2>Ready to Scale?</h2>
+                <p>Top coaches trust PicklePro to standardize their curriculum and scale their business.</p>
+                <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Book Your Demo</button>
+                <p style="font-size: 0.9rem; margin-top: 1.5rem; opacity: 0.8;">Limited partnerships available. Early access bonus: 3 months free.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 PicklePro. Scaling pickleball coaching academies.</p>
+        <p><a href="mailto:hello@picklepro.app">hello@picklepro.app</a></p>
+    </footer>
+
+    <script>
+        // Smooth scroll behavior (respect reduced motion)
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const scrollBehavior = prefersReducedMotion ? 'auto' : 'smooth';
+
+
+        (function () {
+            const toggle = document.getElementById('navToggle');
+            const drawer = document.getElementById('navDrawer');
+            if (!toggle || !drawer) return;
+            const links = drawer.querySelectorAll('a[href^="#"]');
+            function setOpen(open) {
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+                drawer.classList.toggle('open', open);
+                drawer.hidden = !open;
+                document.body.style.overflow = open ? 'hidden' : '';
+            }
+            toggle.addEventListener('click', () => setOpen(toggle.getAttribute('aria-expanded') !== 'true'));
+            drawer.addEventListener('click', (e) => { if (e.target === drawer) setOpen(false); });
+            links.forEach((link) => link.addEventListener('click', () => setOpen(false)));
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setOpen(false); });
+        })();
+        (function () {
+            const sections = ['proof', 'features', 'how', 'pricing', 'contact'].map((id) => document.getElementById(id)).filter(Boolean);
+            const navAnchors = document.querySelectorAll('.nav-links a, .nav-drawer-links a');
+            if (!sections.length) return;
+            const navObserver = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    navAnchors.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + entry.target.id));
+                });
+            }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+            sections.forEach((section) => navObserver.observe(section));
+        })();
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: scrollBehavior,
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Benefit toggle with phone screenshot change
+        function toggleBenefit(element) {
+            const benefitItem = element.parentElement;
+            const benefitIndex = Array.from(document.querySelectorAll('.benefit-item')).indexOf(benefitItem);
+            
+            // Toggle open state with animation
+            benefitItem.classList.toggle('open');
+            
+            // Change phone mockup with animation
+            if (benefitItem.classList.contains('open')) {
+                document.querySelectorAll('.benefit-phone-mockup').forEach(phone => {
+                    phone.classList.remove('active');
+                });
+                const phoneMockup = document.querySelector(`.benefit-phone-mockup[data-benefit="${benefitIndex}"]`);
+                if (phoneMockup) {
+                    phoneMockup.classList.add('active');
+                }
+            }
+        }
+
+        // Feature Navigator with phone screenshot change and smooth transitions
+        const navItems = document.querySelectorAll('.nav-item');
+        const featureDetails = document.querySelectorAll('.feature-detail');
+
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const feature = item.dataset.feature;
+
+                // Remove active from all nav items
+                navItems.forEach(i => i.classList.remove('active'));
+                featureDetails.forEach(d => d.classList.remove('active'));
+
+                // Add active to clicked item and corresponding detail with animation
+                item.classList.add('active');
+                const detailElement = document.getElementById(`${feature}-detail`);
+                if (detailElement) {
+                    detailElement.classList.add('active');
+                }
+            });
+        });
+
+        // Fade in on scroll with IntersectionObserver
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+        // Counter animation for numbers
+        function animateCounters() {
+            const cards = document.querySelectorAll('.roi-value, .stat-number');
+            
+            cards.forEach(card => {
+                const text = card.textContent.trim();
+                const number = parseInt(text.replace(/[^\d]/g, ''));
+                const suffix = text.replace(/\d+/g, '');
+                
+                if (!isNaN(number)) {
+                    let current = 0;
+                    const increment = Math.ceil(number / 30);
+                    const timer = setInterval(() => {
+                        current += increment;
+                        if (current >= number) {
+                            card.textContent = number + suffix;
+                            clearInterval(timer);
+                        } else {
+                            card.textContent = current + suffix;
+                        }
+                    }, 30);
+                }
+            });
+        }
+
+        // Trigger counter animation when cards come into view
+        const counterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !entry.target.hasAttribute('data-animated')) {
+                    entry.target.setAttribute('data-animated', 'true');
+                    animateCounters();
+                    counterObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.roi-section, .tanner-stats').forEach(el => {
+            counterObserver.observe(el);
+        });
+
+        // Stagger animation for grid items
+        const staggerElements = document.querySelectorAll('.problem-card, .pricing-card, .integration-card');
+        staggerElements.forEach((el, index) => {
+            el.style.animationDelay = (index * 0.1) + 's';
+            el.style.animation = 'fadeInUp 0.6s ease-out forwards';
+        });
+
+        // Page load animation
+        window.addEventListener('load', () => {
+            document.body.style.opacity = '1';
+        });
+    </script>
+
+    <script>
+    // ========== READINESS QUIZ (rq) ==========
+    const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
+    // ---------- DATA ----------
+    const rqQuestions = [
+        {
+            id: 'coaches',
+            eyebrow: 'Question 1 of 7',
+            title: 'How many coaches do you currently have on your team?',
+            hint: 'Include yourself if you actively coach.',
+            type: 'single',
+            options: [
+                { label: 'Just me', points: 2 },
+                { label: '2-3 coaches', points: 5 },
+                { label: '4-10 coaches', points: 8 },
+                { label: '10+ coaches', points: 10 }
+            ]
+        },
+        {
+            id: 'students',
+            eyebrow: 'Question 2 of 7',
+            title: 'How many students are you coaching across your whole team?',
+            hint: '',
+            type: 'single',
+            options: [
+                { label: 'Under 25', points: 2 },
+                { label: '25-75', points: 5 },
+                { label: '75-200', points: 8 },
+                { label: '200+', points: 10 }
+            ]
+        },
+        {
+            id: 'curriculum',
+            eyebrow: 'Question 3 of 7',
+            title: 'Do all your coaches teach the exact same curriculum, the same way?',
+            hint: 'Be honest — this is the one that matters most.',
+            type: 'single',
+            options: [
+                { label: "Yes, it's fully standardized", points: 25 },
+                { label: 'Mostly, but it varies coach to coach', points: 15 },
+                { label: 'No, everyone kind of does their own thing', points: 5 },
+                { label: "N/A, it's just me right now", points: 10 }
+            ]
+        },
+        {
+            id: 'tracking',
+            eyebrow: 'Question 4 of 7',
+            title: 'How do you currently track student progress across your academy?',
+            hint: '',
+            type: 'single',
+            options: [
+                { label: 'Dedicated software or app', points: 20 },
+                { label: 'Spreadsheet', points: 12 },
+                { label: "Coaches track it themselves, I don't see it", points: 4 },
+                { label: 'Nothing formal', points: 0 }
+            ]
+        },
+        {
+            id: 'expansion',
+            eyebrow: 'Question 5 of 7',
+            title: 'Are you planning to expand into new cities or states in the next 12 months?',
+            hint: '',
+            type: 'single',
+            options: [
+                { label: "Yes, actively planning it", points: 20 },
+                { label: "Yes, it's the long-term goal", points: 15 },
+                { label: "Maybe, haven't committed", points: 8 },
+                { label: 'No, staying local', points: 3 }
+            ]
+        },
+        {
+            id: 'bottleneck',
+            eyebrow: 'Question 6 of 7',
+            title: "What's the #1 thing stopping you from scaling right now?",
+            hint: 'Select up to 2.',
+            type: 'multi',
+            maxSelect: 2,
+            options: [
+                { label: 'Coaches teach inconsistently', points: 3 },
+                { label: "I can't see what's happening day-to-day", points: 3 },
+                { label: 'Hard to find or train good coaches', points: 2 },
+                { label: 'No time to build systems myself', points: 1 },
+                { label: 'Worried quality drops as I grow', points: 1 }
+            ]
+        },
+        {
+            id: 'revenue',
+            eyebrow: 'Question 7 of 7',
+            title: "What's your academy's approximate monthly revenue?",
+            hint: '',
+            type: 'single',
+            options: [
+                { label: 'Under $5K', points: 1 },
+                { label: '$5K - $20K', points: 2 },
+                { label: '$20K - $50K', points: 4 },
+                { label: '$50K+', points: 5 }
+            ]
+        }
+    ];
+
+    const rqLoadingMessages = [
+        'Calculating your score...',
+        'Comparing against national academies...',
+        'Finding your growth gaps...',
+        'Almost ready...'
+    ];
+
+    // ---------- STATE ----------
+    let rqCurrentIndex = -1; // -1 = intro
+    const rqAnswers = {}; // qid -> array of selected option indices
+    let rqTotalScore = 0;
+    let rqBuilt = false;
+
+    function rqBuildQuestions() {
+        if (rqBuilt) return;
+        rqBuilt = true;
+
+        const questionContainer = document.getElementById('rqQuestionContainer');
+
+        rqQuestions.forEach((q, qIndex) => {
+            const screen = document.createElement('div');
+            screen.className = 'rq-screen';
+            screen.dataset.rqscreen = 'q' + qIndex;
+
+            const optionsHtml = q.options.map((opt, i) => `
+                <button type="button" class="rq-option ${q.type === 'multi' ? 'multi' : ''}" data-qindex="${qIndex}" data-oindex="${i}" onclick="rqSelectOption(${qIndex}, ${i})">
+                    <span class="rq-option-check">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </span>
+                    <span>${opt.label}</span>
+                </button>
+            `).join('');
+
+            screen.innerHTML = `
+                <div class="rq-q-eyebrow">${q.eyebrow}</div>
+                <div class="rq-q-title">${q.title}</div>
+                ${q.hint ? `<div class="rq-q-hint">${q.hint}</div>` : ''}
+                <div class="rq-options">${optionsHtml}</div>
+                ${q.type === 'multi' ? '<div class="rq-multi-note">Tap up to 2. Tap again to deselect.</div>' : ''}
+                <div class="rq-quiz-nav">
+                    <button class="rq-btn-back" onclick="rqPrevQuestion()">&larr; Back</button>
+                    <button class="rq-btn-primary" id="rqNextBtn${qIndex}" onclick="rqNextQuestion(${qIndex})" disabled style="${q.type === 'single' && qIndex !== rqQuestions.length - 1 ? 'display:none;' : ''}">
+                        ${qIndex === rqQuestions.length - 1 ? 'See My Score' : 'Continue'}
+                    </button>
+                </div>
+            `;
+
+            questionContainer.appendChild(screen);
+        });
+    }
+
+    // ---------- OPEN / ENTRY ----------
+    function openReadinessQuiz() {
+        const section = document.getElementById('quizSection');
+        rqBuildQuestions();
+        section.style.display = 'block';
+        // smooth scroll into view
+        setTimeout(() => {
+            section.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+        }, 50);
+    }
+
+    // ---------- NAVIGATION ----------
+    function rqShowScreen(name) {
+        document.querySelectorAll('.rq-screen').forEach(s => s.classList.remove('rq-active'));
+        const target = document.querySelector(`[data-rqscreen="${name}"]`);
+        if (target) target.classList.add('rq-active');
+    }
+
+    function rqStartQuiz() {
+        rqCurrentIndex = 0;
+        document.getElementById('rqProgressTrack').style.display = 'block';
+        rqUpdateProgress();
+        rqShowScreen('q0');
+    }
+
+    function rqUpdateProgress() {
+        const pct = ((rqCurrentIndex) / rqQuestions.length) * 100;
+        document.getElementById('rqProgressFill').style.transform = 'scaleX(' + (pct / 100) + ')';
+        document.getElementById('rqStepCounter').textContent = `Question ${rqCurrentIndex + 1} of ${rqQuestions.length}`;
+    }
+
+    function rqSelectOption(qIndex, oIndex) {
+        const q = rqQuestions[qIndex];
+        const screen = document.querySelector(`[data-rqscreen="q${qIndex}"]`);
+        const optionEls = screen.querySelectorAll('.rq-option');
+
+        if (!rqAnswers[q.id]) rqAnswers[q.id] = [];
+
+        if (q.type === 'single') {
+            rqAnswers[q.id] = [oIndex];
+            optionEls.forEach((el, i) => el.classList.toggle('selected', i === oIndex));
+        } else {
+            // multi select
+            const idx = rqAnswers[q.id].indexOf(oIndex);
+            if (idx > -1) {
+                rqAnswers[q.id].splice(idx, 1);
+            } else {
+                if (rqAnswers[q.id].length >= (q.maxSelect || 2)) {
+                    rqAnswers[q.id].shift();
+                }
+                rqAnswers[q.id].push(oIndex);
+            }
+            optionEls.forEach((el, i) => el.classList.toggle('selected', rqAnswers[q.id].includes(i)));
+        }
+
+        const nextBtn = document.getElementById('rqNextBtn' + qIndex);
+        nextBtn.disabled = !(rqAnswers[q.id] && rqAnswers[q.id].length > 0);
+
+        // Auto-advance for single-select questions (except the last one, which needs explicit "See My Score")
+        if (q.type === 'single' && qIndex !== rqQuestions.length - 1) {
+            setTimeout(() => rqNextQuestion(qIndex), 350);
+        }
+    }
+
+    function rqNextQuestion(qIndex) {
+        if (qIndex < rqQuestions.length - 1) {
+            rqCurrentIndex = qIndex + 1;
+            rqUpdateProgress();
+            rqShowScreen('q' + rqCurrentIndex);
+        } else {
+            document.getElementById('rqProgressFill').style.transform = 'scaleX(1)';
+            document.getElementById('rqStepCounter').textContent = 'Calculating...';
+            rqCalculateAndShowResults();
+        }
+    }
+
+    function rqPrevQuestion() {
+        if (rqCurrentIndex === 0) {
+            rqCurrentIndex = -1;
+            document.getElementById('rqProgressTrack').style.display = 'none';
+            document.getElementById('rqStepCounter').textContent = 'Readiness Score';
+            rqShowScreen('intro');
+        } else {
+            rqCurrentIndex -= 1;
+            rqUpdateProgress();
+            rqShowScreen('q' + rqCurrentIndex);
+        }
+    }
+
+    function rqRestartQuiz() {
+        rqCurrentIndex = -1;
+        Object.keys(rqAnswers).forEach(k => delete rqAnswers[k]);
+        rqTotalScore = 0;
+        document.querySelectorAll('.rq-option').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('[id^="rqNextBtn"]').forEach(btn => btn.disabled = true);
+        document.getElementById('rqProgressTrack').style.display = 'none';
+        document.getElementById('rqStepCounter').textContent = 'Readiness Score';
+        rqShowScreen('intro');
+        document.getElementById('quizSection').scrollIntoView({ behavior: scrollBehavior, block: 'start' });
+    }
+
+    // ---------- SCORING ----------
+    function rqCalculateScore() {
+        let score = 0;
+        rqQuestions.forEach(q => {
+            const selected = rqAnswers[q.id] || [];
+            selected.forEach(optIndex => {
+                score += q.options[optIndex].points;
+            });
+        });
+        return Math.max(8, Math.min(96, score));
+    }
+
+    function rqGetBand(score) {
+        if (score <= 40) return 'low';
+        if (score <= 70) return 'mid';
+        return 'high';
+    }
+
+    function rqGetBottleneckLabels() {
+        const sel = rqAnswers['bottleneck'] || [];
+        const q = rqQuestions.find(q => q.id === 'bottleneck');
+        return sel.map(i => q.options[i].label);
+    }
+
+    function rqBuildResultsContent(score, band) {
+        const bottlenecks = rqGetBottleneckLabels();
+        const curriculumAnswerIndex = (rqAnswers['curriculum'] || [0])[0];
+        const trackingAnswerIndex = (rqAnswers['tracking'] || [0])[0];
+
+        const curriculumLabels = ['fully standardized', 'varies coach to coach', "everyone does their own thing", 'not yet applicable (solo coach)'];
+        const trackingLabels = ['dedicated software', 'a spreadsheet', "coaches tracking it themselves, with no visibility for you", 'no formal tracking'];
+
+        const curriculumState = curriculumLabels[curriculumAnswerIndex] || 'inconsistent across coaches';
+        const trackingState = trackingLabels[trackingAnswerIndex] || 'informal';
+
+        const bandConfig = {
+            low: {
+                badgeText: 'Early Stage — Foundation Needed',
+                headline: 'You have the ambition. The system isn\'t built yet.',
+                body: `Your curriculum is <strong>${curriculumState}</strong> and progress tracking is <strong>${trackingState}</strong>. That's normal at this stage — but it's also exactly where most academies stall before they ever expand past one city.`
+            },
+            mid: {
+                badgeText: 'Scaling, But Exposed',
+                headline: 'You\'re growing — and the cracks are starting to show.',
+                body: `You're already managing real scale, but your curriculum is <strong>${curriculumState}</strong> and tracking is <strong>${trackingState}</strong>. That gap gets more expensive with every coach you add.`
+            },
+            high: {
+                badgeText: 'Ready to Go National',
+                headline: 'You\'ve built more structure than most academies ever do.',
+                body: `Curriculum is <strong>${curriculumState}</strong> and tracking is <strong>${trackingState}</strong> — real infrastructure most competitors don't have. The only thing missing is a system to replicate it in new cities without rebuilding from scratch.`
+            }
+        };
+
+        const cfg = bandConfig[band];
+
+        const insightMap = {
+            'Coaches teach inconsistently': 'Inconsistent coaching across your team — students get a different experience depending who they\'re paired with.',
+            "I can't see what's happening day-to-day": 'No visibility into daily coaching activity — you find out about problems after they\'ve already cost you a student.',
+            'Hard to find or train good coaches': 'Onboarding new coaches takes too long because there\'s no standardized way to train them.',
+            'No time to build systems myself': 'You\'re the bottleneck — growth is capped by how much you can personally oversee.',
+            'Worried quality drops as I grow': 'Every new coach or city adds risk that your brand\'s quality won\'t hold.'
+        };
+
+        let rows = bottlenecks.map(b => insightMap[b]).filter(Boolean);
+
+        if (rows.length === 0) {
+            rows = [
+                `Curriculum consistency: ${curriculumState}`,
+                `Progress visibility: ${trackingState}`
+            ];
+        }
+
+        return { ...cfg, rows };
+    }
+
+    function rqCalculateAndShowResults() {
+        rqShowScreen('loading');
+        const loadingTextEl = document.getElementById('rqLoadingText');
+        let msgIndex = 0;
+        loadingTextEl.textContent = rqLoadingMessages[0];
+
+        const interval = setInterval(() => {
+            msgIndex++;
+            if (msgIndex < rqLoadingMessages.length) {
+                loadingTextEl.textContent = rqLoadingMessages[msgIndex];
+            }
+        }, 480);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            rqTotalScore = rqCalculateScore();
+            rqRenderResults(rqTotalScore);
+            rqShowScreen('results');
+        }, 480 * rqLoadingMessages.length);
+    }
+
+    function rqRenderResults(score) {
+        const band = rqGetBand(score);
+        const content = rqBuildResultsContent(score, band);
+
+        document.getElementById('rqScoreNumber').textContent = score;
+
+        const badgeEl = document.getElementById('rqBandBadge');
+        badgeEl.innerHTML = `<span class="rq-band-badge ${band}">${content.badgeText}</span>`;
+
+        document.getElementById('rqResultsHeadline').textContent = content.headline;
+        document.getElementById('rqResultsBody').innerHTML = content.body;
+
+        const insightRowsEl = document.getElementById('rqInsightRows');
+        insightRowsEl.innerHTML = content.rows.map(r => `
+            <div class="rq-insight-row">
+                <span class="rq-insight-icon">!</span>
+                <span>${r}</span>
+            </div>
+        `).join('');
+
+        // animate gauge
+        const circumference = 2 * Math.PI * 90;
+        const offset = circumference - (score / 100) * circumference;
+        const gaugeFill = document.getElementById('rqGaugeFill');
+        gaugeFill.style.strokeDasharray = circumference;
+        gaugeFill.style.strokeDashoffset = circumference;
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                gaugeFill.style.strokeDashoffset = offset;
+            }, 50);
+        });
+
+        // animate score number counting up
+        let current = 0;
+        const numEl = document.getElementById('rqScoreNumber');
+        const duration = 1000;
+        const stepTime = 16;
+        const steps = duration / stepTime;
+        const increment = score / steps;
+        const counter = setInterval(() => {
+            current += increment;
+            if (current >= score) {
+                numEl.textContent = score;
+                clearInterval(counter);
+            } else {
+                numEl.textContent = Math.floor(current);
+            }
+        }, stepTime);
+    }
+
+    function rqGoToBooking() {
+        window.location.href = 'https://cal.id/guillaume-panot/piklepro-academy';
+    }
+
+    // Build questions on page load since the section is always visible
+    document.addEventListener('DOMContentLoaded', function() {
+        rqBuildQuestions();
+    });
+
+    </script>
+</body>
+</html>

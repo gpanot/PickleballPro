@@ -19,7 +19,7 @@ const SWIPE_THRESHOLD = DELETE_WIDTH * 0.55;
  *   onDelete  – called when the red delete button (or confirmed swipe) is pressed
  *   children  – the card content
  */
-export default function SwipeableRow({ onDelete, children }) {
+export default function SwipeableRow({ onDelete, deleteLabel = 'Remove', children }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const isOpen = useRef(false);
 
@@ -76,7 +76,7 @@ export default function SwipeableRow({ onDelete, children }) {
       <View style={styles.deleteAction}>
         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete} activeOpacity={0.8}>
           <Ionicons name="trash-outline" size={20} color="#fff" />
-          <Text style={styles.deleteLabel}>Delete</Text>
+          <Text style={styles.deleteLabel}>{deleteLabel}</Text>
         </TouchableOpacity>
       </View>
       {/* Swipeable card */}

@@ -1,0 +1,18 @@
+{
+  "hook": {
+    "enabled": false,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    }
+  },
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [
+      "Website/homepage_picklepro-pro.html",
+      "Website/index.html",
+      "Website/site-nav.css"
+    ],
+    "ignoreValues": []
+  }
+}

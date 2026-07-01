@@ -66,6 +66,7 @@ export default function ExploreTrainingScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [savedCategoryOrder, setSavedCategoryOrder] = useState([]);
+  const [publishedCategories, setPublishedCategories] = useState(null); // null = not loaded yet
   
   // Animation for rotating ball
   const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -163,16 +164,29 @@ export default function ExploreTrainingScreen({ navigation }) {
 
   const fetchCategoryOrder = async () => {
     try {
-      const { data: orderData, error: orderError } = await supabase
-        .rpc('get_category_order');
-      
-      if (orderError) {
-        setSavedCategoryOrder([]);
-      } else {
-        setSavedCategoryOrder(orderData || []);
+      // Load from the categories table: only published ones, ordered
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name, order_index, is_published')
+        .eq('is_published', true)
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.log('Could not load categories table, falling back to RPC:', error.message);
+        // Fallback: try legacy RPC
+        const { data: rpcData } = await supabase.rpc('get_category_order');
+        setSavedCategoryOrder(rpcData || []);
+        setPublishedCategories(null); // unknown — no filtering
+        return;
       }
-    } catch (error) {
+
+      const publishedNames = (data || []).map(c => c.name);
+      setSavedCategoryOrder(data || []);
+      setPublishedCategories(publishedNames);
+    } catch (err) {
       setSavedCategoryOrder([]);
+      setPublishedCategories(null);
     }
   };
 
@@ -198,7 +212,7 @@ export default function ExploreTrainingScreen({ navigation }) {
         setError(null);
       }
       
-      // Also refresh category order
+      // Also refresh category order & published list
       await fetchCategoryOrder();
     } catch (err) {
       setError(err.message);
@@ -285,30 +299,34 @@ export default function ExploreTrainingScreen({ navigation }) {
       );
     }
 
-    // Get all unique categories from programs and sort them according to saved order
+    // Get all unique categories from programs
     const uniqueCategories = [...new Set(filteredPrograms.map(p => p.category).filter(Boolean))];
-    
+
+    // Filter to only published categories (when the list is loaded)
+    const visibleCategories = publishedCategories !== null
+      ? uniqueCategories.filter(cat => publishedCategories.includes(cat))
+      : uniqueCategories;
+
     // Sort categories according to saved order
     let categories;
     if (savedCategoryOrder && savedCategoryOrder.length > 0) {
-      // Create ordered list based on saved order
       const orderedCategories = [];
-      
-      // Add categories in saved order
+
+      // Add categories in saved order (already filtered to published)
       savedCategoryOrder.forEach(savedCat => {
-        if (uniqueCategories.includes(savedCat.name)) {
+        if (visibleCategories.includes(savedCat.name)) {
           orderedCategories.push(savedCat.name);
         }
       });
-      
-      // Add any new categories that weren't in saved order
+
+      // Add any new published categories that weren't in saved order
       const savedCategoryNames = savedCategoryOrder.map(sc => sc.name);
-      const newCategories = uniqueCategories.filter(cat => !savedCategoryNames.includes(cat));
+      const newCategories = visibleCategories.filter(cat => !savedCategoryNames.includes(cat));
       orderedCategories.push(...newCategories);
-      
+
       categories = orderedCategories;
     } else {
-      categories = uniqueCategories;
+      categories = visibleCategories;
     }
     
     // Define category icons for better visual appeal

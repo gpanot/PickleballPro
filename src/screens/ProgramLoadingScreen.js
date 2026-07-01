@@ -5,230 +5,109 @@ import {
   StyleSheet,
   Animated,
   StatusBar,
+  TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUser } from '../context/UserContext';
-import { generatePersonalizedProgram, canGenerateProgram } from '../lib/programGenerator';
+import { Hand, Target, TrendingUp, ChevronRight } from 'lucide-react-native';
 
-export default function ProgramLoadingScreen({ onComplete, route }) {
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [generatedProgram, setGeneratedProgram] = useState(null);
+const WELCOME_STEPS = [
+  {
+    Icon: Hand,
+    title: 'Welcome to PicklePro',
+    body: 'Your personal training app for pickleball players of every level.',
+  },
+  {
+    Icon: Target,
+    title: 'Your training lives in My Training',
+    body: 'Pick a goal — a DUPR milestone or a skill focus — and follow a structured program at your own pace.',
+  },
+  {
+    Icon: TrendingUp,
+    title: 'Choose a program to begin',
+    body: "Log each exercise as you go. Progress is saved automatically — pick up exactly where you left off.",
+  },
+];
+
+export default function ProgramLoadingScreen({ onComplete }) {
+  const [stepIndex, setStepIndex] = useState(0);
   const insets = useSafeAreaInsets();
-  const { user, storePersonalizedProgram } = useUser();
-  
-  // Animation values
-  const spinValue = useRef(new Animated.Value(0)).current;
   const fadeValue = useRef(new Animated.Value(1)).current;
-  const scaleValue = useRef(new Animated.Value(1)).current;
-  
-  const loadingMessages = [
-    "Analyzing your DUPR rating…",
-    "Locking in your goals…",
-    "Balancing your focus areas…",
-    "Designing your first 3 sessions…"
-  ];
+  const spinValue = useRef(new Animated.Value(0)).current;
+  const isLastStep = stepIndex === WELCOME_STEPS.length - 1;
 
-  // Spinning animation for the progress wheel
+  // Keep spinning animation for visual consistency
   useEffect(() => {
-    const spinAnimation = Animated.loop(
-      Animated.timing(spinValue, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      })
+    const anim = Animated.loop(
+      Animated.timing(spinValue, { toValue: 1, duration: 2000, useNativeDriver: true })
     );
-    spinAnimation.start();
-    
-    return () => spinAnimation.stop();
+    anim.start();
+    return () => anim.stop();
   }, []);
 
-  // Cycling through messages with fade effect
-  useEffect(() => {
-    const messageInterval = setInterval(() => {
-      // Fade out current message
-      Animated.timing(fadeValue, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        // Change message
-        setCurrentMessageIndex((prevIndex) => {
-          const nextIndex = (prevIndex + 1) % loadingMessages.length;
-          return nextIndex;
-        });
-        
-        // Fade in new message
-        Animated.timing(fadeValue, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      });
-    }, 700); // Change message every 700ms
+  const goNext = () => {
+    if (isLastStep) {
+      // Land on My Training tab with welcome card shown
+      onComplete({ initialView: 'myTraining' });
+      return;
+    }
 
-    return () => clearInterval(messageInterval);
-  }, []);
+    // Fade out → advance step → fade in
+    Animated.timing(fadeValue, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
+      setStepIndex(i => i + 1);
+      Animated.timing(fadeValue, { toValue: 1, duration: 220, useNativeDriver: true }).start();
+    });
+  };
 
-  // Pulse animation for the logo
-  useEffect(() => {
-    const pulseAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scaleValue, {
-          toValue: 1.1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulseAnimation.start();
-    
-    return () => pulseAnimation.stop();
-  }, []);
-
-  // Generate personalized program based on onboarding data
-  useEffect(() => {
-    const generateProgram = async () => {
-      try {
-        // Get onboarding data from route params
-        const onboardingData = route?.params?.previousData || {};
-        const focusAreas = onboardingData.focus_areas || [];
-        
-        console.log('Generating program with data:', {
-          focusAreas,
-          userRating: user?.duprRating || 3.0,
-          userName: user?.name || onboardingData.name,
-          userId: user?.id
-        });
-
-        // Always generate a program, even if focus areas are empty (placeholder case)
-        const program = generatePersonalizedProgram(
-          focusAreas,
-          user?.duprRating || 3.0,
-          {
-            name: user?.name || onboardingData.name || 'Your',
-            tier: user?.tier || 'Intermediate'
-          }
-        );
-        
-        console.log('Generated personalized program:', program);
-        setGeneratedProgram(program);
-        
-        // Store program in user context (for immediate access)
-        storePersonalizedProgram(program);
-        
-        // Note: Local storage functionality removed - programs are now stored in context only
-      } catch (error) {
-        console.error('Error generating personalized program:', error);
-        
-        // Generate a minimal fallback program for empty skills case
-        const fallbackProgram = generatePersonalizedProgram(
-          [], // Empty focus areas
-          user?.duprRating || 3.0,
-          {
-            name: user?.name || 'Your',
-            tier: 'Intermediate'
-          }
-        );
-        
-        setGeneratedProgram(fallbackProgram);
-        storePersonalizedProgram(fallbackProgram);
-        
-        // Note: Local storage functionality removed - programs are now stored in context only
-      }
-    };
-
-    // Generate program immediately
-    generateProgram();
-  }, [route?.params, user]);
-
-  // Complete loading after 2.5 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      // Pass generated program data to completion handler
-      onComplete(generatedProgram ? { personalizedProgram: generatedProgram } : {});
-    }, 2500);
-
-    return () => clearTimeout(timer);
-  }, [onComplete, generatedProgram]);
-
-  const spin = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+  const spin = spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const step = WELCOME_STEPS[stepIndex];
+  const StepIcon = step.Icon;
 
   return (
     <>
-      {/* Phone Status Bar */}
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Animated.View 
-            style={[
-              styles.logoContainer,
-              { transform: [{ scale: scaleValue }] }
-            ]}
-          >
-            <Text style={styles.logoEmoji}>🎾</Text>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
+
+        {/* Spinning wheel */}
+        <View style={styles.wheelWrap}>
+          <Animated.View style={[styles.progressWheel, { transform: [{ rotate: spin }] }]}>
+            <View style={styles.progressWheelInner} />
           </Animated.View>
-          <Text style={styles.title}>Building your personal program…</Text>
+          <View style={styles.centerDot} />
         </View>
 
-          {/* Loading Animation */}
-          <View style={styles.loadingContainer}>
-            {/* Progress Wheel */}
-            <View style={styles.progressContainer}>
-              <Animated.View
-                style={[
-                  styles.progressWheel,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
-                <View style={styles.progressWheelInner} />
-              </Animated.View>
-              
-              {/* Center dot */}
-              <View style={styles.centerDot} />
-            </View>
-
-            {/* Cycling Messages */}
-            <Animated.View
-              style={[
-                styles.messageContainer,
-                { opacity: fadeValue }
-              ]}
-            >
-              <Text style={styles.loadingMessage}>
-                {loadingMessages[currentMessageIndex]}
-              </Text>
-            </Animated.View>
-
-            {/* Progress Dots */}
-            <View style={styles.progressDots}>
-              {loadingMessages.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.progressDot,
-                    index <= currentMessageIndex && styles.progressDotActive
-                  ]}
-                />
-              ))}
-            </View>
+        {/* Step content */}
+        <Animated.View style={[styles.contentBlock, { opacity: fadeValue }]}>
+          <View style={styles.iconWrap}>
+            <StepIcon size={52} color="#6366F1" strokeWidth={1.75} />
           </View>
+          <Text style={styles.title}>{step.title}</Text>
+          <Text style={styles.body}>{step.body}</Text>
+        </Animated.View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            This will only take a moment...
-          </Text>
+        {/* Step dots */}
+        <View style={styles.dots}>
+          {WELCOME_STEPS.map((_, i) => (
+            <View key={i} style={[styles.dot, i === stepIndex && styles.dotActive]} />
+          ))}
         </View>
+
+        {/* CTA */}
+        <TouchableOpacity
+          style={styles.ctaBtn}
+          onPress={goNext}
+          activeOpacity={0.88}
+          accessibilityLabel={isLastStep ? "Get started" : "Next"}
+          accessibilityRole="button"
+        >
+          {isLastStep ? (
+            <View style={styles.ctaRow}>
+              <Text style={styles.ctaText}>Let's go</Text>
+              <ChevronRight size={20} color="#fff" strokeWidth={2.5} />
+            </View>
+          ) : (
+            <Text style={styles.ctaText}>Next</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </>
   );
@@ -237,118 +116,100 @@ export default function ProgramLoadingScreen({ onComplete, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 30,
-    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+  },
+  wheelWrap: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  logoContainer: {
+  progressWheel: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  logoEmoji: {
-    fontSize: 50,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#000000',
-    textAlign: 'center',
-    lineHeight: 38,
-    letterSpacing: -0.5,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    maxWidth: '100%',
-  },
-  progressContainer: {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  progressWheel: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
     borderWidth: 4,
     borderColor: 'transparent',
-    borderTopColor: '#007AFF',
-    borderRightColor: 'rgba(0, 122, 255, 0.6)',
-    borderBottomColor: 'rgba(0, 122, 255, 0.3)',
-    borderLeftColor: 'rgba(0, 122, 255, 0.1)',
+    borderTopColor: '#6366F1',
+    borderRightColor: 'rgba(99,102,241,0.5)',
+    borderBottomColor: 'rgba(99,102,241,0.2)',
+    borderLeftColor: 'rgba(99,102,241,0.08)',
   },
   progressWheelInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F8F9FA',
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: '#EEF2FF',
     position: 'absolute',
-    top: 16,
-    left: 16,
+    top: 13,
+    left: 13,
   },
   centerDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#007AFF',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#6366F1',
     position: 'absolute',
   },
-  messageContainer: {
-    minHeight: 24,
+  contentBlock: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  iconWrap: {
+    marginBottom: 20,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
   },
-  loadingMessage: {
-    fontSize: 18,
-    color: '#666666',
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#111827',
     textAlign: 'center',
-    fontWeight: '500',
+    lineHeight: 30,
+    marginBottom: 14,
+    letterSpacing: -0.3,
   },
-  progressDots: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
+  body: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
   },
-  progressDot: {
+  dots: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#E5E5E5',
+    backgroundColor: '#E5E7EB',
   },
-  progressDotActive: {
-    backgroundColor: '#007AFF',
-    width: 12,
+  dotActive: {
+    backgroundColor: '#6366F1',
+    width: 20,
     height: 8,
     borderRadius: 4,
   },
-  footer: {
+  ctaBtn: {
+    backgroundColor: '#6366F1',
+    borderRadius: 16,
+    paddingVertical: 17,
+    paddingHorizontal: 48,
     alignItems: 'center',
-    marginBottom: 40,
+    minHeight: 56,
+    justifyContent: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  footerText: {
-    fontSize: 16,
-    color: '#999999',
-    textAlign: 'center',
-    fontWeight: '400',
+  ctaText: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 0.2 },
+  ctaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
 });

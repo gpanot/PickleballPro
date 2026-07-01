@@ -66,6 +66,7 @@ const Stack = createStackNavigator();
 
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
+  const [onboardingInitialView, setOnboardingInitialView] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
   const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
@@ -191,6 +192,11 @@ function AppContent() {
     if (data.navigateTo) {
       setInitialTabRoute(data.navigateTo);
     }
+
+    // Store initialView so ProgramScreen opens on My Training after onboarding
+    if (data.initialView) {
+      setOnboardingInitialView(data.initialView);
+    }
   };
 
   const handleSplashComplete = () => {
@@ -253,7 +259,7 @@ function AppContent() {
             <Stack.Screen name="Main">
               {(props) => {
                 console.log('🎯 Rendering Main screen for authenticated user, initialRouteName:', initialTabRoute);
-                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
+                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} trainingInitialView={onboardingInitialView} />;
               }}
             </Stack.Screen>
             <Stack.Screen 
@@ -401,7 +407,7 @@ function AppContent() {
                 <Stack.Screen name="Main">
                   {(props) => {
                     console.log('🎯 Rendering Main screen for completed onboarding (non-auth), initialRouteName:', initialTabRoute);
-                    return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} />;
+                    return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} trainingInitialView={onboardingInitialView} />;
                   }}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">

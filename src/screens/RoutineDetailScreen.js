@@ -10,8 +10,10 @@ import {
   Modal,
   RefreshControl,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Dumbbell, Smile, Activity } from 'lucide-react-native';
 import WebIcon from '../components/WebIcon';
 import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
 import ExerciseHistoryModal from '../components/ExerciseHistoryModal';
@@ -768,12 +770,17 @@ export default function RoutineDetailScreen({ navigation, route }) {
         tips: exerciseDataToPass.tips_json
       });
       
+      const exerciseIndex = exercises.findIndex(ex => ex.routineExerciseId === exercise.routineExerciseId || ex.id === exercise.id);
+
       navigation.navigate('ExerciseDetail', {
         exercise: exerciseDataToPass, // Pass complete exercise data with tips
         rawExercise: exerciseDataToPass, // Also pass as rawExercise for compatibility
         studentId: studentId, // Pass student ID for coach logging
         program: program, // Pass program for logging context
         routine: routine, // Pass routine for logging context
+        source: source, // Pass source so ExerciseDetail knows it's in training mode
+        allExercises: exercises, // Full list for Next exercise navigation
+        currentExerciseIndex: exerciseIndex >= 0 ? exerciseIndex : 0,
         onExerciseUpdated: (updatedExercise) => {
           console.log('🔄 [RoutineDetailScreen] Exercise updated from detail screen:', updatedExercise.id);
           // Update the exercise in the routine if needed
@@ -932,7 +939,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
     <View style={styles.exercisesContainer}>
       {exercises.length === 0 ? (
         <View style={styles.emptyExercisesList}>
-          <Text style={styles.emptyExercisesIcon}>💪</Text>
+          <View style={styles.emptyExercisesIconWrap}>
+            <Dumbbell size={40} color="#9CA3AF" strokeWidth={1.75} />
+          </View>
           <Text style={styles.emptyExercisesTitle}>No Exercises Yet</Text>
           <Text style={styles.emptyExercisesDescription}>
             {source === 'explore' 
@@ -969,7 +978,11 @@ export default function RoutineDetailScreen({ navigation, route }) {
               )}
             </View>
             <Text style={styles.exercisesSubtitle}>
-              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
+              {source === 'training'
+                ? 'Tap exercise to practice · Log results when done'
+                : (source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment')
+                ? 'Preview exercises in this routine'
+                : 'Tap to practice • Long press to remove'}
             </Text>
           </View>
           
@@ -978,11 +991,12 @@ export default function RoutineDetailScreen({ navigation, route }) {
             const latestLog = latestLogs[exercise.id];
             const hasMetTarget = latestLog?.exercise_details?.result && 
               meetsTarget(latestLog.exercise_details.result, exercise.target || exercise.goal) === true;
+            const wasLoggedThisSession = !!exerciseResults[exercise.routineExerciseId];
             
             return (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
               {/* Success check mark badge */}
-              {hasMetTarget && (
+              {(hasMetTarget || wasLoggedThisSession) && (
                 <View style={styles.successBadge}>
                   <Ionicons name="checkmark-circle" size={28} color="#10B981" />
                 </View>
@@ -1030,7 +1044,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                               Latest: {result}
                             </Text>
                             {targetMet === true && (
-                              <Text style={styles.latestLogEmoji}>😊</Text>
+                              <Smile size={14} color="#065F46" strokeWidth={2.5} />
                             )}
                           </View>
                         );
@@ -1058,6 +1072,20 @@ export default function RoutineDetailScreen({ navigation, route }) {
                     </TouchableOpacity>
                   </View>
                 )}
+
+                {/* Training mode: Log button on each row */}
+                {source === 'training' && (
+                  <TouchableOpacity
+                    style={[styles.trainingLogBtn, wasLoggedThisSession && styles.trainingLogBtnDone]}
+                    onPress={(e) => { e.stopPropagation(); handleAddLog(exercise); }}
+                    accessibilityLabel={`Log ${exercise.name || exercise.title}`}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.trainingLogBtnText, wasLoggedThisSession && styles.trainingLogBtnTextDone]}>
+                      {wasLoggedThisSession ? 'Logged ✓' : 'Log'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             </View>
             );
@@ -1068,14 +1096,82 @@ export default function RoutineDetailScreen({ navigation, route }) {
   );
 
   const renderSessionControls = () => {
-      return null;
+    if (source !== 'training') return null;
+
+    // Count how many exercises have been logged this session
+    const loggedCount = Object.keys(exerciseResults).length;
+    const totalExercises = exercises.length;
+    const canComplete = loggedCount > 0;
+
+    const handleCompleteSession = async () => {
+      if (!canComplete) {
+        Alert.alert(
+          'Log first',
+          'Log at least one exercise to complete this session.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Mark this routine as completed in AsyncStorage
+      const progressKey = `@pickleHero_progress_${program?.id}`;
+      try {
+        const raw = await AsyncStorage.getItem(progressKey);
+        const completed = raw ? JSON.parse(raw) : [];
+        if (!completed.includes(routine.id)) {
+          completed.push(routine.id);
+          await AsyncStorage.setItem(progressKey, JSON.stringify(completed));
+        }
+      } catch (e) {
+        console.warn('Error saving session progress:', e);
+      }
+
+      Alert.alert(
+        'Session complete!',
+        `Great work! You logged ${loggedCount} exercise${loggedCount > 1 ? 's' : ''} in this session.`,
+        [
+          {
+            text: 'Back to program',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+    };
+
+    return (
+      <View style={[styles.sessionFooter, { paddingBottom: insets.bottom + 8 }]}>
+        <Text style={styles.sessionFooterHint}>
+          {canComplete
+            ? `${loggedCount} / ${totalExercises} exercises logged`
+            : 'Log at least one exercise to complete this session'}
+        </Text>
+        <TouchableOpacity
+          style={[styles.completeSessionBtn, !canComplete && styles.completeSessionBtnDisabled]}
+          onPress={handleCompleteSession}
+          activeOpacity={canComplete ? 0.85 : 1}
+          accessibilityLabel="Complete session"
+          accessibilityRole="button"
+        >
+          <Ionicons
+            name="checkmark-circle"
+            size={18}
+            color={canComplete ? '#fff' : '#9CA3AF'}
+          />
+          <Text style={[styles.completeSessionBtnText, !canComplete && styles.completeSessionBtnTextDisabled]}>
+            Complete session
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   const renderExercisesContentUpdated = () => (
     <View style={styles.exercisesContainer}>
       {exercises.length === 0 ? (
         <View style={styles.emptyExercisesList}>
-          <Text style={styles.emptyExercisesIcon}>💪</Text>
+          <View style={styles.emptyExercisesIconWrap}>
+            <Dumbbell size={40} color="#9CA3AF" strokeWidth={1.75} />
+          </View>
           <Text style={styles.emptyExercisesTitle}>No Exercises Yet</Text>
           <Text style={styles.emptyExercisesDescription}>
             {source === 'explore' 
@@ -1111,7 +1207,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <View style={styles.exercisesHeader}>
             <View style={styles.exercisesHeaderTop}>
               <Text style={styles.exercisesTitle}>Exercises ({exercises.length})</Text>
-              {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
+              {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && source !== 'training' && source !== 'library' && (
                 <TouchableOpacity
                   style={styles.addExerciseHeaderButton}
                   onPress={openExercisePicker}
@@ -1122,7 +1218,11 @@ export default function RoutineDetailScreen({ navigation, route }) {
               )}
             </View>
             <Text style={styles.exercisesSubtitle}>
-              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Preview exercises in this routine' : 'Tap to practice • Long press to remove'}
+              {source === 'training'
+                ? 'Tap exercise to practice · Log results when done'
+                : (source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment')
+                ? 'Preview exercises in this routine'
+                : 'Tap to practice • Long press to remove'}
             </Text>
           </View>
           
@@ -1131,11 +1231,12 @@ export default function RoutineDetailScreen({ navigation, route }) {
             const latestLog = latestLogs[exercise.id];
             const hasMetTarget = latestLog?.exercise_details?.result && 
               meetsTarget(latestLog.exercise_details.result, exercise.target || exercise.goal) === true;
+            const wasLoggedThisSession = !!exerciseResults[exercise.routineExerciseId];
             
             return (
             <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
               {/* Success check mark badge */}
-              {hasMetTarget && (
+              {(hasMetTarget || wasLoggedThisSession) && (
                 <View style={styles.successBadge}>
                   <Ionicons name="checkmark-circle" size={28} color="#10B981" />
                 </View>
@@ -1148,7 +1249,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 ]}
                 onPress={() => handleNavigateToExercise(exercise)}
                 disabled={isNavigating} // Disable tap when already navigating
-                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
+                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment' || source === 'training') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
                   <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
@@ -1183,7 +1284,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                               Latest: {result}
                             </Text>
                             {targetMet === true && (
-                              <Text style={styles.latestLogEmoji}>😊</Text>
+                              <Smile size={14} color="#065F46" strokeWidth={2.5} />
                             )}
                           </View>
                         );
@@ -1211,6 +1312,20 @@ export default function RoutineDetailScreen({ navigation, route }) {
                     </TouchableOpacity>
                   </View>
                 )}
+
+                {/* Training mode: Log button on each row */}
+                {source === 'training' && (
+                  <TouchableOpacity
+                    style={[styles.trainingLogBtn, wasLoggedThisSession && styles.trainingLogBtnDone]}
+                    onPress={(e) => { e.stopPropagation(); handleAddLog(exercise); }}
+                    accessibilityLabel={`Log ${exercise.name || exercise.title}`}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.trainingLogBtnText, wasLoggedThisSession && styles.trainingLogBtnTextDone]}>
+                      {wasLoggedThisSession ? 'Logged ✓' : 'Log'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             </View>
             );
@@ -1232,7 +1347,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <View style={styles.sessionModalContent}>
             {/* Header with fun emoji and title */}
             <View style={styles.sessionModalHeader}>
-              <Text style={styles.sessionModalEmoji}>🎾</Text>
+              <Activity size={48} color="#6366F1" strokeWidth={1.75} />
               <Text style={styles.sessionModalTitle}>Ready to Play!</Text>
               <Text style={styles.sessionModalSubtitle}>Let's start your training session</Text>
             </View>
@@ -1276,7 +1391,10 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 style={styles.sessionModalStartButton}
                 onPress={confirmStartSession}
               >
-                <Text style={styles.sessionModalStartText}>Let's Go! 💪</Text>
+                <View style={styles.sessionModalStartRow}>
+                  <Text style={styles.sessionModalStartText}>Let's Go!</Text>
+                  <Dumbbell size={18} color="#fff" strokeWidth={2.5} />
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -1412,9 +1530,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 48,
   },
-  emptyExercisesIcon: {
-    fontSize: 48,
+  emptyExercisesIconWrap: {
     marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyExercisesTitle: {
     fontSize: 24,
@@ -1609,10 +1728,7 @@ const styles = StyleSheet.create({
   sessionModalHeader: {
     alignItems: 'center',
     marginBottom: 24,
-  },
-  sessionModalEmoji: {
-    fontSize: 60,
-    marginBottom: 12,
+    gap: 12,
   },
   sessionModalTitle: {
     fontSize: 24,
@@ -1687,6 +1803,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  sessionModalStartRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   // Session timer styles
   sessionControls: {
@@ -1820,7 +1941,50 @@ const styles = StyleSheet.create({
   latestLogLabelBelowTarget: {
     color: '#DC2626',
   },
-  latestLogEmoji: {
-    fontSize: 14,
+
+  // Training mode styles
+  trainingLogBtn: {
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    minHeight: 34,
+    justifyContent: 'center',
+    marginLeft: 8,
   },
+  trainingLogBtnDone: {
+    borderColor: '#10B981',
+    backgroundColor: '#D1FAE5',
+  },
+  trainingLogBtnText: { fontSize: 13, fontWeight: '700', color: '#6366F1' },
+  trainingLogBtnTextDone: { color: '#059669' },
+  sessionFooter: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  sessionFooterHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  completeSessionBtn: {
+    backgroundColor: '#6366F1',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 50,
+  },
+  completeSessionBtnDisabled: {
+    backgroundColor: '#F3F4F6',
+  },
+  completeSessionBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  completeSessionBtnTextDisabled: { color: '#9CA3AF' },
 });

@@ -88,9 +88,9 @@ class PreloadingService {
       return this.cache.programs;
     } catch (error) {
       console.error('❌ PreloadingService: Failed to preload programs:', error);
-      this.errors.programs = error.message || 'Failed to load programs';
+      this.errors.programs = error?.message || error?.code || 'Failed to load programs';
       this.cache.programs = [];
-      return this.cache.programs;
+      throw error;
     } finally {
       this.loadingStates.programs = false;
     }

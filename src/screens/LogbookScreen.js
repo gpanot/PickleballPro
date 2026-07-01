@@ -163,7 +163,10 @@ export default function LogbookScreen({ navigation }) {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>Your Logbook</Text>
+      <View>
+        <Text style={styles.headerTitle}>Logbook</Text>
+        <Text style={styles.headerSubtitle}>Train with intention, reflect with clarity.</Text>
+      </View>
       <TouchableOpacity 
         style={styles.avatarButton}
         onPress={() => navigation.navigate('Profile')}
@@ -193,7 +196,7 @@ export default function LogbookScreen({ navigation }) {
         onPress={() => setIsSummaryExpanded(!isSummaryExpanded)}
         activeOpacity={0.7}
       >
-        <Text style={styles.summaryTitle}>Training Summary</Text>
+        <Text style={styles.summaryTitle}>Progress Snapshot</Text>
         <Ionicons 
           name={isSummaryExpanded ? "chevron-up" : "chevron-down"} 
           size={20} 
@@ -206,14 +209,14 @@ export default function LogbookScreen({ navigation }) {
           {/* Total Hours Card */}
           <View style={styles.totalHoursCard}>
             <Text style={styles.totalHoursValue}>{`${summary.totalHours}h`}</Text>
-            <Text style={styles.totalHoursLabel}>Total Hours</Text>
+              <Text style={styles.totalHoursLabel}>Hours Trained</Text>
             <Text style={styles.totalHoursSubtext}>{`${summary.totalSessions} sessions since ${formatDate(summary.firstSessionDate)}`}</Text>
           </View>
 
           {/* Session Type Hours */}
           {summary.sessionTypeHours && Object.keys(summary.sessionTypeHours).length > 0 && (
             <View style={styles.sessionTypeHoursCard}>
-              <Text style={styles.sessionTypeHoursTitle}>Hours by Type</Text>
+              <Text style={styles.sessionTypeHoursTitle}>Session Mix</Text>
               <View style={styles.sessionTypeHoursList}>
                 {Object.entries(summary.sessionTypeHours)
                   .sort(([,a], [,b]) => b - a) // Sort by hours descending
@@ -238,7 +241,7 @@ export default function LogbookScreen({ navigation }) {
             {/* Strong Skills - Left Column */}
             {summary.topStrongSkills && summary.topStrongSkills.length > 0 && (
               <View style={styles.skillsSection}>
-                <Text style={styles.skillsSectionTitle}>💪 Your Strong Skills</Text>
+                <Text style={styles.skillsSectionTitle}>Strong Right Now</Text>
                 <View style={styles.skillsList}>
                   {summary.topStrongSkills.map((item, index) => {
                     const skillData = getTrainingFocusData(item.skill);
@@ -258,7 +261,7 @@ export default function LogbookScreen({ navigation }) {
             {/* Weak Skills - Right Column */}
             {summary.topWeakSkills && summary.topWeakSkills.length > 0 && (
               <View style={styles.skillsSection}>
-                <Text style={styles.skillsSectionTitle}>🎯 Areas to Improve</Text>
+                <Text style={styles.skillsSectionTitle}>Focus Next</Text>
                 <View style={styles.skillsList}>
                   {summary.topWeakSkills.map((item, index) => {
                     const skillData = getTrainingFocusData(item.skill);
@@ -279,7 +282,7 @@ export default function LogbookScreen({ navigation }) {
           {/* Mood Trend — merged card */}
           {(summary.last5AverageFeeling > 0 || summary.weeklyAverageFeeling > 0) && (
             <View style={styles.moodTrendCard}>
-              <Text style={styles.moodTrendTitle}>Mood Trend</Text>
+              <Text style={styles.moodTrendTitle}>Energy Trend</Text>
               <View style={styles.moodTrendRow}>
                 {summary.last5AverageFeeling > 0 && (
                   <View style={styles.moodTrendItem}>
@@ -323,7 +326,7 @@ export default function LogbookScreen({ navigation }) {
                 onPress={() => navigation.navigate('Coach')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.coachRecommendationTitle}>🏓 Do you need a coach?</Text>
+                <Text style={styles.coachRecommendationTitle}>Thinking about coaching?</Text>
                 <View style={styles.coachProgressContainer}>
                   <Text style={[
                     styles.coachProgressLabel,
@@ -364,7 +367,7 @@ export default function LogbookScreen({ navigation }) {
 
   const renderLogbookEntries = () => (
     <View style={styles.entriesContainer}>
-      <Text style={styles.entriesTitle}>Recent Sessions</Text>
+      <Text style={styles.entriesTitle}>Recent Entries</Text>
       
       {isLoading ? (
         <View style={styles.loadingState}>
@@ -429,7 +432,7 @@ export default function LogbookScreen({ navigation }) {
                   
                   {/* What went good display */}
                   <View style={styles.entryFocusContainer}>
-                    <Text style={styles.entryFocusTitle}>What went good:</Text>
+                    <Text style={styles.entryFocusTitle}>Went well</Text>
                     <View style={styles.entryFocusTags}>
                       {entryFocuses.map((focus, index) => {
                         const focusData = getTrainingFocusData(focus);
@@ -448,7 +451,7 @@ export default function LogbookScreen({ navigation }) {
                   {/* What went wrong display */}
                   {entry.difficulty && (
                     <View style={styles.entryDifficultyContainer}>
-                      <Text style={styles.entryDifficultyTitle}>What was difficult:</Text>
+                      <Text style={styles.entryDifficultyTitle}>Needs attention</Text>
                       <View style={styles.entryDifficultyTags}>
                         {(Array.isArray(entry.difficulty) ? entry.difficulty : [entry.difficulty]).map((difficulty, index) => {
                           const difficultyData = getTrainingFocusData(difficulty);
@@ -531,10 +534,10 @@ export default function LogbookScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FCFAFF',
   },
   headerSafeArea: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FCFAFF',
     zIndex: 1000,
   },
   scrollView: {
@@ -548,17 +551,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: '#FCFAFF',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '700',
-    color: '#1F2937',
-    flex: 1,
+    color: '#2E2343',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#7A6E90',
+    marginTop: 2,
   },
   avatarButton: {
     padding: 4,
@@ -567,7 +572,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#F1EAFE',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -579,7 +584,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
+    color: '#5B4785',
   },
   avatarImage: {
     width: 40,
@@ -594,12 +599,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#10B981',
+    backgroundColor: '#8B6FD6',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 8,
     zIndex: 1000,
@@ -607,14 +612,11 @@ const styles = StyleSheet.create({
   // Summary styles
   summaryContainer: {
     margin: 16,
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#EEE8FA',
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -624,50 +626,50 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   summaryTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#2E2343',
   },
   // Total Hours Card
   totalHoursCard: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F8F3FF',
     borderRadius: 16,
     padding: 12,
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0F2FE',
+    borderColor: '#EDE2FF',
   },
   totalHoursValue: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#0369A1',
+    color: '#5B4785',
     marginBottom: 2,
   },
   totalHoursLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0369A1',
+    color: '#6B558F',
     marginBottom: 2,
   },
   totalHoursSubtext: {
     fontSize: 11,
-    color: '#0891B2',
+    color: '#8B7AAE',
     textAlign: 'center',
   },
   // Session Type Hours Card
   sessionTypeHoursCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FBF9FF',
     borderRadius: 12,
     padding: 10,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#EEE8FA',
   },
   sessionTypeHoursTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: '#695985',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -677,7 +679,7 @@ const styles = StyleSheet.create({
   sessionTypeHoursItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -694,8 +696,8 @@ const styles = StyleSheet.create({
   sessionTypeHoursValue: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
-    backgroundColor: '#F1F5F9',
+    color: '#695985',
+    backgroundColor: '#F4EFFF',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -708,16 +710,16 @@ const styles = StyleSheet.create({
   },
   skillsSection: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FCFAFF',
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: '#EFE9FB',
   },
   skillsSectionTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
+    color: '#4C3B6C',
     marginBottom: 8,
   },
   skillsList: {
@@ -740,25 +742,25 @@ const styles = StyleSheet.create({
   skillCount: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#6B7280',
-    backgroundColor: '#F3F4F6',
+    color: '#75658F',
+    backgroundColor: '#F3EEFD',
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
   },
   // Merged mood trend card
   moodTrendCard: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#F8F3FF',
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E0F2FE',
+    borderColor: '#EDE2FF',
     marginBottom: 12,
   },
   moodTrendTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0369A1',
+    color: '#5B4785',
     marginBottom: 10,
   },
   moodTrendRow: {
@@ -771,13 +773,13 @@ const styles = StyleSheet.create({
   },
   moodTrendLabel: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#7A6E90',
     marginBottom: 4,
   },
   moodTrendDivider: {
     width: 1,
     height: 36,
-    backgroundColor: '#BFDBFE',
+    backgroundColor: '#DACCF6',
     marginHorizontal: 8,
   },
   feelingDisplay: {
@@ -791,20 +793,20 @@ const styles = StyleSheet.create({
   feelingLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#0369A1',
+    color: '#6A568D',
   },
   // Coach recommendation styles
   coachRecommendationCard: {
-    backgroundColor: '#FEF7FF',
+    backgroundColor: '#FCF7FF',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F3E8FF',
+    borderColor: '#EEDFFC',
   },
   coachRecommendationTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: '#6A4BA8',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -817,13 +819,13 @@ const styles = StyleSheet.create({
   coachProgressLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#7A6E90',
     width: 50,
     textAlign: 'center',
   },
   coachProgressLabelBold: {
     fontWeight: '900',
-    color: '#1F2937',
+    color: '#2E2343',
     fontSize: 12,
   },
   coachProgressBar: {
@@ -834,7 +836,7 @@ const styles = StyleSheet.create({
   },
   coachProgressTrack: {
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E0D7F4',
     borderRadius: 2,
   },
   coachProgressBall: {
@@ -851,7 +853,7 @@ const styles = StyleSheet.create({
   },
   coachRecommendationSubtext: {
     fontSize: 10,
-    color: '#9333EA',
+    color: '#8261B8',
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -860,25 +862,22 @@ const styles = StyleSheet.create({
     margin: 16,
   },
   entriesTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
+    color: '#2E2343',
+    marginBottom: 12,
   },
   loadingState: {
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 32,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#EEE8FA',
   },
   loadingText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: '#7A6E90',
     textAlign: 'center',
   },
   emptyState: {
@@ -909,20 +908,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   entryCard: {
-    backgroundColor: 'white',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#EEE8FA',
   },
   entryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   entryDateContainer: {
     flex: 1,
@@ -930,12 +926,12 @@ const styles = StyleSheet.create({
   entryDate: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#2E2343',
     marginBottom: 2,
   },
   entryHours: {
     fontSize: 14,
-    color: '#10B981',
+    color: '#7D59C0',
     fontWeight: '600',
   },
   entryMetadata: {
@@ -952,7 +948,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   entrySessionTypeLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   entryFeeling: {
@@ -964,7 +960,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   entryFeelingLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   entryFocusContainer: {
@@ -972,10 +968,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   entryFocusTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#7A6E90',
     marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   entryFocusTags: {
     flexDirection: 'row',
@@ -985,8 +983,8 @@ const styles = StyleSheet.create({
   entryFocusTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
+    backgroundColor: '#F8F4FF',
+    borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
@@ -996,7 +994,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   entryFocusTagLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   // Difficulty styles (reuse focus styles with different naming)
@@ -1005,10 +1003,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   entryDifficultyTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#8B5A78',
     marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   entryDifficultyTags: {
     flexDirection: 'row',
@@ -1018,8 +1018,8 @@ const styles = StyleSheet.create({
   entryDifficultyTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    borderRadius: 16,
+    backgroundColor: '#FFF4F8',
+    borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
@@ -1029,14 +1029,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   entryDifficultyTagLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   entryNotes: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 8,
+    fontSize: 13,
+    color: '#65597A',
+    lineHeight: 19,
+    marginTop: 4,
   },
   entryEditIcon: {
     padding: 4,
@@ -1047,14 +1047,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: 'white',
+    borderColor: '#E5DCF7',
+    backgroundColor: '#FFFFFF',
     marginTop: 4,
   },
   loadMoreText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6366F1',
+    color: '#6B4FAE',
   },
   bottomSpacing: {
     height: 100, // Extra space to account for FAB

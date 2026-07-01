@@ -101,6 +101,11 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [selectedUserForLogbook, setSelectedUserForLogbook] = useState(null);
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
+  const [newCategoryNameInput, setNewCategoryNameInput] = useState('');
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [showDeleteCategory1, setShowDeleteCategory1] = useState(false);
+  const [showDeleteCategory2, setShowDeleteCategory2] = useState(false);
   const [coachToDelete, setCoachToDelete] = useState(null);
   const [showDeleteCoachConfirmation, setShowDeleteCoachConfirmation] = useState(false);
   const [programSortField, setProgramSortField] = useState(null);
@@ -181,9 +186,12 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   }, [activeTab, contentTab]);
 
   const fetchStats = async () => {
+    const t0 = Date.now();
+    console.log('[AdminDashboard] 🔍 fetchStats() started, sessionRole=', sessionRole);
     setLoading(true);
     try {
       if (isManagerSession) {
+        const t1 = Date.now();
         // Managers see all programs in their academy + their own students
         const [academyProgramsRes, myStudentsRes] = await Promise.all([
           supabase.from('programs').select('id', { count: 'exact' }).eq('academy_id', academyId),
@@ -191,9 +199,12 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             ? supabase.from('coach_students').select('id', { count: 'exact' }).eq('coach_id', coachId)
             : Promise.resolve({ count: 0 }),
         ]);
+        console.log(`[AdminDashboard] ✅ manager stats batch-1 took ${Date.now() - t1}ms`);
+        const t2 = Date.now();
         const [membersRes] = await Promise.all([
           supabase.from('academy_members').select('id', { count: 'exact' }).eq('academy_id', academyId),
         ]);
+        console.log(`[AdminDashboard] ✅ manager stats batch-2 took ${Date.now() - t2}ms`);
         setStats({
           programs: academyProgramsRes.count || 0,
           members: membersRes.count || 0,
@@ -203,11 +214,13 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           published_programs: 0,
         });
       } else if (isCoachSession) {
+        const t1 = Date.now();
         // Coaches see only their own programs and their linked students
         const [myProgramsRes, myStudentsRes] = await Promise.all([
           supabase.from('programs').select('id', { count: 'exact' }).eq('created_by', user.id),
           supabase.from('coach_students').select('id', { count: 'exact' }).eq('coach_id', coachId),
         ]);
+        console.log(`[AdminDashboard] ✅ coach stats took ${Date.now() - t1}ms`);
 
         setStats({
           programs: myProgramsRes.count || 0,
@@ -215,6 +228,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         });
         setPublishedStats({});
       } else {
+        const t1 = Date.now();
         const [programsRes, exercisesRes, coachesRes, usersRes, publishedProgramsRes] = await Promise.all([
           supabase.from('programs').select('id', { count: 'exact' }),
           supabase.from('exercises').select('id', { count: 'exact' }),
@@ -222,6 +236,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           supabase.from('users').select('id', { count: 'exact' }),
           supabase.from('programs').select('id', { count: 'exact' }).eq('is_published', true),
         ]);
+        console.log(`[AdminDashboard] ✅ admin stats (5 parallel queries) took ${Date.now() - t1}ms`);
 
         setStats({
           programs: programsRes.count || 0,
@@ -236,25 +251,34 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       }
 
       // Fetch dashboard-specific data
+      const tActivity = Date.now();
       await Promise.all([
         fetchRecentActivity(),
         fetchPopularPrograms(),
       ]);
+      console.log(`[AdminDashboard] ✅ fetchRecentActivity + fetchPopularPrograms took ${Date.now() - tActivity}ms`);
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
       setLoading(false);
+      console.log(`[AdminDashboard] 🏁 fetchStats() total: ${Date.now() - t0}ms`);
     }
   };
 
   const fetchPrograms = async () => {
+    const t0 = Date.now();
+    console.log('[AdminDashboard] 🔍 fetchPrograms() started');
     setLoading(true);
     try {
       // Initialize program order if needed (only runs once if all programs have order_index = 0)
+      const t1 = Date.now();
       await initializeProgramOrder();
+      console.log(`[AdminDashboard] ✅ initializeProgramOrder took ${Date.now() - t1}ms`);
       
       // Normalize order indices to ensure sequential ordering
+      const t2 = Date.now();
       await normalizeOrderIndices();
+      console.log(`[AdminDashboard] ✅ normalizeOrderIndices took ${Date.now() - t2}ms`);
       
       // Fetch programs with routine and exercise counts
       let programsQuery = supabase
@@ -271,11 +295,15 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         programsQuery = programsQuery.eq('created_by', user.id);
       }
 
+      const t3 = Date.now();
       const { data: programsData, error: programsError } = await programsQuery;
+      console.log(`[AdminDashboard] ✅ programs list query took ${Date.now() - t3}ms → ${programsData?.length ?? 0} programs`);
 
       if (programsError) throw programsError;
 
       // For each program, fetch the count of routines and exercises
+      // ⚠️ This is an N×3 query pattern — 3 DB round-trips per program!
+      const t4 = Date.now();
       const programsWithCounts = await Promise.all(
         (programsData || []).map(async (program) => {
           // Get routine count for this program
@@ -314,6 +342,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           };
         })
       );
+      console.log(`[AdminDashboard] ✅ per-program N×3 count queries took ${Date.now() - t4}ms for ${programsData?.length ?? 0} programs`);
 
       // For managers: enrich each program with author display name
       let finalPrograms = programsWithCounts;
@@ -340,6 +369,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       Alert.alert('Error', 'Failed to fetch programs');
     } finally {
       setLoading(false);
+      console.log(`[AdminDashboard] 🏁 fetchPrograms() total: ${Date.now() - t0}ms`);
     }
   };
 
@@ -934,80 +964,16 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      // Get distinct categories from programs
+      // Load from the dedicated categories table (admin can see all, published or draft)
       const { data, error } = await supabase
-        .from('programs')
-        .select('category')
-        .not('category', 'is', null);
+        .from('categories')
+        .select('id, name, order_index, is_published, created_at, updated_at')
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
-      // Get unique categories
-      const uniqueCategories = [...new Set(data.map(p => p.category))];
-      
-      // Try to get saved category order from database
-      let savedOrder = null;
-      try {
-        const { data: orderData, error: orderError } = await supabase
-          .rpc('get_category_order');
-        
-        if (orderError) {
-          console.log('📋 No saved category order found or RPC not available:', orderError.message);
-        } else {
-          savedOrder = orderData;
-          console.log('📋 Loaded saved category order:', savedOrder);
-        }
-      } catch (orderError) {
-        console.log('📋 Could not load saved category order:', orderError.message);
-      }
-      
-      // Create category objects
-      let categoryObjects;
-      
-      if (savedOrder && Array.isArray(savedOrder) && savedOrder.length > 0) {
-        // Use saved order
-        console.log('📋 Using saved category order');
-        categoryObjects = savedOrder
-          .filter(savedCat => uniqueCategories.includes(savedCat.name)) // Only include existing categories
-          .map((savedCat, index) => ({
-            id: savedCat.name.toLowerCase().replace(/\s+/g, '_'),
-            name: savedCat.name,
-            order_index: index,
-            created_at: new Date().toISOString()
-          }));
-        
-        // Add any new categories that weren't in saved order
-        const savedCategoryNames = savedOrder.map(sc => sc.name);
-        const newCategories = uniqueCategories
-          .filter(cat => !savedCategoryNames.includes(cat))
-          .map((category, index) => ({
-            id: category.toLowerCase().replace(/\s+/g, '_'),
-            name: category,
-            order_index: categoryObjects.length + index,
-            created_at: new Date().toISOString()
-          }));
-        
-        categoryObjects = [...categoryObjects, ...newCategories];
-      } else {
-        // Use default alphabetical order
-        console.log('📋 Using default alphabetical order');
-        categoryObjects = uniqueCategories.map((category, index) => ({
-          id: category.toLowerCase().replace(/\s+/g, '_'),
-          name: category,
-          order_index: index,
-          created_at: new Date().toISOString()
-        }));
-        
-        // Sort by name for default order
-        categoryObjects.sort((a, b) => a.name.localeCompare(b.name));
-        
-        // Update order_index after sorting
-        categoryObjects.forEach((cat, index) => {
-          cat.order_index = index;
-        });
-      }
-
-      setCategories(categoryObjects);
+      setCategories(data || []);
       setHasUnsavedCategoryChanges(false);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -1018,28 +984,33 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   };
 
   const fetchRecentActivity = async () => {
+    const t0 = Date.now();
     try {
-      // Get recent users (last 5)
-      const { data: recentUsers, error: usersError } = await supabase
-        .from('users')
-        .select('name, email, created_at')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      // Get recently published programs (last 2)
-      const { data: recentPrograms, error: programsError } = await supabase
-        .from('programs')
-        .select('name, created_at, updated_at')
-        .eq('is_published', true)
-        .order('updated_at', { ascending: false })
-        .limit(2);
-
-      // Get recent coach updates (last 2)
-      const { data: recentCoaches, error: coachesError } = await supabase
-        .from('coaches')
-        .select('name, updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(2);
+      // Get recent users (last 5), recently published programs, coach updates — all in parallel
+      const tParallel = Date.now();
+      const [
+        { data: recentUsers, error: usersError },
+        { data: recentPrograms, error: programsError },
+        { data: recentCoaches, error: coachesError },
+      ] = await Promise.all([
+        supabase
+          .from('users')
+          .select('name, email, created_at')
+          .order('created_at', { ascending: false })
+          .limit(3),
+        supabase
+          .from('programs')
+          .select('name, created_at, updated_at')
+          .eq('is_published', true)
+          .order('updated_at', { ascending: false })
+          .limit(2),
+        supabase
+          .from('coaches')
+          .select('name, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(2),
+      ]);
+      console.log(`[AdminDashboard] ✅ fetchRecentActivity 3 parallel queries took ${Date.now() - tParallel}ms`);
 
       const activities = [];
 
@@ -1087,6 +1058,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       
       // Take only the 5 most recent
       setRecentActivity(activities.slice(0, 5));
+      console.log(`[AdminDashboard] 🏁 fetchRecentActivity() total: ${Date.now() - t0}ms`);
     } catch (error) {
       console.error('Error fetching recent activity:', error);
       // Fallback to empty array if error
@@ -1095,6 +1067,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   };
 
   const fetchPopularPrograms = async () => {
+    const t0 = Date.now();
     try {
       const { data, error } = await supabase
         .from('programs')
@@ -1113,6 +1086,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       }));
 
       setPopularPrograms(programsWithProgress);
+      console.log(`[AdminDashboard] 🏁 fetchPopularPrograms() total: ${Date.now() - t0}ms`);
     } catch (error) {
       console.error('Error fetching popular programs:', error);
       // Fallback to empty array if error
@@ -1649,6 +1623,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           handleEditCategory={handleEditCategory}
           handleCancelCategoryEdit={handleCancelCategoryEdit}
           handleSaveCategoryName={handleSaveCategoryName}
+          onCreateCategory={() => { setNewCategoryNameInput(''); setShowCreateCategoryModal(true); }}
+          onDeleteCategory={handleDeleteCategory1}
+          onToggleVisibility={handleToggleCategoryVisibility}
           styles={styles}
         />
       ) : null}
@@ -3410,6 +3387,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   };
 
   const initializeProgramOrder = async () => {
+    const t0 = Date.now();
     try {
       // Get all programs ordered by category and created_at to establish initial order
       const { data: allPrograms, error } = await supabase
@@ -3422,6 +3400,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       
       // Check if programs need order initialization (all have order_index = 0)
       const needsInitialization = allPrograms.every(p => p.order_index === 0);
+      console.log(`[AdminDashboard] initializeProgramOrder: ${allPrograms.length} programs, needsInit=${needsInitialization}`);
       
       if (needsInitialization && allPrograms.length > 1) {
         console.log('Initializing program order_index values by category...');
@@ -3448,15 +3427,18 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           });
         });
         
+        console.log(`[AdminDashboard] ⚠️ initializeProgramOrder firing ${updates.length} individual UPDATE queries!`);
+        const tUpdates = Date.now();
         const results = await Promise.all(updates);
         const hasError = results.some(result => result.error);
         
         if (hasError) {
           console.error('Error initializing program order:', results.filter(r => r.error));
         } else {
-          console.log('Program order initialized successfully by category');
+          console.log(`[AdminDashboard] ✅ initializeProgramOrder ${updates.length} updates took ${Date.now() - tUpdates}ms`);
         }
       }
+      console.log(`[AdminDashboard] 🏁 initializeProgramOrder() total: ${Date.now() - t0}ms`);
     } catch (error) {
       console.error('Error initializing program order:', error);
     }
@@ -3525,8 +3507,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   };
 
   const normalizeOrderIndices = async () => {
+    const t0 = Date.now();
     try {
-      console.log('🔧 Normalizing order indices to fix sequence...');
+      console.log('[AdminDashboard] 🔧 normalizeOrderIndices() started');
       
       // Get all programs grouped by category
       const { data: allPrograms, error } = await supabase
@@ -3563,18 +3546,20 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       });
       
       if (updates.length > 0) {
-        console.log(`🔧 Updating ${updates.length} programs with normalized order indices...`);
+        console.log(`[AdminDashboard] ⚠️ normalizeOrderIndices firing ${updates.length} individual UPDATE queries!`);
+        const tUpdates = Date.now();
         const results = await Promise.all(updates);
         const hasError = results.some(result => result.error);
         
         if (hasError) {
           console.error('Error normalizing order indices:', results.filter(r => r.error));
         } else {
-          console.log('✅ Order indices normalized successfully');
+          console.log(`[AdminDashboard] ✅ normalizeOrderIndices ${updates.length} updates took ${Date.now() - tUpdates}ms`);
         }
       } else {
-        console.log('✅ Order indices already normalized');
+        console.log('[AdminDashboard] ✅ normalizeOrderIndices: nothing to update');
       }
+      console.log(`[AdminDashboard] 🏁 normalizeOrderIndices() total: ${Date.now() - t0}ms`);
     } catch (error) {
       console.error('Error normalizing order indices:', error);
     }
@@ -3582,39 +3567,28 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
   const reorderCategory = async (categoryId, direction) => {
     try {
-      // Get current categories list
       const currentCategories = [...categories];
       const currentIndex = currentCategories.findIndex(c => c.id === categoryId);
-      
-      if (currentIndex === -1) {
-        throw new Error('Category not found');
-      }
-      
+      if (currentIndex === -1) throw new Error('Category not found');
+
       let targetIndex;
       if (direction === 'up' && currentIndex > 0) {
         targetIndex = currentIndex - 1;
       } else if (direction === 'down' && currentIndex < currentCategories.length - 1) {
         targetIndex = currentIndex + 1;
       } else {
-        // No change needed (already at top/bottom)
         return;
       }
-      
-      // Swap the categories in the array
+
       const updatedCategories = [...currentCategories];
-      [updatedCategories[currentIndex], updatedCategories[targetIndex]] = 
-      [updatedCategories[targetIndex], updatedCategories[currentIndex]];
-      
-      // Update order_index for both categories
+      [updatedCategories[currentIndex], updatedCategories[targetIndex]] =
+        [updatedCategories[targetIndex], updatedCategories[currentIndex]];
+
       updatedCategories[currentIndex].order_index = currentIndex;
       updatedCategories[targetIndex].order_index = targetIndex;
-      
-      // Update local state immediately for responsive UI
+
       setCategories(updatedCategories);
       setHasUnsavedCategoryChanges(true);
-      
-      console.log('Category order updated:', updatedCategories.map(c => `${c.name} (${c.order_index})`));
-      
     } catch (error) {
       console.error('Error reordering category:', error);
       Alert.alert('Error', `Failed to reorder category: ${error.message}`);
@@ -3624,68 +3598,93 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const saveCategoryOrder = async () => {
     try {
       setSavingCategoryOrder(true);
-      
-      console.log('💾 Saving category order to database...');
-      
-      // Create category order data
-      const categoryOrder = categories.map((category, index) => ({
-        name: category.name,
-        order_index: index
-      }));
-      
-      console.log('💾 Category order to save:', categoryOrder);
-      
-      // We'll store the category order in a settings table or as metadata
-      // For now, let's use a simple approach: store it in the users table as admin settings
-      // or create a simple key-value storage approach
-      
-      const { data: adminUser, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .eq('is_admin', true)
-        .single();
-      
-      if (userError || !adminUser) {
-        throw new Error('Admin user not found');
-      }
-      
-      // Store category order in a way that can be retrieved globally
-      // Option 1: Use a settings table (if it exists)
-      // Option 2: Use a simple JSON field in programs metadata
-      // Option 3: Create a category_order table
-      
-      // For now, let's use a simple approach - we'll create an RPC function
-      const { error: saveError } = await supabase
-        .rpc('save_category_order', {
-          category_order: categoryOrder
-        });
-      
-      if (saveError) {
-        console.error('💾 Error saving category order:', saveError);
-        // If RPC doesn't exist, fall back to a simpler approach
-        if (saveError.message?.includes('function save_category_order')) {
-          console.log('💾 RPC function not found, using fallback approach...');
-          
-          // Fallback: Save as JSON in a simple way
-          // We'll add a comment to create the RPC function later
-          console.log('💾 Category order saved locally (database RPC function needed)');
-          Alert.alert('Success', 'Category order saved locally. Database function needs to be created for full persistence.');
-        } else {
-          throw saveError;
-        }
-      } else {
-        console.log('💾 ✅ Category order saved successfully');
-        Alert.alert('Success', 'Category order saved successfully!');
-      }
-      
+      const updates = categories.map((cat, index) =>
+        supabase.from('categories').update({ order_index: index }).eq('id', cat.id)
+      );
+      const results = await Promise.all(updates);
+      const failed = results.find(r => r.error);
+      if (failed) throw failed.error;
       setHasUnsavedCategoryChanges(false);
-      
+      Alert.alert('Success', 'Category order saved!');
     } catch (error) {
-      console.error('💾 Error saving category order:', error);
+      console.error('Error saving category order:', error);
       Alert.alert('Error', `Failed to save category order: ${error.message}`);
     } finally {
       setSavingCategoryOrder(false);
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryNameInput.trim();
+    if (!name) {
+      Alert.alert('Error', 'Category name cannot be empty.');
+      return;
+    }
+    const duplicate = categories.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (duplicate) {
+      Alert.alert('Error', 'A category with this name already exists.');
+      return;
+    }
+    try {
+      const newOrderIndex = categories.length;
+      const { data, error } = await supabase
+        .from('categories')
+        .insert({ name, order_index: newOrderIndex, is_published: false })
+        .select()
+        .single();
+      if (error) throw error;
+      setCategories(prev => [...prev, data]);
+      setNewCategoryNameInput('');
+      setShowCreateCategoryModal(false);
+      Alert.alert('Success', `Category "${name}" created as Draft.`);
+    } catch (error) {
+      console.error('Error creating category:', error);
+      Alert.alert('Error', `Failed to create category: ${error.message}`);
+    }
+  };
+
+  const handleToggleCategoryVisibility = async (category) => {
+    const newValue = !category.is_published;
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .update({ is_published: newValue })
+        .eq('id', category.id);
+      if (error) throw error;
+      setCategories(prev =>
+        prev.map(c => c.id === category.id ? { ...c, is_published: newValue } : c)
+      );
+    } catch (error) {
+      console.error('Error toggling category visibility:', error);
+      Alert.alert('Error', `Failed to update visibility: ${error.message}`);
+    }
+  };
+
+  const handleDeleteCategory1 = (category) => {
+    setCategoryToDelete(category);
+    setShowDeleteCategory1(true);
+  };
+
+  const handleDeleteCategory2 = () => {
+    setShowDeleteCategory1(false);
+    setShowDeleteCategory2(true);
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', categoryToDelete.id);
+      if (error) throw error;
+      setCategories(prev => prev.filter(c => c.id !== categoryToDelete.id));
+      setShowDeleteCategory2(false);
+      setCategoryToDelete(null);
+      Alert.alert('Deleted', `Category "${categoryToDelete.name}" has been deleted.`);
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      Alert.alert('Error', `Failed to delete category: ${error.message}`);
     }
   };
 
@@ -3701,67 +3700,44 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
 
     try {
-      // Find the category being edited
       const categoryToEdit = categories.find(c => c.id === editingCategoryId);
-      if (!categoryToEdit) {
-        throw new Error('Category not found');
-      }
+      if (!categoryToEdit) throw new Error('Category not found');
 
       const oldCategoryName = categoryToEdit.name;
       const newCategoryName = editingCategoryName.trim();
 
-      // Check if the name has actually changed
       if (oldCategoryName === newCategoryName) {
         setEditingCategoryId(null);
         setEditingCategoryName('');
         return;
       }
 
-      // Check if the new name already exists
-      const existingCategory = categories.find(c => c.name.toLowerCase() === newCategoryName.toLowerCase() && c.id !== editingCategoryId);
-      if (existingCategory) {
+      const duplicate = categories.find(c => c.name.toLowerCase() === newCategoryName.toLowerCase() && c.id !== editingCategoryId);
+      if (duplicate) {
         Alert.alert('Error', 'A category with this name already exists');
         return;
       }
 
-      console.log('📝 Updating category name from', oldCategoryName, 'to', newCategoryName);
+      // Update the categories table name
+      const { error: catError } = await supabase
+        .from('categories')
+        .update({ name: newCategoryName })
+        .eq('id', editingCategoryId);
+      if (catError) throw catError;
 
-      // Update all programs that use this category
-      const { error: updateError } = await supabase
+      // Also rename programs that use this category string
+      const { error: progError } = await supabase
         .from('programs')
         .update({ category: newCategoryName })
         .eq('category', oldCategoryName);
+      if (progError) throw progError;
 
-      if (updateError) {
-        throw updateError;
-      }
-
-      // Update the local categories state
-      const updatedCategories = categories.map(category => {
-        if (category.id === editingCategoryId) {
-          return {
-            ...category,
-            name: newCategoryName,
-            id: newCategoryName.toLowerCase().replace(/\s+/g, '_')
-          };
-        }
-        return category;
-      });
-
-      setCategories(updatedCategories);
-      setHasUnsavedCategoryChanges(true);
-
-      // Clear editing state
+      setCategories(prev =>
+        prev.map(c => c.id === editingCategoryId ? { ...c, name: newCategoryName } : c)
+      );
       setEditingCategoryId(null);
       setEditingCategoryName('');
-
-      Alert.alert('Success', `Category renamed from "${oldCategoryName}" to "${newCategoryName}"`);
-
-      // Refresh programs to show updated category names
-      if (contentTab === 'programs') {
-        fetchPrograms();
-      }
-
+      Alert.alert('Success', `Category renamed to "${newCategoryName}"`);
     } catch (error) {
       console.error('Error updating category name:', error);
       Alert.alert('Error', `Failed to update category name: ${error.message}`);
@@ -4168,6 +4144,119 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
                 ) : (
                   <Text style={styles.deleteModalConfirmText}>Reset Password</Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Create Category Modal */}
+      {showCreateCategoryModal && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="add-circle-outline" size={24} color="#6366F1" />
+              <Text style={[styles.deleteModalTitle, { color: '#1F2937' }]}>New Category</Text>
+            </View>
+            <Text style={[styles.deleteModalMessage, { marginBottom: 12 }]}>
+              Enter a name for the new category. It will be created as{' '}
+              <Text style={{ fontWeight: '700', color: '#F59E0B' }}>Draft</Text> (not visible in the Library until published).
+            </Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#D1D5DB',
+                borderRadius: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 15,
+                color: '#1F2937',
+                backgroundColor: '#F9FAFB',
+                marginBottom: 20,
+              }}
+              value={newCategoryNameInput}
+              onChangeText={setNewCategoryNameInput}
+              placeholder="e.g. Serve & Return"
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+              onSubmitEditing={handleCreateCategory}
+              returnKeyType="done"
+            />
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancelButton}
+                onPress={() => setShowCreateCategoryModal(false)}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteModalConfirmButton, { backgroundColor: '#6366F1' }]}
+                onPress={handleCreateCategory}
+              >
+                <Text style={styles.deleteModalConfirmText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Delete Category — Step 1 */}
+      {showDeleteCategory1 && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="trash-outline" size={24} color="#EF4444" />
+              <Text style={styles.deleteModalTitle}>Delete Category</Text>
+            </View>
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete the category{' '}
+              <Text style={{ fontWeight: '700' }}>"{categoryToDelete?.name}"</Text>?
+              {'\n\n'}
+              Programs in this category will NOT be deleted but will have no category assigned.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancelButton}
+                onPress={() => { setShowDeleteCategory1(false); setCategoryToDelete(null); }}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteModalConfirmButton}
+                onPress={handleDeleteCategory2}
+              >
+                <Text style={styles.deleteModalConfirmText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Delete Category — Step 2 (final confirmation) */}
+      {showDeleteCategory2 && (
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalContainer}>
+            <View style={styles.deleteModalHeader}>
+              <Ionicons name="warning" size={24} color="#EF4444" />
+              <Text style={styles.deleteModalTitle}>Confirm Deletion</Text>
+            </View>
+            <Text style={styles.deleteModalMessage}>
+              This action <Text style={{ fontWeight: '700' }}>cannot be undone</Text>.{'\n\n'}
+              Permanently delete{' '}
+              <Text style={{ fontWeight: '700' }}>"{categoryToDelete?.name}"</Text>?
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancelButton}
+                onPress={() => { setShowDeleteCategory2(false); setCategoryToDelete(null); }}
+              >
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteModalConfirmButton}
+                onPress={handleConfirmDeleteCategory}
+              >
+                <Text style={styles.deleteModalConfirmText}>Delete Forever</Text>
               </TouchableOpacity>
             </View>
           </View>

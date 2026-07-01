@@ -135,7 +135,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
           <Ionicons name="arrow-back" size={22} color="#374151" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isTrainingSession ? 'Save Training Session' : 'Log Training Session'}
+          {isTrainingSession ? 'Save Session' : 'New Log Entry'}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -149,8 +149,8 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
       >
         {/* Training session notes at top */}
         {isTrainingSession && (
-          <Section title="Session Notes">
-            <Text style={styles.inputHint}>Review your exercise results and add any additional notes</Text>
+          <Section title="Session notes">
+            <Text style={styles.inputHint}>Review your results and keep only what matters most.</Text>
             <TextInput
               style={[styles.textInput, styles.notesInput]}
               value={notes}
@@ -166,7 +166,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         {/* Hours + Date row */}
         <View style={styles.twoColRow}>
           <View style={[styles.section, { flex: 1 }]}>
-            <Text style={styles.sectionTitle}>Hours Trained</Text>
+            <Text style={styles.sectionTitle}>Duration</Text>
             <View style={styles.hoursRow}>
               <TouchableOpacity
                 style={[styles.hoursBtn, hours <= 0.5 && styles.hoursBtnDisabled]}
@@ -187,7 +187,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
           </View>
 
           <View style={[styles.section, { flex: 1 }]}>
-            <Text style={styles.sectionTitle}>Date</Text>
+            <Text style={styles.sectionTitle}>Day</Text>
             {IS_WEB ? (
               <input
                 type="date"
@@ -216,7 +216,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
 
         {/* Session Type */}
         {!isTrainingSession && (
-          <Section title="Session Type">
+          <Section title="Session type">
             {/* Activity type row */}
             <Text style={styles.subLabel}>Activity</Text>
             <View style={styles.chipRow}>
@@ -255,7 +255,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         )}
 
         {/* Feeling */}
-        <Section title="How did you feel about your progress?">
+        <Section title="How did this session feel?">
           <View style={styles.feelingRow}>
             {feelingOptions.map(opt => {
               const active = feeling === opt.value;
@@ -274,7 +274,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         </Section>
 
         {/* What was good */}
-        <Section title="What was good for you this session?">
+        <Section title="What felt good today?">
           <View style={styles.skillGrid}>
             {trainingFocusOptions.map(opt => {
               const active = trainingFocus.includes(opt.value);
@@ -293,7 +293,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         </Section>
 
         {/* What was difficult */}
-        <Section title="What was the most difficult?">
+        <Section title="What needs more work?">
           <View style={styles.skillGrid}>
             {trainingFocusOptions.map(opt => {
               const active = difficulty.includes(opt.value);
@@ -313,12 +313,12 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
 
         {/* Notes for non-training sessions */}
         {!isTrainingSession && (
-          <Section title="Notes (Optional)">
+          <Section title="Personal notes (optional)">
             <TextInput
               style={[styles.textInput, styles.notesInput]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="What did you work on? Any insights or goals for next time?"
+              placeholder="What do you want to remember for your next session?"
               multiline
               textAlignVertical="top"
               placeholderTextColor="#9CA3AF"
@@ -329,7 +329,7 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
         {/* Save button */}
         <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
           <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.saveButtonText}>Save Training Session</Text>
+          <Text style={styles.saveButtonText}>Save entry</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -341,11 +341,11 @@ export default function AddTrainingSessionScreen({ navigation, route }) {
 // Native HTML date input style (web only)
 const webDateInputStyle = {
   width: '100%',
-  border: '1px solid #D1D5DB',
+  border: '1px solid #E6DCF8',
   borderRadius: 10,
   padding: '12px 14px',
   fontSize: 15,
-  color: '#1F2937',
+  color: '#2E2343',
   backgroundColor: '#FFFFFF',
   outline: 'none',
   cursor: 'pointer',
@@ -355,7 +355,7 @@ const webDateInputStyle = {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FCFAFF',
   },
   header: {
     flexDirection: 'row',
@@ -363,21 +363,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
     paddingTop: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#FCFAFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F0EAFB',
     ...(IS_WEB && { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }),
   },
   backButton: {
     padding: 6,
     marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    backgroundColor: '#F3EEFD',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: '#2E2343',
     flex: 1,
     textAlign: 'center',
   },
@@ -395,19 +395,19 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EEE8FA',
     ...(IS_WEB && { boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }),
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#4C3B6C',
     marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   inputHint: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#7A6E90',
     marginBottom: 10,
   },
 
@@ -423,10 +423,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8F4FF',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E6DCF8',
     overflow: 'hidden',
   },
   hoursBtn: {
@@ -434,11 +434,11 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F3EEFD',
   },
   hoursBtnDisabled: { opacity: 0.35 },
-  hoursBtnText: { fontSize: 22, fontWeight: '300', color: '#374151' },
-  hoursValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  hoursBtnText: { fontSize: 22, fontWeight: '300', color: '#5B4785' },
+  hoursValue: { fontSize: 20, fontWeight: '700', color: '#2E2343' },
 
   // Date
   dateButton: {
@@ -446,19 +446,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E6DCF8',
     borderRadius: 10,
     padding: 13,
     backgroundColor: '#FFFFFF',
   },
-  dateValue: { fontSize: 14, color: '#1F2937', flex: 1 },
+  dateValue: { fontSize: 14, color: '#2E2343', flex: 1 },
 
   subLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: '#8F84A4',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     marginBottom: 8,
   },
   // Session type chips
@@ -474,12 +474,12 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: '#E6DCF8',
+    backgroundColor: '#FAF7FF',
     gap: 6,
   },
   chipEmoji: { fontSize: 16 },
-  chipLabel: { fontSize: 13, fontWeight: '500', color: '#4B5563' },
+  chipLabel: { fontSize: 13, fontWeight: '500', color: '#5E5176' },
 
   // Feeling
   feelingRow: {
@@ -495,11 +495,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: '#E6DCF8',
+    backgroundColor: '#FAF7FF',
   },
   feelingEmoji: { fontSize: 24, marginBottom: 4 },
-  feelingLabel: { fontSize: 10, fontWeight: '600', color: '#6B7280', textAlign: 'center' },
+  feelingLabel: { fontSize: 10, fontWeight: '600', color: '#7A6E90', textAlign: 'center' },
 
   // Skill chips grid
   skillGrid: {
@@ -514,14 +514,14 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: '#E6DCF8',
+    backgroundColor: '#FAF7FF',
     gap: 5,
   },
   skillLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#4B5563',
+    color: '#5E5176',
   },
   skillCheck: {
     fontSize: 11,
@@ -531,11 +531,11 @@ const styles = StyleSheet.create({
   // Text input
   textInput: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: '#E6DCF8',
     borderRadius: 10,
     padding: 14,
     fontSize: 15,
-    color: '#1F2937',
+    color: '#2E2343',
     backgroundColor: '#FFFFFF',
   },
   notesInput: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#7D59C0',
     borderRadius: 14,
     paddingVertical: 16,
     marginTop: 8,

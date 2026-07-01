@@ -15,6 +15,7 @@ import {
   Animated,
   Platform,
   Share,
+  ToastAndroid,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,15 +23,51 @@ import { useUser } from '../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { generateAIProgram, validateUserForAIGeneration, saveAIProgram, syncUnsyncedAIPrograms } from '../lib/aiProgramGenerator';
-import { supabase, getPrograms, transformProgramData, getStudentCode } from '../lib/supabase';
+import { supabase, getPrograms, transformProgramData, getStudentCode, getProgramDetails } from '../lib/supabase';
 import { usePreload } from '../context/PreloadContext';
 import WebIcon from '../components/WebIcon';
 import WebLinearGradient from '../components/WebLinearGradient';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  Target,
+  Crosshair,
+  BookOpen,
+  Trophy,
+  Dumbbell,
+  Brain,
+  Flower2,
+  PersonStanding,
+  Zap,
+  CircleDot,
+  Plus,
+} from 'lucide-react-native';
 import { useLastOpenedProgram } from '../hooks/useLastOpenedProgram';
 import { ProgramSkeletonCard, CoachSkeletonCard, ImageWithSkeleton } from '../components/SkeletonCard';
+import { useActiveTraining } from '../hooks/useActiveTraining';
+import { matchRoadToXProgram, getAllSkillFocusPrograms } from '../lib/trainingTracksApi';
+import PrimaryGoalCard from '../components/training/PrimaryGoalCard';
+import SkillFocusCard from '../components/training/SkillFocusCard';
+import EnrollmentConfirmSheet from '../components/training/EnrollmentConfirmSheet';
+import WelcomeCard from '../components/training/WelcomeCard';
+import SwipeableRow from '../components/SwipeableRow';
+import EmptyState from '../components/EmptyState';
 
 const { width, height } = Dimensions.get('window');
+
+function CategoryIcon({ category, size = 24, color = '#6366F1' }) {
+  const iconProps = { size, color, strokeWidth: 2 };
+  switch ((category || '').toLowerCase()) {
+    case 'pro training': return <Trophy {...iconProps} />;
+    case 'fundamentals': return <BookOpen {...iconProps} />;
+    case 'technique': return <Target {...iconProps} />;
+    case 'fitness': return <Dumbbell {...iconProps} />;
+    case 'strategy': return <Brain {...iconProps} />;
+    case 'mental game': return <Flower2 {...iconProps} />;
+    case 'conditioning': return <PersonStanding {...iconProps} />;
+    case 'drills': return <Zap {...iconProps} />;
+    default: return <CircleDot {...iconProps} />;
+  }
+}
 
 // Enhanced responsive thumbnail sizing for iPad portrait mode
 const getThumbnailSize = (screenWidth, screenHeight) => {
@@ -82,7 +119,9 @@ export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
   const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
   const insets = useSafeAreaInsets();
-  const [currentView, setCurrentView] = React.useState('coach'); // 'coach', 'programs', 'library' or 'fun'
+  const [currentView, setCurrentView] = React.useState(
+    route.params?.initialView || 'myTraining'
+  ); // 'myTraining', 'coach', 'programs', 'library' or 'fun'
   const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
@@ -93,6 +132,34 @@ export default function ProgramScreen({ navigation, route }) {
   const [isGeneratingAI, setIsGeneratingAI] = React.useState(false);
   const [isLoadingPrograms, setIsLoadingPrograms] = React.useState(true);
   const [aiGenerationStep, setAiGenerationStep] = React.useState(0);
+
+  // My Training state
+  const {
+    tracks,
+    primaryTrack,
+    skillTracks,
+    skillSlotsFull,
+    loading: tracksLoading,
+    refreshing: tracksRefreshing,
+    loadTracks,
+    refreshTracks,
+    enrollAsPrimary,
+    enrollAsSkill,
+    enrollWithRole,
+    archiveTrack,
+    saveProgram,
+  } = useActiveTraining();
+  const [enrollSheetProgram, setEnrollSheetProgram] = React.useState(null);
+  const [enrollSheetRole, setEnrollSheetRole] = React.useState('primary');
+  const [enrollSheetVisible, setEnrollSheetVisible] = React.useState(false);
+  const [enrollLoading, setEnrollLoading] = React.useState(false);
+  const [archiveConfirmProgram, setArchiveConfirmProgram] = React.useState(null);
+  const [archiveConfirmVisible, setArchiveConfirmVisible] = React.useState(false);
+  const [completedRoutinesByProgram, setCompletedRoutinesByProgram] = React.useState({});
+  const [recommendedRoadProgram, setRecommendedRoadProgram] = React.useState(null);
+  const [allSkillPrograms, setAllSkillPrograms] = React.useState([]);
+  const [showSkillPicker, setShowSkillPicker] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState(null);
   
   // Coach Program tab state
   const [coachPrograms, setCoachPrograms] = React.useState([]);
@@ -126,12 +193,21 @@ export default function ProgramScreen({ navigation, route }) {
     if (user?.id) {
       loadPrograms();
       loadCoachPrograms();
+      loadActiveTracks();
       
       // Always preload library data for faster access
       fetchLibraryPrograms();
       fetchCategoryOrder();
     }
   }, [user?.id]);
+
+  // React to initialView route param changes (e.g. after onboarding or enroll)
+  React.useEffect(() => {
+    if (route.params?.initialView) {
+      setCurrentView(route.params.initialView);
+      navigation.setParams({ initialView: undefined });
+    }
+  }, [route.params?.initialView]);
 
   // Reload library data when switching to Library tab (if not already loaded)
   React.useEffect(() => {
@@ -293,6 +369,454 @@ export default function ProgramScreen({ navigation, route }) {
 
   // Program management functions
   
+  // ─── My Training helpers ───────────────────────────────────────────────────
+
+  const loadActiveTracks = React.useCallback(async () => {
+    await refreshTracks();
+  }, [refreshTracks]);
+
+  // Load completed routine IDs from AsyncStorage for all active tracks
+  const loadCompletedRoutines = React.useCallback(async (trackList) => {
+    const result = {};
+    for (const t of trackList) {
+      const key = `@pickleHero_progress_${t.program.id}`;
+      try {
+        const raw = await AsyncStorage.getItem(key);
+        result[t.program.id] = raw ? JSON.parse(raw) : [];
+      } catch {
+        result[t.program.id] = [];
+      }
+    }
+    setCompletedRoutinesByProgram(result);
+  }, []);
+
+  // Match recommended Road-to-X and skill programs from library catalog
+  const matchRecommendations = React.useCallback((allProgramsList) => {
+    const userDupr = user?.dupr_rating ? parseFloat(user.dupr_rating) : null;
+    const roadMatch = matchRoadToXProgram(userDupr, allProgramsList);
+    setRecommendedRoadProgram(roadMatch || null);
+    setAllSkillPrograms(getAllSkillFocusPrograms(allProgramsList));
+  }, [user?.dupr_rating]);
+
+  // Refresh local session progress when returning to My Training (no network reload)
+  React.useEffect(() => {
+    if (currentView === 'myTraining' && tracks.length > 0) {
+      loadCompletedRoutines(tracks);
+    }
+  }, [currentView, tracks, loadCompletedRoutines]);
+
+  // After library programs load, compute recommendations
+  React.useEffect(() => {
+    if (explorePrograms.length > 0) {
+      matchRecommendations(explorePrograms);
+    }
+  }, [explorePrograms]);
+
+  const showToast = React.useCallback((message) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      setToastMessage(message);
+      setTimeout(() => setToastMessage(null), 2500);
+    }
+  }, []);
+
+  const openEnrollSheet = (program, role = 'primary') => {
+    setEnrollSheetProgram(program);
+    setEnrollSheetRole(role);
+    setEnrollSheetVisible(true);
+  };
+
+  const handleEnrollConfirm = async (role) => {
+    if (!enrollSheetProgram) return;
+    // Capture name before nulling the state
+    const programName = enrollSheetProgram.name;
+    const programId = enrollSheetProgram.id;
+    setEnrollLoading(true);
+    try {
+      await enrollWithRole(programId, role);
+      setEnrollSheetVisible(false);
+      setEnrollSheetProgram(null);
+      // Switch to My Training tab and show toast
+      setCurrentView('myTraining');
+      const roleLabel = role === 'primary' ? 'primary focus' : 'skill focus';
+      showToast(`${programName} is now your ${roleLabel}`);
+    } catch (err) {
+      Alert.alert('Could not enroll', err?.message || 'Please try again.');
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
+  const handleArchiveTrack = async (programId) => {
+    try {
+      await archiveTrack(programId);
+      setArchiveConfirmVisible(false);
+      setArchiveConfirmProgram(null);
+    } catch (err) {
+      Alert.alert('Error', 'Could not archive track. Please try again.');
+    }
+  };
+
+  // Navigate to ProgramDetail in training mode — resolving full program details if needed
+  const navigateToTrainingDetail = async (track) => {
+    try {
+      let program = track.program;
+      // If routines are missing (slim object), fetch the full detail
+      if (!program.routines || program.routines.length === 0) {
+        const full = await getProgramDetails(program.id);
+        if (full) program = full;
+      }
+      navigation.navigate('ProgramDetail', {
+        program,
+        source: 'training',
+      });
+    } catch (err) {
+      console.error('navigateToTrainingDetail error:', err);
+      navigation.navigate('ProgramDetail', {
+        program: track.program,
+        source: 'training',
+      });
+    }
+  };
+
+  // Navigate directly to the last-opened session (resume)
+  const navigateToContinueSession = async (track) => {
+    try {
+      let program = track.program;
+      if (!program.routines || program.routines.length === 0) {
+        const full = await getProgramDetails(program.id);
+        if (full) program = full;
+      }
+
+      const routines = (program.routines || []).slice().sort(
+        (a, b) => (a.order_index || 0) - (b.order_index || 0)
+      );
+      const completedIds = completedRoutinesByProgram[program.id] || [];
+
+      // Pick next uncompleted routine; fall back to last opened
+      const nextRoutine =
+        routines.find(r => !completedIds.includes(r.id)) ||
+        routines.find(r => r.id === track.currentRoutineId) ||
+        routines[0];
+
+      if (nextRoutine) {
+        navigation.navigate('RoutineDetail', {
+          routine: nextRoutine,
+          program,
+          source: 'training',
+        });
+      } else {
+        navigateToTrainingDetail(track);
+      }
+    } catch (err) {
+      navigateToTrainingDetail(track);
+    }
+  };
+
+  const openArchiveConfirm = (track) => {
+    setArchiveConfirmProgram(track);
+    setArchiveConfirmVisible(true);
+  };
+
+  const renderMyTrainingSectionHeader = (title, { showAdd, onAdd }) => (
+    <View style={styles.myTrainingSectionHeaderRow}>
+      <Text style={styles.myTrainingSectionTitle}>{title}</Text>
+      {showAdd ? (
+        <TouchableOpacity
+          style={styles.sectionAddBtn}
+          onPress={onAdd}
+          activeOpacity={0.85}
+          accessibilityLabel={`Add ${title}`}
+          accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Plus size={16} color="#6366F1" strokeWidth={2.5} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+
+  // ─── renderMyTrainingContent ───────────────────────────────────────────────
+
+  const renderMyTrainingContent = () => {
+    if (tracksLoading && tracks.length === 0) {
+      return (
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <ProgramSkeletonCard />
+          <ProgramSkeletonCard />
+        </ScrollView>
+      );
+    }
+
+    const hasActivePrimary = !!primaryTrack;
+    const hasActiveSkills = skillTracks.length > 0;
+
+    if (!hasActivePrimary && !hasActiveSkills) {
+      // Empty state — show recommendations
+      return (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={tracksRefreshing}
+              onRefresh={loadActiveTracks}
+              tintColor="#6366F1"
+              colors={['#6366F1']}
+            />
+          }
+        >
+          <WelcomeCard />
+
+          <View style={styles.myTrainingEmptyHeader}>
+            <Text style={styles.myTrainingEmptyTitle}>What do you want to work on?</Text>
+            <Text style={styles.myTrainingEmptySubtitle}>
+              Pick one primary focus. You can add up to 2 skill tracks later.
+            </Text>
+          </View>
+
+          {/* Road to X recommendation */}
+          {recommendedRoadProgram && (
+            <TouchableOpacity
+              style={styles.goalCard}
+              onPress={() => openEnrollSheet(recommendedRoadProgram, 'primary')}
+              activeOpacity={0.88}
+            >
+              <View style={styles.goalCardInner}>
+                <View style={styles.goalCardLeft}>
+                  <Target size={26} color="#4338CA" strokeWidth={2} />
+                  <View>
+                    <Text style={styles.goalCardTitle}>{recommendedRoadProgram.name}</Text>
+                    <Text style={styles.goalCardMeta}>
+                      {(recommendedRoadProgram.routines || []).length} sessions
+                      {user?.dupr_rating ? ` · DUPR ${parseFloat(user.dupr_rating).toFixed(2)}` : ''}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#6366F1" />
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Master a skill */}
+          <TouchableOpacity
+            style={styles.goalCardSecondary}
+            onPress={() => setShowSkillPicker(true)}
+            activeOpacity={0.88}
+          >
+            <Crosshair size={20} color="#6B7280" strokeWidth={2} />
+            <Text style={styles.goalCardSecondaryText}>Master a skill</Text>
+            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+          </TouchableOpacity>
+
+          {/* Choose from library */}
+          <TouchableOpacity
+            style={styles.goalCardSecondary}
+            onPress={() => setCurrentView('library')}
+            activeOpacity={0.88}
+          >
+            <BookOpen size={20} color="#6B7280" strokeWidth={2} />
+            <Text style={styles.goalCardSecondaryText}>Choose from Library</Text>
+            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+          </TouchableOpacity>
+
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      );
+    }
+
+    const cardInSwipeStyle = { marginHorizontal: 0, marginBottom: 0 };
+
+    // Active state — show primary card + skill cards
+    return (
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={tracksRefreshing}
+            onRefresh={loadActiveTracks}
+            tintColor="#6366F1"
+            colors={['#6366F1']}
+          />
+        }
+      >
+        {renderMyTrainingSectionHeader('Primary Focus', {
+          showAdd: !primaryTrack,
+          onAdd: () => setCurrentView('library'),
+        })}
+
+        {primaryTrack && (
+          <View style={styles.swipeRowWrap}>
+            <SwipeableRow onDelete={() => openArchiveConfirm(primaryTrack)}>
+              <PrimaryGoalCard
+                track={primaryTrack}
+                completedIds={completedRoutinesByProgram[primaryTrack.program.id] || []}
+                onContinue={() => navigateToContinueSession(primaryTrack)}
+                onViewAll={() => navigateToTrainingDetail(primaryTrack)}
+                onStartNewGoal={() => openArchiveConfirm(primaryTrack)}
+                style={cardInSwipeStyle}
+              />
+            </SwipeableRow>
+          </View>
+        )}
+
+        {renderMyTrainingSectionHeader('Skill Focus', {
+          showAdd: !skillSlotsFull,
+          onAdd: () => setShowSkillPicker(true),
+        })}
+
+        {skillTracks.map(t => (
+          <View key={t.enrollmentId} style={styles.swipeRowWrap}>
+            <SwipeableRow onDelete={() => openArchiveConfirm(t)}>
+              <SkillFocusCard
+                track={t}
+                completedIds={completedRoutinesByProgram[t.program.id] || []}
+                onContinue={() => navigateToContinueSession(t)}
+                onArchive={() => openArchiveConfirm(t)}
+                style={cardInSwipeStyle}
+              />
+            </SwipeableRow>
+          </View>
+        ))}
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
+
+  // ─── Skill picker modal ───────────────────────────────────────────────────
+
+  const renderSkillPickerModal = () => (
+    <Modal
+      visible={showSkillPicker}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={() => setShowSkillPicker(false)}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity
+            style={styles.modalCancelButton}
+            onPress={() => setShowSkillPicker(false)}
+          >
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>Choose a skill</Text>
+          <View style={{ width: 60 }} />
+        </View>
+        <ScrollView style={{ flex: 1 }}>
+          {allSkillPrograms.length === 0 ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center' }}>
+                No Skill Focus programs published yet.
+              </Text>
+              <TouchableOpacity
+                onPress={() => { setShowSkillPicker(false); setCurrentView('library'); }}
+                style={{ marginTop: 16 }}
+              >
+                <Text style={{ color: '#6366F1', fontWeight: '600' }}>Browse Library</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            allSkillPrograms.map(p => (
+              <TouchableOpacity
+                key={p.id}
+                style={styles.skillPickerRow}
+                onPress={() => {
+                  setShowSkillPicker(false);
+                  if (skillSlotsFull) {
+                    Alert.alert(
+                      'Skill slots full',
+                      'Both skill slots are in use. Archive one from My Training or set as primary instead.',
+                      [{ text: 'OK' }]
+                    );
+                    return;
+                  }
+                  openEnrollSheet(p, 'skill_1');
+                }}
+              >
+                <View style={styles.skillPickerInfo}>
+                  <Text style={styles.skillPickerName}>{p.name}</Text>
+                  <Text style={styles.skillPickerMeta}>
+                    {(p.routines || []).length} sessions · {p.category}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+
+  // ─── Archive confirm modal ────────────────────────────────────────────────
+
+  const renderArchiveConfirmModal = () => {
+    if (!archiveConfirmProgram) return null;
+    const prog = archiveConfirmProgram.program || archiveConfirmProgram;
+    const isPrimary = archiveConfirmProgram.trackRole === 'primary';
+    const completedCount = (completedRoutinesByProgram[prog.id] || []).length;
+    return (
+      <Modal
+        visible={archiveConfirmVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setArchiveConfirmVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+          activeOpacity={1}
+          onPress={() => setArchiveConfirmVisible(false)}
+        />
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>
+            {isPrimary ? 'Remove primary focus?' : 'Remove skill focus?'}
+          </Text>
+          <Text style={styles.sheetBody}>
+            <Text style={{ fontWeight: '700' }}>{prog.name}</Text>
+            {' '}will be removed from My Training. Your logbook entries are kept.
+          </Text>
+          {completedCount > 0 && (
+            <Text style={styles.sheetMeta}>{completedCount} sessions completed</Text>
+          )}
+          <TouchableOpacity
+            style={styles.sheetPrimaryBtn}
+            onPress={() => handleArchiveTrack(prog.id)}
+          >
+            <Text style={styles.sheetPrimaryBtnText}>Remove</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sheetCancelBtn}
+            onPress={() => setArchiveConfirmVisible(false)}
+          >
+            <Text style={styles.sheetCancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  };
+
+  // ─── iOS toast overlay ────────────────────────────────────────────────────
+
+  const renderToast = () => {
+    if (!toastMessage || Platform.OS === 'android') return null;
+    return (
+      <View style={styles.toastOverlay} pointerEvents="none">
+        <View style={styles.toastBox}>
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Load programs from database and local storage
   const loadPrograms = async () => {
     try {
@@ -303,7 +827,7 @@ export default function ProgramScreen({ navigation, route }) {
         return;
       }
       
-      // Try to load from database first with routines
+      // Try to load from database first — single joined query (no N+1)
       try {
         const { data: dbPrograms, error: dbError } = await supabase
           .from('programs')
@@ -316,7 +840,36 @@ export default function ProgramScreen({ navigation, route }) {
               order_index,
               time_estimate_minutes,
               is_published,
-              created_at
+              created_at,
+              routine_exercises (
+                id,
+                order_index,
+                is_optional,
+                custom_target_value,
+                exercises (
+                  id,
+                  code,
+                  title,
+                  description,
+                  goal_text,
+                  skill_category,
+                  skill_categories_json,
+                  difficulty,
+                  target_type,
+                  target_value,
+                  target_unit,
+                  instructions,
+                  tips_json,
+                  estimated_minutes,
+                  demo_video_url,
+                  demo_image_url,
+                  thumbnail_url,
+                  tier_level,
+                  tags,
+                  is_published,
+                  created_at
+                )
+              )
             )
           `)
           .eq('created_by', user.id)
@@ -326,107 +879,57 @@ export default function ProgramScreen({ navigation, route }) {
           console.error('❌ [ProgramScreen] Database load failed:', dbError.message || dbError);
         } else {
           if (dbPrograms && dbPrograms.length > 0) {
-            // Transform database programs to match local format
-            const transformedPrograms = await Promise.all(dbPrograms.map(async (dbProgram) => {
-              
-              // Handle thumbnail - convert URL to local format if needed
-              let thumbnail = null;
-              if (dbProgram.thumbnail_url) {
-                try {
-                  // For now, we'll use the URL directly - could download and cache locally later
-                  thumbnail = { uri: dbProgram.thumbnail_url };
-                } catch (error) {
-                  console.error('❌ [ProgramScreen] Error loading thumbnail:', error.message || error);
-                }
-              }
-              
-              // Transform routines to match local format and load their exercises
-              const routines = await Promise.all((dbProgram.routines || []).map(async (dbRoutine) => {
-                
-                // Load exercises for this routine
-                let exercises = [];
-                try {
-                  const { data: routineExercises, error: exerciseError } = await supabase
-                    .from('routine_exercises')
-                    .select(`
-                      id,
-                      order_index,
-                      is_optional,
-                      exercises (
-                        id,
-                        code,
-                        title,
-                        description,
-                        goal_text,
-                        skill_category,
-                        skill_categories_json,
-                        difficulty,
-                        target_type,
-                        target_value,
-                        target_unit,
-                        instructions,
-                        tips_json,
-                        estimated_minutes,
-                        demo_video_url,
-                        demo_image_url,
-                        thumbnail_url,
-                        tier_level,
-                        tags,
-                        is_published,
-                        created_at
-                      )
-                    `)
-                    .eq('routine_id', dbRoutine.id)
-                    .order('order_index', { ascending: true });
-                  
-                  if (exerciseError) {
-                    console.error('❌ [ProgramScreen] Error loading exercises for routine:', exerciseError.message || exerciseError);
-                  } else {
-                    exercises = (routineExercises || []).map(re => ({
+            // Transform database programs to match local format (synchronous — all data loaded)
+            const transformedPrograms = dbPrograms.map((dbProgram) => {
+              const thumbnail = dbProgram.thumbnail_url ? { uri: dbProgram.thumbnail_url } : null;
+
+              const routines = (dbProgram.routines || [])
+                .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                .map((dbRoutine) => {
+                  const exercises = (dbRoutine.routine_exercises || [])
+                    .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+                    .filter(re => re.exercises)
+                    .map(re => ({
                       ...re.exercises,
-                      name: re.exercises.title, // Map title to name for compatibility
+                      name: re.exercises.title,
                       routineExerciseId: re.id,
                       routine_exercise_id: re.id,
                       order_index: re.order_index,
                       is_optional: re.is_optional,
-                      // Add target formatting for compatibility
-                      target: re.exercises.target_value && re.exercises.target_unit 
+                      custom_target_value: re.custom_target_value,
+                      target: re.exercises.target_value && re.exercises.target_unit
                         ? `${re.exercises.target_value} ${re.exercises.target_unit}`
-                        : `${re.exercises.target_value || 10} attempts`
+                        : `${re.exercises.target_value || 10} attempts`,
                     }));
-                  }
-                } catch (error) {
-                  console.error('❌ [ProgramScreen] Error loading exercises:', error.message || error);
-                }
-                
-                return {
-                  id: dbRoutine.id,
-                  name: dbRoutine.name,
-                  description: dbRoutine.description,
-                  exercises: exercises, // ✅ Now properly loading exercises
-                  createdAt: dbRoutine.created_at,
-                  order_index: dbRoutine.order_index,
-                  time_estimate_minutes: dbRoutine.time_estimate_minutes,
-                  is_published: dbRoutine.is_published
-                };
-              }));
-              
+
+                  return {
+                    id: dbRoutine.id,
+                    name: dbRoutine.name,
+                    description: dbRoutine.description,
+                    exercises,
+                    createdAt: dbRoutine.created_at,
+                    order_index: dbRoutine.order_index,
+                    time_estimate_minutes: dbRoutine.time_estimate_minutes,
+                    is_published: dbRoutine.is_published,
+                  };
+                });
+
               return {
                 id: dbProgram.id,
                 name: dbProgram.name,
                 description: dbProgram.description,
-                thumbnail: thumbnail, // ✅ Now properly loading thumbnails
-                thumbnailUrl: dbProgram.thumbnail_url, // Keep URL for reference
-                routines: routines, // ✅ Now properly loading routines
+                thumbnail,
+                thumbnailUrl: dbProgram.thumbnail_url,
+                routines,
                 createdAt: dbProgram.created_at,
                 category: dbProgram.category,
                 tier: dbProgram.tier,
                 isPublished: dbProgram.is_published,
                 program_type: dbProgram.program_type,
                 is_shareable: dbProgram.is_shareable,
-                visibility: dbProgram.visibility
+                visibility: dbProgram.visibility,
               };
-            }));
+            });
             
             setPrograms(transformedPrograms);
             
@@ -1434,19 +1937,19 @@ export default function ProgramScreen({ navigation, route }) {
 
     const progressMessages = [
       {
-        title: "🧠 Analyzing Your Profile",
+        title: "Analyzing Your Profile",
         subtitle: "Reviewing your DUPR rating and focus areas..."
       },
       {
-        title: "🎯 Finding Perfect Exercises", 
+        title: "Finding Perfect Exercises", 
         subtitle: "Matching exercises to your skill level..."
       },
       {
-        title: "🏗️ Building Your Routines",
+        title: "Building Your Routines",
         subtitle: "Creating personalized training sessions..."
       },
       {
-        title: "✨ Finalizing Your Program",
+        title: "Finalizing Your Program",
         subtitle: "Adding the finishing touches..."
       }
     ];
@@ -2092,21 +2595,6 @@ export default function ProgramScreen({ navigation, route }) {
       categories = uniqueCategories;
     }
     
-    // Define category icons for better visual appeal
-    const getCategoryIcon = (category) => {
-      switch (category.toLowerCase()) {
-        case 'pro training': return '🏆';
-        case 'fundamentals': return '📚';
-        case 'technique': return '🎯';
-        case 'fitness': return '💪';
-        case 'strategy': return '🧠';
-        case 'mental game': return '🧘';
-        case 'conditioning': return '🏃';
-        case 'drills': return '⚡';
-        default: return '🏓';
-      }
-    };
-
     const exerciseCount = getTotalExerciseCount();
 
     return (
@@ -2156,7 +2644,7 @@ export default function ProgramScreen({ navigation, route }) {
                           />
                         ) : (
                           <View style={styles.libraryPlaceholderThumbnail}>
-                            <Text style={styles.libraryPlaceholderText}>{getCategoryIcon(category)}</Text>
+                            <CategoryIcon category={category} size={28} color="#6366F1" />
                           </View>
                         )}
                       </View>
@@ -2188,7 +2676,7 @@ export default function ProgramScreen({ navigation, route }) {
                           />
                         ) : (
                           <View style={styles.libraryPlaceholderThumbnail}>
-                            <Text style={styles.libraryPlaceholderText}>{getCategoryIcon(category)}</Text>
+                            <CategoryIcon category={category} size={28} color="#6366F1" />
                           </View>
                         )}
                       </View>
@@ -2370,20 +2858,29 @@ export default function ProgramScreen({ navigation, route }) {
     <View style={styles.container}>
       <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>
-            Training Programs
-          </Text>
+          <View>
+            <Text style={styles.headerTitle}>
+              {currentView === 'myTraining' ? 'My Training' : 'Training Programs'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {currentView === 'myTraining'
+                ? 'Self-guided programs'
+                : currentView === 'library'
+                ? 'Browse catalog'
+                : 'Coach-assigned training'}
+            </Text>
+          </View>
           
           {/* Tab Navigation */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
               style={styles.tab}
-              onPress={() => setCurrentView('coach')}
+              onPress={() => setCurrentView('myTraining')}
             >
-              <Text style={[styles.tabText, currentView === 'coach' && styles.activeTabText]}>
-                Coach Program
+              <Text style={[styles.tabText, currentView === 'myTraining' && styles.activeTabText]}>
+                My Training
               </Text>
-              {currentView === 'coach' && <View style={styles.activeTabIndicator} />}
+              {currentView === 'myTraining' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.tab}
@@ -2394,29 +2891,22 @@ export default function ProgramScreen({ navigation, route }) {
               </Text>
               {currentView === 'library' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tab}
+              onPress={() => setCurrentView('coach')}
+            >
+              <Text style={[styles.tabText, currentView === 'coach' && styles.activeTabText]}>
+                Coach Program
+              </Text>
+              {currentView === 'coach' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
           </View>
         </View>
       </View>
       
-      {/* Continue where you left off */}
-      {lastProgram && (
-        <TouchableOpacity
-          style={styles.continueCard}
-          onPress={() => navigation.navigate('ProgramDetail', { program: lastProgram })}
-          activeOpacity={0.85}
-        >
-          <View style={styles.continueCardLeft}>
-            <Ionicons name="play-circle-outline" size={22} color="#6366F1" />
-            <View style={styles.continueCardText}>
-              <Text style={styles.continueLabel}>Continue where you left off</Text>
-              <Text style={styles.continueTitle} numberOfLines={1}>{lastProgram.title}</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#6366F1" />
-        </TouchableOpacity>
-      )}
-
-      {currentView === 'coach' ? (
+      {currentView === 'myTraining' ? (
+        renderMyTrainingContent()
+      ) : currentView === 'coach' ? (
         renderCoachProgramsContent()
       ) : currentView === 'library' ? (
         renderLibraryContent()
@@ -2550,6 +3040,27 @@ export default function ProgramScreen({ navigation, route }) {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* My Training — Enrollment Confirm Sheet */}
+      <EnrollmentConfirmSheet
+        visible={enrollSheetVisible}
+        program={enrollSheetProgram}
+        initialRole={enrollSheetRole}
+        existingPrimary={primaryTrack}
+        skillSlotsFull={skillSlotsFull}
+        onConfirm={handleEnrollConfirm}
+        onCancel={() => setEnrollSheetVisible(false)}
+        loading={enrollLoading}
+      />
+
+      {/* My Training — Skill picker modal */}
+      {renderSkillPickerModal()}
+
+      {/* My Training — Archive confirm sheet */}
+      {renderArchiveConfirmModal()}
+
+      {/* iOS toast overlay */}
+      {renderToast()}
     </View>
   );
 }
@@ -3733,4 +4244,152 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 20,
   },
+
+  // ─── My Training styles ───────────────────────────────────────────────────
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+    fontWeight: '400',
+  },
+  myTrainingEmptyHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  myTrainingEmptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  myTrainingEmptySubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  goalCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#6366F1',
+    backgroundColor: '#EEF2FF',
+    overflow: 'hidden',
+  },
+  goalCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+  goalCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  goalCardTitle: { fontSize: 15, fontWeight: '700', color: '#1E1B4B' },
+  goalCardMeta: { fontSize: 12, color: '#6366F1', marginTop: 2 },
+  goalCardSecondary: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  goalCardSecondaryText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#374151' },
+  myTrainingSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 8,
+  },
+  myTrainingSectionHeader: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 8 },
+  myTrainingSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  sectionAddBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
+  },
+  swipeRowWrap: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  skillPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  skillPickerInfo: { flex: 1 },
+  skillPickerName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  skillPickerMeta: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  // Archive / Start new goal sheet
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 10 },
+  sheetBody: { fontSize: 14, color: '#374151', lineHeight: 21, marginBottom: 6 },
+  sheetMeta: { fontSize: 13, color: '#6B7280', marginBottom: 20 },
+  sheetPrimaryBtn: {
+    backgroundColor: '#6366F1',
+    borderRadius: 12,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 8,
+    minHeight: 50,
+  },
+  sheetPrimaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  sheetCancelBtn: { alignItems: 'center', paddingVertical: 14 },
+  sheetCancelBtnText: { color: '#6B7280', fontSize: 15, fontWeight: '500' },
+  // Toast
+  toastOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  toastBox: {
+    backgroundColor: 'rgba(17,24,39,0.88)',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  toastText: { color: '#fff', fontSize: 14, fontWeight: '500' },
 });

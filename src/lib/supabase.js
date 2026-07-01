@@ -300,10 +300,9 @@ export const createAdminUser = async (email, password, name, role = 'content_edi
 
 // API helper functions for your app
 
-// 1. Get all published programs for Explore screen
+// 1. Get all published programs for Explore / Library catalog (lightweight — no nested exercises)
 export const getPrograms = async () => {
   try {
-    // Direct query without session validation - works with anonymous access
     const { data, error } = await supabase
       .from('programs')
       .select(`
@@ -322,13 +321,7 @@ export const getPrograms = async () => {
           name,
           description,
           order_index,
-          time_estimate_minutes,
-          routine_exercises (
-            order_index,
-            custom_target_value,
-            is_optional,
-            exercises (*)
-          )
+          time_estimate_minutes
         )
       `)
       .eq('is_published', true)

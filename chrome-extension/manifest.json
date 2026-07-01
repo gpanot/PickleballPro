@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "RacketPro Video Downloader",
+  "version": "1.0.0",
+  "description": "Download videos from RacketPro courses (Vimeo adaptive streaming)",
+  "permissions": [
+    "webRequest",
+    "downloads",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://racketpro.org/*",
+    "https://*.vimeocdn.com/*",
+    "https://*.vimeo.com/*",
+    "https://player.vimeo.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://racketpro.org/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "RacketPro Downloader"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

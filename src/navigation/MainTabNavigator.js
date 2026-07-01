@@ -17,7 +17,7 @@ import CoachNavigator from './CoachNavigator';
 
 const Tab = createBottomTabNavigator();
 
-export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2' }) {
+export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2', trainingInitialView = null }) {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { theme, isDark } = useTheme();
@@ -148,6 +148,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       <Tab.Screen 
         name="Training2" 
         component={ProgramScreen}
+        initialParams={trainingInitialView ? { initialView: trainingInitialView } : undefined}
         options={{
           title: 'Program',
           tabBarIcon: ({ focused, color, size }) => (

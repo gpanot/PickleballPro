@@ -21,9 +21,13 @@ export default function AdminRoute({ navigation }) {
   }, [isAuthenticated, user]);
 
   const checkAccess = async () => {
+    const t0 = Date.now();
+    console.log('[AdminRoute] 🔍 checkAccess() started');
     try {
       // 1. Admin check always wins
+      const t1 = Date.now();
       const { isAdmin: adminStatus, role, error: adminError } = await checkAdminAccess(user.id);
+      console.log(`[AdminRoute] ✅ checkAdminAccess took ${Date.now() - t1}ms → isAdmin=${adminStatus}`);
 
       if (adminError) {
         console.error('Error checking admin access:', adminError);
@@ -32,36 +36,46 @@ export default function AdminRoute({ navigation }) {
       if (adminStatus) {
         setSessionRole('admin');
         setAdminRole(role);
+        console.log(`[AdminRoute] 🏁 Total checkAccess time: ${Date.now() - t0}ms`);
         return;
       }
 
       // 2. Academy manager check (precedes coach — broader tier)
+      const t2 = Date.now();
       const { data: managerRow, error: managerError } = await supabase
         .from('academy_members')
         .select('academy_id')
         .eq('user_id', user.id)
         .eq('role', 'manager')
         .maybeSingle();
+      console.log(`[AdminRoute] ✅ manager check took ${Date.now() - t2}ms → isManager=${!!(managerRow && !managerError)}`);
 
       if (!managerError && managerRow) {
         // Also fetch coach row so we keep coachId available (manager may also be a coach)
+        const t3 = Date.now();
         const { isCoach, coachId: cid } = await checkCoachAccess(user.id);
+        console.log(`[AdminRoute] ✅ checkCoachAccess (manager+coach) took ${Date.now() - t3}ms → isCoach=${isCoach}`);
         setSessionRole('manager');
         setAcademyId(managerRow.academy_id);
         if (isCoach) setCoachId(cid);
+        console.log(`[AdminRoute] 🏁 Total checkAccess time: ${Date.now() - t0}ms`);
         return;
       }
 
       // 3. Coach check
+      const t4 = Date.now();
       const { isCoach, coachId: id } = await checkCoachAccess(user.id);
+      console.log(`[AdminRoute] ✅ checkCoachAccess took ${Date.now() - t4}ms → isCoach=${isCoach}`);
 
       if (isCoach) {
         setSessionRole('coach');
         setCoachId(id);
+        console.log(`[AdminRoute] 🏁 Total checkAccess time: ${Date.now() - t0}ms`);
         return;
       }
 
       // 4. Neither admin, manager, nor coach — access denied
+      console.log(`[AdminRoute] ⛔ Access denied. Total checkAccess time: ${Date.now() - t0}ms`);
     } catch (error) {
       console.error('Error in access check:', error);
     } finally {

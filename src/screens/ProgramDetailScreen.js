@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   Animated,
+  ToastAndroid,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -18,15 +19,73 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { PartyPopper } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WebIcon from '../components/WebIcon';
-import { supabase } from '../lib/supabase';
+import { supabase, getProgramDetails } from '../lib/supabase';
 import { useUser } from '../context/UserContext';
+import EnrollmentConfirmSheet from '../components/training/EnrollmentConfirmSheet';
+import PreviewModeBanner from '../components/training/PreviewModeBanner';
+import { useActiveTraining } from '../hooks/useActiveTraining';
 
 export default function ProgramDetailScreen({ navigation, route }) {
   const { program: initialProgram, onUpdateProgram, source, studentId, studentName, onAssign, isStudentView } = route.params;
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+
+  // Library enrollment (used when source === 'library' or 'explore')
+  const {
+    primaryTrack,
+    skillSlotsFull,
+    enrollWithRole,
+    saveProgram,
+    loadTracks,
+  } = useActiveTraining();
+  const [enrollSheetVisible, setEnrollSheetVisible] = React.useState(false);
+  const [enrollSheetRole, setEnrollSheetRole] = React.useState(null);
+  const [enrollLoading, setEnrollLoading] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState(null);
+
+  React.useEffect(() => {
+    if (source === 'library' || source === 'explore') {
+      // Pre-load active tracks so EnrollmentConfirmSheet can show replace warning
+      loadTracks();
+    }
+  }, []);
+
+  const showToast = (message) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      setToastMessage(message);
+      setTimeout(() => setToastMessage(null), 2500);
+    }
+  };
+
+  const handleEnrollConfirm = async (role) => {
+    setEnrollLoading(true);
+    try {
+      await enrollWithRole(program.id, role);
+      setEnrollSheetVisible(false);
+      const roleLabel = role === 'primary' ? 'primary focus' : 'skill focus';
+      showToast(`${program.name} is now your ${roleLabel}`);
+      // Navigate to My Training tab
+      navigation.navigate('Training2', { initialView: 'myTraining' });
+    } catch (err) {
+      Alert.alert('Could not enroll', err?.message || 'Please try again.');
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
+  const handleSaveForLater = async () => {
+    try {
+      await saveProgram(program.id, user?.id);
+      showToast('Saved to your collection');
+    } catch (err) {
+      Alert.alert('Error', 'Could not save program. Please try again.');
+    }
+  };
   
   // Ensure program has routines array
   const normalizedProgram = {
@@ -58,6 +117,40 @@ export default function ProgramDetailScreen({ navigation, route }) {
       if (v) setCompletedRoutineIds(JSON.parse(v));
     }).catch(() => {});
   }, [PROGRESS_KEY]);
+
+  // Catalog programs are loaded without nested exercises — fetch full detail on open
+  React.useEffect(() => {
+    const catalogSources = ['library', 'explore', 'training'];
+    if (!catalogSources.includes(source) || !program?.id) return;
+
+    const routines = program.routines || [];
+    const needsFullLoad =
+      routines.length === 0 ||
+      routines.some(
+        (routine) =>
+          !(routine.routine_exercises?.length || routine.exercises?.length)
+      );
+
+    if (!needsFullLoad) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await getProgramDetails(program.id);
+        if (cancelled || error || !data) return;
+        setProgram({
+          ...data,
+          routines: data.routines || [],
+        });
+      } catch (err) {
+        console.warn('[ProgramDetailScreen] Failed to load full program details:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [program.id, source]);
 
   const markRoutineCompleted = React.useCallback((routineId) => {
     setCompletedRoutineIds(prev => {
@@ -319,7 +412,10 @@ export default function ProgramDetailScreen({ navigation, route }) {
   };
 
   const navigateToRoutine = (routine) => {
-    markRoutineCompleted(routine.id);
+    // Only mark completed on explicit session complete — not on tap
+    if (source !== 'library' && source !== 'explore' && source !== 'training') {
+      markRoutineCompleted(routine.id);
+    }
     console.log('🔍 [ProgramDetailScreen] Navigating to routine:', routine.name);
     console.log('📦 [ProgramDetailScreen] Routine data structure:', {
       id: routine.id,
@@ -743,7 +839,10 @@ export default function ProgramDetailScreen({ navigation, route }) {
                   <View style={[styles.progressFill, { width: `${Math.round(pct * 100)}%` }]} />
                 </View>
                 {done === total && done > 0 && (
-                  <Text style={styles.progressComplete}>🎉 Program completed!</Text>
+                  <View style={styles.progressCompleteRow}>
+                    <PartyPopper size={16} color="#059669" strokeWidth={2.5} />
+                    <Text style={styles.progressComplete}>Program completed!</Text>
+                  </View>
                 )}
               </View>
             );
@@ -936,11 +1035,16 @@ export default function ProgramDetailScreen({ navigation, route }) {
         </View>
       </View>
       
+      {/* Preview mode banner for Library / Explore */}
+      {(source === 'library' || source === 'explore') && (
+        <PreviewModeBanner onEnroll={() => { setEnrollSheetRole(null); setEnrollSheetVisible(true); }} />
+      )}
+
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={[
           styles.scrollContent,
-          (source === 'explore' || source === 'coach_assignment') && styles.scrollContentWithFixedButton
+          (source === 'explore' || source === 'library' || source === 'coach_assignment') && styles.scrollContentWithFixedButton
         ]}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
@@ -950,22 +1054,62 @@ export default function ProgramDetailScreen({ navigation, route }) {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Fixed Add to Program Button for Explore Mode */}
-      {source === 'explore' && (
-        <View style={[styles.fixedButtonContainer, { paddingBottom: insets.bottom }]}>
+      {/* Library / Explore enrollment footer — hierarchical CTAs */}
+      {(source === 'explore' || source === 'library') && (
+        <View style={[styles.fixedButtonContainer, styles.libraryFooter, { paddingBottom: insets.bottom + 8 }]}>
+          {/* Primary: Set as primary focus */}
           <TouchableOpacity
-            style={styles.fixedAddToProgramButton}
-            onPress={addToMyPrograms}
+            style={styles.libraryPrimaryBtn}
+            onPress={() => { setEnrollSheetRole('primary'); setEnrollSheetVisible(true); }}
+            activeOpacity={0.85}
+            accessibilityLabel="Set as primary focus"
+            accessibilityRole="button"
           >
-            <WebIcon 
-              name="bookmark" 
-              size={20} 
-              color="white" 
-            />
-            <Text style={styles.fixedAddToProgramButtonText}>
-              Add to my Program List
-            </Text>
+            <Text style={styles.libraryPrimaryBtnText}>Set as primary focus</Text>
           </TouchableOpacity>
+
+          {/* Secondary: Add as skill focus */}
+          {!skillSlotsFull ? (
+            <TouchableOpacity
+              style={styles.librarySecondaryBtn}
+              onPress={() => { setEnrollSheetRole('skill_1'); setEnrollSheetVisible(true); }}
+              activeOpacity={0.85}
+              accessibilityLabel="Add as skill focus"
+              accessibilityRole="button"
+            >
+              <Text style={styles.librarySecondaryBtnText}>Add as skill focus</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.librarySecondaryBtn, { opacity: 0.4 }]}>
+              <Text style={styles.librarySecondaryBtnText}>Skill slots full (2/2)</Text>
+            </View>
+          )}
+
+          {/* Tertiary: Save for later */}
+          <TouchableOpacity onPress={handleSaveForLater} style={styles.librarySaveLink}>
+            <Text style={styles.librarySaveLinkText}>Save for later</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Enrollment confirm sheet */}
+      <EnrollmentConfirmSheet
+        visible={enrollSheetVisible}
+        program={program}
+        initialRole={enrollSheetRole}
+        existingPrimary={primaryTrack}
+        skillSlotsFull={skillSlotsFull}
+        onConfirm={handleEnrollConfirm}
+        onCancel={() => setEnrollSheetVisible(false)}
+        loading={enrollLoading}
+      />
+
+      {/* iOS toast */}
+      {toastMessage && Platform.OS !== 'android' && (
+        <View style={styles.toastOverlay} pointerEvents="none">
+          <View style={styles.toastBox}>
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
         </View>
       )}
       
@@ -1338,12 +1482,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366F1',
     borderRadius: 3,
   },
-  progressComplete: {
+  progressCompleteRow: {
     marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  progressComplete: {
     fontSize: 12,
     color: '#10B981',
     fontWeight: '600',
-    textAlign: 'center',
   },
   routineContent: {
     flexDirection: 'row',
@@ -1704,4 +1853,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
+
+  // Library enrollment footer
+  libraryFooter: {
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+    flexDirection: 'column',
+  },
+  libraryPrimaryBtn: {
+    backgroundColor: '#6366F1',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    minHeight: 52,
+    justifyContent: 'center',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  libraryPrimaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  librarySecondaryBtn: {
+    borderWidth: 1.5,
+    borderColor: '#6366F1',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  librarySecondaryBtnText: { color: '#6366F1', fontSize: 15, fontWeight: '600' },
+  librarySaveLink: { alignItems: 'center', paddingVertical: 10 },
+  librarySaveLinkText: { color: '#6B7280', fontSize: 14, fontWeight: '500' },
+
+  // Toast
+  toastOverlay: {
+    position: 'absolute',
+    bottom: 120,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  toastBox: {
+    backgroundColor: 'rgba(17,24,39,0.88)',
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  toastText: { color: '#fff', fontSize: 14, fontWeight: '500' },
 });

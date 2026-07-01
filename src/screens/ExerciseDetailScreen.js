@@ -14,11 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
+import ExerciseTrainingFooter from '../components/training/ExerciseTrainingFooter';
 
 const ExerciseDetailScreen = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentExerciseData, setCurrentExerciseData] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
+  const [lastLogResult, setLastLogResult] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef(null);
   const insets = useSafeAreaInsets();
@@ -29,6 +31,22 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   const studentId = route?.params?.studentId; // For coach logging
   const program = route?.params?.program; // For logging context
   const routine = route?.params?.routine; // For logging context
+  const source = route?.params?.source; // 'training' | 'library' | 'coach_assignment' | etc.
+  const allExercises = route?.params?.allExercises; // Full list for Next exercise nav
+  const currentExerciseIndex = route?.params?.currentExerciseIndex; // Position in session
+
+  const isTrainingMode = source === 'training';
+  const hasNextExercise = isTrainingMode && allExercises && currentExerciseIndex < allExercises.length - 1;
+
+  const handleNavigateNext = () => {
+    if (!hasNextExercise) return;
+    const nextExercise = allExercises[currentExerciseIndex + 1];
+    navigation.replace('ExerciseDetail', {
+      ...route.params,
+      exercise: nextExercise,
+      currentExerciseIndex: currentExerciseIndex + 1,
+    });
+  };
 
   // Helper function to extract YouTube video ID from URL
   const getYouTubeVideoId = (url) => {
@@ -440,8 +458,8 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
         </View>
       </ScrollView>
       
-      {/* Log Button - only show for coaches viewing student exercises */}
-      {studentId && program && routine && (
+      {/* Log Button - coach path: show for coaches viewing student exercises */}
+      {!isTrainingMode && studentId && program && routine && (
         <TouchableOpacity
           style={[styles.logButton, { bottom: insets.bottom + 20 }]}
           onPress={() => setShowLogModal(true)}
@@ -449,6 +467,17 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           <Ionicons name="add" size={24} color="white" />
           <Text style={styles.logButtonText}>Add Log</Text>
         </TouchableOpacity>
+      )}
+
+      {/* Training mode: sticky ExerciseTrainingFooter */}
+      {isTrainingMode && (
+        <ExerciseTrainingFooter
+          logResult={lastLogResult}
+          hasNextExercise={hasNextExercise}
+          onLog={() => setShowLogModal(true)}
+          onNext={handleNavigateNext}
+          onBackToSession={() => navigation.goBack()}
+        />
       )}
       
       {/* Log Modal */}
@@ -458,9 +487,11 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
         exercise={rawExercise}
         program={program}
         routine={routine}
-        studentId={studentId}
-        onResultSaved={() => {
-          console.log('✅ Log saved for student');
+        studentId={isTrainingMode ? undefined : studentId}
+        onResultSaved={(routineExerciseId, resultData) => {
+          console.log('✅ Log saved');
+          setLastLogResult({ target_met: resultData?.target_met });
+          if (onExerciseUpdated) onExerciseUpdated(rawExercise);
         }}
       />
     </View>

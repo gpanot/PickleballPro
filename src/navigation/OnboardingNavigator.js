@@ -162,13 +162,14 @@ const OnboardingNavigatorComponent = ({ onComplete }) => {
         {(props) => (
           <ProgramLoadingScreen 
             {...props} 
-            onComplete={() => {
-              // Complete onboarding with all collected data and navigate to Training2 (Program screen)
+            onComplete={(loadingResult) => {
+              // Complete onboarding and land on My Training tab
               const allData = props.route.params?.previousData || {};
-              // Set navigateTo to Training2 for this specific flow
               onComplete({
                 ...allData,
-                navigateTo: 'Training2'
+                navigateTo: 'Training2',
+                // Pass initialView so ProgramScreen opens on My Training
+                initialView: loadingResult?.initialView || 'myTraining',
               });
             }} 
           />
