@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,65 +6,130 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  FlatList,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-export default function IntroScreen({ onComplete, onSkip, navigation }) {
+// Fixed pixel height for the image strip — same on every slide so nothing shifts
+const IMAGE_HEIGHT = height * 0.60;
+
+const SLIDES = [
+  {
+    key: '1',
+    // Slide 1: logbook — place your image at assets/images/onboarding/slide_logbook.jpg
+    // Required dimensions: 1080 × 1400 px (portrait, ~3:4 ratio) — crop to the summary cards area
+    image: require('../../assets/images/onboarding/slide_logbook.jpg'),
+    title: 'Your beautiful\ntraining journal',
+    subtitle: 'Track mood, skills, and every session in one place',
+  },
+  {
+    key: '2',
+    // Slide 2: original intro hero image (certified pros)
+    image: require('../../assets/images/intro.png'),
+    title: 'Get trained by\ncertified Pros',
+    subtitle: 'Follow programs from top coaches and level up faster',
+  },
+  {
+    key: '3',
+    // Slide 3: program / Tanner Academy — place your image at assets/images/onboarding/slide_program.jpg
+    // Required dimensions: 1080 × 1400 px (portrait, ~3:4 ratio) — landscape program card or court action shot
+    image: require('../../assets/images/onboarding/slide_program.png'),
+    title: 'Free DUPR\nProgram to 4.0+',
+    subtitle: 'Structured path matched to your rating — start today',
+  },
+];
+
+export default function IntroScreen({ onComplete, navigation }) {
   const insets = useSafeAreaInsets();
+  const flatListRef = useRef(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const handleMomentumScrollEnd = (event) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / width);
+    setActiveIndex(index);
+  };
+
+  const handleNext = () => {
+    if (activeIndex < SLIDES.length - 1) {
+      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+    } else {
+      onComplete();
+    }
+  };
+
+  const isLastSlide = activeIndex === SLIDES.length - 1;
+
+  // Only the IMAGE lives inside the FlatList — nothing else
+  const renderSlide = ({ item }) => (
+    <View style={styles.slide}>
+      <Image
+        source={item.image}
+        style={styles.heroImage}
+        resizeMode="cover"
+      />
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" backgroundColor="transparent" translucent />
 
-      {/* Hero Image */}
-      <View style={[styles.imageContainer, { paddingTop: insets.top }]}>
-        <Image 
-          source={require('../../assets/images/intro.png')}
-          style={styles.heroImage}
-          resizeMode="cover"
+      {/* ── Fixed image strip — only this part scrolls horizontally ── */}
+      <View style={[styles.imageStrip, { marginTop: insets.top }]}>
+        <FlatList
+          ref={flatListRef}
+          data={SLIDES}
+          renderItem={renderSlide}
+          keyExtractor={(item) => item.key}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          scrollEventThrottle={16}
+          bounces={false}
+          style={styles.flatList}
         />
-        {/* Skip button — absolute top-right over the image */}
-        {onSkip && (
-          <TouchableOpacity
-            style={[styles.skipButton, { top: insets.top + 12 }]}
-            onPress={onSkip}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.skipText}>Skip</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
-      {/* Content Section */}
-      <View style={[styles.content, { paddingBottom: insets.bottom + 20 }]}>
-        <View style={styles.textContainer}>
-          {/* App wordmark */}
-          <View style={styles.wordmarkRow}>
-            <Text style={styles.wordmark}>Pickle</Text>
-            <Text style={[styles.wordmark, styles.wordmarkAccent]}>Hero</Text>
+      {/* ── Fixed bottom panel — CTAs pinned to bottom; text/dots sit just above ── */}
+      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.contentGroup}>
+          <View style={styles.textBlock}>
+            <Text style={styles.mainText}>{SLIDES[activeIndex].title}</Text>
+            <Text style={styles.subtitle}>{SLIDES[activeIndex].subtitle}</Text>
           </View>
 
-          <Text style={styles.mainText}>Play Smarter.</Text>
-          <Text style={styles.mainText}>Win More.</Text>
+          <View style={styles.dotsRow}>
+            {SLIDES.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]}
+              />
+            ))}
+          </View>
         </View>
 
-        {/* Action Buttons */}
+        {/* Buttons — fixed at bottom, never moves */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.getStartedButton}
-            onPress={onComplete}
+            onPress={handleNext}
             activeOpacity={0.9}
           >
-            <Text style={styles.getStartedText}>Get Started</Text>
+            <Text style={styles.getStartedText}>
+              {isLastSlide ? 'Get Started' : 'Next'}
+            </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.signInButton}
+
+          {/* Sign In is always rendered but only visible on last slide */}
+          <TouchableOpacity
+            style={[styles.signInButton, !isLastSlide && styles.hidden]}
             onPress={() => navigation.navigate('Auth')}
             activeOpacity={0.7}
+            pointerEvents={isLastSlide ? 'auto' : 'none'}
           >
             <Text style={styles.signInText}>Sign In</Text>
           </TouchableOpacity>
@@ -79,47 +144,83 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  imageContainer: {
-    height: height * 0.57,
-    width: '100%',
+
+  // Image strip — fixed height, clip overflow
+  imageStrip: {
+    width,
+    height: IMAGE_HEIGHT,
+    overflow: 'hidden',
+  },
+  flatList: {
+    width,
+    height: IMAGE_HEIGHT,
+  },
+  slide: {
+    width,
+    height: IMAGE_HEIGHT,
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
-  content: {
+
+  // Bottom panel — content grouped above CTAs; CTAs stay pinned to bottom
+  bottomPanel: {
     flex: 1,
     backgroundColor: '#ffffff',
     paddingHorizontal: 28,
-    paddingTop: 24,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
   },
-  textContainer: {
+
+  contentGroup: {
     alignItems: 'center',
+    marginBottom: 20,
   },
-  wordmarkRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 8,
-  },
-  wordmark: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  wordmarkAccent: {
-    color: '#6366F1',
+
+  // Text block — fixed min-height so layout is stable across slides
+  textBlock: {
+    alignItems: 'center',
+    minHeight: 80,
+    marginBottom: 14,
   },
   mainText: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: '900',
     color: '#000000',
     textAlign: 'center',
-    lineHeight: 46,
-    letterSpacing: -1,
+    lineHeight: 38,
+    letterSpacing: -0.8,
+    marginBottom: 8,
   },
+  subtitle: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '400',
+  },
+
+  // Dots
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dot: {
+    height: 8,
+    borderRadius: 4,
+  },
+  dotActive: {
+    width: 24,
+    backgroundColor: '#6366F1',
+  },
+  dotInactive: {
+    width: 8,
+    backgroundColor: '#D1D5DB',
+  },
+
+  // Buttons
   buttonContainer: {
     gap: 12,
   },
@@ -153,17 +254,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  skipButton: {
-    position: 'absolute',
-    right: 20,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  skipText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+
+  // Utility: visually hidden but still takes up space (no layout jump)
+  hidden: {
+    opacity: 0,
   },
 });

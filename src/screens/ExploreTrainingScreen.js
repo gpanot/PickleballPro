@@ -18,6 +18,8 @@ import WebIcon from '../components/WebIcon';
 import { useUser } from '../context/UserContext';
 import { usePreload } from '../context/PreloadContext';
 import { getPrograms, transformProgramData, supabase } from '../lib/supabase';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -58,7 +60,7 @@ const getThumbnailHeight = (screenWidth, screenHeight) => {
 export default function ExploreTrainingScreen({ navigation }) {
   const { user } = useUser();
   const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
-  const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   
   // State for API data
   const [explorePrograms, setExplorePrograms] = useState([]);
@@ -250,18 +252,7 @@ export default function ExploreTrainingScreen({ navigation }) {
     }, 0);
   };
 
-  const renderHeader = () => {
-    const exerciseCount = getTotalExerciseCount();
-    
-    return (
-      <View style={styles.headerContainer}>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Explore</Text>
-          <Text style={styles.exerciseCount}>{exerciseCount} exercises</Text>
-        </View>
-      </View>
-    );
-  };
+  const exerciseCount = getTotalExerciseCount();
 
   const renderProgramsContent = () => {
     // Loading state
@@ -346,15 +337,15 @@ export default function ExploreTrainingScreen({ navigation }) {
 
     return (
       <ScrollView 
-        style={styles.programsContainer}
+        style={[styles.programsContainer, { backgroundColor: t.bg }]}
         contentContainerStyle={styles.programsContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#6366F1']}
-            tintColor="#6366F1"
+            colors={[t.accentPurple]}
+            tintColor={t.accentPurple}
           />
         }
       >
@@ -368,7 +359,7 @@ export default function ExploreTrainingScreen({ navigation }) {
           
           return (
             <View key={category} style={styles.categoriesSection}>
-              <Text style={styles.sectionTitle}>{category}</Text>
+              <Text style={[styles.sectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{category}</Text>
               {useHorizontalScroll ? (
                 <ScrollView
                   horizontal
@@ -454,46 +445,22 @@ export default function ExploreTrainingScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        {renderHeader()}
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title="Explore"
+        subtitle={`${exerciseCount} exercises`}
+      />
       {renderProgramsContent()}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  headerSafeArea: {
-    backgroundColor: '#FFFFFF',
-  },
-  // Header styles
-  headerContainer: {
-    paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16, // iPad portrait padding
-    paddingVertical: (width === 768 && height >= 1024) ? 20 : 16, // More vertical padding for iPad
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  exerciseCount: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
+  container: { flex: 1 },
   // Programs Content styles
   programsContainer: {
     flex: 1,

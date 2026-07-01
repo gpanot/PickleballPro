@@ -15,6 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { buildSkillChipOptions, getSkillGroups } from '../lib/skillTaxonomy';
+
+const SKILL_CHIP_OPTIONS = buildSkillChipOptions();
+const SKILL_GROUPS = getSkillGroups();
+const MAX_SKILL_TAGS = 3;
 
 export default function WebCreateProgramModal({ visible, onClose, onSuccess, editingProgram, sessionRole }) {
   const { user } = useAuth();
@@ -30,11 +35,9 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
   const [exploreCategories, setExploreCategories] = useState([]);
   const [status, setStatus] = useState('draft');
   const [isCoachProgram, setIsCoachProgram] = useState(false);
+  const [skillCategories, setSkillCategories] = useState([]);
 
   const isEditing = !!editingProgram;
-
-  // Default categories from ExploreTrainingScreen
-  const defaultCategories = ['Pro Training', 'Fundamentals'];
 
   useEffect(() => {
     if (visible) {
@@ -48,6 +51,11 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         setUserCount(editingProgram.added_count || 0);
         setStatus(editingProgram.is_published ? 'published' : 'draft');
         setIsCoachProgram(editingProgram.is_coach_program || false);
+        setSkillCategories(
+          Array.isArray(editingProgram.skill_categories_json)
+            ? editingProgram.skill_categories_json
+            : []
+        );
         if (editingProgram.thumbnail_url) {
           setThumbnail(editingProgram.thumbnail_url);
         }
@@ -60,6 +68,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
         setUserCount(0);
         setStatus('draft');
         setIsCoachProgram(false);
+        setSkillCategories([]);
         setThumbnail(null);
         setCustomCategory('');
         setShowCustomCategory(false);
@@ -70,23 +79,27 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
   const fetchExploreCategories = async () => {
     try {
       const { data, error } = await supabase
-        .from('programs')
-        .select('category')
-        .not('category', 'is', null);
+        .from('categories')
+        .select('name')
+        .eq('is_published', true)
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
-      // Get unique categories and combine with defaults
-      const uniqueCategories = [...new Set([
-        ...defaultCategories,
-        ...data.map(item => item.category).filter(cat => cat && cat !== 'Custom')
-      ])];
+      const names = (data || []).map(c => c.name).filter(Boolean);
+      const finalNames = names.length > 0 ? names : ['Pro Training', 'Fundamentals'];
+      setExploreCategories(finalNames);
 
-      setExploreCategories(uniqueCategories);
+      // If creating a new program and the current default isn't in the list, pick the first one
+      if (!editingProgram) {
+        setExploreCategory(prev =>
+          finalNames.includes(prev) ? prev : (finalNames[0] || prev)
+        );
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      // Fallback to default categories
-      setExploreCategories(defaultCategories);
+      setExploreCategories(['Pro Training', 'Fundamentals']);
     }
   };
 
@@ -100,7 +113,16 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
     setCustomCategory('');
     setShowCustomCategory(false);
     setStatus('draft');
+    setSkillCategories([]);
     onClose();
+  };
+
+  const toggleSkillTag = (skillId) => {
+    setSkillCategories(prev => {
+      if (prev.includes(skillId)) return prev.filter(id => id !== skillId);
+      if (prev.length >= MAX_SKILL_TAGS) return prev;
+      return [...prev, skillId];
+    });
   };
 
   const handleSelectImage = async () => {
@@ -296,6 +318,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
               tier: 'Beginner',
               thumbnail_url: thumbnailUrl,
               is_coach_program: isCoachProgram,
+              skill_categories_json: skillCategories,
               updated_at: new Date().toISOString(),
             })
             .eq('id', editingProgram.id)
@@ -313,6 +336,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_tier: 'Beginner',
             program_thumbnail_url: thumbnailUrl,
             program_is_coach_program: isCoachProgram,
+            program_skill_categories_json: skillCategories,
           });
           data = result.data;
           error = result.error;
@@ -325,6 +349,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_tier: 'Beginner',
             program_is_coach_program: isCoachProgram,
             program_thumbnail_url: thumbnailUrl,
+            program_skill_categories_json: skillCategories,
           });
           data = result.data;
           error = result.error;
@@ -341,6 +366,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
           is_published: status === 'published',
           thumbnail_url: thumbnailUrl,
           is_coach_program: isCoachProgram,
+          skill_categories_json: skillCategories,
         };
 
         if (isEditing) {
@@ -355,6 +381,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_is_published: programData.is_published,
             program_thumbnail_url: programData.thumbnail_url,
             program_is_coach_program: programData.is_coach_program,
+            program_skill_categories_json: programData.skill_categories_json,
           });
           data = result.data;
           error = result.error;
@@ -369,6 +396,7 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
             program_is_published: programData.is_published,
             program_thumbnail_url: programData.thumbnail_url,
             program_is_coach_program: programData.is_coach_program,
+            program_skill_categories_json: programData.skill_categories_json,
           });
           data = result.data;
           error = result.error;
@@ -555,6 +583,58 @@ export default function WebCreateProgramModal({ visible, onClose, onSuccess, edi
                   </TouchableOpacity>
                 </View>
               </View>
+            )}
+
+            {/* ── Skills section ── */}
+            <View style={styles.skillsHeaderRow}>
+              <Text style={styles.modalLabel}>Skills (optional)</Text>
+              {skillCategories.length > 0 && (
+                <Text style={styles.skillsCountHint}>
+                  {skillCategories.length}/{MAX_SKILL_TAGS} selected
+                </Text>
+              )}
+            </View>
+            <Text style={styles.skillsHelperText}>
+              Tags what this program teaches. Used for My Training skill focus.
+            </Text>
+            {SKILL_GROUPS.map(group => (
+              <View key={group.key} style={styles.skillGroupSection}>
+                <Text style={styles.skillGroupLabel}>{group.name}</Text>
+                <View style={styles.skillChipRow}>
+                  {group.skills.map(skill => {
+                    const isSelected = skillCategories.includes(skill.id);
+                    const isDisabled = !isSelected && skillCategories.length >= MAX_SKILL_TAGS;
+                    return (
+                      <TouchableOpacity
+                        key={skill.id}
+                        onPress={() => toggleSkillTag(skill.id)}
+                        disabled={isDisabled}
+                        style={[
+                          styles.skillChip,
+                          isSelected && { borderColor: skill.color, backgroundColor: skill.color + '18' },
+                          isDisabled && styles.skillChipDisabled,
+                        ]}
+                      >
+                        <Text style={[
+                          styles.skillChipText,
+                          isSelected && { color: skill.color, fontWeight: '700' },
+                          isDisabled && styles.skillChipTextDisabled,
+                        ]}>
+                          {skill.name}
+                        </Text>
+                        {isSelected && (
+                          <Ionicons name="checkmark" size={12} color={skill.color} style={{ marginLeft: 4 }} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            {skillCategories.length >= MAX_SKILL_TAGS && (
+              <Text style={styles.skillsMaxHint}>
+                Maximum {MAX_SKILL_TAGS} skills per program. Deselect one to change.
+              </Text>
             )}
 
             {!isCoachRole && (
@@ -1004,5 +1084,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     lineHeight: 18,
+  },
+  skillsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  skillsHelperText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 12,
+  },
+  skillsCountHint: {
+    fontSize: 13,
+    color: '#6366F1',
+    fontWeight: '600',
+  },
+  skillsMaxHint: {
+    fontSize: 13,
+    color: '#F59E0B',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  skillGroupSection: {
+    marginBottom: 10,
+  },
+  skillGroupLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  skillChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  skillChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+  },
+  skillChipDisabled: {
+    opacity: 0.35,
+  },
+  skillChipText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  skillChipTextDisabled: {
+    color: '#9CA3AF',
   },
 });

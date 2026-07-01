@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useColorScheme, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { warmFriendly, sportDark } from '../theme/logbookThemes';
 
 const THEME_KEY = '@pickleHero_themeMode';
 
@@ -83,34 +83,36 @@ const ThemeContext = createContext({
   isDark: false,
   themeMode: 'system',
   setThemeMode: () => {},
+  logbookTheme: warmFriendly,
 });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export function ThemeProvider({ children }) {
-  const systemScheme = useColorScheme(); // 'light' | 'dark' | null
-  const [themeMode, setThemeModeState] = useState('system'); // 'light' | 'dark' | 'system'
+  const [themeMode, setThemeModeState] = useState('light'); // 'light' | 'dark'
 
-  // Load persisted preference
+  // Load persisted preference (migrate legacy 'system' → 'light')
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY)
-      .then(v => { if (v) setThemeModeState(v); })
+      .then(v => {
+        if (v === 'dark' || v === 'light') setThemeModeState(v);
+        else if (v === 'system') setThemeModeState('light');
+      })
       .catch(() => {});
   }, []);
 
   const setThemeMode = (mode) => {
+    if (mode !== 'light' && mode !== 'dark') return;
     setThemeModeState(mode);
     AsyncStorage.setItem(THEME_KEY, mode).catch(() => {});
   };
 
-  const resolvedScheme =
-    themeMode === 'system' ? (systemScheme ?? 'light') : themeMode;
-
-  const isDark = resolvedScheme === 'dark';
+  const isDark = themeMode === 'dark';
   const theme = isDark ? dark : light;
+  const logbookTheme = isDark ? sportDark : warmFriendly;
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, themeMode, setThemeMode }}>
+    <ThemeContext.Provider value={{ theme, isDark, themeMode, setThemeMode, logbookTheme }}>
       {children}
     </ThemeContext.Provider>
   );

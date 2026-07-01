@@ -12,6 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getLogbookEntriesByUserId } from '../lib/supabase';
 import skillsData from '../data/Commun_skills_tags.json';
+import SkillIcon from './SkillIcon';
+import { Dumbbell, Target } from 'lucide-react-native';
 
 const WebUserLogbookModal = ({ visible, user, onClose }) => {
   const [logbookEntries, setLogbookEntries] = useState([]);
@@ -46,25 +48,21 @@ const WebUserLogbookModal = ({ visible, user, onClose }) => {
   const trainingFocusOptions = [
     ...skillsData.skillCategories.technical.skills.map(skill => ({
       value: skill.id,
-      emoji: skill.emoji,
       label: skill.name,
       color: skill.color
     })),
     ...skillsData.skillCategories.movement.skills.map(skill => ({
       value: skill.id,
-      emoji: skill.emoji,
       label: skill.name,
       color: skill.color
     })),
     ...skillsData.skillCategories.strategic.skills.map(skill => ({
       value: skill.id,
-      emoji: skill.emoji,
       label: skill.name,
       color: skill.color
     })),
     ...skillsData.skillCategories.physical.skills.map(skill => ({
       value: skill.id,
-      emoji: skill.emoji,
       label: skill.name,
       color: skill.color
     }))
@@ -297,14 +295,17 @@ const WebUserLogbookModal = ({ visible, user, onClose }) => {
         {/* Strong Skills */}
         {stats.topStrongSkills && stats.topStrongSkills.length > 0 && (
           <View style={styles.skillsSection}>
-            <Text style={styles.skillsSectionTitle}>💪 Strong Skills</Text>
+            <View style={styles.skillsSectionTitleRow}>
+              <Dumbbell size={14} color="#10B981" strokeWidth={2} />
+              <Text style={styles.skillsSectionTitle}>Strong Skills</Text>
+            </View>
             <View style={styles.skillsList}>
               {stats.topStrongSkills.map((item, index) => {
                 const skillData = getTrainingFocusData(item.skill);
                 return (
                   <View key={index} style={styles.skillItem}>
                     <View style={styles.skillNameContainer}>
-                      <Text style={styles.skillEmoji}>{skillData.emoji}</Text>
+                      <SkillIcon skillId={item.skill} size={14} color={skillData.color} />
                       <Text style={[styles.skillName, { color: skillData.color }]}>
                         {skillData.label}
                       </Text>
@@ -320,14 +321,17 @@ const WebUserLogbookModal = ({ visible, user, onClose }) => {
         {/* Areas to Improve */}
         {stats.topWeakSkills && stats.topWeakSkills.length > 0 && (
           <View style={styles.skillsSection}>
-            <Text style={styles.skillsSectionTitle}>🎯 Areas to Improve</Text>
+            <View style={styles.skillsSectionTitleRow}>
+              <Target size={14} color="#F59E0B" strokeWidth={2} />
+              <Text style={styles.skillsSectionTitle}>Areas to Improve</Text>
+            </View>
             <View style={styles.skillsList}>
               {stats.topWeakSkills.map((item, index) => {
                 const skillData = getTrainingFocusData(item.skill);
                 return (
                   <View key={index} style={styles.skillItem}>
                     <View style={styles.skillNameContainer}>
-                      <Text style={styles.skillEmoji}>{skillData.emoji}</Text>
+                      <SkillIcon skillId={item.skill} size={14} color={skillData.color} />
                       <Text style={[styles.skillName, { color: skillData.color }]}>
                         {skillData.label}
                       </Text>
@@ -383,7 +387,7 @@ const WebUserLogbookModal = ({ visible, user, onClose }) => {
                 const focusData = getTrainingFocusData(focus);
                 return (
                   <View key={index} style={[styles.focusTag, { borderColor: focusData.color }]}>
-                    <Text style={styles.focusTagEmoji}>{focusData.emoji}</Text>
+                    <SkillIcon skillId={focus} size={12} color={focusData.color} />
                     <Text style={[styles.focusTagText, { color: focusData.color }]}>
                       {focusData.label}
                     </Text>
@@ -403,7 +407,7 @@ const WebUserLogbookModal = ({ visible, user, onClose }) => {
                 const difficultyData = getTrainingFocusData(difficulty);
                 return (
                   <View key={index} style={[styles.difficultyTag, { borderColor: difficultyData.color }]}>
-                    <Text style={styles.difficultyTagEmoji}>{difficultyData.emoji}</Text>
+                    <SkillIcon skillId={difficulty} size={12} color={difficultyData.color} />
                     <Text style={[styles.difficultyTagText, { color: difficultyData.color }]}>
                       {difficultyData.label}
                     </Text>
@@ -679,11 +683,17 @@ const styles = StyleSheet.create({
   skillsSection: {
     flex: 1,
   },
+  skillsSectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
   skillsSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 8,
+    marginBottom: 0,
   },
   skillsList: {
     gap: 6,

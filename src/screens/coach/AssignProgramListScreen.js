@@ -8,72 +8,32 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircle, ChevronRight, Library } from 'lucide-react-native';
 import { supabase, transformProgramData } from '../../lib/supabase';
-
-const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 export default function AssignProgramListScreen({ route, navigation }) {
   const { studentId, studentName, assignedProgramIds = [] } = route.params || {};
-  const insets = useSafeAreaInsets();
-  
+  const { logbookTheme: t, isDark } = useTheme();
+
   const [coachPrograms, setCoachPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadCoachPrograms();
-  }, []);
+  useEffect(() => { loadCoachPrograms(); }, []);
 
   const loadCoachPrograms = async () => {
     try {
       setLoading(true);
-      console.log('Loading coach programs for assignment...');
-      
       const { data, error } = await supabase
         .from('programs')
-        .select(`
-          id,
-          name,
-          description,
-          category,
-          tier,
-          thumbnail_url,
-          rating,
-          added_count,
-          order_index,
-          created_at,
-          routines (
-            id,
-            name,
-            description,
-            order_index,
-            time_estimate_minutes,
-            routine_exercises (
-              order_index,
-              custom_target_value,
-              is_optional,
-              exercises (*)
-            )
-          )
-        `)
+        .select(`id, name, description, category, tier, thumbnail_url, rating, added_count, order_index, created_at, routines(id, name, description, order_index, time_estimate_minutes, routine_exercises(order_index, custom_target_value, is_optional, exercises(*)))`)
         .eq('is_published', true)
         .eq('is_coach_program', true)
         .order('category', { ascending: true })
         .order('order_index', { ascending: true });
-      
-      if (error) {
-        console.error('Error loading coach programs:', error);
-        throw error;
-      }
-      
-      console.log('Raw coach programs data:', data?.length || 0, 'programs');
-      
-      const transformedPrograms = data ? transformProgramData(data) : [];
-      console.log('Transformed coach programs:', transformedPrograms.length);
-      
-      setCoachPrograms(transformedPrograms);
+      if (error) throw error;
+      setCoachPrograms(data ? transformProgramData(data) : []);
     } catch (error) {
       console.error('Error loading coach programs:', error);
     } finally {
@@ -82,79 +42,50 @@ export default function AssignProgramListScreen({ route, navigation }) {
   };
 
   const handleProgramPress = (program) => {
-    navigation.navigate('ProgramDetail', {
-      program,
-      source: 'coach_assignment',
-      studentId,
-      studentName,
-    });
+    navigation.navigate('ProgramDetail', { program, source: 'coach_assignment', studentId, studentName });
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Assign Program</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell tokens={t} isDark={isDark} background="bg" bordered title="Assign Program" onBack={() => navigation.goBack()} />
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-            <Text style={styles.loadingText}>Loading programs...</Text>
+          <View style={styles.emptyContainer}>
+            <ActivityIndicator size="large" color={t.accentPurple} />
+            <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>Loading programs...</Text>
           </View>
         ) : coachPrograms.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="library-outline" size={48} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No coach programs available</Text>
+            <Library size={48} color={t.textMuted} strokeWidth={1.5} />
+            <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>No coach programs available</Text>
           </View>
         ) : (
           coachPrograms.map((program) => {
             const isAssigned = assignedProgramIds.includes(program.id);
-            
             return (
               <TouchableOpacity
                 key={program.id}
-                style={[
-                  styles.programCard,
-                  isAssigned && styles.programCardDisabled
-                ]}
+                style={[styles.programCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }, isAssigned && { opacity: 0.6 }]}
                 onPress={() => !isAssigned && handleProgramPress(program)}
                 disabled={isAssigned}
               >
                 {(program.thumbnail_url || program.thumbnail) && (
-                  <Image 
-                    source={{ uri: program.thumbnail_url || program.thumbnail }} 
-                    style={styles.programThumbnail}
-                  />
+                  <Image source={{ uri: program.thumbnail_url || program.thumbnail }} style={[styles.programThumbnail, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]} />
                 )}
                 <View style={styles.programInfo}>
-                  <Text style={styles.programName}>{program.name}</Text>
+                  <Text style={[styles.programName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{program.name}</Text>
                   {program.description && (
-                    <Text style={styles.programDescription} numberOfLines={2}>
-                      {program.description}
-                    </Text>
+                    <Text style={[styles.programDescription, { color: t.textMuted, fontFamily: t.fontBody }]} numberOfLines={2}>{program.description}</Text>
                   )}
                   <View style={styles.programMeta}>
-                    {program.category && (
-                      <Text style={styles.programCategory}>{program.category}</Text>
-                    )}
-                    {program.tier && (
-                      <Text style={styles.programTier}>• {program.tier}</Text>
-                    )}
+                    {program.category && <Text style={[styles.programCategory, { color: t.textCaption, fontFamily: t.fontBody }]}>{program.category}</Text>}
+                    {program.tier && <Text style={[styles.programTier, { color: t.textCaption, fontFamily: t.fontBody }]}>• {program.tier}</Text>}
                   </View>
                 </View>
-                {isAssigned ? (
-                  <Ionicons name="checkmark-circle" size={24} color={PRIMARY_COLOR} />
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                )}
+                {isAssigned
+                  ? <CheckCircle size={22} color={t.accentPurple} strokeWidth={2} />
+                  : <ChevronRight size={18} color={t.textMuted} strokeWidth={2} />}
               </TouchableOpacity>
             );
           })
@@ -165,111 +96,17 @@ export default function AssignProgramListScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    flex: 1,
-    textAlign: 'center',
-  },
-  placeholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  programCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  programCardDisabled: {
-    opacity: 0.6,
-  },
-  programThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  programInfo: {
-    flex: 1,
-  },
-  programName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  programDescription: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-    lineHeight: 16,
-  },
-  programMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  programCategory: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginRight: 4,
-  },
-  programTier: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyText: { marginTop: 16, fontSize: 14 },
+  programCard: { borderRadius: 14, padding: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
+  programThumbnail: { width: 56, height: 56, borderRadius: 8, marginRight: 12 },
+  programInfo: { flex: 1 },
+  programName: { fontSize: 15, marginBottom: 3 },
+  programDescription: { fontSize: 12, marginBottom: 6, lineHeight: 16 },
+  programMeta: { flexDirection: 'row', alignItems: 'center' },
+  programCategory: { fontSize: 11, marginRight: 4 },
+  programTier: { fontSize: 11 },
 });
-

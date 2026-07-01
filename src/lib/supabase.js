@@ -53,46 +53,96 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 // Authentication functions
+
+const EXISTING_USER_ERROR = {
+  message: 'User already registered',
+  code: 'user_already_exists',
+};
+
+/** Returns true when sign-up should be rejected because the account already exists. */
+export function isExistingUserSignUpError(error) {
+  if (!error) return false;
+  const msg = (error.message || '').toLowerCase();
+  return (
+    error.code === 'user_already_exists' ||
+    msg.includes('user already registered') ||
+    msg.includes('already registered') ||
+    msg.includes('already exists') ||
+    msg.includes('duplicate key') ||
+    msg.includes('users_email_key')
+  );
+}
+
+async function abortDuplicateSignUp() {
+  try {
+    await supabase.auth.signOut();
+  } catch (e) {
+    console.warn('abortDuplicateSignUp: signOut failed', e?.message);
+  }
+}
+
 export const signUp = async (email, password, userData = {}) => {
   try {
+    const normalizedEmail = email.trim().toLowerCase();
+
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
-        data: userData // Additional user metadata
-      }
+        data: userData,
+      },
     });
 
     if (error) throw error;
 
-    // If signup successful, create or update user profile in our users table
-    if (data.user && !error) {
+    // Supabase: empty identities means email is already registered (no new account)
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      await abortDuplicateSignUp();
+      return { data: null, error: EXISTING_USER_ERROR };
+    }
+
+    // Confirm-email off: signUp can return a session for an existing account
+    if (data?.session && data?.user?.created_at) {
+      const accountAgeMs = Date.now() - new Date(data.user.created_at).getTime();
+      if (accountAgeMs > 60_000) {
+        await abortDuplicateSignUp();
+        return { data: null, error: EXISTING_USER_ERROR };
+      }
+    }
+
+    if (data.user) {
       console.log('Creating user profile with data:', userData);
-      
+
       const profileData = {
         id: data.user.id,
         email: data.user.email,
-        name: userData.name || email.split('@')[0], // Default name from email
-        ...userData // Spread all onboarding data
+        name: userData.name || normalizedEmail.split('@')[0],
+        ...userData,
       };
-      
-      console.log('Final profile data being saved:', profileData);
-      
-      // Use upsert to handle cases where profile already exists
+
       const { error: profileError } = await supabase
         .from('users')
-        .upsert(profileData, { 
+        .upsert(profileData, {
           onConflict: 'id',
-          ignoreDuplicates: false 
+          ignoreDuplicates: false,
         });
 
       if (profileError) {
-        // Extract meaningful error message from potentially HTML response
+        const profileMsg = profileError.message || '';
+        const isDuplicateEmail =
+          profileError.code === '23505' &&
+          (profileMsg.includes('users_email_key') || profileMsg.includes('duplicate key'));
+
+        if (isDuplicateEmail) {
+          console.error('Error creating/updating user profile: duplicate email');
+          await abortDuplicateSignUp();
+          return { data: null, error: EXISTING_USER_ERROR };
+        }
+
         let errorMessage = 'Unknown error';
         if (typeof profileError === 'string') {
           errorMessage = profileError;
         } else if (profileError?.message) {
-          // Check if message contains HTML (error page response)
           if (profileError.message.includes('<!DOCTYPE') || profileError.message.includes('<html')) {
             errorMessage = 'Server error: Received invalid response. Please try again.';
           } else {
@@ -101,9 +151,8 @@ export const signUp = async (email, password, userData = {}) => {
         } else if (profileError?.code) {
           errorMessage = `Database error (${profileError.code})`;
         }
-        
+
         console.error('Error creating/updating user profile:', errorMessage);
-        // Don't throw here as the auth user was created successfully
       } else {
         console.log('✅ User profile created/updated successfully');
       }
@@ -112,6 +161,10 @@ export const signUp = async (email, password, userData = {}) => {
     return { data, error: null };
   } catch (error) {
     console.error('Error signing up:', error);
+    if (isExistingUserSignUpError(error)) {
+      await abortDuplicateSignUp();
+      return { data: null, error: EXISTING_USER_ERROR };
+    }
     return { data: null, error };
   }
 };
@@ -316,6 +369,7 @@ export const getPrograms = async () => {
         added_count,
         order_index,
         created_at,
+        skill_categories_json,
         routines (
           id,
           name,
@@ -608,6 +662,19 @@ export const getUserProgress = async () => {
   }
 };
 
+function normalizeSkillCategoriesJson(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 // Helper function to transform program data to match your current app structure
 export const transformProgramData = (programs) => {
   if (!programs || !Array.isArray(programs)) {
@@ -624,6 +691,8 @@ export const transformProgramData = (programs) => {
         category: program.category,
         tier: program.tier,
         thumbnail: program.thumbnail_url,
+        thumbnail_url: program.thumbnail_url || null,
+        skill_categories_json: normalizeSkillCategoriesJson(program.skill_categories_json),
         rating: parseFloat(program.rating) || 0,
         addedCount: program.added_count || 0,
         orderIndex: program.order_index || 0,

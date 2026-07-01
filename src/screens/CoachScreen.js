@@ -14,17 +14,26 @@ import {
   Linking,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons';
-import WebIcon from '../components/WebIcon';
-import ModernIcon from '../components/ModernIcon';
+import {
+  Search,
+  X,
+  BadgeCheck,
+  Star,
+  MapPin,
+  Lock,
+  SlidersHorizontal,
+  MessageCircle,
+  ChevronRight,
+  Users,
+} from 'lucide-react-native';
 import { usePreload } from '../context/PreloadContext';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getCoaches, transformCoachData, supabase } from '../lib/supabase';
 import { CoachSkeletonCard } from '../components/SkeletonCard';
 import SeededAvatar from '../components/SeededAvatar';
-import EmptyState from '../components/EmptyState';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 
 export default function CoachScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,7 +42,7 @@ export default function CoachScreen({ navigation }) {
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const { getDataWithFallback, hasPreloadedData, refreshData } = usePreload();
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   
   // API state
   const [coaches, setCoaches] = useState([]);
@@ -56,6 +65,7 @@ export default function CoachScreen({ navigation }) {
   
   const specialtyFilters = ['Verified', 'Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
+  const px = t.headerPaddingH;
 
   // Request location permission and get user location on component mount
   useEffect(() => {
@@ -376,8 +386,8 @@ export default function CoachScreen({ navigation }) {
     imessage: {
       id: 'imessage',
       name: 'iMessage',
-      iconType: 'emoji',
-      icon: '💬',
+      iconType: 'lucide',
+      lucideIcon: MessageCircle,
       color: '#6366F1',
       description: 'Message via iMessage (iOS only)'
     },
@@ -578,11 +588,11 @@ export default function CoachScreen({ navigation }) {
   };
 
   const renderSortOptions = () => (
-    <View style={styles.sortContainer}>
+    <View style={[styles.sortContainer, { paddingHorizontal: px, backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
       <View style={styles.sortRow}>
         <View style={styles.sortLabel}>
-          <ModernIcon name="settings" size={16} color="#9CA3AF" />
-          <Text style={styles.sortText}>Sort by:</Text>
+          <SlidersHorizontal size={16} color={t.textMuted} strokeWidth={2} />
+          <Text style={[styles.sortText, { color: t.textMuted, fontFamily: t.fontBody }]}>Sort by:</Text>
         </View>
         <View style={styles.sortButtons}>
           {sortOptions.map((option) => (
@@ -590,8 +600,8 @@ export default function CoachScreen({ navigation }) {
               key={option}
               style={[
                 styles.sortButton,
-                sortBy === option && styles.sortButtonActive,
-                option === 'Location' && !locationPermissionGranted && styles.sortButtonDisabled
+                sortBy === option && { backgroundColor: t.textPrimary },
+                option === 'Location' && !locationPermissionGranted && styles.sortButtonDisabled,
               ]}
               onPress={() => {
                 if (option === 'Location' && !locationPermissionGranted) {
@@ -608,15 +618,22 @@ export default function CoachScreen({ navigation }) {
                 }
               }}
             >
-              <Text style={[
-                styles.sortButtonText,
-                sortBy === option && styles.sortButtonTextActive,
-                option === 'Location' && !locationPermissionGranted && styles.sortButtonTextDisabled
-              ]}>
-                {option}
-                {option === 'Location' && locationLoading && ' 📍'}
-                {option === 'Location' && !locationPermissionGranted && !locationLoading && ' 🔒'}
-              </Text>
+              <View style={styles.sortButtonContent}>
+                <Text style={[
+                  styles.sortButtonText,
+                  { color: t.textMuted, fontFamily: t.fontBody },
+                  sortBy === option && { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold },
+                  option === 'Location' && !locationPermissionGranted && { color: t.textCaption },
+                ]}>
+                  {option}
+                </Text>
+                {option === 'Location' && locationLoading && (
+                  <MapPin size={12} color={sortBy === option ? (isDark ? t.fabTextColor : '#fff') : t.textMuted} strokeWidth={2} />
+                )}
+                {option === 'Location' && !locationPermissionGranted && !locationLoading && (
+                  <Lock size={12} color={t.textCaption} strokeWidth={2} />
+                )}
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -625,20 +642,20 @@ export default function CoachScreen({ navigation }) {
   );
 
   const renderExpandableSearch = () => (
-    <View style={[styles.expandableSearchContainer, isSearchExpanded && styles.expandableSearchExpanded]}>
-      <View style={styles.searchInputContainer}>
-        <WebIcon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+    <View style={[styles.expandableSearchContainer, { paddingHorizontal: px }, isSearchExpanded && styles.expandableSearchExpanded]}>
+      <View style={[styles.searchInputContainer, { backgroundColor: t.surface }]}>
+        <Search size={20} color={t.textMuted} strokeWidth={2} style={styles.searchIcon} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: t.textPrimary, fontFamily: t.fontBody }]}
           placeholder="Search coaches..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={t.textMuted}
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoFocus={isSearchExpanded}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-            <WebIcon name="close" size={18} color="#9CA3AF" />
+            <X size={18} color={t.textMuted} strokeWidth={2} />
           </TouchableOpacity>
         )}
       </View>
@@ -646,51 +663,55 @@ export default function CoachScreen({ navigation }) {
   );
 
   const renderFilters = () => (
-    <View style={styles.filtersContainer}>
+    <View style={[styles.filtersContainer, { paddingHorizontal: px }]}>
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
         style={styles.filtersScroll}
         contentContainerStyle={styles.filtersContent}
       >
-        {specialtyFilters.map((filter) => (
-          <TouchableOpacity
-            key={filter}
-            style={[
-              styles.filterChip,
-              selectedFilters.includes(filter) && styles.filterChipActive
-            ]}
-            onPress={() => toggleFilter(filter)}
-          >
-            <View style={styles.filterChipContent}>
-              {filter === 'Verified' && (
-                <WebIcon 
-                  name="checkmark-circle" 
-                  size={14} 
-                  color={selectedFilters.includes(filter) ? 'white' : '#10B981'} 
-                  style={styles.filterIcon}
-                />
-              )}
-              <Text style={[
-                styles.filterChipText,
-                selectedFilters.includes(filter) && styles.filterChipTextActive
-              ]}>
-                {filter}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {specialtyFilters.map((filter) => {
+          const active = selectedFilters.includes(filter);
+          return (
+            <TouchableOpacity
+              key={filter}
+              style={[
+                styles.filterChip,
+                { backgroundColor: isDark ? t.surfaceRaised : '#fff', borderColor: isDark ? t.border : '#E5E7EB' },
+                active && { backgroundColor: t.accentPurple, borderColor: t.accentPurple },
+              ]}
+              onPress={() => toggleFilter(filter)}
+            >
+              <View style={styles.filterChipContent}>
+                {filter === 'Verified' && (
+                  <BadgeCheck
+                    size={14}
+                    color={active ? (isDark ? t.fabTextColor : 'white') : '#10B981'}
+                    strokeWidth={2}
+                    style={styles.filterIcon}
+                  />
+                )}
+                <Text style={[
+                  styles.filterChipText,
+                  { color: t.textMuted, fontFamily: t.fontBody },
+                  active && { color: isDark ? t.fabTextColor : 'white', fontFamily: t.fontBodySemibold },
+                ]}>
+                  {filter}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
 
   const renderCoachCard = (coach) => {
-    // Check if coach has a valid image URL
     const hasValidImage = coach.image && 
       (coach.image.startsWith('http') || coach.image.startsWith('blob:'));
     
     return (
-      <View key={coach.id} style={styles.coachCard}>
+      <View key={coach.id} style={[styles.coachCard, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
         <View style={styles.coachHeader}>
           <TouchableOpacity 
             onPress={() => handleAvatarPress(coach)}
@@ -705,54 +726,54 @@ export default function CoachScreen({ navigation }) {
         
         <View style={styles.coachInfo}>
           <View style={styles.coachNameRow}>
-            <Text style={styles.coachName}>{coach.name}</Text>
+            <Text style={[styles.coachName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{coach.name}</Text>
             {coach.verified && (
-              <WebIcon name="checkmark-circle" size={16} color="#10B981" />
+              <BadgeCheck size={16} color="#10B981" strokeWidth={2} />
             )}
           </View>
           
           <View style={styles.coachMetrics}>
             {coach.duprRating && (
               <View style={styles.metricItem}>
-                <Text style={styles.metricLabel}>DUPR:</Text>
-                <Text style={styles.metricValue}>{coach.duprRating}</Text>
+                <Text style={[styles.metricLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>DUPR:</Text>
+                <Text style={[styles.metricValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{coach.duprRating}</Text>
               </View>
             )}
             <View style={styles.metricItem}>
-              <WebIcon name="star" size={14} color="#F59E0B" />
-              <Text style={styles.metricValue}>{coach.rating}</Text>
-              <Text style={styles.metricLabel}>({coach.reviewCount})</Text>
+              <Star size={14} color="#F59E0B" fill="#F59E0B" strokeWidth={2} />
+              <Text style={[styles.metricValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{coach.rating}</Text>
+              <Text style={[styles.metricLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>({coach.reviewCount})</Text>
             </View>
           </View>
         </View>
         
         <View style={styles.coachPrice}>
-          <Text style={styles.priceText}>{formatPrice(coach.hourlyRate, coach.currency)}</Text>
-          <Text style={styles.priceLabel}>per hour</Text>
+          <Text style={[styles.priceText, { fontFamily: t.fontDisplay }]}>{formatPrice(coach.hourlyRate, coach.currency)}</Text>
+          <Text style={[styles.priceLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>per hour</Text>
         </View>
       </View>
       
-      <Text style={styles.coachBio} numberOfLines={2}>
+      <Text style={[styles.coachBio, { color: t.textSecondary, fontFamily: t.fontBody }]} numberOfLines={2}>
         {coach.bio}
       </Text>
       
       <View style={styles.specialtiesContainer}>
         {coach.specialties.slice(0, 3).map((specialty) => (
-          <View key={specialty} style={styles.specialtyTag}>
-            <Text style={styles.specialtyText}>{specialty}</Text>
+          <View key={specialty} style={[styles.specialtyTag, { backgroundColor: isDark ? t.accentPurpleMuted : '#F3F4F6' }]}>
+            <Text style={[styles.specialtyText, { color: isDark ? t.accentPurple : '#4B5563', fontFamily: t.fontBody }]}>{specialty}</Text>
           </View>
         ))}
         {coach.specialties.length > 3 && (
-          <View style={styles.specialtyTag}>
-            <Text style={styles.specialtyText}>+{coach.specialties.length - 3}</Text>
+          <View style={[styles.specialtyTag, { backgroundColor: isDark ? t.accentPurpleMuted : '#F3F4F6' }]}>
+            <Text style={[styles.specialtyText, { color: isDark ? t.accentPurple : '#4B5563', fontFamily: t.fontBody }]}>+{coach.specialties.length - 3}</Text>
           </View>
         )}
       </View>
       
       <View style={styles.coachLocation}>
-        <WebIcon name="location-outline" size={14} color="#6B7280" />
-        <Text style={styles.locationText}>
-          {coach.location.replace(/\s*\([^)]*\)$/, '')} {/* Remove coordinates from display */}
+        <MapPin size={14} color={t.textMuted} strokeWidth={2} />
+        <Text style={[styles.locationText, { color: t.textMuted, fontFamily: t.fontBody }]}>
+          {coach.location.replace(/\s*\([^)]*\)$/, '')}
           {userLocation && locationPermissionGranted && (() => {
             const coachCoords = getCoachCoordinates(coach);
             if (coachCoords) {
@@ -770,10 +791,10 @@ export default function CoachScreen({ navigation }) {
       </View>
       
       <TouchableOpacity 
-        style={styles.contactButton}
+        style={[styles.contactButton, { backgroundColor: t.accentPurple }]}
         onPress={() => handleContactCoach(coach)}
       >
-        <Text style={styles.contactButtonText}>Contact Coach</Text>
+        <Text style={[styles.contactButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Contact Coach</Text>
       </TouchableOpacity>
     </View>
     );
@@ -804,7 +825,7 @@ export default function CoachScreen({ navigation }) {
                 style={styles.avatarModalCloseButton}
                 onPress={() => setShowAvatarModal(false)}
               >
-                <Ionicons name="close" size={28} color="#FFFFFF" />
+                <X size={28} color="#FFFFFF" strokeWidth={2} />
               </TouchableOpacity>
               
               <View style={styles.avatarModalContent}>
@@ -829,7 +850,7 @@ export default function CoachScreen({ navigation }) {
                   <Text style={styles.avatarModalName}>{selectedAvatarCoach.name}</Text>
                   {selectedAvatarCoach.verified && (
                     <View style={styles.avatarModalVerified}>
-                      <WebIcon name="checkmark-circle" size={20} color="#10B981" />
+                      <BadgeCheck size={20} color="#10B981" strokeWidth={2} />
                       <Text style={styles.avatarModalVerifiedText}>Verified Coach</Text>
                     </View>
                   )}
@@ -864,7 +885,7 @@ export default function CoachScreen({ navigation }) {
                 style={styles.messagingModalCloseButton}
                 onPress={() => setShowMessagingModal(false)}
               >
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <X size={24} color="#6B7280" strokeWidth={2} />
               </TouchableOpacity>
             </View>
             
@@ -889,14 +910,14 @@ export default function CoachScreen({ navigation }) {
                               option.id === 'whatsapp' && styles.whatsappIconRounded
                             ]} 
                           />
-                        ) : (
-                          <Text style={styles.messagingOptionIcon}>{option.icon}</Text>
-                        )}
+                        ) : option.iconType === 'lucide' && option.lucideIcon ? (
+                          <option.lucideIcon size={24} color={option.color} strokeWidth={2} style={styles.messagingOptionLucideIcon} />
+                        ) : null}
                         <View style={styles.messagingOptionTextContainer}>
                           <Text style={styles.messagingOptionName}>{option.name}</Text>
                           <Text style={styles.messagingOptionDescription}>{option.description}</Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                        <ChevronRight size={20} color="#9CA3AF" strokeWidth={2} />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -918,12 +939,12 @@ export default function CoachScreen({ navigation }) {
                 }}
               >
                 <View style={styles.messagingOptionContent}>
-                  <Text style={styles.messagingOptionIcon}>💬</Text>
+                  <MessageCircle size={24} color="#6366F1" strokeWidth={2} style={styles.messagingOptionLucideIcon} />
                   <View style={styles.messagingOptionTextContainer}>
                     <Text style={styles.messagingOptionName}>SMS</Text>
                     <Text style={styles.messagingOptionDescription}>Send a text message</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                  <ChevronRight size={20} color="#9CA3AF" strokeWidth={2} />
                 </View>
               </TouchableOpacity>
             </View>
@@ -937,35 +958,34 @@ export default function CoachScreen({ navigation }) {
   const showBackButton = navigation && navigation.canGoBack && navigation.canGoBack();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
       {renderAvatarModal()}
       {renderMessagingModal()}
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        <View style={styles.headerContainer}>
-          {showBackButton && (
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Ionicons name="arrow-back" size={24} color="#1F2937" />
-            </TouchableOpacity>
-          )}
-          <Text style={[styles.headerTitle, showBackButton && styles.headerTitleWithBack]}>Certified Coaches</Text>
-          <TouchableOpacity 
-            style={styles.searchIconButton}
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title="Certified Coaches"
+        onBack={showBackButton ? () => navigation.goBack() : undefined}
+        rightAction={(
+          <TouchableOpacity
+            style={[styles.searchIconButton, { backgroundColor: isDark ? t.surfaceRaised : t.accentPurpleMuted }]}
             onPress={toggleSearch}
+            activeOpacity={0.7}
           >
-            <WebIcon 
-              name={isSearchExpanded ? "close" : "search"} 
-              size={24} 
-              color="#1F2937" 
-            />
+            {isSearchExpanded ? (
+              <X size={22} color={t.textPrimary} strokeWidth={2} />
+            ) : (
+              <Search size={22} color={t.textPrimary} strokeWidth={2} />
+            )}
           </TouchableOpacity>
-        </View>
+        )}
+      >
         {isSearchExpanded && renderExpandableSearch()}
         {renderFilters()}
         {renderSortOptions()}
-      </View>
+      </ScreenHeaderShell>
       
       {loading ? (
         <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
@@ -973,9 +993,9 @@ export default function CoachScreen({ navigation }) {
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load coaches</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchCoaches}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={[styles.errorText, { fontFamily: t.fontBody }]}>Failed to load coaches</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: t.accentPurple }]} onPress={fetchCoaches}>
+            <Text style={[styles.retryButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -988,24 +1008,28 @@ export default function CoachScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#6366F1']}
-              tintColor="#6366F1"
+              colors={[t.accentPurple]}
+              tintColor={t.accentPurple}
             />
           }
         >
-          <View style={styles.resultsContainer}>
-            <Text style={styles.resultsText}>
+          <View style={[styles.resultsContainer, { paddingHorizontal: px }]}>
+            <Text style={[styles.resultsText, { color: t.textMuted, fontFamily: t.fontBody }]}>
               {filteredAndSortedCoaches.length} {filteredAndSortedCoaches.length === 1 ? 'coach' : 'coaches'} found
             </Text>
             
             {filteredAndSortedCoaches.length > 0 ? (
               filteredAndSortedCoaches.map(renderCoachCard)
             ) : (
-              <EmptyState
-                emoji="🎾"
-                title="No coaches found"
-                subtitle="Try adjusting your search or filters to find coaches in your area."
-              />
+              <View style={styles.emptyState}>
+                <View style={[styles.emptyStateIcon, { backgroundColor: isDark ? t.surfaceRaised : t.accentPurpleMuted }]}>
+                  <Users size={32} color={t.accentPurple} strokeWidth={1.5} />
+                </View>
+                <Text style={[styles.emptyStateTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>No coaches found</Text>
+                <Text style={[styles.emptyStateSubtitle, { color: t.textMuted, fontFamily: t.fontBody }]}>
+                  Try adjusting your search or filters to find coaches in your area.
+                </Text>
+              </View>
             )}
           </View>
           
@@ -1022,7 +1046,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   headerSafeArea: {
-    backgroundColor: '#FFFFFF',
     zIndex: 1000,
   },
   scrollView: {
@@ -1031,33 +1054,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-    flex: 1,
-  },
-  headerTitleWithBack: {
-    marginLeft: 0,
-  },
   searchIconButton: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
   },
   expandableSearchContainer: {
     paddingHorizontal: 16,
@@ -1167,6 +1166,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
     marginLeft: 8,
+  },
+  sortButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   sortButtonActive: {
     backgroundColor: '#1F2937',
@@ -1369,6 +1373,29 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
   },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+  },
+  emptyStateIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    fontSize: 17,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   // Messaging modal styles
   messagingModalOverlay: {
     flex: 1,
@@ -1448,6 +1475,9 @@ const styles = StyleSheet.create({
   messagingOptionIconImage: {
     width: 28,
     height: 28,
+    marginRight: 12,
+  },
+  messagingOptionLucideIcon: {
     marginRight: 12,
   },
   whatsappIconRounded: {

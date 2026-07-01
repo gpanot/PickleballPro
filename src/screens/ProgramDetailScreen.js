@@ -22,23 +22,38 @@ import { Ionicons } from '@expo/vector-icons';
 import { PartyPopper } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WebIcon from '../components/WebIcon';
-import { supabase, getProgramDetails } from '../lib/supabase';
+import { supabase, getProgramDetails, checkAdminAccess } from '../lib/supabase';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
+import { MoreHorizontal } from 'lucide-react-native';
 import EnrollmentConfirmSheet from '../components/training/EnrollmentConfirmSheet';
 import PreviewModeBanner from '../components/training/PreviewModeBanner';
 import { useActiveTraining } from '../hooks/useActiveTraining';
+import { normalizeProgramSkills } from '../lib/trainingTracksApi';
+import { getSkillLabel, getSkillColor } from '../lib/skillTaxonomy';
 
 export default function ProgramDetailScreen({ navigation, route }) {
-  const { program: initialProgram, onUpdateProgram, source, studentId, studentName, onAssign, isStudentView } = route.params;
+  const {
+    program: initialProgram,
+    onUpdateProgram,
+    source,
+    studentId,
+    studentName,
+    onAssign,
+    isStudentView,
+    enrollRole = null,
+  } = route.params;
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
+  const isCatalogPreview = source === 'library' || source === 'explore' || source === 'skill_picker';
 
   // Library enrollment (used when source === 'library' or 'explore')
   const {
     primaryTrack,
     skillSlotsFull,
     enrollWithRole,
-    saveProgram,
     loadTracks,
   } = useActiveTraining();
   const [enrollSheetVisible, setEnrollSheetVisible] = React.useState(false);
@@ -47,7 +62,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
   const [toastMessage, setToastMessage] = React.useState(null);
 
   React.useEffect(() => {
-    if (source === 'library' || source === 'explore') {
+    if (isCatalogPreview) {
       // Pre-load active tracks so EnrollmentConfirmSheet can show replace warning
       loadTracks();
     }
@@ -70,7 +85,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
       const roleLabel = role === 'primary' ? 'primary focus' : 'skill focus';
       showToast(`${program.name} is now your ${roleLabel}`);
       // Navigate to My Training tab
-      navigation.navigate('Training2', { initialView: 'myTraining' });
+      navigation.navigate('Training2', { initialView: 'myTraining', refreshTracks: true });
     } catch (err) {
       Alert.alert('Could not enroll', err?.message || 'Please try again.');
     } finally {
@@ -78,15 +93,6 @@ export default function ProgramDetailScreen({ navigation, route }) {
     }
   };
 
-  const handleSaveForLater = async () => {
-    try {
-      await saveProgram(program.id, user?.id);
-      showToast('Saved to your collection');
-    } catch (err) {
-      Alert.alert('Error', 'Could not save program. Please try again.');
-    }
-  };
-  
   // Ensure program has routines array
   const normalizedProgram = {
     ...initialProgram,
@@ -106,6 +112,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
   const [chevronRotation] = React.useState(new Animated.Value(0));
   const [isProgramAlreadyAssigned, setIsProgramAlreadyAssigned] = React.useState(false);
   const [isCheckingAssignment, setIsCheckingAssignment] = React.useState(true);
+  const [isAdmin, setIsAdmin] = React.useState(false);
 
   // Progress tracker — which routine IDs have been "completed" (opened & scrolled through)
   const [completedRoutineIds, setCompletedRoutineIds] = React.useState([]);
@@ -118,9 +125,27 @@ export default function ProgramDetailScreen({ navigation, route }) {
     }).catch(() => {});
   }, [PROGRESS_KEY]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!user?.id) {
+        if (!cancelled) setIsAdmin(false);
+        return;
+      }
+
+      const { isAdmin: adminStatus } = await checkAdminAccess(user.id);
+      if (!cancelled) setIsAdmin(adminStatus);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   // Catalog programs are loaded without nested exercises — fetch full detail on open
   React.useEffect(() => {
-    const catalogSources = ['library', 'explore', 'training'];
+    const catalogSources = ['library', 'explore', 'training', 'skill_picker'];
     if (!catalogSources.includes(source) || !program?.id) return;
 
     const routines = program.routines || [];
@@ -413,7 +438,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
 
   const navigateToRoutine = (routine) => {
     // Only mark completed on explicit session complete — not on tap
-    if (source !== 'library' && source !== 'explore' && source !== 'training') {
+    if (source !== 'library' && source !== 'explore' && source !== 'training' && source !== 'skill_picker') {
       markRoutineCompleted(routine.id);
     }
     console.log('🔍 [ProgramDetailScreen] Navigating to routine:', routine.name);
@@ -796,7 +821,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
               : 'Create your first routine to organize exercises within this program.'
             }
           </Text>
-          {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
+          {isAdmin && source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
               style={styles.addFirstRoutineButton}
               onPress={() => setShowCreateRoutineModal(true)}
@@ -820,7 +845,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
           <View style={styles.routinesHeader}>
             <Text style={styles.routinesTitle}>Sessions ({program.routines.length})</Text>
             <Text style={styles.routinesSubtitle}>
-              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? 'Tap to preview routine' : 'Tap to open • Long press to delete'}
+              {(source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment') ? 'Tap to preview routine' : 'Tap to open • Long press to delete'}
             </Text>
           </View>
 
@@ -855,7 +880,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
                 <TouchableOpacity
                   style={styles.routineContent}
                   onPress={() => navigateToRoutine(routine)}
-                  onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => deleteRoutine(routine.id)}
+                  onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment') ? undefined : () => deleteRoutine(routine.id)}
                 >
                   <View style={styles.routineInfo}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -882,7 +907,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
             );
           })}
 
-          {source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
+          {isAdmin && source !== 'explore' && source !== 'coach' && source !== 'coach_assignment' && (
             <TouchableOpacity
               style={styles.addMoreRoutinesButton}
               onPress={() => setShowCreateRoutineModal(true)}
@@ -899,7 +924,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
           )}
 
           {/* Sharing Section - Only show for owned programs (not from explore, library, coach, or coach_assignment) */}
-          {source !== 'explore' && source !== 'library' && source !== 'coach' && source !== 'coach_assignment' && (
+          {source !== 'explore' && source !== 'library' && source !== 'skill_picker' && source !== 'coach' && source !== 'coach_assignment' && (
             <View style={styles.sharingSection}>
               <TouchableOpacity 
                 style={styles.sharingSectionHeader}
@@ -986,29 +1011,19 @@ export default function ProgramDetailScreen({ navigation, route }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons 
-              name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-              size={24} 
-              color="#007AFF" 
-            />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>{program.name}</Text>
-            {program.description ? (
-              <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
-                {program.description}
-              </Text>
-            ) : null}
-          </View>
-          
-          {(source !== 'explore' && source !== 'coach_assignment') && (
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title={program.name}
+        subtitle={program.description || undefined}
+        subtitleCollapsible
+        subtitleCollapsedLines={2}
+        onBack={() => navigation.goBack()}
+        rightAction={
+          isAdmin && source !== 'explore' && source !== 'coach_assignment' ? (
             <TouchableOpacity
               style={styles.menuButton}
               onPress={() => {
@@ -1029,22 +1044,56 @@ export default function ProgramDetailScreen({ navigation, route }) {
                 );
               }}
             >
-              <Ionicons name="ellipsis-horizontal" size={24} color="#6B7280" />
+              <MoreHorizontal size={22} color={t.textMuted} strokeWidth={2} />
             </TouchableOpacity>
-          )}
-        </View>
-      </View>
+          ) : null
+        }
+      >
+        {/* Skill tags */}
+        {normalizeProgramSkills(program).length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.programSkillChipsScroll}
+            contentContainerStyle={styles.programSkillChips}
+          >
+            {normalizeProgramSkills(program).map(id => (
+              <View
+                key={id}
+                style={[styles.programSkillChip, { borderColor: getSkillColor(id), backgroundColor: getSkillColor(id) + '18' }]}
+              >
+                <Text style={[styles.programSkillChipText, { color: getSkillColor(id) }]}>
+                  {getSkillLabel(id)}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </ScreenHeaderShell>
       
       {/* Preview mode banner for Library / Explore */}
-      {(source === 'library' || source === 'explore') && (
-        <PreviewModeBanner onEnroll={() => { setEnrollSheetRole(null); setEnrollSheetVisible(true); }} />
+      {isCatalogPreview && (
+        <PreviewModeBanner
+          onEnroll={() => {
+            if (source === 'skill_picker' && skillSlotsFull) {
+              Alert.alert(
+                'Skill slots full',
+                'Both skill slots are in use. Archive one from My Training first.',
+                [{ text: 'OK' }]
+              );
+              return;
+            }
+            setEnrollSheetRole(enrollRole ?? null);
+            setEnrollSheetVisible(true);
+          }}
+        />
       )}
 
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={[
           styles.scrollContent,
-          (source === 'explore' || source === 'library' || source === 'coach_assignment') && styles.scrollContentWithFixedButton
+          source === 'coach_assignment' && styles.scrollContentWithFixedButton
         ]}
         showsVerticalScrollIndicator={false}
         contentInsetAdjustmentBehavior="automatic"
@@ -1054,49 +1103,11 @@ export default function ProgramDetailScreen({ navigation, route }) {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Library / Explore enrollment footer — hierarchical CTAs */}
-      {(source === 'explore' || source === 'library') && (
-        <View style={[styles.fixedButtonContainer, styles.libraryFooter, { paddingBottom: insets.bottom + 8 }]}>
-          {/* Primary: Set as primary focus */}
-          <TouchableOpacity
-            style={styles.libraryPrimaryBtn}
-            onPress={() => { setEnrollSheetRole('primary'); setEnrollSheetVisible(true); }}
-            activeOpacity={0.85}
-            accessibilityLabel="Set as primary focus"
-            accessibilityRole="button"
-          >
-            <Text style={styles.libraryPrimaryBtnText}>Set as primary focus</Text>
-          </TouchableOpacity>
-
-          {/* Secondary: Add as skill focus */}
-          {!skillSlotsFull ? (
-            <TouchableOpacity
-              style={styles.librarySecondaryBtn}
-              onPress={() => { setEnrollSheetRole('skill_1'); setEnrollSheetVisible(true); }}
-              activeOpacity={0.85}
-              accessibilityLabel="Add as skill focus"
-              accessibilityRole="button"
-            >
-              <Text style={styles.librarySecondaryBtnText}>Add as skill focus</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.librarySecondaryBtn, { opacity: 0.4 }]}>
-              <Text style={styles.librarySecondaryBtnText}>Skill slots full (2/2)</Text>
-            </View>
-          )}
-
-          {/* Tertiary: Save for later */}
-          <TouchableOpacity onPress={handleSaveForLater} style={styles.librarySaveLink}>
-            <Text style={styles.librarySaveLinkText}>Save for later</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Enrollment confirm sheet */}
       <EnrollmentConfirmSheet
         visible={enrollSheetVisible}
         program={program}
-        initialRole={enrollSheetRole}
+        initialRole={enrollSheetRole ?? enrollRole ?? null}
         existingPrimary={primaryTrack}
         skillSlotsFull={skillSlotsFull}
         onConfirm={handleEnrollConfirm}
@@ -1322,37 +1333,33 @@ export default function ProgramDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  headerSafeArea: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
+  container: { flex: 1 },
   headerContent: {
     flex: 1,
+  },
+  programSkillChipsScroll: {
+    marginTop: 6,
+    flexGrow: 0,
+  },
+  programSkillChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingRight: 4,
+  },
+  programSkillChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  programSkillChipText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   menuButton: {
     padding: 8,
     marginLeft: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 2,
   },
   headerSubtitle: {
     fontSize: 14,

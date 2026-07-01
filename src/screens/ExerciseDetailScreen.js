@@ -12,9 +12,27 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
 import ExerciseTrainingFooter from '../components/training/ExerciseTrainingFooter';
+
+function getYouTubeVideoId(url) {
+  if (!url) return null;
+
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match?.[1]) return match[1];
+  }
+
+  return null;
+}
 
 const ExerciseDetailScreen = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -24,6 +42,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef(null);
   const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   
   // Get exercise data from navigation params or use mock data
   const initialRawExercise = route?.params?.exercise || route?.params?.rawExercise;
@@ -48,28 +67,19 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     });
   };
 
-  // Helper function to extract YouTube video ID from URL
-  const getYouTubeVideoId = (url) => {
-    if (!url) return null;
-    
-    // Handle different YouTube URL formats
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
-      /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
-    ];
-    
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
-    
-    return null;
-  };
-  
   // Use current exercise data if available, otherwise fall back to initial data
   const rawExercise = currentExerciseData || initialRawExercise;
+
+  const currentVideoUrl = rawExercise?.youtube_url
+    || rawExercise?.demo_video_url
+    || rawExercise?.video_url
+    || rawExercise?.videoUrl
+    || null;
+  const currentVideoId = getYouTubeVideoId(currentVideoUrl);
+
+  React.useEffect(() => {
+    setIsPlaying(!!currentVideoId);
+  }, [currentVideoId]);
   
   // Debug logging for tips data
   React.useEffect(() => {
@@ -190,25 +200,6 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     ));
   };
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons 
-            name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-            size={24} 
-            color="#007AFF" 
-          />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <Text style={styles.titleText}>{exercise.title}</Text>
-        </View>
-      </View>
-    </View>
-  );
 
   const renderGoalTargetRow = () => (
     <View style={styles.goalTargetContainer}>
@@ -286,6 +277,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
               opacity: 0.99,
             }}
             initialPlayerParams={{
+              autoplay: 1,
               loop: false,
               controls: true,
               modestbranding: false,
@@ -302,6 +294,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
             }}
             onReady={() => {
               console.log('✅ YouTube Player Ready');
+              if (videoId) setIsPlaying(true);
             }}
             onError={(error) => {
               console.log('❌ YouTube Player Error:', error);
@@ -403,38 +396,25 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   // Handle case when no exercise data is available
   if (!exercise) {
     return (
-      <View style={styles.container}>
-        <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <TouchableOpacity 
-                style={styles.backButton}
-                onPress={() => navigation.goBack()}
-              >
-                <Ionicons 
-                  name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-                  size={24} 
-                  color="#007AFF" 
-                />
-              </TouchableOpacity>
-              <View style={styles.headerText}>
-                <Text style={styles.titleText}>Exercise Not Found</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+      <View style={[styles.container, { backgroundColor: t.bg }]}>
+        <ScreenHeaderShell tokens={t} isDark={isDark} background="surface" bordered title="Exercise Not Found" onBack={() => navigation.goBack()} />
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>No exercise data available</Text>
+          <Text style={[styles.errorText, { color: t.textMuted }]}>No exercise data available</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.safeArea, { paddingTop: insets.top }]}>
-        {renderHeader()}
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title={exercise.title}
+        onBack={() => navigation.goBack()}
+      />
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
@@ -499,18 +479,9 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-  },
-  safeArea: {
-    backgroundColor: 'white',
-  },
-  header: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
+  container: { flex: 1 },
+  safeArea: {},
+  header: { borderBottomWidth: 1 },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',

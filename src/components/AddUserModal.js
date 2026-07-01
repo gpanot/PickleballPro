@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import skillsData from '../data/Commun_skills_tags.json';
+import SkillIcon from './SkillIcon';
 
 export default function AddUserModal({ visible, onClose, onSuccess, user = null }) {
   const [loading, setLoading] = useState(false);
@@ -345,7 +346,7 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
                             }
                           }}
                         >
-                          <Text style={styles.skillEmoji}>{skill.emoji}</Text>
+                          <SkillIcon skillId={skill.id} size={16} color={isSelected ? skill.color : '#6B7280'} />
                           <Text style={[
                             styles.skillButtonText, 
                             isSelected && [styles.skillButtonTextSelected, { color: skill.color }]
@@ -383,7 +384,7 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
                           key={skill.id} 
                           style={[styles.selectedSkillTag, { backgroundColor: skill.color + '20' }]}
                         >
-                          <Text style={styles.selectedSkillEmoji}>{skill.emoji}</Text>
+                          <SkillIcon skillId={skill.id} size={12} color={skill.color} />
                           <Text style={[styles.selectedSkillText, { color: skill.color }]}>
                             {skill.name}
                           </Text>

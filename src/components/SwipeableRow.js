@@ -14,12 +14,15 @@ const SWIPE_THRESHOLD = DELETE_WIDTH * 0.55;
 
 /**
  * Wraps `children` with a swipe-left-to-reveal-delete gesture.
- *
- * Props:
- *   onDelete  – called when the red delete button (or confirmed swipe) is pressed
- *   children  – the card content
  */
-export default function SwipeableRow({ onDelete, deleteLabel = 'Remove', children }) {
+export default function SwipeableRow({
+  onDelete,
+  deleteLabel = 'Remove',
+  children,
+  surfaceColor = '#FFFFFF',
+  borderRadius = 16,
+  style,
+}) {
   const translateX = useRef(new Animated.Value(0)).current;
   const isOpen = useRef(false);
 
@@ -71,17 +74,26 @@ export default function SwipeableRow({ onDelete, deleteLabel = 'Remove', childre
   }, [translateX, onDelete]);
 
   return (
-    <View style={styles.container}>
-      {/* Delete action shown behind */}
-      <View style={styles.deleteAction}>
+    <View style={[styles.container, { borderRadius, marginBottom: 8 }, style]}>
+      {/* Delete action — clipped behind card */}
+      <View style={[styles.deleteAction, {
+        borderTopRightRadius: borderRadius,
+        borderBottomRightRadius: borderRadius,
+      }]}>
         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete} activeOpacity={0.8}>
           <Ionicons name="trash-outline" size={20} color="#fff" />
           <Text style={styles.deleteLabel}>{deleteLabel}</Text>
         </TouchableOpacity>
       </View>
-      {/* Swipeable card */}
+
+      {/* Opaque card layer — fully covers delete until swiped */}
       <Animated.View
-        style={{ transform: [{ translateX }] }}
+        style={{
+          transform: [{ translateX }],
+          backgroundColor: surfaceColor,
+          borderRadius,
+          overflow: 'hidden',
+        }}
         {...panResponder.panHandlers}
       >
         {children}
@@ -93,6 +105,7 @@ export default function SwipeableRow({ onDelete, deleteLabel = 'Remove', childre
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
+    position: 'relative',
   },
   deleteAction: {
     position: 'absolute',
@@ -103,7 +116,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#EF4444',
-    borderRadius: 16,
   },
   deleteButton: {
     alignItems: 'center',

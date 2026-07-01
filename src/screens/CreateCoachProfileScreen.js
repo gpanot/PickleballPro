@@ -13,16 +13,16 @@ import {
   Linking,
   Image,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronDown, ArrowLeft, Check, MapPin, Phone } from 'lucide-react-native';
 import { PlatformMap, PlatformMarker } from '../components/PlatformMap';
-import ModernIcon from '../components/ModernIcon';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 
 export default function CreateCoachProfileScreen({ navigation }) {
   const { user: authUser, profile: userProfile } = useAuth();
-  const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: authUser?.user_metadata?.full_name || userProfile?.name || '',
@@ -969,7 +969,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
                   <Text style={styles.countryOptionDialCode}>{country.dialCode}</Text>
                 </View>
                 {selectedCountry === code && (
-                  <Ionicons name="checkmark" size={20} color="#059669" />
+                  <Check size={20} color={t.accentPurple} strokeWidth={2.5} />
                 )}
               </TouchableOpacity>
             ))}
@@ -979,109 +979,104 @@ export default function CreateCoachProfileScreen({ navigation }) {
     </Modal>
   );
 
-  const renderHeader = () => (
-    <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={24} color="#1F2937" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>
-        {isEditMode ? 'Edit Your Coach Profile' : 'Create Your Coach Profile'}
-      </Text>
-      <TouchableOpacity 
-        style={styles.saveButton}
-        onPress={handleSaveCoach}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color="#FFFFFF" />
-        ) : (
-          <Text style={styles.saveButtonText}>
-            {isEditMode ? 'Update' : 'Save'}
-          </Text>
-        )}
-      </TouchableOpacity>
-    </View>
-  );
-
   return (
-    <View style={styles.container}>
-      {renderHeader()}
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title={isEditMode ? 'Edit Coach Profile' : 'Create Coach Profile'}
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.saveButton, { backgroundColor: t.accentPurple }]}
+            onPress={handleSaveCoach}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={isDark ? t.fabTextColor : '#fff'} />
+            ) : (
+              <Text style={[styles.saveButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>
+                {isEditMode ? 'Update' : 'Save'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        }
+      />
       {renderCountryPicker()}
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <View style={styles.introSection}>
-            <Text style={styles.introTitle}>Earn More with PicklePro</Text>
-            <Text style={styles.introDescription}>
+            <Text style={[styles.introTitle, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>Earn More with PicklePro</Text>
+            <Text style={[styles.introDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
               Share your pickleball expertise and help others improve their game. Fill out your profile to get started.
             </Text>
           </View>
 
           <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Basic Information</Text>
+            <Text style={[styles.formSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Basic Information</Text>
             
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Full Name *</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Full Name *</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB', color: t.textPrimary }]}
                 placeholder="Enter your full name"
                 value={formData.name}
                 onChangeText={(text) => setFormData({...formData, name: text})}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={t.textMuted}
               />
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Email Address *</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Email Address *</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderColor: isDark ? t.border : '#D1D5DB', color: t.textMuted }]}
                 placeholder="your@email.com"
                 value={formData.email}
                 onChangeText={(text) => setFormData({...formData, email: text})}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor="#9CA3AF"
-                editable={false} // Pre-filled from auth user
+                placeholderTextColor={t.textMuted}
+                editable={false}
               />
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Phone Number</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Phone Number</Text>
               {countryDetectionLoading ? (
                 <View style={styles.countryDetectionLoading}>
-                  <ActivityIndicator size="small" color="#059669" />
-                  <Text style={styles.countryDetectionText}>Detecting your country...</Text>
+                  <ActivityIndicator size="small" color={t.accentPurple} />
+                  <Text style={[styles.countryDetectionText, { color: t.textMuted, fontFamily: t.fontBody }]}>Detecting your country...</Text>
                 </View>
               ) : (
-                <View style={styles.phoneInputContainer}>
+                <View style={[styles.phoneInputContainer, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB' }]}>
                   <TouchableOpacity
-                    style={styles.countrySelector}
+                    style={[styles.countrySelector, { borderRightColor: isDark ? t.border : '#E5E7EB' }]}
                     onPress={() => setShowCountryPicker(true)}
                   >
                     {selectedCountry && phoneCountries[selectedCountry] ? (
                       <>
                         <Text style={styles.countryFlag}>{phoneCountries[selectedCountry].flag}</Text>
-                        <Text style={styles.dialCode}>{phoneCountries[selectedCountry].dialCode}</Text>
-                        <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                        <Text style={[styles.dialCode, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{phoneCountries[selectedCountry].dialCode}</Text>
+                        <ChevronDown size={14} color={t.textMuted} strokeWidth={2} />
                       </>
                     ) : (
                       <>
                         <Text style={styles.countryFlag}>🌍</Text>
-                        <Text style={styles.dialCode}>+?</Text>
-                        <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                        <Text style={[styles.dialCode, { color: t.textMuted }]}>+?</Text>
+                        <ChevronDown size={14} color={t.textMuted} strokeWidth={2} />
                       </>
                     )}
                   </TouchableOpacity>
                   <TextInput
-                    style={styles.phoneInput}
+                    style={[styles.phoneInput, { color: t.textPrimary }]}
                     placeholder={selectedCountry && phoneCountries[selectedCountry] ? phoneCountries[selectedCountry].placeholder : "Enter phone number"}
                     value={formData.phone}
                     onChangeText={handlePhoneChange}
                     keyboardType="phone-pad"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={t.textMuted}
                     textContentType="telephoneNumber"
                     autoComplete="tel"
                     returnKeyType="done"
@@ -1111,63 +1106,45 @@ export default function CreateCoachProfileScreen({ navigation }) {
 
             {/* Messaging Preferences Section */}
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Preferred Messaging Apps *</Text>
-              <Text style={styles.formDescription}>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Preferred Messaging Apps *</Text>
+              <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
                 Select how students can reach you. Choose at least one option.
               </Text>
               
               <View style={styles.messagingOptionsContainer}>
-                {getAvailableMessagingOptions(selectedCountry || 'VN').map(option => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[
-                      styles.messagingOption,
-                      formData.messagingPreferences[option.id] && styles.messagingOptionSelected
-                    ]}
-                    onPress={() => 
-                      handleMessagingPreferenceChange(
-                        option.id, 
-                        !formData.messagingPreferences[option.id]
-                      )
-                    }
-                  >
-                    <View style={styles.messagingOptionContent}>
-                      <View style={styles.messagingOptionHeader}>
-                        {option.iconType === 'image' ? (
-                          <Image 
-                            source={option.iconSource} 
-                            style={[
-                              styles.messagingOptionIconImage,
-                              option.id === 'whatsapp' && styles.whatsappIconRounded
-                            ]} 
-                          />
-                        ) : (
-                          <Text style={styles.messagingOptionIcon}>{option.icon}</Text>
-                        )}
-                        <Text style={[
-                          styles.messagingOptionName,
-                          formData.messagingPreferences[option.id] && styles.messagingOptionNameSelected
-                        ]}>
-                          {option.name}
-                        </Text>
-                        <View style={[
-                          styles.messagingCheckbox,
-                          formData.messagingPreferences[option.id] && styles.messagingCheckboxSelected
-                        ]}>
-                          {formData.messagingPreferences[option.id] && (
-                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                {getAvailableMessagingOptions(selectedCountry || 'VN').map(option => {
+                  const isSelected = formData.messagingPreferences[option.id];
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      style={[
+                        styles.messagingOption,
+                        { backgroundColor: t.surface, borderColor: isDark ? t.border : '#E5E7EB' },
+                        isSelected && { backgroundColor: `${t.accentPurple}15`, borderColor: t.accentPurple },
+                      ]}
+                      onPress={() => handleMessagingPreferenceChange(option.id, !isSelected)}
+                    >
+                      <View style={styles.messagingOptionContent}>
+                        <View style={styles.messagingOptionHeader}>
+                          {option.iconType === 'image' ? (
+                            <Image source={option.iconSource} style={[styles.messagingOptionIconImage, option.id === 'whatsapp' && styles.whatsappIconRounded]} />
+                          ) : (
+                            <Text style={styles.messagingOptionIcon}>{option.icon}</Text>
                           )}
+                          <Text style={[styles.messagingOptionName, { color: isSelected ? t.accentPurple : t.textPrimary, fontFamily: t.fontBodySemibold }]}>
+                            {option.name}
+                          </Text>
+                          <View style={[styles.messagingCheckbox, isSelected && { backgroundColor: t.accentPurple, borderColor: t.accentPurple }]}>
+                            {isSelected && <Check size={12} color="#fff" strokeWidth={3} />}
+                          </View>
                         </View>
+                        <Text style={[styles.messagingOptionDescription, { color: isSelected ? t.accentPurple : t.textMuted, fontFamily: t.fontBody }]}>
+                          {option.description}
+                        </Text>
                       </View>
-                      <Text style={[
-                        styles.messagingOptionDescription,
-                        formData.messagingPreferences[option.id] && styles.messagingOptionDescriptionSelected
-                      ]}>
-                        {option.description}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               
               {!isMessagingValid() && formData.phone && (
@@ -1188,32 +1165,32 @@ export default function CreateCoachProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Bio</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Bio</Text>
               <TextInput
-                style={[styles.formInput, styles.textArea]}
+                style={[styles.formInput, styles.textArea, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB', color: t.textPrimary }]}
                 placeholder="Tell us about your background, experience, and coaching philosophy..."
                 value={formData.bio}
                 onChangeText={(text) => setFormData({...formData, bio: text})}
                 multiline
                 numberOfLines={4}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={t.textMuted}
               />
             </View>
           </View>
 
           <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Professional Details</Text>
+            <Text style={[styles.formSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Professional Details</Text>
             
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>DUPR Rating</Text>
-              <Text style={styles.formDescription}>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>DUPR Rating</Text>
+              <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
                 {userProfile?.dupr_rating 
                   ? 'Auto-populated from your profile. You can edit if needed (x.xxx format)'
                   : 'Enter your rating in x.xxx format (e.g., 4.125, 3.750)'
                 }
               </Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB', color: t.textPrimary }]}
                 placeholder="4.125"
                 value={formData.duprRating}
                 onChangeText={(text) => {
@@ -1255,11 +1232,11 @@ export default function CreateCoachProfileScreen({ navigation }) {
                   setFormData({...formData, duprRating: formattedText});
                 }}
                 keyboardType="decimal-pad"
-                placeholderTextColor="#9CA3AF"
-                maxLength={5} // x.xxx = 5 characters max
+                placeholderTextColor={t.textMuted}
+                maxLength={5}
               />
               {formData.duprRating && (
-                <Text style={styles.duprValidationText}>
+                <Text style={[styles.duprValidationText, { color: t.textMuted, fontFamily: t.fontBody }]}>
                   {(() => {
                     const rating = parseFloat(formData.duprRating);
                     if (isNaN(rating)) return '❌ Invalid format';
@@ -1271,21 +1248,21 @@ export default function CreateCoachProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>
                 Hourly Rate ({selectedCountry && phoneCountries[selectedCountry] ? phoneCountries[selectedCountry].currency.symbol : '$'})
               </Text>
               {selectedCountry && phoneCountries[selectedCountry] && (
-                <Text style={styles.formDescription}>
+                <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
                   {phoneCountries[selectedCountry].currency.description}
                 </Text>
               )}
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB', color: t.textPrimary }]}
                 placeholder={selectedCountry && phoneCountries[selectedCountry] ? phoneCountries[selectedCountry].currency.placeholder : '75'}
                 value={formData.hourlyRate}
                 onChangeText={(text) => setFormData({...formData, hourlyRate: text})}
                 keyboardType="numeric"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={t.textMuted}
               />
               {selectedCountry && formData.hourlyRate && phoneCountries[selectedCountry] && (
                 <View style={styles.currencyValidation}>
@@ -1303,25 +1280,25 @@ export default function CreateCoachProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Location</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Location</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB', color: t.textPrimary }]}
                 placeholder="City, State"
                 value={formData.location}
                 onChangeText={(text) => setFormData({...formData, location: text})}
                 placeholderTextColor="#9CA3AF"
               />
               <TouchableOpacity
-                style={styles.mapPickerButton}
+                style={[styles.mapPickerButton, { backgroundColor: `${t.accentPurple}15`, borderColor: t.accentPurple }]}
                 onPress={handleUseMyLocation}
                 disabled={locationLoading}
               >
                 {locationLoading ? (
-                  <ActivityIndicator size="small" color="#059669" />
+                  <ActivityIndicator size="small" color={t.accentPurple} />
                 ) : (
-                  <Ionicons name="locate" size={20} color="#059669" />
+                  <MapPin size={18} color={t.accentPurple} strokeWidth={2} />
                 )}
-                <Text style={styles.mapPickerButtonText}>
+                <Text style={[styles.mapPickerButtonText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
                   {locationLoading 
                     ? 'Getting Location...' 
                     : formData.latitude && formData.longitude 
@@ -1345,35 +1322,35 @@ export default function CreateCoachProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Coaching Radius</Text>
-              <Text style={styles.formDescription}>How far are you willing to travel for coaching sessions?</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Coaching Radius</Text>
+              <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>How far are you willing to travel for coaching sessions?</Text>
               <View style={styles.radiusSelector}>
                 <View style={styles.radiusSliderContainer}>
-                  <Text style={styles.radiusValue}>
+                  <Text style={[styles.radiusValue, { color: t.accentPurple, fontFamily: t.fontDisplay }]}>
                     {formData.coachingRadius < 1 
                       ? `${Math.round(formData.coachingRadius * 1000)}m` 
                       : `${formData.coachingRadius}km`}
                   </Text>
                   <View style={styles.radiusSlider}>
-                    {/* Custom slider using buttons for better cross-platform compatibility */}
                     <View style={styles.radiusOptions}>
-                      {[0.5, 1, 2, 5, 10, 15, 20, 30].map(radius => (
-                        <TouchableOpacity
-                          key={radius}
-                          style={[
-                            styles.radiusOption,
-                            formData.coachingRadius === radius && styles.radiusOptionSelected
-                          ]}
-                          onPress={() => setFormData({...formData, coachingRadius: radius})}
-                        >
-                          <Text style={[
-                            styles.radiusOptionText,
-                            formData.coachingRadius === radius && styles.radiusOptionTextSelected
-                          ]}>
-                            {radius < 1 ? `${Math.round(radius * 1000)}m` : `${radius}km`}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                      {[0.5, 1, 2, 5, 10, 15, 20, 30].map(radius => {
+                        const isSelected = formData.coachingRadius === radius;
+                        return (
+                          <TouchableOpacity
+                            key={radius}
+                            style={[
+                              styles.radiusOption,
+                              { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB' },
+                              isSelected && { backgroundColor: t.accentPurple, borderColor: t.accentPurple },
+                            ]}
+                            onPress={() => setFormData({...formData, coachingRadius: radius})}
+                          >
+                            <Text style={[styles.radiusOptionText, { color: isSelected ? (isDark ? t.fabTextColor : '#fff') : t.textMuted, fontFamily: t.fontBodySemibold }]}>
+                              {radius < 1 ? `${Math.round(radius * 1000)}m` : `${radius}km`}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
                 </View>
@@ -1381,62 +1358,60 @@ export default function CreateCoachProfileScreen({ navigation }) {
             </View>
 
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>Specialties</Text>
-              <Text style={styles.formDescription}>Select your areas of expertise</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Specialties</Text>
+              <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>Select your areas of expertise</Text>
               <View style={styles.specialtyPicker}>
-                {['Technique', 'Mental Game', 'Beginners', 'Advanced', 'Competition', 'Youth', 'Fitness', 'Strategy'].map(specialty => (
-                  <TouchableOpacity
-                    key={specialty}
-                    style={[
-                      styles.specialtyOption,
-                      formData.specialties.includes(specialty) && styles.specialtyOptionSelected
-                    ]}
-                    onPress={() => {
-                      const newSpecialties = formData.specialties.includes(specialty)
-                        ? formData.specialties.filter(s => s !== specialty)
-                        : [...formData.specialties, specialty];
-                      setFormData({...formData, specialties: newSpecialties});
-                    }}
-                  >
-                    <Text style={[
-                      styles.specialtyOptionText,
-                      formData.specialties.includes(specialty) && styles.specialtyOptionTextSelected
-                    ]}>{specialty}</Text>
-                  </TouchableOpacity>
-                ))}
+                {['Technique', 'Mental Game', 'Beginners', 'Advanced', 'Competition', 'Youth', 'Fitness', 'Strategy'].map(specialty => {
+                  const isSelected = formData.specialties.includes(specialty);
+                  return (
+                    <TouchableOpacity
+                      key={specialty}
+                      style={[
+                        styles.specialtyOption,
+                        { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB' },
+                        isSelected && { backgroundColor: t.accentPurple, borderColor: t.accentPurple },
+                      ]}
+                      onPress={() => {
+                        const newSpecialties = isSelected
+                          ? formData.specialties.filter(s => s !== specialty)
+                          : [...formData.specialties, specialty];
+                        setFormData({...formData, specialties: newSpecialties});
+                      }}
+                    >
+                      <Text style={[styles.specialtyOptionText, { color: isSelected ? (isDark ? t.fabTextColor : '#fff') : t.textMuted, fontFamily: t.fontBodySemibold }]}>{specialty}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </View>
 
           <View style={styles.formSection}>
-            <Text style={styles.formSectionTitle}>Availability & Visibility</Text>
+            <Text style={[styles.formSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Availability & Visibility</Text>
             
             <View style={styles.formField}>
               <View style={styles.checkboxContainer}>
                 <TouchableOpacity
-                  style={[styles.checkbox, formData.isActive && styles.checkboxChecked]}
-                  onPress={() => {
-                    console.log('Toggling isActive from', formData.isActive, 'to', !formData.isActive);
-                    setFormData({...formData, isActive: !formData.isActive});
-                  }}
+                  style={[styles.checkbox, { borderColor: isDark ? t.border : '#D1D5DB' }, formData.isActive && { backgroundColor: t.accentPurple, borderColor: t.accentPurple }]}
+                  onPress={() => setFormData({...formData, isActive: !formData.isActive})}
                 >
-                  {formData.isActive && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                  {formData.isActive && <Check size={14} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={3} />}
                 </TouchableOpacity>
-                <Text style={styles.checkboxLabel}>Available for new students</Text>
+                <Text style={[styles.checkboxLabel, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Available for new students</Text>
               </View>
             </View>
 
             <View style={styles.formField}>
               <View style={styles.checkboxContainer}>
                 <TouchableOpacity
-                  style={[styles.checkbox, formData.isAcceptingStudents && styles.checkboxChecked]}
+                  style={[styles.checkbox, { borderColor: isDark ? t.border : '#D1D5DB' }, formData.isAcceptingStudents && { backgroundColor: t.accentPurple, borderColor: t.accentPurple }]}
                   onPress={() => setFormData({...formData, isAcceptingStudents: !formData.isAcceptingStudents})}
                 >
-                  {formData.isAcceptingStudents && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
+                  {formData.isAcceptingStudents && <Check size={14} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={3} />}
                 </TouchableOpacity>
                 <View style={styles.checkboxTextContainer}>
-                  <Text style={styles.checkboxLabel}>Publish my profile in the coach directory</Text>
-                  <Text style={styles.checkboxDescription}>
+                  <Text style={[styles.checkboxLabel, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Publish my profile in the coach directory</Text>
+                  <Text style={[styles.checkboxDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
                     When checked, your profile will be visible to students looking for coaches. You can change this anytime.
                   </Text>
                 </View>
@@ -1445,11 +1420,11 @@ export default function CreateCoachProfileScreen({ navigation }) {
           </View>
 
           <View style={styles.disclaimerSection}>
-            <View style={styles.disclaimerCard}>
-              <ModernIcon name="help" size={20} color="#059669" />
+            <View style={[styles.disclaimerCard, { backgroundColor: `${t.accentPurple}10`, borderColor: `${t.accentPurple}30` }]}>
+              <Phone size={18} color={t.accentPurple} strokeWidth={2} />
               <View style={styles.disclaimerContent}>
-                <Text style={styles.disclaimerTitle}>Profile Review & Publishing</Text>
-                <Text style={styles.disclaimerText}>
+                <Text style={[styles.disclaimerTitle, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>Profile Review & Publishing</Text>
+                <Text style={[styles.disclaimerText, { color: t.textSecondary, fontFamily: t.fontBody }]}>
                   Your coach profile will be reviewed by our team before it can be published. This typically takes 1-2 business days. You can choose to publish your profile in the coach directory once it's approved, or keep it private until you're ready.
                 </Text>
               </View>
@@ -1462,48 +1437,17 @@ export default function CreateCoachProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    textAlign: 'center',
-    flex: 1,
-  },
+  container: { flex: 1 },
   saveButton: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    minWidth: 80,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 10,
+    minWidth: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveButtonText: {
-    color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
   },
   scrollView: {
     flex: 1,

@@ -11,14 +11,14 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircle, ArrowLeft } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, checkCoachAccess, getStudentCoach } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
 
 const QUESTIONS = {
   // First question - always shown
@@ -78,6 +78,7 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
   const { studentId, student } = route.params;
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
+  const { logbookTheme: t, isDark } = useTheme();
   
   const [currentQuestionKey, setCurrentQuestionKey] = useState('playedPickleball');
   const [answers, setAnswers] = useState({});
@@ -300,38 +301,31 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
     return (
       <Animated.View
         key={question.id}
-        style={[
-          styles.questionContainer,
-          {
-            transform: [{ translateX: slideAnim }],
-          },
-        ]}
+        style={[styles.questionContainer, { transform: [{ translateX: slideAnim }] }]}
       >
-        <View style={styles.questionCard}>
+        <View style={[styles.questionCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
           <View style={styles.questionHeader}>
-            <Text style={styles.questionProgress}>
+            <Text style={[styles.questionProgress, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
               Question {questionIndex}
             </Text>
           </View>
-
-          <Text style={styles.questionText}>{question.question}</Text>
-
+          <Text style={[styles.questionText, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{question.question}</Text>
           <View style={styles.buttonGroup}>
             {question.options.map((option, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
                   styles.optionButton,
-                  currentAnswer === option.value && styles.optionButtonSelected,
+                  { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6', borderColor: 'transparent' },
+                  currentAnswer === option.value && { backgroundColor: `${t.accentPurple}15`, borderColor: t.accentPurple },
                 ]}
                 onPress={() => handleAnswer(question.id, option.value)}
               >
-                <Text
-                  style={[
-                    styles.optionButtonText,
-                    currentAnswer === option.value && styles.optionButtonTextSelected,
-                  ]}
-                >
+                <Text style={[
+                  styles.optionButtonText,
+                  { color: t.textSecondary, fontFamily: t.fontBodySemibold },
+                  currentAnswer === option.value && { color: t.accentPurple },
+                ]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
@@ -349,18 +343,18 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
       .map(key => QUESTIONS[key]);
 
     return (
-      <View style={styles.summaryContainer}>
+      <View style={[styles.summaryContainer, { backgroundColor: t.bg }]}>
         <ScrollView style={styles.summaryScrollView} showsVerticalScrollIndicator={true}>
           {answeredQuestions.map((question, index) => {
             const answer = answers[question.id];
             return (
-              <View key={question.id} style={styles.qaItem}>
+              <View key={question.id} style={[styles.qaItem, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
                 <View style={styles.qaQuestionContainer}>
-                  <Text style={styles.qaQuestionNumber}>{index + 1}.</Text>
-                  <Text style={styles.qaQuestion}>{question.question}</Text>
+                  <Text style={[styles.qaQuestionNumber, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>{index + 1}.</Text>
+                  <Text style={[styles.qaQuestion, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{question.question}</Text>
                 </View>
-                <View style={styles.qaAnswerContainer}>
-                  <Text style={styles.qaAnswer}>{formatAnswer(question, answer)}</Text>
+                <View style={[styles.qaAnswerContainer, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
+                  <Text style={[styles.qaAnswer, { color: t.textSecondary, fontFamily: t.fontBody }]}>{formatAnswer(question, answer)}</Text>
                 </View>
               </View>
             );
@@ -369,16 +363,16 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
 
         <View style={styles.summaryButtonContainer}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { backgroundColor: t.accentPurple }]}
             onPress={handleSaveAssessment}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={isDark ? t.fabTextColor : '#fff'} />
             ) : (
               <>
-                <Text style={styles.primaryButtonText}>Save Assessment</Text>
-                <Ionicons name="checkmark-circle" size={20} color="white" />
+                <Text style={[styles.primaryButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Save Assessment</Text>
+                <CheckCircle size={20} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={2.5} />
               </>
             )}
           </TouchableOpacity>
@@ -387,7 +381,7 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
             setCurrentQuestionKey('playedPickleball');
             setQuestionFlow(['playedPickleball']);
           }}>
-            <Text style={styles.secondaryButtonText}>Edit Answers</Text>
+            <Text style={[styles.secondaryButtonText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Edit Answers</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -405,22 +399,21 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
   const isSummary = currentQuestionKey === 'summary';
 
   return (
-    <View style={styles.container}>
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { width: `${progress}%` }]} />
-      </View>
-
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
-          <Ionicons name="close" size={28} color="#1F2937" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Experience Assessment</Text>
-          <Text style={styles.headerSubtitle}>{student?.name || 'Player'}</Text>
-        </View>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title="Experience Assessment"
+        subtitle={student?.name || 'Player'}
+        onBack={() => navigation.goBack()}
+        topAccessory={
+          <View style={[styles.progressContainer, { backgroundColor: isDark ? t.surfaceRaised : '#E5E7EB' }]}>
+            <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: t.accentPurple }]} />
+          </View>
+        }
+      />
 
       {!isSummary ? (
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -431,11 +424,11 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
       )}
 
       {!isSummary && currentQuestion && (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16, backgroundColor: t.surface, borderTopColor: isDark ? t.border : '#E5E7EB' }]}>
           {questionFlow.indexOf(currentQuestionKey) > 0 && (
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Ionicons name="arrow-back" size={20} color="#6B7280" />
-              <Text style={styles.backButtonText}>Back</Text>
+              <ArrowLeft size={18} color={t.textMuted} strokeWidth={2} />
+              <Text style={[styles.backButtonText, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Back</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -445,233 +438,34 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-  },
-  progressContainer: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: PRIMARY_COLOR,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  headerBackButton: {
-    padding: 8,
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  placeholder: {
-    width: 44,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 120,
-  },
-  questionContainer: {
-    width: '100%',
-  },
-  questionCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  questionHeader: {
-    marginBottom: 16,
-  },
-  questionProgress: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  questionText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 24,
-    lineHeight: 28,
-  },
-  buttonGroup: {
-    gap: 12,
-  },
-  optionButton: {
-    backgroundColor: SECONDARY_COLOR,
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  optionButtonSelected: {
-    backgroundColor: PRIMARY_COLOR + '15',
-    borderColor: PRIMARY_COLOR,
-  },
-  optionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  optionButtonTextSelected: {
-    color: PRIMARY_COLOR,
-  },
-  summaryContainer: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-    padding: 16,
-    paddingBottom: 20,
-  },
-  summaryScrollView: {
-    flex: 1,
-  },
-  summaryTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
-    textAlign: 'center',
-    paddingTop: 8,
-  },
-  summarySubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  qaItem: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  qaQuestionContainer: {
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  qaQuestionNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PRIMARY_COLOR,
-    marginRight: 6,
-    minWidth: 20,
-  },
-  qaQuestion: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    lineHeight: 20,
-  },
-  qaAnswerContainer: {
-    marginLeft: 26,
-    marginTop: 2,
-    padding: 8,
-    backgroundColor: SECONDARY_COLOR,
-    borderRadius: 8,
-  },
-  qaAnswer: {
-    fontSize: 13,
-    color: '#4B5563',
-    lineHeight: 18,
-  },
-  summaryButtonContainer: {
-    marginTop: 8,
-  },
-  badge: {
-    backgroundColor: PRIMARY_COLOR + '15',
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    marginBottom: 24,
-  },
-  badgeText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
-  },
-  summaryDescription: {
-    fontSize: 15,
-    color: '#4B5563',
-    lineHeight: 24,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 8,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PRIMARY_COLOR,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    width: '100%',
-    marginBottom: 12,
-    gap: 8,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  secondaryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
-  },
+  container: { flex: 1 },
+  progressContainer: { height: 4 },
+  progressBar: { height: '100%' },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 120 },
+  questionContainer: { width: '100%' },
+  questionCard: { borderRadius: 20, padding: 22 },
+  questionHeader: { marginBottom: 14 },
+  questionProgress: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 },
+  questionText: { fontSize: 19, marginBottom: 22, lineHeight: 27 },
+  buttonGroup: { gap: 12 },
+  optionButton: { borderRadius: 14, padding: 17, alignItems: 'center', borderWidth: 2 },
+  optionButtonText: { fontSize: 15 },
+  summaryContainer: { flex: 1, padding: 16, paddingBottom: 20 },
+  summaryScrollView: { flex: 1 },
+  qaItem: { borderRadius: 12, padding: 12, marginBottom: 10 },
+  qaQuestionContainer: { flexDirection: 'row', marginBottom: 6 },
+  qaQuestionNumber: { fontSize: 14, marginRight: 6, minWidth: 20 },
+  qaQuestion: { flex: 1, fontSize: 14, lineHeight: 20 },
+  qaAnswerContainer: { marginLeft: 26, marginTop: 2, padding: 8, borderRadius: 8 },
+  qaAnswer: { fontSize: 13, lineHeight: 18 },
+  summaryButtonContainer: { marginTop: 8 },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1 },
+  backButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 8 },
+  backButtonText: { fontSize: 14 },
+  primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 16, paddingHorizontal: 24, width: '100%', marginBottom: 12, gap: 8 },
+  primaryButtonText: { fontSize: 15 },
+  secondaryButton: { alignItems: 'center', paddingVertical: 12 },
+  secondaryButtonText: { fontSize: 14 },
 });
 

@@ -11,14 +11,15 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function PersonalProgramScreen({ onComplete }) {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { user, updateUserName, updateOnboardingData } = useUser();
   const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
 
   // Keep name field empty for fresh user input
   // React.useEffect(() => {
@@ -57,15 +58,13 @@ export default function PersonalProgramScreen({ onComplete }) {
 
   return (
     <>
-      {/* Phone Status Bar */}
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={t.bg} />
       
-      <View style={[styles.wrapper, { paddingTop: insets.top }]}>
-        {/* Progress Status Bar */}
-        <View style={styles.statusBar}>
+      <View style={[styles.wrapper, { paddingTop: insets.top, backgroundColor: t.bg }]}>
+        <View style={[styles.statusBar, { borderBottomColor: isDark ? t.border : '#F0F0F0' }]}>
           <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '37.5%' }]} />
+            <View style={[styles.progressBar, { backgroundColor: isDark ? t.surfaceRaised : '#E5E5E5' }]}>
+              <View style={[styles.progressFill, { width: '37.5%', backgroundColor: t.accentPurple }]} />
             </View>
           </View>
         </View>
@@ -74,47 +73,45 @@ export default function PersonalProgramScreen({ onComplete }) {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}
         >
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>What's your name?</Text>
+            <Text style={[styles.subtitle, { color: t.textMuted, fontFamily: t.fontBody }]}>
+              Tell us a bit about yourself so we can design training that fits your goals.
+            </Text>
+          </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>What's your name?</Text>
-        <Text style={styles.subtitle}>
-          Tell us a bit about yourself so we can design training that fits your goals.
-        </Text>
-      </View>
-
-      {/* Name Input Section */}
-      <View style={styles.inputSection}>
-        <TextInput
-          style={styles.nameInput}
-          placeholder="Enter your first name"
-          placeholderTextColor="#9CA3AF"
-          value={name}
-          onChangeText={setName}
-          autoCapitalize="words"
-          autoCorrect={false}
-          autoFocus={!name} // Only auto-focus if name is empty
-          returnKeyType="done"
-          onSubmitEditing={handleContinue}
-        />
-        
-        {/* Continue Button */}
-        <TouchableOpacity 
-          style={[
-            styles.continueButton,
-            !name.trim() && styles.continueButtonDisabled
-          ]}
-          onPress={handleContinue}
-          disabled={!name.trim() || isLoading}
-        >
-          <Text style={[
-            styles.continueButtonText,
-            !name.trim() && styles.continueButtonTextDisabled
-          ]}>
-            {isLoading ? 'Creating Program...' : 'CONTINUE'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.inputSection}>
+            <TextInput
+              style={[styles.nameInput, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#E5E5E5', color: t.textPrimary }]}
+              placeholder="Enter your first name"
+              placeholderTextColor={t.textMuted}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+              autoCorrect={false}
+              autoFocus={!name}
+              returnKeyType="done"
+              onSubmitEditing={handleContinue}
+            />
+            
+            <TouchableOpacity 
+              style={[
+                styles.continueButton,
+                { backgroundColor: t.accentPurple },
+                !name.trim() && { backgroundColor: isDark ? t.surfaceRaised : '#E5E5E5', shadowOpacity: 0, elevation: 0 },
+              ]}
+              onPress={handleContinue}
+              disabled={!name.trim() || isLoading}
+            >
+              <Text style={[
+                styles.continueButtonText,
+                { color: isDark ? t.fabTextColor : '#fff' },
+                !name.trim() && { color: t.textMuted },
+              ]}>
+                {isLoading ? 'Creating Program...' : 'CONTINUE'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </KeyboardAvoidingView>
       </View>
     </>

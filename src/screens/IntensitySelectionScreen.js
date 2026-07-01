@@ -7,6 +7,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Zap, Scale, Flame } from 'lucide-react-native';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 
@@ -21,8 +22,7 @@ export default function IntensitySelectionScreen({ onComplete }) {
       title: 'Light & simple',
       duration: '~20 min',
       description: '2 drills/session',
-      icon: 'time',
-      emoji: '⚡',
+      Icon: Zap,
       badge: 'QUICK'
     },
     {
@@ -30,8 +30,7 @@ export default function IntensitySelectionScreen({ onComplete }) {
       title: 'Balanced',
       duration: '~30–40 min',
       description: '3 drills/session',
-      icon: 'target',
-      emoji: '⚖️',
+      Icon: Scale,
       badge: 'RECOMMENDED'
     },
     {
@@ -39,8 +38,7 @@ export default function IntensitySelectionScreen({ onComplete }) {
       title: 'Challenging',
       duration: '~45–60 min',
       description: '4+ drills/session',
-      icon: 'fitness',
-      emoji: '🔥',
+      Icon: Flame,
       badge: null
     }
   ];
@@ -56,12 +54,15 @@ export default function IntensitySelectionScreen({ onComplete }) {
     onComplete({ intensity: intensityId });
   };
 
-  const renderIntensityOption = (option) => (
+  const renderIntensityOption = (option) => {
+    const isSelected = selectedIntensity === option.id;
+    const iconColor = isSelected ? '#007AFF' : '#9CA3AF';
+    return (
     <TouchableOpacity
       key={option.id}
       style={[
         styles.intensityCard,
-        selectedIntensity === option.id && styles.intensityCardSelected
+        isSelected && styles.intensityCardSelected
       ]}
       onPress={() => handleIntensitySelect(option.id)}
     >
@@ -78,19 +79,19 @@ export default function IntensitySelectionScreen({ onComplete }) {
       <View style={styles.intensityHeader}>
         <View style={[
           styles.intensityIcon,
-          selectedIntensity === option.id && styles.intensityIconSelected
+          isSelected && styles.intensityIconSelected
         ]}>
-          <Text style={styles.intensityEmoji}>{option.emoji}</Text>
+          <option.Icon size={20} color={iconColor} strokeWidth={2} />
         </View>
         <View style={styles.durationContainer}>
           <Text style={[
             styles.durationText,
-            selectedIntensity === option.id && styles.durationTextSelected
+            isSelected && styles.durationTextSelected
           ]}>
             {option.duration}
           </Text>
         </View>
-        {selectedIntensity === option.id && (
+        {isSelected && (
           <View style={styles.selectedIndicator}>
             <ModernIcon name="checkmark" size={16} color="white" />
           </View>
@@ -100,13 +101,13 @@ export default function IntensitySelectionScreen({ onComplete }) {
       <View style={styles.intensityContent}>
         <Text style={[
           styles.intensityTitle,
-          selectedIntensity === option.id && styles.intensityTitleSelected
+          isSelected && styles.intensityTitleSelected
         ]}>
           {option.title}
         </Text>
         <Text style={[
           styles.intensityDescription,
-          selectedIntensity === option.id && styles.intensityDescriptionSelected
+          isSelected && styles.intensityDescriptionSelected
         ]}>
           {option.description}
         </Text>
@@ -152,7 +153,8 @@ export default function IntensitySelectionScreen({ onComplete }) {
         )}
       </View>
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <>
@@ -282,9 +284,6 @@ const styles = StyleSheet.create({
   },
   intensityIconSelected: {
     backgroundColor: '#E8F5FF',
-  },
-  intensityEmoji: {
-    fontSize: 18,
   },
   durationContainer: {
     backgroundColor: '#F8F9FA',

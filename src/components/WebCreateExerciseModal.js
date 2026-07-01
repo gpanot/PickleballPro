@@ -214,16 +214,14 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       ? editingExercise.routine_name
       : 'Select Routine';
 
-  // Generate category options from skills data with emojis and organized by category
+  // Generate category options from skills data, organized by category
   const categoryOptions = [
-    // Add a General option first
-    { id: 'general', name: 'General', emoji: '🎯', color: '#6B7280', category: 'general' },
+    { id: 'general', name: 'General', color: '#6B7280', category: 'general' },
     
     // Technical Skills
     ...skillsData.skillCategories.technical.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'technical'
     })),
@@ -232,7 +230,6 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     ...skillsData.skillCategories.movement.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'movement'
     })),
@@ -241,7 +238,6 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     ...skillsData.skillCategories.strategic.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'strategic'
     })),
@@ -250,7 +246,6 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
     ...skillsData.skillCategories.physical.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'physical'
     }))

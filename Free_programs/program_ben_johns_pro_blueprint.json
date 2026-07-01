@@ -1,0 +1,482 @@
+{
+  "name": "Ben Johns: Pro Blueprint (2.5 to 4.0)",
+  "description": "The foundational system of the greatest pickleball player of all time, adapted for players rated 2.5 to 4.0. Ben Johns built 100+ titles not on power but on unmatched consistency, patient soft game, and drilling fundamentals until they became automatic. This program builds those same habits from the ground up — serve, return, third shot, dink, backhand roll — in the exact order that creates real rating improvement.",
+  "category": "Pro Training",
+  "tier": "Intermediate",
+  "rating": 4.9,
+  "added_count": 0,
+  "is_published": true,
+  "thumbnail_url": null,
+  "is_shareable": true,
+  "visibility": "public",
+  "is_coach_program": false,
+  "skill_categories_json": ["dinks", "serves", "returns", "drops", "third_shot", "transitions", "game_play"],
+  "order_index": 3,
+  "routines": [
+    {
+      "name": "Session 1 — Dink Foundations",
+      "description": "Ben Johns hits 99 out of 100 dinks without error. Most players at 3.5 and below cannot sustain 20. This is the single biggest gap between recreational and competitive pickleball. This session builds the foundation everything else stands on.",
+      "order_index": 1,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s1_crosscourt_dink_20",
+            "title": "Cross-Court Dink Consistency — 20 in a Row",
+            "description": "Two players at the kitchen line, cross-court only. No speedups, no attacking. The goal is 20 consecutive dinks without error. This is the most important drill in pickleball and the most commonly neglected at the 3.0-4.0 level.",
+            "goal_text": "Complete 20 consecutive cross-court dinks without error",
+            "instructions": "1. Both players position at the kitchen line, cross-court from each other.\n2. Begin a cooperative dinking rally — no speedups, no attacking at any point.\n3. Target your opponent's inside foot (toward the middle) and outside foot (near the sideline) alternately — vary your placement every few shots.\n4. Focus on: soft hands, high margin over the net, consistent height and depth on every dink.\n5. Goal: 20 consecutive dinks without error. Reset count on any miss.\n6. Once 20 is achieved consistently, push to 50.\n7. Technique from Ben: keep your paddle up and ready in front of your body at all times. Position yourself to take each dink with minimal movement — body relaxed, paddle steady.\n8. Key principle: 'Pro players like Ben Johns can dink forever without missing, and that's exactly why they get to the attackable ball first.' If you cannot hit 20 consecutive dinks, attacking is still a fantasy.",
+            "target_value": 20,
+            "target_unit": "shots",
+            "target_type": "streak",
+            "difficulty": 1,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Alternate targets: inside foot (toward middle) and outside foot (near sideline)",
+              "Keep paddle up between shots — never let it drop below your waist",
+              "Soft hands beat hard hands at the kitchen line every time",
+              "When you can hit 20 easily, move the target to 50 consecutive"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Beginner"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s1_dink_placement_game",
+            "title": "Dink Placement Game — Vary Depth and Angle",
+            "description": "Cooperative dinking game focused on placement variation. Ben varies depth, height, and angle to keep opponents guessing. This drill trains that habit from the ground up.",
+            "goal_text": "Complete 30 intentional placement dinks across 3 zones",
+            "instructions": "1. Both players at the kitchen line, cross-court.\n2. Designate three target zones in your opponent's kitchen: SHORT (just over the net, near the NVZ line), MIDDLE (center of the kitchen), and DEEP (near the far end of the NVZ).\n3. Call your zone out loud before you hit each dink: 'short,' 'middle,' or 'deep.'\n4. Your partner confirms whether the ball landed in the called zone.\n5. Rotate through all three zones. 10 reps per zone = 30 total dinks.\n6. No speedups — pure placement and touch work only.\n7. Key principle from Ben: 'He knows when to push his opponent back with a deep dink and when to drop it short to pull them out of position.' This drill builds that deliberate placement instinct.",
+            "target_value": 30,
+            "target_unit": "placed dinks",
+            "target_type": "count",
+            "difficulty": 2,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "game_play"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Call your zone before you swing — intention must come before execution",
+              "Deep dinks push your opponent back and limit their attack options",
+              "Short dinks pull your opponent forward and out of their comfort zone",
+              "This trains the chess match beneath the dink rally — placement beats pace at this level"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Beginner"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s1_dink_attack_decision",
+            "title": "Dink Rally with Attack Decision",
+            "description": "Cross-court cooperative dinking until one player earns a high ball (above net height). That player must attack. This trains the most important decision in pickleball — when the ball is right, attack. When it's not, keep dinking.",
+            "goal_text": "Successfully execute 10 correct attack decisions from dink rallies",
+            "instructions": "1. Both players at the kitchen line, cross-court. Begin cooperative dinking.\n2. Rule: no speedups allowed until the ball bounces above net height on your side.\n3. The moment a ball pops up above net height — that is your green light to attack it.\n4. Attack toward the opponent's right hip (if they are right-handed) or down the middle.\n5. The rally resets after every attack attempt — whether it succeeds or fails.\n6. Score: successful attack that opponent cannot return = 1 point. Forced pop-up from the attack = 1 point. Missed attack into net or out = 0 points.\n7. First to 10 correct attack executions wins the game.\n8. Key principle from Ben: 'Wait for the right ball. He never rushes a speedup unless the conditions are right.' Low dinks should never be attacked. Only high dinks earn the attack.",
+            "target_value": 10,
+            "target_unit": "correct attack executions",
+            "target_type": "count",
+            "difficulty": 2,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "game_play", "pressure_points"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Green light only when the ball bounces above net height — never attack low dinks",
+              "Aim for the right hip of a right-handed opponent — the hardest spot to defend",
+              "Patience in the rally earns you better attack opportunities",
+              "Attacking too early is the single biggest mistake at 3.0 to 3.5 level"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 2 — Serve and Deep Return",
+      "description": "Ben Johns recently updated his serve after nine years — switching from a stationary base to stepping into the ball to engage full body weight. His return philosophy is equally clear: return deep and move forward immediately. This session builds both habits.",
+      "order_index": 2,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s2_step_in_serve",
+            "title": "Step-Into Serve — Deep Placement",
+            "description": "Ben Johns switched from a stationary serve to stepping into the ball to generate full body power. This drill builds that service motion and targets the back third of the opponent's service box.",
+            "goal_text": "Land 7 out of 10 serves in the back third of the service box",
+            "instructions": "1. Stand behind the baseline in your serving position.\n2. Service motion: start with your weight on your back foot. As you begin your swing, step forward with your non-dominant foot and shift your weight into the ball at contact — engage your whole body, not just your arm.\n3. Key principle from Ben: 'When you serve from a standstill, you're limited to arm strength. When you step in, you use your body weight and momentum — more force, a serve that actually threatens your opponent.'\n4. Target: land the ball in the back third of the opposite service box (deep, past the mid-service line).\n5. Aim alternately for the opponent's backhand corner and body.\n6. Take 10 serves. Count how many land in the back third. Target is 7 out of 10.\n7. Secondary goal: serve to the backhand side — a deep backhand serve limits the returner's attack options.",
+            "target_value": 7,
+            "target_unit": "deep serves out of 10",
+            "target_type": "count",
+            "difficulty": 2,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["serves"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.5,
+            "tips_json": [
+              "Weight on back foot first, then transfer forward into contact — not all at once",
+              "Deep to the backhand corner is the highest-percentage serve target at this level",
+              "A deep serve keeps your opponent back and limits their approach to the kitchen",
+              "Do not chase spin or trick serves — depth and placement beat fancy at 2.5 to 4.0"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=etAmsAOIw7w",
+            "is_published": true,
+            "tier_level": "Beginner"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s2_deep_return_advance",
+            "title": "Deep Return of Serve — Return and Move",
+            "description": "The return of serve is the second most important shot in doubles. The goal is simple: return deep, neutralize the server, and move immediately to the kitchen line. This drill builds both the shot and the habit of advancing.",
+            "goal_text": "Land 8 out of 10 returns past the service midline AND reach the kitchen",
+            "instructions": "1. Partner serves from the baseline. You receive from the opposite baseline.\n2. Your return goal: hit a high-arcing ball deep into the server's court — past the midline of the service box, ideally into the back third.\n3. Aim between the two opponents (middle) or at the backhand of the server.\n4. Immediately after making contact with your return, move forward to the kitchen line.\n5. Do not wait to see where the ball lands — move the moment your return leaves your paddle.\n6. You must reach the kitchen line before the server's third shot arrives.\n7. Count successful returns: lands deep AND you reach the kitchen = 1 point. Out, in the net, or short = 0. Your target is 8 out of 10.\n8. Key strategy insight from pro analysis: 'A deep return makes it hard for your opponent to advance to the NVZ line, which is what they want. Keeping them further back forces a higher ball — which is to your advantage.'",
+            "target_value": 8,
+            "target_unit": "deep returns out of 10",
+            "target_type": "count",
+            "difficulty": 2,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["returns", "transitions", "footwork"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Move to the kitchen the moment your return leaves your paddle — do not wait",
+              "A high-arcing deep return buys you more time to advance than a flat hard shot",
+              "Target the middle or the server's backhand — both limit the third shot options",
+              "Deep returns force the server to hit a third shot from further back, making your job easier"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=etAmsAOIw7w",
+            "is_published": true,
+            "tier_level": "Beginner"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s2_serve_return_live",
+            "title": "Live Serve-Return-Third Exchange",
+            "description": "Full competitive serve, return, and third shot sequence played live to 5 points. Every element from the first two exercises combines into real game pressure.",
+            "goal_text": "Play 3 competitive games to 5 points",
+            "instructions": "1. Full competitive serve and return played live.\n2. Server uses the step-in motion and targets deep to the backhand.\n3. Returner hits deep and moves to the kitchen.\n4. Server attempts a third shot drop (preferred) or drive.\n5. From there, the point is fully live — play it out to completion.\n6. Play games to 5 points, win by 2. Play 3 games and switch server each game.\n7. Focus on evaluating: are returns landing deep? Is the returner reaching the kitchen? Is the third shot drop landing in the NVZ?\n8. After each game, both players identify one thing to improve in the next game.",
+            "target_value": 3,
+            "target_unit": "games to 5",
+            "target_type": "count",
+            "difficulty": 2,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["serves", "returns", "drops", "third_shot", "game_play"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Server: step into the serve, go deep to the backhand",
+              "Returner: high arc, deep, then move immediately to the kitchen",
+              "Third shot: decide early — drop if the return is low and controlled, drive if it sits up",
+              "Identify one improvement focus before each game starts"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=etAmsAOIw7w",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 3 — Third Shot Drop",
+      "description": "The third shot drop is widely considered the most important shot in pickleball. It is the bridge between defense at the baseline and offense at the net. Ben Johns drills it relentlessly — and for 2.5 to 4.0 players, mastering it is the single fastest path to a higher rating.",
+      "order_index": 3,
+      "time_estimate_minutes": 35,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s3_drop_isolation_baseline",
+            "title": "Third Shot Drop Isolation — Baseline Feed",
+            "description": "Isolation drill for the third shot drop from the baseline. Partner at the kitchen line feeds cooperative balls. Your job is to hit unattackable drops into the NVZ — not just land them, but land them low enough that your partner cannot attack.",
+            "goal_text": "Land 15 unattackable drops in the NVZ from the baseline",
+            "instructions": "1. You stand at the baseline. Your partner stands at the kitchen line.\n2. Your partner feeds you a ball to simulate a return of serve landing near the baseline.\n3. Execute a third shot drop: a soft, arcing ball that lands in the opponent's kitchen (NVZ).\n4. Technique step by step:\n   a. Use a continental grip — neutral, works for both forehand and backhand.\n   b. Stand with feet shoulder-width apart, knees bent, stay low.\n   c. Swing path: LOW to HIGH — commit to lifting from below and driving up through the ball.\n   d. The ball must arc with a peak above the net, then descend into the kitchen.\n   e. Grip pressure should be around 4 out of 10 — loose hands equal soft shots.\n5. Your partner evaluates each drop: if they can attack it (ball sits above net height at the kitchen), it does NOT count.\n6. Only drops your partner says are unattackable count. Target: 15 confirmed unattackable drops.\n7. After each successful drop, take 2-3 steps forward — train the advance as part of the shot.\n8. Common mistakes to avoid:\n   - Swinging down (backspin): causes net errors.\n   - Reaching instead of moving your feet: kills your mechanics.\n   - Gripping too tight: sends the ball long or out.",
+            "target_value": 15,
+            "target_unit": "unattackable drops",
+            "target_type": "count",
+            "difficulty": 2,
+            "estimated_minutes": 12,
+            "skill_categories_json": ["drops", "third_shot", "transitions"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Low-to-high swing path — never swing downward on a drop",
+              "Grip pressure 4 out of 10 — loose hands produce soft shots",
+              "Your non-paddle foot points toward your target — body alignment matters",
+              "Move forward after every drop — the drop buys you time to advance, use it"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=mIzddYkHV6Q",
+            "is_published": true,
+            "tier_level": "Beginner"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s3_drop_advance_sequence",
+            "title": "Drop-Advance Sequence — 3rd and 5th Shot Chain",
+            "description": "Ben Johns teaches that the third shot and fifth shot work as a chain. This drill builds the full sequence: drop the third, advance toward the net, reset or drop the fifth, complete the advance to the kitchen.",
+            "goal_text": "Complete 10 clean third-and-fifth shot sequences ending at the kitchen",
+            "instructions": "1. You start at the baseline. Your partner stands at the kitchen line.\n2. Your partner feeds a ball to start (simulating a return of serve).\n3. You hit a third shot drop into the NVZ.\n4. Advance 2-3 steps toward the kitchen.\n5. Your partner feeds a second ball from the kitchen line (simulating their fourth shot) — soft and low.\n6. You hit a fifth shot drop or reset from mid-court into the NVZ.\n7. Advance the remaining steps to reach the kitchen line.\n8. Your partner confirms when you have reached the line. That is one complete sequence.\n9. Complete 10 sequences. Your partner can vary the fifth-shot feed — some low (requiring a reset), some at waist height (giving you a decision).\n10. Key from Ben: the third and fifth shots together are the foundation of a successful doubles rally. Missing either one leaves you exposed.",
+            "target_value": 10,
+            "target_unit": "complete sequences",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 12,
+            "skill_categories_json": ["drops", "third_shot", "transitions", "footwork"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Move after every shot — the drop is not the destination, the kitchen is",
+              "Third drop: from baseline. Fifth drop: from mid-court. Different distance, same technique",
+              "Low incoming ball = reset into kitchen. Waist-height ball = control it",
+              "Commit to the drop on both shots — indecision between drop and drive produces bad shots of both"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=mIzddYkHV6Q",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s3_drop_factory_game",
+            "title": "Third Shot Drop Factory — Drive vs Drop Decision",
+            "description": "Live third shot decision game. Partner returns serve. You decide: drop (if return is low and controlled) or drive (if return sits up high). Pro analysis shows top players use drops 55% of the time and drives 45% — both are valid, but the decision must match the ball.",
+            "goal_text": "Play 3 complete games to 7 points with correct third-shot decisions",
+            "instructions": "1. Full serve-return-third live game format.\n2. Server calls their third shot choice before executing: 'drop' or 'drive.'\n3. Decision rules based on the incoming return:\n   - Return lands deep and low in the kitchen zone: HIT A DROP. The ball is not attackable — drop it.\n   - Return bounces short and high (above knee in court): HIT A DRIVE at 70-80% power. Apply pressure.\n   - Return comes in aggressive and deep off your back foot: DRIVE to get an easier ball next.\n4. After the third shot, the point is fully live.\n5. Both players evaluate: was the called decision correct for the ball that came? Score 1 bonus point for a correctly evaluated decision, regardless of the outcome.\n6. Play to 7 points. 3 games total.\n7. Key from Ben: 'First scenario — return bounces short and high: tee off and apply pressure. Second scenario — aggressive deep return when you're off your back foot: drive to get an easier next one to drop. Third scenario — return bounces shallow but low: drop it.'",
+            "target_value": 3,
+            "target_unit": "games to 7",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 11,
+            "skill_categories_json": ["drops", "third_shot", "drives", "game_play"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Say your decision out loud before you swing — it forces commitment",
+              "Never drive two balls in a row: drive one, then drop the next",
+              "Short and high return = drive opportunity. Deep and low = drop only",
+              "Indecision between drop and drive produces a bad version of both — commit fully"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=mIzddYkHV6Q",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 4 — Backhand Roll",
+      "description": "The backhand roll is Ben Johns' signature weapon — his favorite shot and the most defining skill of modern pickleball. It allows him to attack balls that are technically below net height by generating heavy topspin that brings the ball back down into the court. This session teaches the mechanics from the ground up.",
+      "order_index": 4,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s4_backhand_roll_mechanics",
+            "title": "Backhand Roll — Mechanics Drill",
+            "description": "Isolated partner drill for building the backhand roll from scratch. Partner feeds cross-court dinks to your backhand side. You practice taking the ball out of the air with the correct low-to-high swing path.",
+            "goal_text": "Complete 15 clean backhand rolls taken out of the air",
+            "instructions": "1. Partner stands at the kitchen line cross-court from you and dinks soft cooperative balls to your backhand side.\n2. Your setup: paddle in the ready position, tip up, favoring the backhand side (roughly 10-11 o'clock position). Compact — no large backswing.\n3. When the ball arrives on your backhand:\n   a. Recognize the opportunity — dink landing comfortably on the backhand side, slightly elevated.\n   b. DROP THE PADDLE HEAD BELOW THE BALL — this is non-negotiable. Get low with your knees, not just your hands.\n   c. Swing path: LOW to HIGH at approximately 40-degree upward angle.\n   d. Paddle face: roughly straight up and down (90 degrees) or with a very slight downward tilt.\n   e. Power source: legs push up, forearm rotation drives the swing — NOT the wrist alone.\n   f. Take the ball OUT OF THE AIR before it bounces — the backhand roll is a volley, not a groundstroke.\n   g. Target: opponent's right hip (right-handed player) — the most difficult spot to defend.\n4. Complete 15 reps. Partner gives feedback: did the ball dip sharply into the kitchen (topspin) or float (flat/no spin)?\n5. Key from Ben: 'Get low — bend from the knees, not the waist. Swing upward at about 40 degrees. The combination of upward motion and a closed or even paddle face produces the topspin.'",
+            "target_value": 15,
+            "target_unit": "clean backhand rolls",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 12,
+            "skill_categories_json": ["dinks", "volleys", "spin_control"],
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "tips_json": [
+              "Drop the paddle below the ball first — you cannot roll up from above the ball",
+              "Knees bent, not waist bent — get your entire body low",
+              "Take the ball out of the air — the roll is a volley, not a bounce shot",
+              "Target: right hip of a right-handed opponent — they cannot defend it with forehand or backhand cleanly"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=pt3HWfs7YCs",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s4_backhand_roll_setup",
+            "title": "Backhand Roll — Setup with Backhand Slice",
+            "description": "Ben Johns uses a backhand slice cross-court to set up the roll. The slice is the shot most likely to produce a reply dink that sits up slightly — creating the green light for the roll. This drill builds the full setup-and-attack sequence.",
+            "goal_text": "Complete 10 successful slice-setup-then-roll sequences",
+            "instructions": "1. Both players at the kitchen line, cross-court.\n2. Begin cooperative dinking.\n3. You hit a backhand slice cross-court — a soft, low, cutting dink that stays close to the net.\n4. Watch your partner's reply. The slice often generates a slightly lifted reply dink.\n5. When the reply sits up — even slightly above net height — execute the backhand roll: paddle below the ball, low-to-high swing, take it out of the air, target their right hip.\n6. If the reply does not sit up enough, continue dinking and reset the setup.\n7. Sequence: dink, slice, read the reply, decide — roll if it sits, dink if it does not.\n8. Complete 10 successful roll executions off a slice setup.\n9. Key from Ben: 'He'll use a backhand slice cross-court to set up this shot because that is the shot most likely to lead to a dink reply that might lift a little bit higher.'",
+            "target_value": 10,
+            "target_unit": "successful roll sequences",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "volleys", "slices", "spin_control", "patterns"],
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "tips_json": [
+              "The slice is the setup — it changes the pace and angle of the incoming reply",
+              "Watch your partner's paddle and body to read whether the reply will sit up",
+              "Do not force the roll — if the reply is not elevated, keep dinking and re-setup",
+              "Disguise is key: your paddle position before the roll should look like a dink"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=pt3HWfs7YCs",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s4_backhand_roll_live_game",
+            "title": "Backhand Roll in Live Dink Game",
+            "description": "Cross-court kitchen dink game to 7 points. Both players can use the backhand roll whenever they earn the opportunity — but must correctly identify the green-light ball first.",
+            "goal_text": "Win 2 games to 7 points using at least 3 backhand roll attempts per game",
+            "instructions": "1. Both players at the kitchen line, cross-court.\n2. Play a competitive dink game to 7 points.\n3. Rule: both players MUST attempt a backhand roll at least 3 times per game — this prevents playing it safe and avoiding the shot under pressure.\n4. Green-light rule for the roll: the ball must be at or above net height on your side before you attempt the roll. No rolling low balls.\n5. Points are scored normally — roll winners count as regular points.\n6. After each game, count: how many roll attempts were correct green-light decisions? How many were forced on low balls?\n7. Key refinement from Ben: 'He'll typically aim for the right hip of an opponent that is right-handed because that is the most difficult spot to effectively defend.'",
+            "target_value": 7,
+            "target_unit": "points",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 8,
+            "skill_categories_json": ["dinks", "volleys", "spin_control", "game_play"],
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "tips_json": [
+              "The requirement of 3 roll attempts per game forces you to execute under pressure",
+              "Green light: ball at or above net height. Red light: below net — keep dinking",
+              "Right hip target on right-handed players — they cannot cleanly forehand or backhand it",
+              "Disguise: your paddle setup should look like a dink until the last second"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=pt3HWfs7YCs",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 5 — Attack and Counter — NVZ Decision Making",
+      "description": "Ben Johns' most defining quality is his patience — he never attacks unless the conditions are right, and he almost never gives away free points. This session teaches the attack-or-reset decision that separates 3.5 players from 4.0 players.",
+      "order_index": 5,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s5_5th_dink_attack_wait",
+            "title": "Wait for the 5th Dink — Attack Timing",
+            "description": "Pro analysis of Ben Johns' matches shows attacks occurring most often after 4-6 dinks, with the 5th dink being the highest-percentage attack timing. This drill trains the patience to wait for the right moment.",
+            "goal_text": "Execute 10 successful attacks from the 5th dink or later",
+            "instructions": "1. Both players at the kitchen line, cross-court cooperative dinking.\n2. Rule: neither player may attempt a speedup or attack before the 5th ball of any rally.\n3. Count dinks out loud if needed: 1, 2, 3, 4, 5 — after the 5th, either player may attack.\n4. After the 5th dink, look for the green-light ball: high, above net level, attackable.\n5. If no green-light ball appears by dink 7 or 8, keep dinking — do not force an attack.\n6. Scoring: successful attack from dink 5 or later = 2 points. Attack before dink 5 = lose 1 point. Unforced error in the dink rally = 0, rally resets.\n7. First to 15 points wins the game.\n8. Key insight from pro analysis: 'Early attacks (before 4 dinks) failed 55% of the time due to strong defense. Longer rallies (7+ dinks) favored the winner 65% of the time — patience forces your opponent into errors.'",
+            "target_value": 15,
+            "target_unit": "points",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "game_play", "pressure_points", "patterns"],
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 4.5,
+            "tips_json": [
+              "Patience is a weapon — every dink you sustain increases your opponent's error probability",
+              "The 5-dink minimum forces you to build the point instead of reacting with speed",
+              "Wait for the ball to sit up naturally — manufactured attacks from low dinks fail",
+              "Ben Johns builds to 5-7 dinks before his attack in most successful rallies"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=etAmsAOIw7w",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s5_reset_after_drive_habit",
+            "title": "Drive-Then-Drop Habit — Never Drive Twice",
+            "description": "Ben Johns' principle: never drive two balls in a row. Drive the first to apply pressure, then drop the next to get into position. This drill builds that two-shot sequence as an automatic habit.",
+            "goal_text": "Complete 12 clean drive-then-drop sequences",
+            "instructions": "1. You start at the baseline. Partner at the kitchen line.\n2. Partner feeds a ball that simulates a short, high return sitting up in the court.\n3. You drive it — hit it at 70-80% power, low and hard over the net. The drive applies pressure.\n4. Partner feeds a second ball from the kitchen (simulating their counter of your drive).\n5. You are now at the transition zone or mid-court — you MUST hit a drop or reset on this second ball. No second drive.\n6. After the drop/reset, advance to the kitchen line.\n7. Partner confirms: did the second shot land in the NVZ (unattackable)? Yes = 1 successful sequence.\n8. Repeat 12 times.\n9. Key principle from Ben: 'If you drive the first ball, you should drop the next one. Why? Because driving two in a row puts you in a washing machine cycle. You're not in control. Your opponent hits a missile at your feet and you're trying to drive it again. It's chaos.'",
+            "target_value": 12,
+            "target_unit": "complete sequences",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["drops", "third_shot", "transitions", "game_play"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "Drive one: apply pressure. Drop two: regain control. These are inseparable",
+              "After the drive, expect a fast incoming ball — compact swing on the drop/reset",
+              "Two drives in a row = washing machine. You lose control of the point",
+              "The drop after the drive is what actually gets you to the kitchen safely"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=etAmsAOIw7w",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "exercise": {
+            "code": "bj_s5_full_point_construction",
+            "title": "Full Point Construction — Serve to Finish",
+            "description": "Everything in this program comes together: step-in serve deep, deep return and advance, third shot drop or drive, advance, dink rally with patience, attack on the right ball. One full session of complete point construction.",
+            "goal_text": "Play 3 full games to 11 points using correct shot sequencing throughout",
+            "instructions": "1. Full doubles point simulation in skinny singles format (half court).\n2. Every point must follow the correct sequence:\n   - Server: step in, serve deep to the backhand.\n   - Returner: return deep (high arc), move immediately to kitchen.\n   - Server: third shot drop (preferred) or drive based on the return quality.\n   - Both players: advance to or hold the kitchen.\n   - Dink rally: minimum 3-4 dinks before any attack attempt.\n   - Attack: only on balls at or above net height.\n3. After each point, both players briefly evaluate: was the sequence followed? Where did it break down?\n4. Play 3 games to 11, win by 2. Switch server between games.\n5. This is the complete Ben Johns system for the 2.5 to 4.0 player — not a single flashy shot, but a chain of fundamentals executed correctly and consistently, every point.",
+            "target_value": 3,
+            "target_unit": "games to 11",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["game_play", "serves", "returns", "drops", "third_shot", "dinks", "patterns"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 4.0,
+            "tips_json": [
+              "The sequence is the system — serve, return, drop, dink, attack in the right order",
+              "Every breakdown points to one drill from Sessions 1 to 4 to go fix it",
+              "Consistency beats flash at this level — 99 good dinks wins more than 1 great roll",
+              "Ben Johns' philosophy: observe, drill, adapt. Use this game to see what needs work"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=etAmsAOIw7w",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    }
+  ]
+}

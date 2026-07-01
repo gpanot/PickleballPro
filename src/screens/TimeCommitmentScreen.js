@@ -6,6 +6,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Clock, TrendingUp, Zap } from 'lucide-react-native';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import skillsData from '../data/Commun_skills_tags.json';
@@ -20,24 +21,21 @@ export default function TimeCommitmentScreen({ onComplete }) {
       id: 'low',
       title: '1–2 hours per week',
       description: 'Perfect for busy schedules',
-      icon: 'time',
-      emoji: '⏱',
+      Icon: Clock,
       hours: '1-2h'
     },
     {
       id: 'medium',
       title: '3–4 hours per week',
       description: 'Steady improvement pace',
-      icon: 'trending-up',
-      emoji: '⏱',
+      Icon: TrendingUp,
       hours: '3-4h'
     },
     {
       id: 'high',
       title: '5+ hours per week',
       description: 'Accelerated training mode',
-      icon: 'flash',
-      emoji: '⏱',
+      Icon: Zap,
       hours: '5+h'
     }
   ];
@@ -68,52 +66,41 @@ export default function TimeCommitmentScreen({ onComplete }) {
     onComplete({ time_commitment: timeId });
   };
 
-  const renderTimeOption = (option) => (
-    <TouchableOpacity
-      key={option.id}
-      style={[
-        styles.timeCard,
-        selectedTime === option.id && styles.timeCardSelected
-      ]}
-      onPress={() => handleTimeSelect(option.id)}
-    >
-      <View style={styles.timeHeader}>
-        <View style={[
-          styles.timeIcon,
-          selectedTime === option.id && styles.timeIconSelected
-        ]}>
-          <Text style={styles.timeEmoji}>{option.emoji}</Text>
+  const renderTimeOption = (option) => {
+    const isSelected = selectedTime === option.id;
+    const iconColor = isSelected ? '#007AFF' : '#9CA3AF';
+    return (
+      <TouchableOpacity
+        key={option.id}
+        style={[styles.timeCard, isSelected && styles.timeCardSelected]}
+        onPress={() => handleTimeSelect(option.id)}
+      >
+        <View style={styles.timeHeader}>
+          <View style={[styles.timeIcon, isSelected && styles.timeIconSelected]}>
+            <option.Icon size={20} color={iconColor} strokeWidth={2} />
+          </View>
+          <View style={styles.hoursContainer}>
+            <Text style={[styles.hoursText, isSelected && styles.hoursTextSelected]}>
+              {option.hours}
+            </Text>
+          </View>
+          {isSelected && (
+            <View style={styles.selectedIndicator}>
+              <ModernIcon name="checkmark" size={20} color="white" />
+            </View>
+          )}
         </View>
-        <View style={styles.hoursContainer}>
-          <Text style={[
-            styles.hoursText,
-            selectedTime === option.id && styles.hoursTextSelected
-          ]}>
-            {option.hours}
+        <View style={styles.timeContent}>
+          <Text style={[styles.timeTitle, isSelected && styles.timeTitleSelected]}>
+            {option.title}
+          </Text>
+          <Text style={[styles.timeDescription, isSelected && styles.timeDescriptionSelected]}>
+            {option.description}
           </Text>
         </View>
-        {selectedTime === option.id && (
-          <View style={styles.selectedIndicator}>
-            <ModernIcon name="checkmark" size={20} color="white" />
-          </View>
-        )}
-      </View>
-      <View style={styles.timeContent}>
-        <Text style={[
-          styles.timeTitle,
-          selectedTime === option.id && styles.timeTitleSelected
-        ]}>
-          {option.title}
-        </Text>
-        <Text style={[
-          styles.timeDescription,
-          selectedTime === option.id && styles.timeDescriptionSelected
-        ]}>
-          {option.description}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { 
@@ -205,9 +192,6 @@ const styles = StyleSheet.create({
   },
   timeIconSelected: {
     backgroundColor: '#E8F5FF',
-  },
-  timeEmoji: {
-    fontSize: 24,
   },
   hoursContainer: {
     backgroundColor: '#F8F9FA',

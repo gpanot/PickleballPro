@@ -527,7 +527,6 @@ export const AuthProvider = ({ children }) => {
 
   const handleSignIn = async (email, password) => {
     try {
-      setLoading(true);
       const { data, error } = await signIn(email, password);
       
       if (error) {
@@ -538,8 +537,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Sign in error:', error);
       return { data: null, error };
-    } finally {
-      setLoading(false);
     }
   };
 

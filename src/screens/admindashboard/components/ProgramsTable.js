@@ -15,7 +15,7 @@ import Pagination from './Pagination';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_MOBILE = Platform.OS !== 'web' || SCREEN_WIDTH < 768;
 
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 50;
 
 export default function ProgramsTable({
   programs,

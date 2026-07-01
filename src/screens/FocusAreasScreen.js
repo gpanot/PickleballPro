@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
+import { SkillIconBadge } from '../components/SkillIcon';
 import skillsData from '../data/Commun_skills_tags.json';
 import { useUser } from '../context/UserContext';
 
@@ -29,7 +30,6 @@ export default function FocusAreasScreen({ onComplete }) {
     return allSkills.slice(0, 8).map(skill => ({
       id: skill.id,
       title: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       description: skill.description
     }));
@@ -71,7 +71,14 @@ export default function FocusAreasScreen({ onComplete }) {
         onPress={() => handleFocusSelect(area.id)}
       >
         <View style={styles.focusContent}>
-          <Text style={styles.focusEmoji}>{area.emoji}</Text>
+          <SkillIconBadge
+            skillId={area.id}
+            color={area.color}
+            containerSize={36}
+            size={18}
+            borderRadius={10}
+            style={{ marginBottom: 6 }}
+          />
           <Text style={[
             styles.focusTitle,
             isSelected && styles.focusTitleSelected
@@ -232,10 +239,6 @@ const styles = StyleSheet.create({
   focusContent: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  focusEmoji: {
-    fontSize: 24,
-    marginBottom: 6,
   },
   focusTitle: {
     fontSize: 13,

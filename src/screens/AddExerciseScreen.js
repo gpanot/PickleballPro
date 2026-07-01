@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import skillsData from '../data/Commun_skills_tags.json';
+import SkillIcon from '../components/SkillIcon';
 
 export default function AddExerciseScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -93,7 +94,6 @@ export default function AddExerciseScreen({ navigation, route }) {
     ...skillsData.skillCategories.technical.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'technical'
     })),
@@ -102,7 +102,6 @@ export default function AddExerciseScreen({ navigation, route }) {
     ...skillsData.skillCategories.movement.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'movement'
     })),
@@ -111,7 +110,6 @@ export default function AddExerciseScreen({ navigation, route }) {
     ...skillsData.skillCategories.strategic.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'strategic'
     })),
@@ -120,7 +118,6 @@ export default function AddExerciseScreen({ navigation, route }) {
     ...skillsData.skillCategories.physical.skills.map(skill => ({
       id: skill.id,
       name: skill.name,
-      emoji: skill.emoji,
       color: skill.color,
       category: 'physical'
     }))
@@ -517,7 +514,7 @@ export default function AddExerciseScreen({ navigation, route }) {
                   onPress={() => toggleSkillCategory(category.id)}
                 >
                   <View style={styles.categoryContent}>
-                    <Text style={styles.categoryEmoji}>{category.emoji}</Text>
+                    <SkillIcon skillId={category.id} size={18} color={isSelected ? category.color : '#6B7280'} />
                     <Text style={[
                       styles.categoryOptionText,
                       isSelected && styles.categoryOptionTextSelected,
@@ -728,10 +725,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     minHeight: 50,
-  },
-  categoryEmoji: {
-    fontSize: 16,
-    marginBottom: 4,
+    gap: 4,
   },
   categoryOptionText: {
     fontSize: 12,

@@ -7,12 +7,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
-
-const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 const QUESTIONS = {
   // First question - always shown
@@ -70,8 +68,8 @@ const QUESTIONS = {
 
 export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) {
   const { assessmentId, student } = route.params || {};
-  const insets = useSafeAreaInsets();
-  
+  const { logbookTheme: t, isDark } = useTheme();
+
   const [loading, setLoading] = useState(true);
   const [answers, setAnswers] = useState({});
   const [questionFlow, setQuestionFlow] = useState([]);
@@ -129,45 +127,40 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+      <View style={[styles.loadingContainer, { backgroundColor: t.bg }]}>
+        <ActivityIndicator size="large" color={t.accentPurple} />
       </View>
     );
   }
 
-  // Only show questions that were part of the flow
   const answeredQuestions = questionFlow
     .filter(key => key !== 'summary' && QUESTIONS[key])
     .map(key => QUESTIONS[key]);
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Experience Assessment</Text>
-          <Text style={styles.headerSubtitle}>{student?.name || 'Player'}</Text>
-          {assessmentDate && (
-            <Text style={styles.headerDate}>{assessmentDate}</Text>
-          )}
-        </View>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title="Experience Assessment"
+        subtitle={assessmentDate ? `${student?.name || 'Player'} · ${assessmentDate}` : student?.name || 'Player'}
+        onBack={() => navigation.goBack()}
+      />
 
-      <View style={styles.summaryContainer}>
+      <View style={[styles.summaryContainer, { backgroundColor: t.bg }]}>
         <ScrollView style={styles.summaryScrollView} showsVerticalScrollIndicator={true}>
           {answeredQuestions.map((question, index) => {
             const answer = answers[question.id];
             return (
-              <View key={question.id} style={styles.qaItem}>
+              <View key={question.id} style={[styles.qaItem, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
                 <View style={styles.qaQuestionContainer}>
-                  <Text style={styles.qaQuestionNumber}>{index + 1}.</Text>
-                  <Text style={styles.qaQuestion}>{question.question}</Text>
+                  <Text style={[styles.qaQuestionNumber, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>{index + 1}.</Text>
+                  <Text style={[styles.qaQuestion, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{question.question}</Text>
                 </View>
-                <View style={styles.qaAnswerContainer}>
-                  <Text style={styles.qaAnswer}>{formatAnswer(question, answer)}</Text>
+                <View style={[styles.qaAnswerContainer, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
+                  <Text style={[styles.qaAnswer, { color: t.textSecondary, fontFamily: t.fontBody }]}>{formatAnswer(question, answer)}</Text>
                 </View>
               </View>
             );
@@ -179,92 +172,15 @@ export default function FirstTimeAssessmentSummaryScreen({ route, navigation }) 
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: SECONDARY_COLOR,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerBackButton: {
-    padding: 8,
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  headerDate: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  placeholder: {
-    width: 40,
-  },
-  summaryContainer: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-    padding: 16,
-  },
-  summaryScrollView: {
-    flex: 1,
-  },
-  qaItem: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-  },
-  qaQuestionContainer: {
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  qaQuestionNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PRIMARY_COLOR,
-    marginRight: 6,
-    minWidth: 20,
-  },
-  qaQuestion: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    lineHeight: 20,
-  },
-  qaAnswerContainer: {
-    marginLeft: 26,
-    marginTop: 2,
-    padding: 8,
-    backgroundColor: SECONDARY_COLOR,
-    borderRadius: 8,
-  },
-  qaAnswer: {
-    fontSize: 13,
-    color: '#4B5563',
-    lineHeight: 18,
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  summaryContainer: { flex: 1, padding: 16 },
+  summaryScrollView: { flex: 1 },
+  qaItem: { borderRadius: 12, padding: 12, marginBottom: 10 },
+  qaQuestionContainer: { flexDirection: 'row', marginBottom: 6 },
+  qaQuestionNumber: { fontSize: 14, marginRight: 6, minWidth: 20 },
+  qaQuestion: { flex: 1, fontSize: 14, lineHeight: 20 },
+  qaAnswerContainer: { marginLeft: 26, marginTop: 2, padding: 8, borderRadius: 8 },
+  qaAnswer: { fontSize: 13, lineHeight: 18 },
 });
 

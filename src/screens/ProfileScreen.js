@@ -14,7 +14,6 @@ import {
   Linking,
   Clipboard,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -25,8 +24,10 @@ import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
+import { useTheme } from '../context/ThemeContext';
 import { checkAdminAccess, checkCoachAccess, supabase, getStudentCode } from '../lib/supabase';
 import StartAcademyModal from '../components/StartAcademyModal';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 
 import { tiers, levels } from '../data/mockData';
 
@@ -38,7 +39,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const { user, resetAllOnboarding, setUser } = useUser();
   const { user: authUser, isAuthenticated, signOut } = useAuth();
   const { getLogbookSummary } = useLogbook();
-  const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCoach, setIsCoach] = useState(false);
   const [isManager, setIsManager] = useState(false);
@@ -482,43 +483,19 @@ export default function ProfileScreen({ onLogout, navigation }) {
     return Math.max(0, daysDiff);
   };
 
-  const renderTopBar = () => (
-    <View style={styles.topBar}>
-      <TouchableOpacity 
-        style={styles.backButton} 
-        onPress={() => navigation.goBack()}
-        activeOpacity={0.7}
-      >
-        <Ionicons 
-          name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-          size={24} 
-          color="#6366F1" 
-        />
-      </TouchableOpacity>
-      <Text style={styles.topBarTitle}>Profile</Text>
-      <View style={styles.topBarRightSpace} />
-    </View>
-  );
-
   const renderProfileSection = () => (
-    <View style={styles.section}>
-      <View style={styles.profileCard}>
-        {/* Compact horizontal layout: avatar left, info right */}
+    <View style={[styles.section, { paddingHorizontal: t.headerPaddingH }]}>
+      <View style={[styles.profileCard, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]}>
         <View style={styles.profileRow}>
-          {/* Avatar */}
           <TouchableOpacity 
-            style={styles.avatarContainer}
+            style={[styles.avatarContainer, { backgroundColor: t.accentPurple, shadowColor: t.accentPurple }]}
             onPress={handleAvatarPress}
             disabled={isUploadingAvatar}
             activeOpacity={0.8}
           >
             {(user.avatarUrl || avatarImage) ? (
               <>
-                <Image 
-                  source={{ uri: user.avatarUrl || avatarImage }} 
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: user.avatarUrl || avatarImage }} style={styles.avatarImage} resizeMode="cover" />
                 {isUploadingAvatar && (
                   <View style={styles.avatarOverlay}>
                     <Text style={styles.uploadingText}>Uploading...</Text>
@@ -527,7 +504,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
               </>
             ) : (
               <>
-                <Text style={styles.avatarText}>
+                <Text style={[styles.avatarText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodyBold }]}>
                   {user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
                 </Text>
                 {isUploadingAvatar && (
@@ -539,56 +516,45 @@ export default function ProfileScreen({ onLogout, navigation }) {
             )}
           </TouchableOpacity>
 
-          {/* Right info block */}
           <View style={styles.profileInfo}>
-            {/* Name */}
             <TouchableOpacity onPress={handleNameEdit} activeOpacity={0.7} style={styles.nameContainer}>
-              <Text style={styles.userName} numberOfLines={1}>{user.name || 'User'}</Text>
-              <Ionicons name="pencil-outline" size={13} color="#9CA3AF" style={styles.editIcon} />
+              <Text style={[styles.userName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]} numberOfLines={1}>{user.name || 'User'}</Text>
+              <Ionicons name="pencil-outline" size={13} color={t.textMuted} style={styles.editIcon} />
             </TouchableOpacity>
-
-            {/* Email */}
-            <Text style={styles.userEmail} numberOfLines={1} ellipsizeMode="tail">
+            <Text style={[styles.userEmail, { color: t.textMuted, fontFamily: t.fontBody }]} numberOfLines={1} ellipsizeMode="tail">
               {authUser?.email || user.email || ''}
             </Text>
-
-            {/* City + Student code on same line */}
             <View style={styles.profileMeta}>
               {user.city && (
                 <View style={styles.cityChip}>
-                  <ModernIcon name="location" size={12} color="#6366F1" />
-                  <Text style={styles.cityText}>{user.city}</Text>
+                  <ModernIcon name="location" size={12} color={t.accentPurple} />
+                  <Text style={[styles.cityText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>{user.city}</Text>
                 </View>
               )}
               {studentCode && (
                 <TouchableOpacity
-                  style={styles.studentCodeContainer}
+                  style={[styles.studentCodeContainer, { backgroundColor: isDark ? t.surfaceRaised : '#EEF2FF', borderColor: isDark ? t.border : '#C7D2FE' }]}
                   onPress={() => {
                     Clipboard.setString(studentCode);
                     Alert.alert('Copied!', 'Your student code has been copied to clipboard.');
                   }}
                   activeOpacity={0.75}
                 >
-                  <Ionicons name="card-outline" size={12} color="#6366F1" style={{ marginRight: 3 }} />
-                  <Text style={styles.studentCodeLabel}>Code: </Text>
-                  <Text style={styles.studentCodeValue}>{studentCode}</Text>
-                  <Ionicons name="copy-outline" size={11} color="#9CA3AF" style={{ marginLeft: 4 }} />
+                  <Ionicons name="card-outline" size={12} color={t.accentPurple} style={{ marginRight: 3 }} />
+                  <Text style={[styles.studentCodeLabel, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Code: </Text>
+                  <Text style={[styles.studentCodeValue, { color: isDark ? t.accentPurple : '#4F46E5' }]}>{studentCode}</Text>
+                  <Ionicons name="copy-outline" size={11} color={t.textMuted} style={{ marginLeft: 4 }} />
                 </TouchableOpacity>
               )}
             </View>
           </View>
         </View>
 
-        {/* DUPR row below — compact horizontal */}
-        <View style={styles.duprSection}>
-          <Text style={styles.duprLabel}>DUPR RATING</Text>
+        <View style={[styles.duprSection, { backgroundColor: isDark ? t.surfaceRaised : '#F8FAFC', borderColor: isDark ? t.border : '#E2E8F0' }]}>
+          <Text style={[styles.duprLabel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>DUPR RATING</Text>
           <TouchableOpacity onPress={handleDuprEdit} activeOpacity={0.7} style={styles.duprEditRow}>
-            <Text style={styles.duprRating}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
-            <Ionicons name="pencil-outline" size={13} color="#9CA3AF" style={{ marginLeft: 4 }} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.syncButton} onPress={handleSyncDUPR}>
-            <ModernIcon name="sync" size={13} color="#6366F1" />
-            <Text style={styles.syncText}>Sync DUPR</Text>
+            <Text style={[styles.duprRating, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
+            <Ionicons name="pencil-outline" size={13} color={t.textMuted} style={{ marginLeft: 4 }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -606,22 +572,28 @@ export default function ProfileScreen({ onLogout, navigation }) {
     if (totalSessions === 0) return null;
 
     return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Your Stats</Text>
-        <View style={styles.statsRow}>
+      <View style={[styles.section, { paddingHorizontal: t.headerPaddingH }]}>
+        <Text style={[styles.sectionTitle, {
+          color: isDark ? t.sectionLabelColor : t.textPrimary,
+          fontFamily: isDark ? t.fontBodySemibold : t.fontBodyBold,
+          fontSize: isDark ? t.sectionLabelSize + 2 : 18,
+          letterSpacing: isDark ? t.sectionLabelTracking : 0,
+          textTransform: isDark ? 'uppercase' : 'none',
+        }]}>Your Stats</Text>
+        <View style={[styles.statsRow, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{totalSessions}</Text>
-            <Text style={styles.statLabel}>Sessions</Text>
+            <Text style={[styles.statNumber, { color: t.accentPurple, fontFamily: t.fontDisplay }]}>{totalSessions}</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>Sessions</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: isDark ? t.border : '#E5E7EB' }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{totalHours}h</Text>
-            <Text style={styles.statLabel}>Total Hours</Text>
+            <Text style={[styles.statNumber, { color: t.accentPurple, fontFamily: t.fontDisplay }]}>{totalHours}h</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>Total Hours</Text>
           </View>
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: isDark ? t.border : '#E5E7EB' }]} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{daysActive}</Text>
-            <Text style={styles.statLabel}>Days Active</Text>
+            <Text style={[styles.statNumber, { color: t.accentPurple, fontFamily: t.fontDisplay }]}>{daysActive}</Text>
+            <Text style={[styles.statLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>Days Active</Text>
           </View>
         </View>
       </View>
@@ -629,84 +601,82 @@ export default function ProfileScreen({ onLogout, navigation }) {
   };
 
   const renderSettings = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Settings</Text>
+    <View style={[styles.section, { paddingHorizontal: t.headerPaddingH }]}>
+      <Text style={[styles.sectionTitle, {
+        color: isDark ? t.sectionLabelColor : t.textPrimary,
+        fontFamily: isDark ? t.fontBodySemibold : t.fontBodyBold,
+        fontSize: isDark ? t.sectionLabelSize + 2 : 18,
+        letterSpacing: isDark ? t.sectionLabelTracking : 0,
+        textTransform: isDark ? 'uppercase' : 'none',
+      }]}>Settings</Text>
       
-      {/* Dashboard Button — label and destination vary by role */}
       {(isAdmin || isManager || isCoach) && (
         <TouchableOpacity
-          style={[styles.settingsItem, { backgroundColor: '#EEF2FF' }]}
+          style={[styles.settingsItem, { backgroundColor: isDark ? t.accentPurpleMuted : '#EEF2FF', borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}
           onPress={() => navigation?.navigate('Admin')}
         >
           <View style={styles.settingsItemLeft}>
-            <ModernIcon name="settings" size={20} color="#6366F1" />
-            <Text style={[styles.settingsItemText, { color: '#6366F1', fontWeight: '600' }]}>
+            <ModernIcon name="settings" size={20} color={t.accentPurple} />
+            <Text style={[styles.settingsItemText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
               {isAdmin ? 'Admin Dashboard' : isManager ? 'Academy Dashboard' : 'Coach Dashboard'}
             </Text>
           </View>
-          <ModernIcon name="action" size={8} color="#6366F1" />
+          <ModernIcon name="action" size={8} color={t.accentPurple} />
         </TouchableOpacity>
       )}
 
-      {/* Start Your Academy — only for coaches who are NOT already in any academy */}
       {!isAdmin && isCoach && !isManager && (
         <TouchableOpacity
-          style={[styles.settingsItem, { backgroundColor: '#F0FDF4' }]}
+          style={[styles.settingsItem, { backgroundColor: isDark ? '#16A34A18' : '#F0FDF4', borderColor: isDark ? '#16A34A44' : 'transparent', borderWidth: isDark ? 1 : 0 }]}
           onPress={() => setShowStartAcademyModal(true)}
         >
           <View style={styles.settingsItemLeft}>
             <Ionicons name="school-outline" size={20} color="#16A34A" />
-            <Text style={[styles.settingsItemText, { color: '#16A34A', fontWeight: '600' }]}>
-              Start Your Academy
-            </Text>
+            <Text style={[styles.settingsItemText, { color: '#16A34A', fontFamily: t.fontBodySemibold }]}>Start Your Academy</Text>
           </View>
           <ModernIcon name="action" size={8} color="#16A34A" />
         </TouchableOpacity>
       )}
 
-      {/* Coach profile — Become a Coach for non-coaches, Edit Coach Profile for coaches */}
       {!isAdmin && (
         <TouchableOpacity 
-          style={[styles.settingsItem, { backgroundColor: '#EEF2FF' }]} 
+          style={[styles.settingsItem, { backgroundColor: isDark ? t.accentPurpleMuted : '#EEF2FF', borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]} 
           onPress={() => navigation?.navigate('CreateCoachProfile')}
         >
           <View style={styles.settingsItemLeft}>
-            <ModernIcon name="coach" size={20} color="#6366F1" />
-            <Text style={[styles.settingsItemText, { color: '#6366F1', fontWeight: '600' }]}>
+            <ModernIcon name="coach" size={20} color={t.accentPurple} />
+            <Text style={[styles.settingsItemText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
               {isCoach ? 'Edit Coach Profile' : 'Become a Coach'}
             </Text>
           </View>
-          <ModernIcon name="action" size={8} color="#6366F1" />
+          <ModernIcon name="action" size={8} color={t.accentPurple} />
         </TouchableOpacity>
       )}
       
-      <TouchableOpacity style={styles.settingsItem} onPress={handleSettings}>
+      <TouchableOpacity style={[styles.settingsItem, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]} onPress={handleSettings}>
         <View style={styles.settingsItemLeft}>
-          <ModernIcon name="settings" size={20} color="#6B7280" />
-          <Text style={styles.settingsItemText}>App Settings</Text>
+          <ModernIcon name="settings" size={20} color={t.textMuted} />
+          <Text style={[styles.settingsItemText, { color: t.textSecondary, fontFamily: t.fontBody }]}>App Settings</Text>
         </View>
-        <ModernIcon name="action" size={8} color="#9CA3AF" />
+        <ModernIcon name="action" size={8} color={t.textMuted} />
       </TouchableOpacity>
       
-      <TouchableOpacity style={styles.settingsItem} onPress={handleHelpSupport}>
+      <TouchableOpacity style={[styles.settingsItem, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]} onPress={handleHelpSupport}>
         <View style={styles.settingsItemLeft}>
-          <ModernIcon name="help" size={20} color="#6B7280" />
-          <Text style={styles.settingsItemText}>Help & Support</Text>
+          <ModernIcon name="help" size={20} color={t.textMuted} />
+          <Text style={[styles.settingsItemText, { color: t.textSecondary, fontFamily: t.fontBody }]}>Help & Support</Text>
         </View>
-        <ModernIcon name="action" size={8} color="#9CA3AF" />
+        <ModernIcon name="action" size={8} color={t.textMuted} />
       </TouchableOpacity>
       
       <TouchableOpacity 
-        style={[styles.settingsItem, styles.logoutItem, { backgroundColor: '#FEF2F2' }]} 
-        onPress={() => {
-          console.log('Logout TouchableOpacity pressed!');
-          handleLogout();
-        }}
+        style={[styles.settingsItem, styles.logoutItem, { backgroundColor: isDark ? '#EF444418' : '#FEF2F2', borderColor: isDark ? '#EF444444' : 'transparent', borderWidth: isDark ? 1 : 0 }]} 
+        onPress={() => { handleLogout(); }}
         activeOpacity={0.7}
       >
         <View style={styles.settingsItemLeft}>
           <ModernIcon name="logout" size={20} color="#EF4444" />
-          <Text style={[styles.settingsItemText, styles.logoutText]}>Logout</Text>
+          <Text style={[styles.settingsItemText, { color: '#EF4444', fontFamily: t.fontBodySemibold }]}>Logout</Text>
         </View>
       </TouchableOpacity>
     </View>
@@ -1014,10 +984,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        {renderTopBar()}
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell tokens={t} isDark={isDark} background="bg" bordered title="Profile" onBack={() => navigation.goBack()} />
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
@@ -1028,13 +996,12 @@ export default function ProfileScreen({ onLogout, navigation }) {
         {renderOverallStats()}
         {renderSettings()}
         
-        {/* Delete Account Link */}
         <View style={styles.deleteAccountContainer}>
           <TouchableOpacity 
             onPress={() => setShowDeleteAccountModal(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.deleteAccountText}>How do I delete my account</Text>
+            <Text style={[styles.deleteAccountText, { color: t.textCaption }]}>How do I delete my account</Text>
           </TouchableOpacity>
         </View>
         
@@ -1072,33 +1039,6 @@ const styles = StyleSheet.create({
   },
   headerSafeArea: {
     backgroundColor: 'white',
-  },
-  // Top Bar styles
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-    marginLeft: -4, // Align with iOS guidelines
-  },
-  topBarTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 16,
-  },
-  topBarRightSpace: {
-    width: 40, // Same width as back button to center the title
   },
   scrollView: {
     flex: 1,
@@ -1281,12 +1221,8 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     marginBottom: 24,
-    paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 12,
   },
   // Recent Activity

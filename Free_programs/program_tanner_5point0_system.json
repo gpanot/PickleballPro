@@ -1,0 +1,419 @@
+{
+  "name": "Tanner Tomassi: 5.0 Drilling System",
+  "description": "The exact 6-drill progression Tanner Tomassi used to go from 4.0 to elite 5.0 level on the APP Tour. Built on 2 years of daily court work in Delray Beach, Florida. Start every session from Drill 1 and work through the sequence.",
+  "category": "Pro Training",
+  "tier": "Advanced",
+  "rating": 4.8,
+  "added_count": 0,
+  "is_published": true,
+  "thumbnail_url": null,
+  "is_shareable": true,
+  "visibility": "public",
+  "is_coach_program": false,
+  "skill_categories_json": ["dinks", "volleys", "resets", "game_play", "pressure_points"],
+  "order_index": 1,
+  "routines": [
+    {
+      "name": "Session 1 — Straight-Ahead Dink Game",
+      "description": "Tanner starts every single practice session with this drill. He calls it the single most impactful exercise for kitchen line improvement. Play it twice a day and your comfort at the net will transform within weeks.",
+      "order_index": 1,
+      "time_estimate_minutes": 20,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s1_straight_dink_speedup",
+            "title": "Straight-Ahead Dink Game with Speedups",
+            "description": "Play a live dinking game straight ahead at the kitchen line. Either player can speed up whenever they get an opportunity. No cross-court — everything goes straight ahead.",
+            "goal_text": "Win 2 games to 11 points",
+            "instructions": "1. Both players position at their respective kitchen line, directly across from each other (not cross-court).\n2. Start with a controlled dink to begin the rally.\n3. Either player can speed up the ball at any time — take balls out of the air when possible, lean into the kitchen, steal time from your opponent.\n4. Focus on court positioning and decision-making, not power.\n5. Play games to 11 points (or 5 if short on time).\n6. Key cue: 'Mastering this specific game is the key to getting better — it gets you so comfortable at the net with good hands, good dinks, and good IQ.' — Tanner Tomassi",
+            "target_value": 2,
+            "target_unit": "games won",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 20,
+            "skill_categories_json": ["dinks", "volleys", "game_play"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Take every ball you can out of the air — this steals time from your opponent",
+              "Lean into the kitchen rather than backing up",
+              "Smart decisions beat flashy shots every time",
+              "Tanner did this drill twice a day for hours when he first moved to Florida"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 2 — Cross-Court Consistency",
+      "description": "99% of pickleball is cross-court dinking. This session strips away the speedups and forces pure consistency — the muscle memory you need when matches get tight.",
+      "order_index": 2,
+      "time_estimate_minutes": 25,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s2_crosscourt_consistency",
+            "title": "Cross-Court Dinking — 100-Ball Consistency",
+            "description": "Cooperative cross-court dinking with no speedups allowed. The goal is 100 shots in a row without an error. Mix techniques throughout.",
+            "goal_text": "Complete a 100-shot rally without error",
+            "instructions": "1. Both players position at the kitchen line cross-court from each other.\n2. Begin a cooperative dinking rally — no speedups allowed at any point.\n3. Mix in different techniques throughout: slices, two-handed rolls, aggressive dinks, taking balls out of the air.\n4. Keep everything soft and controlled, as if you are in a tournament match.\n5. Do not rip winners off dinks — this is about building muscle memory and court sense.\n6. Target: 100 consecutive shots without error. Reset count on any miss.\n7. Key cue: '99% of pickleball is cross-court dinking. You want to be able to hang comfortably dinking cross-court for long.' — Tanner Tomassi",
+            "target_value": 100,
+            "target_unit": "shots",
+            "target_type": "streak",
+            "difficulty": 2,
+            "estimated_minutes": 15,
+            "skill_categories_json": ["dinks", "spin_control"],
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Treat this as a tournament warm-up — stay calm and controlled",
+              "Slices, rolls, and taking balls early all count — stay varied",
+              "No speedups under any circumstances — this session is about touch",
+              "If you miss, start the count over — stakes make the drill real"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s2_wide_dink_middle_cover",
+            "title": "Wide Dink + Middle Coverage",
+            "description": "Partner pulls you wide with a cross-court dink, then moves the ball to the middle. You step back and cover that middle. Builds the automatic response that matches demand.",
+            "goal_text": "Complete 20 correct middle-coverage sequences",
+            "instructions": "1. Both players start at the kitchen line cross-court.\n2. Your partner dinks the ball wide to pull you out.\n3. You return the wide dink.\n4. Your partner then moves the ball to the middle.\n5. You step back to cover the middle and respond.\n6. Repeat in a cooperative pattern — no live competition.\n7. Key cue: 'Get into the routine of your opponent pulling you out wide. Then you step back and cover that middle.' — Tanner Tomassi\n8. Lateral movement tip: use a cross step to cut off the wide ball — do not shuffle.",
+            "target_value": 20,
+            "target_unit": "sequences",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "footwork", "positioning"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Use a cross step to cut off the wide ball — never shuffle laterally",
+              "Your paddle should stay up and in front at all times",
+              "After covering the middle, reset your position to the centerline",
+              "The middle line is not a force field — step across it without hesitation"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 3 — Slice Cut Against Aggressive Dinks",
+      "description": "When your opponent is hitting aggressive dinks they can win on, the answer is not to block. This session teaches you to step to the middle, lean in, and slice cut out of the air — the same response Ben Johns and Hayden Patriquin use constantly.",
+      "order_index": 3,
+      "time_estimate_minutes": 20,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s3_slice_cut_aggro_dink",
+            "title": "Slice Cut Against Aggressive Dinks",
+            "description": "Partner feeds aggressive cross-court dinks. You step to the middle, lean in, and slice cut the ball out of the air rather than blocking it back.",
+            "goal_text": "Complete 15 clean slice-cut out-of-the-air shots",
+            "instructions": "1. Your partner stands at the kitchen line and hits aggressive, angled cross-court dinks.\n2. Rather than blocking the ball back, step toward the middle, lean in, and slice cut the ball out of the air.\n3. Aim the cut back cross-court or down the middle — not back at the same aggressive angle.\n4. The more aggressively your partner hits, the more the ball floats back to them — use this to set up a flick opportunity.\n5. Repeat 15 times, then switch roles.\n6. Key coaching principle: the slice cut completely neutralizes a dangerous aggressive dink by redirecting pace and changing the ball's trajectory.",
+            "target_value": 15,
+            "target_unit": "clean cuts",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "slices", "volleys"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Step to the middle first — positioning before the swing",
+              "The harder they hit it, the more it floats — use their pace against them",
+              "A successful cut sets up a flick opportunity on their floating return",
+              "Top pros like Ben Johns and Hayden Patriquin use this response constantly"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s3_crosscourt_dink_game_no_speedup",
+            "title": "Cross-Court Dink Game to 5 — No Speedups",
+            "description": "Competitive cross-court dink game to 5 points. Speedups are banned. If you hit into the net you lose all your points. Making drilling competitive is vital.",
+            "goal_text": "Win a game to 5 without any speedups",
+            "instructions": "1. Both players at the kitchen line, cross-court from each other.\n2. Play a competitive game to 5 points.\n3. Speedups are NOT allowed — any speedup attempt means you lose the point automatically.\n4. Additional rule: if you hit the ball into the net, you lose ALL your accumulated points and restart from zero.\n5. Use a cross step to cover wide balls laterally — not a shuffle.\n6. Focus on placement, consistency, and reading your opponent's position.\n7. The net-ball penalty creates real stakes and forces concentration on every single shot.",
+            "target_value": 5,
+            "target_unit": "points",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "game_play", "footwork"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Losing all points on a net ball keeps every shot meaningful",
+              "Use placement and angles to create pressure — no speed allowed",
+              "Cross step laterally to cut off wide balls, never shuffle",
+              "This is where consistency under pressure gets built"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 4 — Dealing with Bangers",
+      "description": "Not everyone plays soft pickleball. This session was vital to Tanner reaching the next level. It simulates the chaos of players who drive hard and crash the net — and trains your hands and instincts to handle real match pressure.",
+      "order_index": 4,
+      "time_estimate_minutes": 25,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s4_banger_drive_crash",
+            "title": "Drive and Crash — Banger Defense",
+            "description": "Partner feeds a ball from the baseline, drives it hard at you, and crashes the net. You must punch back and handle the incoming pace without dropping it or popping it up.",
+            "goal_text": "Successfully handle 15 drive-and-crash sequences",
+            "instructions": "1. You position at the kitchen line. Your partner stands just inside the baseline.\n2. You feed your partner a ball.\n3. Your partner drives it hard and crashes the net immediately after contact.\n4. You must punch the ball back — absorb the pace, block or redirect with a compact punch volley.\n5. Do not swing — keep your paddle in front, use a short compact motion.\n6. After the punch, you play out the point.\n7. Switch roles after 15 reps.\n8. Key cue: 'This was vital in taking my game to the next level. It's how to deal with bangers.' — Tanner Tomassi\n9. Key technical note: use a continental grip so both your forehand and backhand sides are equally accessible without re-gripping.",
+            "target_value": 15,
+            "target_unit": "sequences",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 15,
+            "skill_categories_json": ["volleys", "resets", "game_play", "pressure_points"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Compact punch volley — do not swing",
+              "Continental grip gives you equal access to both sides under pressure",
+              "This is a better practice tool than soft feeding — you're training real instincts",
+              "The baseline player should vary pace and angle each rep to prevent anticipation"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s4_transition_reset_advance",
+            "title": "Transition Zone Reset and Advance",
+            "description": "Partner feeds speedups from the kitchen line while you work resets from the transition zone, then advance to the net. Teaches the reset-and-keep-going habit that separates 4.0 and 5.0 players.",
+            "goal_text": "Complete 10 clean reset-then-advance sequences",
+            "instructions": "1. You start at the baseline. Your partner is at the kitchen line.\n2. Your partner feeds you a speedup or hard ball to your transition zone (halfway between baseline and kitchen).\n3. You reset the ball softly into the kitchen with a compact block — short swing, soft grip, aim for the middle of the kitchen.\n4. Immediately after the reset, take one step forward toward the net.\n5. Your partner feeds another speedup. You reset again and take another step.\n6. Continue until you have reached the NVZ line.\n7. Full reset-to-advance sequence then counts as one rep. Repeat 10 times.\n8. Key focus: do not stop forward movement after the reset. The reset is not the goal — reaching the kitchen is the goal.",
+            "target_value": 10,
+            "target_unit": "sequences",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["resets", "transitions", "footwork"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Short swing — reset is a block or punch, not a groundstroke",
+              "Soft grip absorbs pace and prevents the ball from popping up",
+              "Keep moving forward after every reset — that is the whole point",
+              "Low ball: reset. Waist ball: control. High ball: attack. Read before you swing"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 5 — Dead Dink and Fast Hands",
+      "description": "Tanner's personal favorite drill and the one he credits most for developing his fast hands. The more you do this, the better your hands get — especially at reading and reacting to the ball.",
+      "order_index": 5,
+      "time_estimate_minutes": 20,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s5_dead_dink_hands_battle",
+            "title": "Dead Dink — Induced Hands Battle",
+            "description": "Both players at the kitchen line. One player gives a soft dead dink. The other speeds it up to start a hands battle. Play out the point. This is Tanner's most effective drill for hand speed development.",
+            "goal_text": "Complete 20 induced hands battle sequences",
+            "instructions": "1. Both players position at the kitchen line, directly across from each other.\n2. Player A dinks to Player B. Player B returns it.\n3. Player A hits a soft, slow, dead dink — intentionally giving Player B a ball to attack.\n4. Player B speeds up the dead dink to start a hands battle.\n5. Both players play out the point from there — either player can move, step back, or hold their position.\n6. The point ends normally. Reset and repeat.\n7. Switch who initiates the dead dink every 5 reps.\n8. Key cue: 'We're basically just inducing a hands battle and getting it started. This is my personal favorite. This is how I got fast hands.' — Tanner Tomassi",
+            "target_value": 20,
+            "target_unit": "sequences",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 15,
+            "skill_categories_json": ["volleys", "game_play", "pressure_points"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "The dead dink must be genuinely soft and flat — make it hittable",
+              "Do not rush the speedup — let the ball come to you before accelerating",
+              "Control beats power at the kitchen line — soft hands win more hands battles",
+              "The more reps you get, the more automatic your read-and-react becomes"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "tan_s5_speedup_iq_game",
+            "title": "Speedup IQ Game — Scored Kitchen Battle",
+            "description": "Competitive kitchen line game where a successful speedup winner scores 2 points and a regular dink winner scores 1 point. Trains when and where to speed up for maximum effect.",
+            "goal_text": "Win a game to 11 points",
+            "instructions": "1. Both players at the kitchen line, straight-ahead position.\n2. Start the point with a dink.\n3. Once the ball is in the kitchen, either player can continue dinking or speed up.\n4. Scoring: a successful speedup winner (opponent cannot return it) = 2 points. A dink winner = 1 point. An unforced error = 0 points and point goes to opponent.\n5. Play to 11 points.\n6. Key strategic rules:\n   - Only speed up balls that are at net height or above — low dinks should never be sped up\n   - Target: opponent's outstretched backhand or jammed forehand shoulder\n   - Avoid: balls that require stretching your opponent's forehand or hitting into their body backhand (easy counter positions)\n   - Keep backswing and follow-through short — large swings telegraph the shot and leave you vulnerable to the counter",
+            "target_value": 11,
+            "target_unit": "points",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 15,
+            "skill_categories_json": ["game_play", "volleys", "pressure_points", "dinks"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Only speed up at net height or above — low dinks sped up will go in the net or sail out",
+              "Target: outstretched backhand or jammed forehand shoulder",
+              "Short backswing — large swings telegraph and leave you exposed to the counter",
+              "The 2-point bonus creates natural pressure to execute the speedup correctly"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 6 — Full System Drill Session",
+      "description": "The complete Tanner 5.0 protocol run back to back. Use this session as your weekly full practice benchmark. Every drill in sequence. This is exactly how Tanner trained twice a day in Delray Beach.",
+      "order_index": 6,
+      "time_estimate_minutes": 60,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "custom_target_value": 1,
+          "exercise": {
+            "code": "tan_s6_full_straight_dink",
+            "title": "Full Session — Straight-Ahead Dink Warmup",
+            "description": "Open with one game to 11 straight-ahead with speedups. Set the tone for the session.",
+            "goal_text": "Complete 1 game to 11",
+            "instructions": "1. Start immediately at the kitchen line straight-ahead.\n2. Play one game to 11 — live dinking with speedups allowed.\n3. Do not warm up before this — this IS your warmup.\n4. Focus on comfort, not results. Shake off any rust in the first few points.",
+            "target_value": 1,
+            "target_unit": "game",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "volleys"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": ["This is your warmup — skip the soft rallies and get into it immediately"],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "custom_target_value": 50,
+          "exercise": {
+            "code": "tan_s6_crosscourt_50",
+            "title": "Full Session — Cross-Court 50-Shot Checkpoint",
+            "description": "Cooperative cross-court rally to 50 consecutive shots. The shorter version for the combined session.",
+            "goal_text": "Complete a 50-shot rally without error",
+            "instructions": "1. Cross-court cooperative dinking — no speedups.\n2. Target is 50 consecutive shots without error (shortened from the full 100-ball session).\n3. Mix techniques: slices, rolls, taking balls out of the air.\n4. Reset count on any miss.",
+            "target_value": 50,
+            "target_unit": "shots",
+            "target_type": "streak",
+            "difficulty": 2,
+            "estimated_minutes": 8,
+            "skill_categories_json": ["dinks", "spin_control"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": ["Use this as a focus reset — calm your hands before the competitive drills"],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "custom_target_value": 10,
+          "exercise": {
+            "code": "tan_s6_banger_block_reps",
+            "title": "Full Session — Banger Block Reps",
+            "description": "10 drive-and-crash reps to keep your banger defense sharp.",
+            "goal_text": "Successfully handle 10 drive-and-crash reps",
+            "instructions": "1. You at kitchen line. Partner at baseline.\n2. Feed, partner drives and crashes, you punch block.\n3. Play out the point after the block.\n4. 10 reps then switch.",
+            "target_value": 10,
+            "target_unit": "blocks",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 8,
+            "skill_categories_json": ["volleys", "resets"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": ["Continental grip, compact punch — keep it automatic"],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 4,
+          "is_optional": false,
+          "custom_target_value": 20,
+          "exercise": {
+            "code": "tan_s6_dead_dink_finish",
+            "title": "Full Session — Dead Dink Hands Battle Finish",
+            "description": "Close the session with 20 dead dink induced hands battles. End every practice with fast hands.",
+            "goal_text": "Complete 20 induced hands battle sequences",
+            "instructions": "1. Both at kitchen line.\n2. Cooperative dink, dead dink, speedup to start the battle, play out the point.\n3. 20 reps alternating who gives the dead dink.\n4. This is your final drill every session — end with speed.",
+            "target_value": 20,
+            "target_unit": "sequences",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 15,
+            "skill_categories_json": ["volleys", "game_play", "pressure_points"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": ["End every session with this drill — hands get faster with repetition over time"],
+            "demo_video_url": "https://www.youtube.com/watch?v=qmDge1oSbPs",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    }
+  ]
+}

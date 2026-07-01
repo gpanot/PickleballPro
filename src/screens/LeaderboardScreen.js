@@ -12,16 +12,17 @@ import {
 } from 'react-native';
 import SeededAvatar from '../components/SeededAvatar';
 import EmptyState from '../components/EmptyState';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Globe, MapPin, User, Users } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import * as Location from 'expo-location';
 
 export default function LeaderboardScreen({ navigation }) {
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { logbookTheme: t, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState([]);
@@ -184,10 +185,10 @@ export default function LeaderboardScreen({ navigation }) {
   };
 
   const getRankColor = (rank) => {
-    if (rank === 1) return '#FFD700'; // Gold
-    if (rank === 2) return '#C0C0C0'; // Silver
-    if (rank === 3) return '#CD7F32'; // Bronze
-    return '#6366F1'; // Default purple
+    if (rank === 1) return '#FFD700';
+    if (rank === 2) return '#C0C0C0';
+    if (rank === 3) return '#CD7F32';
+    return t.accentPurple;
   };
 
   const getRankIcon = (rank) => {
@@ -216,8 +217,8 @@ export default function LeaderboardScreen({ navigation }) {
           style={{ borderWidth: 2, borderColor: medalColor }}
         />
         <Text style={[styles.podiumMedal, { color: medalColor }]}>{rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'}</Text>
-        <Text style={styles.podiumName} numberOfLines={1}>{player.name || 'Player'}</Text>
-        <Text style={styles.podiumScore}>{player.score} pts</Text>
+        <Text style={[styles.podiumName, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]} numberOfLines={1}>{player.name || 'Player'}</Text>
+        <Text style={[styles.podiumScore, { color: t.textMuted, fontFamily: t.fontBody }]}>{player.score} pts</Text>
         <View style={[styles.podiumBlock, { height, backgroundColor: medalColor + '33', borderTopColor: medalColor }]} />
       </View>
     );
@@ -225,14 +226,22 @@ export default function LeaderboardScreen({ navigation }) {
 
   const FilterButton = ({ filter, label, Icon }) => {
     const isActive = selectedFilter === filter;
-    const iconColor = isActive ? '#fff' : '#64748B';
+    const iconColor = isActive ? (isDark ? t.fabTextColor : '#fff') : t.textMuted;
     return (
       <TouchableOpacity
-        style={[styles.filterButton, isActive && styles.filterButtonActive]}
+        style={[
+          styles.filterButton,
+          { backgroundColor: isDark ? t.surfaceRaised : '#fff', borderColor: isDark ? t.border : '#E2E8F0' },
+          isActive && { backgroundColor: t.accentPurple, borderColor: t.accentPurple },
+        ]}
         onPress={() => setSelectedFilter(filter)}
       >
         {Icon && <Icon size={14} color={iconColor} style={{ marginRight: 6 }} />}
-        <Text style={[styles.filterButtonText, isActive && styles.filterButtonTextActive]}>
+        <Text style={[
+          styles.filterButtonText,
+          { color: t.textMuted, fontFamily: t.fontBodySemibold },
+          isActive && { color: isDark ? t.fabTextColor : '#fff' },
+        ]}>
           {label}
         </Text>
       </TouchableOpacity>
@@ -245,35 +254,36 @@ export default function LeaderboardScreen({ navigation }) {
     ? 'Global rankings'
     : `${selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1)} players`;
 
+  const accent = t.accentPurple;
+  const nudgeBg = isDark ? t.surfaceRaised : '#EEF2FF';
+  const nudgeBorder = isDark ? t.border : '#C7D2FE';
+
   return (
-    <View style={styles.container}>
-      {/* Header — matches app standard */}
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        <View style={styles.headerContainer}>
-          <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>Leaderboard</Text>
-          </View>
-          <Text style={styles.headerSubtitle}>
-            {filterSubtitle} · based on latest coach assessment
-          </Text>
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title="Leaderboard"
+        subtitle={`${filterSubtitle} · based on latest coach assessment`}
+      />
 
       {/* Current User Card */}
       {currentUserRank && (
-        <View style={styles.currentUserCard}>
+        <View style={[styles.currentUserCard, { backgroundColor: accent, shadowColor: accent }]}>
           <View style={styles.currentUserRankBadge}>
             <RankMedal rank={currentUserRank} size={26} />
           </View>
           <View style={styles.currentUserInfo}>
-            <Text style={styles.currentUserName}>Your Rank</Text>
-            <Text style={styles.currentUserScore}>{currentUserScore} points</Text>
+            <Text style={[styles.currentUserName, { fontFamily: t.fontBodySemibold }]}>Your Rank</Text>
+            <Text style={[styles.currentUserScore, { fontFamily: t.fontDisplay }]}>{currentUserScore} points</Text>
           </View>
         </View>
       )}
 
       {/* Filters */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { paddingHorizontal: t.headerPaddingH }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <FilterButton filter="global" label="Global" Icon={Globe} />
           <FilterButton filter="nearby" label="Nearby" Icon={MapPin} />
@@ -286,8 +296,8 @@ export default function LeaderboardScreen({ navigation }) {
       {/* Leaderboard List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6366F1" />
-          <Text style={styles.loadingText}>Loading rankings...</Text>
+          <ActivityIndicator size="large" color={accent} />
+          <Text style={[styles.loadingText, { color: t.textMuted, fontFamily: t.fontBody }]}>Loading rankings...</Text>
         </View>
       ) : (
         <>
@@ -295,7 +305,7 @@ export default function LeaderboardScreen({ navigation }) {
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} />
             }
           >
             {leaderboardData.length === 0 ? (
@@ -323,24 +333,25 @@ export default function LeaderboardScreen({ navigation }) {
                     key={player.id}
                     style={[
                       styles.playerCard,
-                      player.id === user?.id && styles.playerCardCurrent,
+                      { backgroundColor: t.surface },
+                      player.id === user?.id && { borderWidth: 2, borderColor: accent, backgroundColor: isDark ? t.surfaceRaised : '#F0F9FF' },
                     ]}
                   >
                     <View style={[styles.rankBadge, { backgroundColor: getRankColor(player.rank) }]}>
                       <RankMedal rank={player.rank} size={16} />
                     </View>
                     <View style={styles.playerInfo}>
-                      <Text style={styles.playerName}>
+                      <Text style={[styles.playerName, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>
                         {player.name || 'Anonymous Player'}
                         {player.id === user?.id && ' (You)'}
                       </Text>
-                      <Text style={styles.playerTier}>
+                      <Text style={[styles.playerTier, { color: t.textMuted, fontFamily: t.fontBody }]}>
                         {player.tier || 'No Tier'} • {player.city || 'Location not set'}
                       </Text>
                     </View>
                     <View style={styles.playerScore}>
-                      <Text style={styles.scoreValue}>{player.score}</Text>
-                      <Text style={styles.scoreLabel}>pts</Text>
+                      <Text style={[styles.scoreValue, { color: accent, fontFamily: t.fontDisplay }]}>{player.score}</Text>
+                      <Text style={[styles.scoreLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>pts</Text>
                     </View>
                   </View>
                 ))}
@@ -351,40 +362,38 @@ export default function LeaderboardScreen({ navigation }) {
           {/* Pinned current-user row */}
           {currentUserRank && (
             <View>
-              <View style={styles.pinnedUserRow}>
+              <View style={[styles.pinnedUserRow, { backgroundColor: nudgeBg, borderTopColor: nudgeBorder }]}>
                 <View style={[styles.rankBadge, { backgroundColor: getRankColor(currentUserRank) }]}>
                   <RankMedal rank={currentUserRank} size={16} />
                 </View>
                 <View style={styles.playerInfo}>
-                  <Text style={[styles.playerName, { color: '#6366F1' }]}>You</Text>
-                  <Text style={styles.playerTier}>{currentUserScore} points</Text>
+                  <Text style={[styles.playerName, { color: accent, fontFamily: t.fontBodySemibold }]}>You</Text>
+                  <Text style={[styles.playerTier, { color: t.textMuted, fontFamily: t.fontBody }]}>{currentUserScore} points</Text>
                 </View>
-                <Text style={styles.pinnedLabel}>Your rank</Text>
+                <Text style={[styles.pinnedLabel, { color: accent, fontFamily: t.fontBodySemibold }]}>Your rank</Text>
               </View>
-              {/* Improvement nudge for non-top-3 */}
               {currentUserRank > 3 && (
                 <TouchableOpacity
-                  style={styles.improveNudge}
+                  style={[styles.improveNudge, { backgroundColor: nudgeBg, borderTopColor: nudgeBorder }]}
                   onPress={() => navigation.navigate('Training2')}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="trending-up-outline" size={16} color="#6366F1" style={{ marginRight: 6 }} />
-                  <Text style={styles.improveNudgeText}>Request a coach assessment to climb the ranks</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#6366F1" />
+                  <Ionicons name="trending-up-outline" size={16} color={accent} style={{ marginRight: 6 }} />
+                  <Text style={[styles.improveNudgeText, { color: accent, fontFamily: t.fontBody }]}>Request a coach assessment to climb the ranks</Text>
+                  <Ionicons name="chevron-forward" size={14} color={accent} />
                 </TouchableOpacity>
               )}
             </View>
           )}
-          {/* Nudge when user has no rank yet */}
           {!currentUserRank && (
             <TouchableOpacity
-              style={styles.improveNudge}
+              style={[styles.improveNudge, { backgroundColor: nudgeBg, borderTopColor: nudgeBorder }]}
               onPress={() => navigation.navigate('Training2')}
               activeOpacity={0.8}
             >
-              <Ionicons name="star-outline" size={16} color="#6366F1" style={{ marginRight: 6 }} />
-              <Text style={styles.improveNudgeText}>Get a coach assessment to earn your ranking</Text>
-              <Ionicons name="chevron-forward" size={14} color="#6366F1" />
+              <Ionicons name="star-outline" size={16} color={accent} style={{ marginRight: 6 }} />
+              <Text style={[styles.improveNudgeText, { color: accent, fontFamily: t.fontBody }]}>Get a coach assessment to earn your ranking</Text>
+              <Ionicons name="chevron-forward" size={14} color={accent} />
             </TouchableOpacity>
           )}
         </>
@@ -394,38 +403,8 @@ export default function LeaderboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  headerSafeArea: {
-    backgroundColor: '#FFFFFF',
-    zIndex: 10,
-  },
-  headerContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 2,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '400',
-  },
+  container: { flex: 1 },
+  headerSafeArea: { zIndex: 10 },
   currentUserCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -433,9 +412,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 12,
     padding: 16,
-    backgroundColor: '#6366F1',
     borderRadius: 16,
-    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -445,101 +422,28 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  currentUserRankText: {
-    fontSize: 28,
-  },
-  currentUserInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  currentUserName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-    marginBottom: 4,
-  },
-  currentUserScore: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  filterContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
+  currentUserInfo: { flex: 1, marginLeft: 16 },
+  currentUserName: { fontSize: 16, color: 'white', marginBottom: 4 },
+  currentUserScore: { fontSize: 20, color: 'white' },
+  filterContainer: { paddingHorizontal: 20, paddingVertical: 12 },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: 'white',
     borderRadius: 20,
     marginRight: 8,
-    borderWidth: 2,
-    borderColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1.5,
   },
-  filterButtonActive: {
-    backgroundColor: '#6366F1',
-    borderColor: '#6366F1',
-  },
-  filterButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  filterButtonTextActive: {
-    color: 'white',
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  emptyContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  // Podium styles
+  filterButtonText: { fontSize: 13 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  loadingText: { marginTop: 12, fontSize: 16 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingBottom: 24 },
   podiumContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -549,91 +453,31 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 4,
   },
-  podiumCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  podiumCardCenter: {
-    marginBottom: 0,
-  },
-  podiumAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#EEF2FF',
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  podiumAvatarImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
-  podiumAvatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#6366F1',
-  },
-  podiumMedal: {
-    fontSize: 13,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  podiumName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#1F2937',
-    textAlign: 'center',
-    marginBottom: 2,
-    maxWidth: 80,
-  },
-  podiumScore: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginBottom: 6,
-  },
-  podiumBlock: {
-    width: '100%',
-    borderTopWidth: 3,
-    borderRadius: 4,
-  },
-  // Pinned current user
+  podiumCard: { flex: 1, alignItems: 'center' },
+  podiumCardCenter: { marginBottom: 0 },
+  podiumMedal: { fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  podiumName: { fontSize: 11, textAlign: 'center', marginBottom: 2, maxWidth: 80 },
+  podiumScore: { fontSize: 11, marginBottom: 6 },
+  podiumBlock: { width: '100%', borderTopWidth: 3, borderRadius: 4 },
   pinnedUserRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#EEF2FF',
     borderTopWidth: 1,
-    borderTopColor: '#C7D2FE',
   },
-  pinnedLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6366F1',
-  },
+  pinnedLabel: { fontSize: 12 },
   improveNudge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#EEF2FF',
     borderTopWidth: 1,
-    borderTopColor: '#C7D2FE',
   },
-  improveNudgeText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#6366F1',
-    fontWeight: '500',
-  },
+  improveNudgeText: { flex: 1, fontSize: 12 },
   playerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -643,11 +487,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  playerCardCurrent: {
-    backgroundColor: '#F0F9FF',
-    borderWidth: 2,
-    borderColor: '#6366F1',
-  },
   rankBadge: {
     width: 48,
     height: 48,
@@ -656,38 +495,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  rankBadgeText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  playerInfo: {
-    flex: 1,
-  },
-  playerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 4,
-  },
-  playerTier: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  playerScore: {
-    alignItems: 'flex-end',
-  },
-  scoreValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#6366F1',
-    marginBottom: 2,
-  },
-  scoreLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-  },
+  playerInfo: { flex: 1 },
+  playerName: { fontSize: 15, marginBottom: 3 },
+  playerTier: { fontSize: 12 },
+  playerScore: { alignItems: 'flex-end' },
+  scoreValue: { fontSize: 24, marginBottom: 2 },
+  scoreLabel: { fontSize: 12 },
 });
 

@@ -1,0 +1,370 @@
+{
+  "name": "Collin Johns: Right Side Mastery",
+  "description": "The 3-drill system Collin Johns says he cannot live without — built around the three game situations that determine every doubles match: NVZ straight-ahead battles, 7-11 transition play, and full-court skinny singles. Collin is one of the top 3 doubles players in the world. This is how he trains daily.",
+  "category": "Pro Training",
+  "tier": "Advanced",
+  "rating": 4.9,
+  "added_count": 0,
+  "is_published": true,
+  "thumbnail_url": null,
+  "is_shareable": true,
+  "visibility": "public",
+  "is_coach_program": false,
+  "skill_categories_json": ["dinks", "drops", "resets", "third_shot", "transitions", "game_play", "patterns"],
+  "order_index": 2,
+  "routines": [
+    {
+      "name": "Session 1 — NVZ Straight-Ahead Dink Battle",
+      "description": "Collin's first essential drill. At the pro level, straight-ahead play is preferred over cross-court because most pickleball attacks go straight ahead and most counters come from straight ahead. This session builds that skill set from the ground up.",
+      "order_index": 1,
+      "time_estimate_minutes": 25,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s1_straight_ahead_kitchen",
+            "title": "Straight-Ahead Kitchen Battle",
+            "description": "Both players at the NVZ line, stacked on one side of the court. Dink starts the rally, then the ball is live. Speedups, counters, blocks, different dink types — everything is in play. Play to 7 points.",
+            "goal_text": "Win 2 games to 7 points",
+            "instructions": "1. Both players position at the kitchen line straight ahead of each other — one side of the court only (half-court width).\n2. Stack position: one player on the left of their half, the other on the right — you can spend a long time drilling one side without needing to change position.\n3. Start every point with a controlled dink to begin the rally.\n4. From there, the point is live: speedups, counters, blocks, different dink types, and balance-disrupting shots are all in play.\n5. Play to 7 points.\n6. Key principle from Collin: 'A lot of pickleball is attacking straight ahead and countering attacks that are hit from straight ahead. That is why I prefer this over cross-court dinking at my level.'\n7. Variation: play to 11 for longer sessions.",
+            "target_value": 7,
+            "target_unit": "points",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 15,
+            "skill_categories_json": ["dinks", "volleys", "game_play", "pressure_points"],
+            "dupr_range_min": 4.0,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Straight-ahead is the high-percentage attack lane — train it more than cross-court",
+              "Try to get each other off balance with placement and pace variation",
+              "Counters and blocks are as important as speedups — don't just think offense",
+              "Both players can stay on one side for a long time — this is intentional for rep volume"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=g-fS0l1T7eg&t=3214",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s1_transition_reset_drill",
+            "title": "Transition Zone Reset — Block and Advance",
+            "description": "Partner at the kitchen line feeds speedups and drives at you in the transition zone. You reset softly into the kitchen, then advance. Trains the exact scenario that kills most 4.0 players.",
+            "goal_text": "Complete 12 clean reset-and-advance sequences",
+            "instructions": "1. You stand in the transition zone — halfway between the baseline and the kitchen line.\n2. Your partner is at the kitchen line and feeds speedups, drives, or hard balls directed at your feet or body.\n3. Your job: block or reset the ball softly into the NVZ with a compact paddle motion — short swing, soft grip.\n4. Key technical note from Collin: 'Keep everything quiet. Manage the energy of your swing. The more energy you impart, the more likely the ball pops up.'\n5. After a successful reset, take one step forward toward the kitchen.\n6. Continue resetting and advancing until you reach the NVZ line. That is one full sequence.\n7. Repeat 12 sequences. Switch roles halfway.\n8. Traffic light rule: low ball below the waist = reset only. Waist height = control. Above waist = potential attack.",
+            "target_value": 12,
+            "target_unit": "sequences",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["resets", "transitions", "footwork"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 6.0,
+            "tips_json": [
+              "Short, compact swing — a reset is a block, not a groundstroke",
+              "Soft grip absorbs pace and prevents the ball from floating back up",
+              "Keep moving forward after each reset — that is the whole point",
+              "Low ball = reset, waist = control, high = attack. Read before you swing"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=g-fS0l1T7eg&t=3214",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 2 — 7-11 Transition Game",
+      "description": "Collin's second essential drill. Collin prefers this over skinny singles because of the sheer number of reps on the most important shots in doubles: the third, fourth, and fifth balls. Every rep is purposeful.",
+      "order_index": 2,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s2_seven_eleven_game",
+            "title": "7-11 Transition Game",
+            "description": "One player starts at the baseline, one at the kitchen line. Baseline player needs 7 points to win. Kitchen player needs 11 points to win. Baseline player must move forward with good footwork and smart shot selection to score.",
+            "goal_text": "Play 4 complete 7-11 games (2 from each position)",
+            "instructions": "1. Player A starts at the kitchen line. Player B starts at the baseline.\n2. Player A needs 11 points to win. Player B needs 7 points to win.\n3. Player B serves from the baseline and begins every point.\n4. Player B must use good transition zone footwork to advance: split step, lunging steps, stay low, move toward the net with purpose.\n5. Player B's shot selection from the baseline: third-shot drop (preferred) or third-shot drive — decision based on the quality of the incoming ball.\n6. Player A at the kitchen defends, attacks, and tries to keep Player B back.\n7. Play 4 full games — 2 from each position.\n8. Key principle from Collin: 'I prefer this over skinny singles because of the number of reps on important shots — the thirds, fourths, and fifths. Those shots decide doubles matches.'\n9. Coaching note: the unequal scoring (7 vs 11) compensates for the structural advantage of the kitchen player — it creates a fair competitive game.",
+            "target_value": 4,
+            "target_unit": "games",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 20,
+            "skill_categories_json": ["drops", "third_shot", "transitions", "footwork", "game_play"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Baseline player: never drive two balls in a row — drive one, drop the next",
+              "Good transition footwork: split step, lunge, stay low, keep moving",
+              "Kitchen player: keep the baseline player back by attacking high balls and keeping returns low",
+              "The baseline player winning 7 before the kitchen player wins 11 is genuinely hard — that is the point"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s2_third_shot_drop_baseline",
+            "title": "Third Shot Drop Isolation — Baseline to NVZ",
+            "description": "Isolation drill for the third shot drop from the baseline. Partner at the kitchen receives drops and gives feedback. The most important shot to master in the 7-11 game.",
+            "goal_text": "Land 15 clean drops in the NVZ from the baseline",
+            "instructions": "1. You stand at the baseline. Your partner stands at the kitchen line.\n2. Your partner tosses or feeds you a ball to simulate a return of serve landing in the transition zone or baseline area.\n3. You hit a third-shot drop — a soft, arcing ball that lands in your opponent's NVZ (kitchen).\n4. The drop must land in the kitchen AND be low enough that your partner cannot attack it (below net height at kitchen contact).\n5. After each successful drop, take 2-3 steps toward the net.\n6. Your partner catches or lets the ball bounce, then feeds the next one.\n7. Key technical focus: the ball should arc with a high peak and descend softly into the kitchen — not line-drive flat.\n8. Count only drops your partner confirms are unattackable (low and in the kitchen).",
+            "target_value": 15,
+            "target_unit": "clean drops",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["drops", "third_shot", "transitions"],
+            "dupr_range_min": 2.5,
+            "dupr_range_max": 5.5,
+            "tips_json": [
+              "The ball must arc high and drop softly — not flat and hard",
+              "A good drop is one your partner cannot attack — that is the standard",
+              "If the return bounces shallow and low: drop. If deep and aggressive: drive first",
+              "Always move toward the net after releasing the drop — the drop buys you time to advance"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 3 — Skinny Singles: Full Court Coverage",
+      "description": "Collin's third essential drill. Skinny singles gives you reps at every court position — serve, return, drop, reset, and dink — in a format that mirrors real doubles play. The server changes sides when they win a point, forcing you to cover the entire court.",
+      "order_index": 3,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s3_skinny_singles_server_switch",
+            "title": "Skinny Singles — Server Changes Sides",
+            "description": "Full-court skinny singles using Collin's more comprehensive version where the server changes sides of the court when they win a point. This gives you reps at every position on the court in a single game.",
+            "goal_text": "Play 2 complete skinny singles games to 11",
+            "instructions": "1. Both players take a position on the right side of their respective half of the court.\n2. 0-0: serve diagonally, right side to right side.\n3. If the server wins the point, the server moves to the left side of their court. The returner stays on the right side.\n4. Next point: played straight ahead (left to right, no diagonal).\n5. If the server wins again, they move back to the right side. Continue switching sides on every server win.\n6. If the returner wins any point, they do not move — only the server changes sides when they win.\n7. Points are played exactly like doubles: serve, return, third shot (drop or drive), transition, NVZ.\n8. Play to 11 points, win by 2. Then switch server.\n9. Key principle from Collin: 'This version gives you reps at every position on the court — diagonal, straight-ahead, and every combination.'\n10. Spend 10 minutes before a match or open play in this drill and leave your opponent playing catch up all day.",
+            "target_value": 2,
+            "target_unit": "games to 11",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 20,
+            "skill_categories_json": ["game_play", "drops", "third_shot", "returns", "serves", "transitions"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Treat every point like a tournament match — this is the closest thing to real doubles",
+              "The drawback is fewer reps per position — accept the variety as the whole point",
+              "Every serve, return, third, fourth, and fifth counts here — nothing is wasted",
+              "10 minutes of this before open play will sharpen your decision-making immediately"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s3_skinny_kitchen_only",
+            "title": "Skinny Kitchen Singles — NVZ Line Only",
+            "description": "Both players at the NVZ line, half-court width. Dink starts every point, then anything goes. This isolates the kitchen battle within a full-game competitive format.",
+            "goal_text": "Win 2 games to 7 points",
+            "instructions": "1. Both players position at the kitchen line, each on one half of their respective court (half-court width).\n2. Start every point with a mandatory dink — the first shot must be a dink into the kitchen.\n3. From there, the point is live: dinks, speedups, counters, blocks — everything is in play.\n4. Players may step back from the kitchen but cannot retreat past the transition zone midpoint.\n5. Play to 7 points, win by 2.\n6. Variation A: play dinks only (no speedups allowed) to focus on placement and consistency.\n7. Variation B: only attack balls taken out of the air — no speedups on the bounce.\n8. Mix the variations across games to keep the drill purposeful.",
+            "target_value": 7,
+            "target_unit": "points",
+            "target_type": "count",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "volleys", "game_play", "pressure_points"],
+            "dupr_range_min": 3.0,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "The mandatory opening dink forces you out of the habit of immediate aggression",
+              "Variation: dinks only teaches placement and patience under pressure",
+              "Variation: air-only attacks trains the highest-percentage speedup scenario",
+              "Alternate variations each game to keep the intent of each session clear"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=g-fS0l1T7eg&t=3214",
+            "is_published": true,
+            "tier_level": "Intermediate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 4 — Right Side Specialization",
+      "description": "Collin is the definitive right-side player in professional doubles. This session targets the three skills that define the right side: backhand-to-backhand dink consistency, middle ball ownership, and counter-attack positioning from the right.",
+      "order_index": 4,
+      "time_estimate_minutes": 30,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s4_backhand_backhand_dink",
+            "title": "Backhand-to-Backhand Dink Consistency",
+            "description": "Cross-court backhand dinking exchange with no speedups. The backhand dink is the most neglected shot at 4.0 and below. It is Collin's primary weapon from the right side.",
+            "goal_text": "Complete a 50-shot backhand dink rally without error",
+            "instructions": "1. Both players at the kitchen line, cross-court from each other — right-side player to right-side player.\n2. Both players dink using backhand only — forehand dinks are not allowed during this drill.\n3. Keep the pace cooperative — no speedups.\n4. Goal: 50 consecutive backhand dinks without error.\n5. Mix in: backhand slices, backhand rolls, taking the ball early out of the air with the backhand.\n6. Key principle: the backhand dink is a massive liability at higher levels for players who neglect it. Collin's backhand is one of the strongest in the professional game specifically because he drills this constantly.\n7. Reset count on any error.",
+            "target_value": 50,
+            "target_unit": "shots",
+            "target_type": "streak",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["dinks", "slices", "spin_control"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Give yourself enough space to execute the backhand without reaching or overextending",
+              "Push the ball rather than swinging — a backhand dink is a push, not a groundstroke",
+              "Slices and rolls are both valid backhand dink variations — stay varied",
+              "The backhand is the biggest gap between 4.0 and 5.0 players — this drill closes it"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=g-fS0l1T7eg&t=3214",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s4_middle_ownership_drill",
+            "title": "Middle Ball Ownership — Right-Side Coverage",
+            "description": "Partner feeds balls to the middle of the court at various heights. Right-side player owns the middle, reads ball height, and decides whether to reset, control, or attack. Builds the automatic decisions Collin makes instantly in matches.",
+            "goal_text": "Complete 20 correct middle-ball decisions and shots",
+            "instructions": "1. You position at the right side of the kitchen line.\n2. Your partner (on the opposite side of the net) feeds balls to the center of the court at varied heights.\n3. For every ball, apply the traffic light system:\n   - Low ball (below knee/ankle) = RED: reset the ball softly into the kitchen, no exceptions.\n   - Waist-height ball = YELLOW: control it — a firm dink or controlled redirect, proceed with caution.\n   - Above-waist / high ball = GREEN: attack it — speedup or put-away toward their backhand or jammed shoulder.\n4. Take every middle ball as the right-side player — do not yield to the left side.\n5. Call out the color before you hit each shot to confirm you are reading correctly.\n6. Complete 20 reps. Your partner scores: correct decision + correct execution = 1 point. Wrong decision = 0 points.\n7. Targeting rule for attacks: aim for the opponent's outstretched backhand or jammed forehand shoulder. Never cross-court on a hard attack.",
+            "target_value": 20,
+            "target_unit": "correct decisions",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["game_play", "volleys", "resets", "positioning", "patterns"],
+            "dupr_range_min": 4.0,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Call your color out loud before you swing — it forces you to read before reacting",
+              "The right-side player owns the middle — never hesitate or yield that space",
+              "Attack target: outstretched backhand or jammed forehand shoulder",
+              "Wrong attacks on low balls are the most common error that keeps players stuck below 4.5"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=g-fS0l1T7eg&t=3214",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 3,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s4_counter_attack_positioning",
+            "title": "Counter-Attack Positioning — Block and Redirect",
+            "description": "Partner speeds up at you from straight ahead. You block and redirect to a precise target — not just survive the exchange, but redirect with intention. The counter-attack is the right-side player's most important defensive weapon.",
+            "goal_text": "Successfully redirect 15 counter-attacks to the correct target",
+            "instructions": "1. Both players at the kitchen line, straight-ahead.\n2. Your partner speeds up the ball at you — targeting your backhand hip, your body, or your shoulder.\n3. Your job: block and redirect the speedup to a specific called target. Your partner calls the target before they speed up: 'backhand', 'middle', or 'feet'.\n4. Use a compact block — short swing, no follow-through, soft grip to absorb pace.\n5. After the block, the point continues live — play it out.\n6. Technical key: hit the counter-attack ball downward to your opponent's feet rather than at chest height. Control beats power at the kitchen line.\n7. Count only redirects that reach the called target zone. Aim for 15 successful ones.",
+            "target_value": 15,
+            "target_unit": "successful redirects",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["volleys", "game_play", "patterns", "pressure_points"],
+            "dupr_range_min": 4.0,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Hit the counter downward to their feet — not at chest height where they can slam it",
+              "Control beats power at the kitchen line every time",
+              "Compact block — short swing, soft grip, no follow-through",
+              "Having a called target before each rep keeps the drill intentional and not just reactive"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=g-fS0l1T7eg&t=3214",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session 5 — Full Match Simulation",
+      "description": "Everything Collin builds across Sessions 1-4 comes together here. Full skinny singles points from serve through NVZ battle. This is the session that makes the drills real.",
+      "order_index": 5,
+      "time_estimate_minutes": 40,
+      "is_published": true,
+      "exercises": [
+        {
+          "order_index": 1,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s5_pre_match_10_min",
+            "title": "Pre-Match Protocol — 10 Minutes of Skinny Singles",
+            "description": "Collin's explicit pre-match warmup recommendation: 10 minutes of skinny singles before any game or open play session. Activates every skill before real competition.",
+            "goal_text": "Complete a 10-minute skinny singles warm-up session",
+            "instructions": "1. Arrive at the court 15 minutes before your game or open play.\n2. Find a partner and immediately play skinny singles.\n3. Start down the line, right side to right side.\n4. Play continuous points — no stopping between points, no extended rallying.\n5. Alternate between dinks-only points and fully live points every few games.\n6. You have exactly 10 minutes. Use them.\n7. This is not casual warm-up. This is purposeful activation of: serve, return, third shot, fourth shot, dink, speedup, counter, and NVZ movement.\n8. Key result: 'Start off with a win and leave your opponent playing catch up all day.' — Collin Johns",
+            "target_value": 10,
+            "target_unit": "minutes",
+            "target_type": "time",
+            "difficulty": 3,
+            "estimated_minutes": 10,
+            "skill_categories_json": ["game_play", "drops", "third_shot", "returns", "serves"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "No soft rallying — play real points from the first ball",
+              "Mix dinks-only and fully live points to activate both patience and aggression",
+              "10 minutes is short — play fast, play with intent, no wasted time between points",
+              "This works because it mirrors exactly what you will face in your next game"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        },
+        {
+          "order_index": 2,
+          "is_optional": false,
+          "exercise": {
+            "code": "cj_s5_full_sequence_skinny",
+            "title": "Full Sequence Skinny Singles — Serve to Finish",
+            "description": "Full skinny singles where every element is active: serve, return, third, fourth, fifth balls, transition, NVZ battle. Scoring is standard. Points must include at least 3 shots before any speedup is attempted.",
+            "goal_text": "Play 3 complete games to 11",
+            "instructions": "1. Full skinny singles — half-court, down the line.\n2. Standard scoring: serve, return, play out the point.\n3. Rule: no speedup attempts before the 3rd ball of any rally. The first two balls after the serve must be the return and the third shot. This forces real shot construction.\n4. The baseline player must attempt a third-shot drop OR drive before going to the NVZ line.\n5. From the NVZ line, anything goes.\n6. Play 3 games to 11, win by 2. Switch sides between games.\n7. After each game, both players identify one technical thing they want to focus on in the next game — call it before the game starts.\n8. This is the highest-value drill in the program. It replicates match conditions completely.",
+            "target_value": 3,
+            "target_unit": "games to 11",
+            "target_type": "count",
+            "difficulty": 4,
+            "estimated_minutes": 30,
+            "skill_categories_json": ["game_play", "drops", "third_shot", "serves", "returns", "transitions", "dinks", "patterns"],
+            "dupr_range_min": 3.5,
+            "dupr_range_max": 7.0,
+            "tips_json": [
+              "Name your focus for each game before it starts — intention makes the rep count",
+              "The 3-ball-before-speedup rule forces you to construct points, not just react",
+              "This is the drill that makes everything else real — do not skip it",
+              "Switch sides between games to practice every court position equally"
+            ],
+            "demo_video_url": "https://www.youtube.com/watch?v=K5z0rSu-97U",
+            "is_published": true,
+            "tier_level": "Advanced"
+          }
+        }
+      ]
+    }
+  ]
+}

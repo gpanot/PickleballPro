@@ -12,11 +12,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
 
-export default function CreateAccountScreen({ 
-  navigation, 
-  route, 
-  onContinueWithEmail, 
-  onGoBack 
+export default function CreateAccountScreen({
+  navigation,
+  route,
+  onContinueWithEmail,
+  onGoBack,
+  onSignIn,
 }) {
   const insets = useSafeAreaInsets();
   const { user } = useUser();
@@ -123,6 +124,16 @@ export default function CreateAccountScreen({
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Sign In link */}
+          {onSignIn && (
+            <View style={styles.signInRow}>
+              <Text style={styles.footerText}>Already have an account? </Text>
+              <TouchableOpacity onPress={onSignIn}>
+                <Text style={styles.signInLink}>Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </>
@@ -263,5 +274,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
     fontWeight: '600',
+  },
+  signInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  signInLink: {
+    fontSize: 14,
+    color: '#6366F1',
+    fontWeight: '700',
   },
 });

@@ -20,11 +20,14 @@ import ExerciseHistoryModal from '../components/ExerciseHistoryModal';
 import { useLogbook } from '../context/LogbookContext';
 import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 
 export default function RoutineDetailScreen({ navigation, route }) {
   const { program, routine: initialRoutine, onUpdateRoutine, autoOpenExercisePicker, source, isStudentView, studentId } = route.params;
   const { user } = useUser();
   const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   
   // Ensure routine has exercises array, transform routine_exercises if needed
   const normalizedRoutine = React.useMemo(() => {
@@ -980,7 +983,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
             <Text style={styles.exercisesSubtitle}>
               {source === 'training'
                 ? 'Tap exercise to practice · Log results when done'
-                : (source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment')
+                : (source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment')
                 ? 'Preview exercises in this routine'
                 : 'Tap to practice • Long press to remove'}
             </Text>
@@ -1009,7 +1012,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 ]}
                 onPress={() => handleNavigateToExercise(exercise)}
                 disabled={isNavigating} // Disable tap when already navigating
-                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
+                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
                   <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
@@ -1220,7 +1223,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
             <Text style={styles.exercisesSubtitle}>
               {source === 'training'
                 ? 'Tap exercise to practice · Log results when done'
-                : (source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment')
+                : (source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment')
                 ? 'Preview exercises in this routine'
                 : 'Tap to practice • Long press to remove'}
             </Text>
@@ -1249,7 +1252,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 ]}
                 onPress={() => handleNavigateToExercise(exercise)}
                 disabled={isNavigating} // Disable tap when already navigating
-                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'coach_assignment' || source === 'training') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
+                onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment' || source === 'training') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
                   <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
@@ -1406,25 +1409,16 @@ export default function RoutineDetailScreen({ navigation, route }) {
 
   return (
     <>
-    <View style={styles.container}>
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons 
-              name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-              size={24} 
-              color="#007AFF" 
-            />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>{routine.name}</Text>
-            <Text style={styles.headerSubtitle}>from {program.name}</Text>
-          </View>
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title={routine.name}
+        subtitle={`from ${program.name}`}
+        onBack={() => navigation.goBack()}
+      />
       
       <ScrollView 
         style={styles.scrollView} 
@@ -1435,10 +1429,10 @@ export default function RoutineDetailScreen({ navigation, route }) {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor="#3B82F6"
-            colors={["#3B82F6"]}
+            tintColor={t.accentPurple}
+            colors={[t.accentPurple]}
             title="Pull to refresh exercises..."
-            titleColor="#6B7280"
+            titleColor={t.textMuted}
           />
         }
       >
@@ -1473,34 +1467,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  headerSafeArea: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
+  container: { flex: 1 },
   headerSubtitle: {
     fontSize: 14,
     color: '#6B7280',

@@ -9,14 +9,11 @@ import {
   PanResponder,
   Dimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
 const ACCENT_COLOR = '#F39C12';
 
 const SKILL_CRITERIA = {
@@ -69,7 +66,7 @@ const ALL_SKILLS = [
 ];
 
 // Custom Slider Component
-function CustomSlider({ value, onValueChange, min = 0, max = 10, color = PRIMARY_COLOR }) {
+function CustomSlider({ value, onValueChange, min = 0, max = 10, color = '#27AE60', trackColor = '#E5E7EB' }) {
   const [sliderWidth, setSliderWidth] = useState(0);
   const [dragging, setDragging] = useState(false);
 
@@ -105,7 +102,7 @@ function CustomSlider({ value, onValueChange, min = 0, max = 10, color = PRIMARY
   return (
     <View style={styles.sliderWrapper}>
       <View
-        style={styles.sliderTrack}
+        style={[styles.sliderTrack, { backgroundColor: trackColor }]}
         {...panResponder.panHandlers}
         onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
       >
@@ -119,9 +116,9 @@ function CustomSlider({ value, onValueChange, min = 0, max = 10, color = PRIMARY
         />
       </View>
       <View style={styles.sliderLabels}>
-        <Text style={styles.sliderLabel}>{min}</Text>
-        <Text style={[styles.sliderLabel, styles.sliderLabelCenter]}>5</Text>
-        <Text style={styles.sliderLabel}>{max}</Text>
+        <Text style={[styles.sliderLabel, { color: '#9CA3AF' }]}>{min}</Text>
+        <Text style={[styles.sliderLabel, styles.sliderLabelCenter, { color: '#6B7280' }]}>5</Text>
+        <Text style={[styles.sliderLabel, { color: '#9CA3AF' }]}>{max}</Text>
       </View>
     </View>
   );
@@ -129,8 +126,8 @@ function CustomSlider({ value, onValueChange, min = 0, max = 10, color = PRIMARY
 
 export default function SkillDetailScreen({ route, navigation }) {
   const { studentId, student, skillId, skillName, maxScore, assessmentKey } = route.params;
-  const insets = useSafeAreaInsets();
-  
+  const { logbookTheme: t, isDark } = useTheme();
+
   const criteria = SKILL_CRITERIA[skillId] || [];
   const [scores, setScores] = useState({});
   const [notes, setNotes] = useState('');
@@ -203,9 +200,9 @@ export default function SkillDetailScreen({ route, navigation }) {
 
   const getScoreColor = (score, max) => {
     const percentage = (score / max) * 100;
-    if (percentage < 50) return '#EF4444'; // Red
-    if (percentage < 75) return ACCENT_COLOR; // Yellow
-    return PRIMARY_COLOR; // Green
+    if (percentage < 50) return '#EF4444';
+    if (percentage < 75) return ACCENT_COLOR;
+    return t.accentPurple;
   };
 
   const handleScoreChange = async (criterionId, value) => {
@@ -231,31 +228,27 @@ export default function SkillDetailScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{skillName} Evaluation</Text>
-          <Text style={styles.headerSubtitle}>{student?.name || 'Player'}</Text>
-        </View>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title={`${skillName} Evaluation`}
+        subtitle={student?.name || 'Player'}
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {criteria.map((criterion) => {
           const score = scores[criterion.id] || 0;
           const color = getScoreColor(score, criterion.maxScore);
-          
           return (
-            <View key={criterion.id} style={styles.criterionCard}>
+            <View key={criterion.id} style={[styles.criterionCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
               <View style={styles.criterionHeader}>
-                <Text style={styles.criterionLabel}>{criterion.label}</Text>
+                <Text style={[styles.criterionLabel, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{criterion.label}</Text>
                 <View style={[styles.scoreBadge, { backgroundColor: color + '20' }]}>
-                  <Text style={[styles.scoreValue, { color }]}>
-                    {score} / {criterion.maxScore}
-                  </Text>
+                  <Text style={[styles.scoreValue, { color, fontFamily: t.fontBodyBold }]}>{score} / {criterion.maxScore}</Text>
                 </View>
               </View>
               <CustomSlider
@@ -264,17 +257,18 @@ export default function SkillDetailScreen({ route, navigation }) {
                 min={0}
                 max={criterion.maxScore}
                 color={color}
+                trackColor={isDark ? t.surfaceRaised : '#E5E7EB'}
               />
             </View>
           );
         })}
 
-        <View style={styles.notesCard}>
-          <Text style={styles.notesLabel}>Notes</Text>
+        <View style={[styles.notesCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
+          <Text style={[styles.notesLabel, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Notes</Text>
           <TextInput
-            style={styles.notesInput}
+            style={[styles.notesInput, { borderColor: isDark ? t.border : '#E5E7EB', color: t.textPrimary, backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB' }]}
             placeholder="Add notes about this skill..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={t.textMuted}
             value={notes}
             onChangeText={handleNotesChange}
             multiline
@@ -282,171 +276,39 @@ export default function SkillDetailScreen({ route, navigation }) {
           />
         </View>
 
-        <View style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>Total Score</Text>
-          <Text style={[styles.scoreTotal, { color: getScoreColor(totalScore, maxScore) }]}>
+        <View style={[styles.scoreCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
+          <Text style={[styles.scoreLabel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Total Score</Text>
+          <Text style={[styles.scoreTotal, { color: getScoreColor(totalScore, maxScore), fontFamily: t.fontDisplay }]}>
             {totalScore} / {maxScore} ({maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0}%)
           </Text>
         </View>
       </ScrollView>
-
-      {/* Footer removed: back handled by top bar */}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerBackButton: {
-    padding: 8,
-  },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  placeholder: {
-    width: 40,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 120,
-  },
-  criterionCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  criterionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  criterionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    flex: 1,
-  },
-  scoreBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  scoreValue: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sliderWrapper: {
-    marginTop: 8,
-  },
-  sliderTrack: {
-    height: 24,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    position: 'relative',
-    overflow: 'visible',
-  },
-  sliderFill: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    height: '100%',
-    borderRadius: 12,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    top: -8,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: PRIMARY_COLOR,
-    transform: [{ translateX: -20 }],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  sliderThumbDragging: {
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingHorizontal: 2,
-  },
-  sliderLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#9CA3AF',
-  },
-  sliderLabelCenter: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  notesCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  notesLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  notesInput: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    color: '#1F2937',
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  scoreCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  scoreLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+  container: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  criterionCard: { borderRadius: 16, padding: 16, marginBottom: 14 },
+  criterionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  criterionLabel: { fontSize: 15, flex: 1 },
+  scoreBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  scoreValue: { fontSize: 15 },
+  sliderWrapper: { marginTop: 8 },
+  sliderTrack: { height: 24, borderRadius: 12, position: 'relative', overflow: 'visible' },
+  sliderFill: { position: 'absolute', top: 0, left: 0, height: '100%', borderRadius: 12 },
+  sliderThumb: { position: 'absolute', top: -8, width: 40, height: 40, borderRadius: 20, transform: [{ translateX: -20 }], shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
+  sliderThumbDragging: { shadowOpacity: 0.4, shadowRadius: 8, elevation: 8 },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingHorizontal: 2 },
+  sliderLabel: { fontSize: 12, fontWeight: '500' },
+  sliderLabelCenter: { fontSize: 13, fontWeight: '700' },
+  notesCard: { borderRadius: 16, padding: 16, marginBottom: 14 },
+  notesLabel: { fontSize: 15, marginBottom: 10 },
+  notesInput: { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 14, minHeight: 100, textAlignVertical: 'top' },
+  scoreCard: { borderRadius: 16, padding: 20, alignItems: 'center' },
+  scoreLabel: { fontSize: 13,
     color: '#6B7280',
     marginBottom: 8,
   },
@@ -464,22 +326,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-  },
-  footerBackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: PRIMARY_COLOR,
-    backgroundColor: 'white',
-    gap: 8,
-  },
-  footerBackButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
   },
 });
 

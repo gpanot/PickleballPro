@@ -7,23 +7,23 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert,
+  Modal,
 } from 'react-native';
-import { Alert } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronUp, ChevronDown, FileText, ClipboardList, Sparkles, X } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, transformProgramData, getLogbookEntriesByUserId } from '../../lib/supabase';
-import { Modal } from 'react-native';
 import SeededAvatar from '../../components/SeededAvatar';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
 
 export default function PlayerProfileScreen({ route, navigation }) {
   const { studentId, student, isStudentView } = route.params || {};
-  const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const { logbookTheme: t, isDark } = useTheme();
   
   const [player, setPlayer] = useState(student || null);
   const [loading, setLoading] = useState(!student);
@@ -522,50 +522,27 @@ function SparkLine({ values, color, height = 64, style }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
+      <View style={[styles.loadingContainer, { backgroundColor: t.bg }]}>
+        <ActivityIndicator size="large" color={t.accentPurple} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        {isStudentView ? (
-          <View style={styles.headerCenter}>
-            {player?.tier && (
-              <View style={styles.headerChip}>
-                <Text style={styles.headerChipLabel}>Tier</Text>
-                <Text style={styles.headerChipValue}>{player.tier}</Text>
-              </View>
-            )}
-            {(() => {
-              // Find the latest non-First Time Assessment
-              const latestRealAssessment = assessments.find(a => !isFirstTimeAssessment(a));
-              return latestRealAssessment && (
-                <View style={styles.headerScore}>
-                  <Text style={styles.headerScoreLabel}>Score</Text>
-                  <Text style={styles.headerScoreValue}>
-                    {String(Number(latestRealAssessment.total_score) || 0)}
-                  </Text>
-                </View>
-              );
-            })()}
-          </View>
-        ) : (
-          <View style={styles.headerTitle}>
-            <Text style={styles.headerTitleText}>Player Profile</Text>
-          </View>
-        )}
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title={isStudentView ? (player?.name || 'My Profile') : 'Player Profile'}
+        subtitle={!isStudentView && player?.name ? player.name : undefined}
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView style={styles.scrollView}>
         {/* Merged Player Header with Skill Overview */}
-        <View style={styles.mergedPlayerSection}>
+        <View style={[styles.mergedPlayerSection, { backgroundColor: t.surface }]}>
           {/* Player Info Row - Hidden in student view */}
           {!isStudentView && (
             <View style={styles.playerInfoRow}>
@@ -576,36 +553,35 @@ function SparkLine({ values, color, height = 64, style }) {
                 style={styles.compactAvatar}
               />
               <View style={styles.compactInfo}>
-                <Text style={styles.compactName} numberOfLines={1}>
+                <Text style={[styles.compactName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]} numberOfLines={1}>
                   {player?.name || 'Player'}
                 </Text>
                 <View style={styles.compactChips}>
                   {player?.dupr_rating && (
-                    <View style={styles.chip}>
-                      <Text style={styles.chipLabel}>DUPR</Text>
-                      <Text style={styles.chipValue}>{player.dupr_rating}</Text>
+                    <View style={[styles.chip, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
+                      <Text style={[styles.chipLabel, { color: t.textMuted }]}>DUPR</Text>
+                      <Text style={[styles.chipValue, { color: t.textPrimary }]}>{player.dupr_rating}</Text>
                     </View>
                   )}
                   {player?.tier && (
-                    <View style={styles.chip}>
-                      <Text style={styles.chipLabel}>Tier</Text>
-                      <Text style={styles.chipValue}>{player.tier}</Text>
+                    <View style={[styles.chip, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
+                      <Text style={[styles.chipLabel, { color: t.textMuted }]}>Tier</Text>
+                      <Text style={[styles.chipValue, { color: t.textPrimary }]}>{player.tier}</Text>
                     </View>
                   )}
                   {player?.preferred_side && (
-                    <View style={styles.chip}>
-                      <Text style={styles.chipLabel}>Side</Text>
-                      <Text style={styles.chipValue}>{player.preferred_side}</Text>
+                    <View style={[styles.chip, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
+                      <Text style={[styles.chipLabel, { color: t.textMuted }]}>Side</Text>
+                      <Text style={[styles.chipValue, { color: t.textPrimary }]}>{player.preferred_side}</Text>
                     </View>
                   )}
                 </View>
               </View>
               {(() => {
-                // Find the latest non-First Time Assessment
                 const latestRealAssessment = assessments.find(a => !isFirstTimeAssessment(a));
                 return latestRealAssessment && (
                   <View style={styles.latestScoreContainer}>
-                    <Text style={styles.latestScoreValue} numberOfLines={1}>
+                    <Text style={[styles.latestScoreValue, { color: t.accentPurple, fontFamily: t.fontDisplay }]} numberOfLines={1}>
                       {String(Number(latestRealAssessment.total_score) || 0)}
                     </Text>
                   </View>
@@ -615,21 +591,17 @@ function SparkLine({ values, color, height = 64, style }) {
           )}
 
           {/* Skill Overview Header (Collapsible) */}
-          <TouchableOpacity 
-            style={styles.skillOverviewToggle}
+          <TouchableOpacity
+            style={[styles.skillOverviewToggle, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB' }]}
             onPress={() => setSkillOverviewExpanded(!skillOverviewExpanded)}
             activeOpacity={0.7}
           >
             <View style={styles.skillOverviewToggleLeft}>
-              <View style={styles.skillAveragesDot} />
-              <Text style={styles.skillAveragesTitle}>Skill Overview</Text>
-              <Text style={styles.skillAveragesSubtitle}>· Average of all assessments</Text>
+              <View style={[styles.skillAveragesDot, { backgroundColor: t.accentPurple }]} />
+              <Text style={[styles.skillAveragesTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Skill Overview</Text>
+              <Text style={[styles.skillAveragesSubtitle, { color: t.textMuted }]}>· Average of all assessments</Text>
             </View>
-            <Ionicons 
-              name={skillOverviewExpanded ? 'chevron-up' : 'chevron-down'} 
-              size={20} 
-              color="#6B7280" 
-            />
+            {skillOverviewExpanded ? <ChevronUp size={18} color={t.textMuted} strokeWidth={2} /> : <ChevronDown size={18} color={t.textMuted} strokeWidth={2} />}
           </TouchableOpacity>
 
           {/* Collapsible Skill Badges */}
@@ -658,17 +630,20 @@ function SparkLine({ values, color, height = 64, style }) {
 
         {/* Tabs */}
         <View style={styles.tabs}>
-          {['Assessment', 'Programs', 'Progress', 'Logbook'].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {['Assessment', 'Programs', 'Progress', 'Logbook'].map((tab) => {
+            const active = activeTab === tab;
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab, { backgroundColor: active ? t.accentPurple : (isDark ? t.surfaceRaised : 'white') }]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabText, { color: active ? (isDark ? t.fabTextColor : '#fff') : t.textMuted, fontFamily: t.fontBodySemibold }]}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Tab Content */}
@@ -677,24 +652,24 @@ function SparkLine({ values, color, height = 64, style }) {
             <View>
               {loadingAssessments ? (
                 <View style={styles.emptyState}>
-                  <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-                  <Text style={styles.emptyText}>Loading assessments...</Text>
+                  <ActivityIndicator size="large" color={t.accentPurple} />
+                  <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>Loading assessments...</Text>
                 </View>
               ) : assessments.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="document-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyText}>No assessments yet</Text>
+                  <FileText size={48} color={t.textMuted} strokeWidth={1.5} />
+                  <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>No assessments yet</Text>
                   <View style={styles.emptyButtonsContainer}>
                     {!hasFirstTimeAssessment && (
-                      <TouchableOpacity style={styles.emptyButton} onPress={handleFirstTimeAssessment}>
-                        <Ionicons name="sparkles" size={20} color="white" />
-                        <Text style={styles.emptyButtonText}>First Time Assessment</Text>
+                      <TouchableOpacity style={[styles.emptyButton, { backgroundColor: t.accentPurple }]} onPress={handleFirstTimeAssessment}>
+                        <Sparkles size={18} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={2} />
+                        <Text style={[styles.emptyButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>First Time Assessment</Text>
                       </TouchableOpacity>
                     )}
                     {!isStudentView && (
-                      <TouchableOpacity style={styles.emptyButtonSecondary} onPress={handleStartAssessment}>
-                        <Ionicons name="clipboard-outline" size={20} color={PRIMARY_COLOR} />
-                        <Text style={styles.emptyButtonTextSecondary}>Full Assessment</Text>
+                      <TouchableOpacity style={[styles.emptyButtonSecondary, { borderColor: t.accentPurple, backgroundColor: isDark ? t.surface : 'white' }]} onPress={handleStartAssessment}>
+                        <ClipboardList size={18} color={t.accentPurple} strokeWidth={2} />
+                        <Text style={[styles.emptyButtonTextSecondary, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Full Assessment</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -733,7 +708,7 @@ function SparkLine({ values, color, height = 64, style }) {
                     return (
                       <TouchableOpacity
                         key={assessment.id}
-                        style={styles.assessmentCard}
+                        style={[styles.assessmentCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}
                         onPress={() => handleViewAssessment(assessment)}
                         onLongPress={
                           !isStudentView || isFirstTime 
@@ -744,27 +719,27 @@ function SparkLine({ values, color, height = 64, style }) {
                       >
                         <View style={styles.assessmentHeader}>
                           <View style={styles.assessmentHeaderLeft}>
-                            <Text style={styles.assessmentDate}>
+                            <Text style={[styles.assessmentDate, { color: t.textMuted, fontFamily: t.fontBody }]}>
                               {new Date(assessment.created_at).toLocaleDateString()}
                             </Text>
                             {isFirstTime && (
-                              <View style={styles.firstTimeBadge}>
-                                <Ionicons name="sparkles" size={12} color={PRIMARY_COLOR} />
-                                <Text style={styles.firstTimeBadgeText}>First Time</Text>
+                              <View style={[styles.firstTimeBadge, { backgroundColor: `${t.accentPurple}18` }]}>
+                                <Sparkles size={12} color={t.accentPurple} strokeWidth={2} />
+                                <Text style={[styles.firstTimeBadgeText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>First Time</Text>
                               </View>
                             )}
                           </View>
                           {!isFirstTime ? (
                             <View style={styles.assessmentScore}>
-                              <Text style={styles.scoreValue}>
+                              <Text style={[styles.scoreValue, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
                                 {String(Number(assessment.total_score) || 0)}/{String(Number(assessment.max_score) || 0)}
                               </Text>
-                              <Text style={styles.scorePercent}>
+                              <Text style={[styles.scorePercent, { color: t.textMuted }]}>
                                 ({Math.round(((Number(assessment.total_score) || 0) / (Number(assessment.max_score) || 1)) * 100)}%)
                               </Text>
                             </View>
                           ) : (
-                            <Text style={styles.assessmentTypeLabel}>Q&A Session</Text>
+                            <Text style={[styles.assessmentTypeLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>Q&A Session</Text>
                           )}
                         </View>
                         {isFirstTime && firstTimeMessage ? (
@@ -781,15 +756,15 @@ function SparkLine({ values, color, height = 64, style }) {
                   })}
                   <View style={{ paddingHorizontal: 16, marginTop: 12, gap: 12 }}>
                     {!hasFirstTimeAssessment && (
-                      <TouchableOpacity style={styles.primaryButton} onPress={handleFirstTimeAssessment}>
-                        <Ionicons name="sparkles" size={20} color="white" />
-                        <Text style={styles.primaryButtonText}>First Time Assessment</Text>
+                      <TouchableOpacity style={[styles.primaryButton, { backgroundColor: t.accentPurple }]} onPress={handleFirstTimeAssessment}>
+                        <Sparkles size={18} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={2} />
+                        <Text style={[styles.primaryButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>First Time Assessment</Text>
                       </TouchableOpacity>
                     )}
                     {!isStudentView && (
-                      <TouchableOpacity style={styles.secondaryButton} onPress={handleStartAssessment}>
-                        <Ionicons name="clipboard-outline" size={20} color={PRIMARY_COLOR} />
-                        <Text style={styles.secondaryButtonText}>Full Assessment</Text>
+                      <TouchableOpacity style={[styles.secondaryButton, { borderColor: t.accentPurple, backgroundColor: isDark ? t.surface : 'white' }]} onPress={handleStartAssessment}>
+                        <ClipboardList size={18} color={t.accentPurple} strokeWidth={2} />
+                        <Text style={[styles.secondaryButtonText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Full Assessment</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -803,18 +778,18 @@ function SparkLine({ values, color, height = 64, style }) {
               {/* Assign Program Button - Coach View Only */}
               {!isStudentView && (
                 <TouchableOpacity
-                  style={styles.assignProgramButton}
+                  style={[styles.assignProgramButton, { borderColor: t.accentPurple, backgroundColor: isDark ? t.surface : 'white' }]}
                   onPress={handleAssignProgramPress}
                 >
-                  <Ionicons name="add-circle-outline" size={20} color={PRIMARY_COLOR} />
-                  <Text style={styles.assignProgramButtonText}>Assign Program</Text>
+                  <FileText size={18} color={t.accentPurple} strokeWidth={2} />
+                  <Text style={[styles.assignProgramButtonText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Assign Program</Text>
                 </TouchableOpacity>
               )}
-              
+
               {programs.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="list-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyText}>No active programs</Text>
+                  <FileText size={48} color={t.textMuted} strokeWidth={1.5} />
+                  <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>No active programs</Text>
                 </View>
               ) : (
                 programs
@@ -859,7 +834,7 @@ function SparkLine({ values, color, height = 64, style }) {
                       </View>
                       <View style={styles.programCardRight}>
                     <Text style={styles.programStatus}>Active</Text>
-                        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                        <FileText size={18} color={t.textMuted} strokeWidth={2} />
                   </View>
                     </TouchableOpacity>
                 ))
@@ -888,8 +863,8 @@ function SparkLine({ values, color, height = 64, style }) {
                   </View>
                 ) : (
                   <View style={styles.emptyState}>
-                    <Ionicons name="trending-up-outline" size={48} color="#D1D5DB" />
-                    <Text style={styles.emptyText}>No progress data yet</Text>
+                    <FileText size={48} color={t.textMuted} strokeWidth={1.5} />
+                    <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>No progress data yet</Text>
                   </View>
                 )}
               </View>
@@ -907,7 +882,7 @@ function SparkLine({ values, color, height = 64, style }) {
                           <View style={[styles.deltaBarFill, { width: `${Math.min(Math.abs(d)/50*100, 100)}%`, backgroundColor: positive ? '#10B981' : '#EF4444' }]} />
                         </View>
                         <View style={styles.improvementDelta}>
-                          <Ionicons name={ positive ? 'trending-up' : 'trending-down'} size={16} color={positive ? '#10B981' : '#EF4444'} />
+                          <FileText size={14} color={positive ? '#10B981' : '#EF4444'} strokeWidth={2} />
                           <Text style={[styles.improvementText, { color: positive ? '#10B981' : '#EF4444' }]}>
                             {formatDelta(d)}
                           </Text>
@@ -992,8 +967,8 @@ function SparkLine({ values, color, height = 64, style }) {
                 if (exerciseEntries.length === 0) {
                   return (
                     <View style={styles.emptyState}>
-                      <Ionicons name="document-text-outline" size={48} color="#D1D5DB" />
-                      <Text style={styles.emptyText}>No exercise logs yet</Text>
+                      <FileText size={48} color={t.textMuted} strokeWidth={1.5} />
+                      <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>No exercise logs yet</Text>
                     </View>
                   );
                 }
@@ -1129,7 +1104,7 @@ function SparkLine({ values, color, height = 64, style }) {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.seeAllLogsButtonText}>See all logs</Text>
-                      <Ionicons name="chevron-forward" size={18} color={PRIMARY_COLOR} />
+                      <ChevronUp size={16} color={t.accentPurple} strokeWidth={2} style={{ transform: [{ rotate: '90deg' }] }} />
                     </TouchableOpacity>
                   </>
                 );
@@ -1141,11 +1116,11 @@ function SparkLine({ values, color, height = 64, style }) {
       {/* Expanded Skill Modal */}
       <Modal visible={!!expandedSkill} transparent animationType="fade" onRequestClose={() => setExpandedSkill(null)}>
         <View style={styles.modalOverlayCenter}>
-          <View style={styles.modalChartCard}>
+          <View style={[styles.modalChartCard, { backgroundColor: t.surface }]}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>{expandedSkill?.name}</Text>
+              <Text style={[styles.modalTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{expandedSkill?.name}</Text>
               <TouchableOpacity onPress={() => setExpandedSkill(null)} style={{ padding: 8 }}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <X size={22} color={t.textMuted} strokeWidth={2} />
               </TouchableOpacity>
             </View>
             {expandedSkill && (
@@ -1188,23 +1163,14 @@ function SparkLine({ values, color, height = 64, style }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SECONDARY_COLOR,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: SECONDARY_COLOR,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    zIndex: 10,
   },
   backButton: {
     padding: 8,
@@ -1266,7 +1232,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mergedPlayerSection: {
-    backgroundColor: 'white',
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginBottom: 12,
@@ -1390,28 +1355,18 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: 'white',
     alignItems: 'center',
   },
-  tabActive: {
-    backgroundColor: PRIMARY_COLOR,
-  },
   tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  tabTextActive: {
-    color: 'white',
+    fontSize: 13,
   },
   tabContent: {
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
   assessmentCard: {
-    backgroundColor: 'white',
     padding: 16,
     borderRadius: 16,
     marginBottom: 12,

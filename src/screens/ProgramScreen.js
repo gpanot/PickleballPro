@@ -28,6 +28,8 @@ import { usePreload } from '../context/PreloadContext';
 import WebIcon from '../components/WebIcon';
 import WebLinearGradient from '../components/WebLinearGradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import {
   Target,
   Crosshair,
@@ -44,13 +46,20 @@ import {
 import { useLastOpenedProgram } from '../hooks/useLastOpenedProgram';
 import { ProgramSkeletonCard, CoachSkeletonCard, ImageWithSkeleton } from '../components/SkeletonCard';
 import { useActiveTraining } from '../hooks/useActiveTraining';
-import { matchRoadToXProgram, getAllSkillFocusPrograms } from '../lib/trainingTracksApi';
+import {
+  matchRoadToXProgram,
+  getAllSkillFocusPrograms,
+  getSkillsWithPrograms,
+  getProgramsForSkill,
+} from '../lib/trainingTracksApi';
+import { getSkillGroups } from '../lib/skillTaxonomy';
 import PrimaryGoalCard from '../components/training/PrimaryGoalCard';
 import SkillFocusCard from '../components/training/SkillFocusCard';
 import EnrollmentConfirmSheet from '../components/training/EnrollmentConfirmSheet';
 import WelcomeCard from '../components/training/WelcomeCard';
 import SwipeableRow from '../components/SwipeableRow';
 import EmptyState from '../components/EmptyState';
+import { SkillIconBadge } from '../components/SkillIcon';
 
 const { width, height } = Dimensions.get('window');
 
@@ -117,8 +126,16 @@ const getThumbnailHeight = (screenWidth, screenHeight) => {
 
 export default function ProgramScreen({ navigation, route }) {
   const { user } = useUser();
-  const { getDataWithFallback, hasPreloadedData, isDataLoading, refreshData, getDataError } = usePreload();
+  const {
+    getDataWithFallback,
+    hasPreloadedData,
+    isDataLoading,
+    refreshData,
+    getDataError,
+    programs: preloadedPrograms,
+  } = usePreload();
   const insets = useSafeAreaInsets();
+  const { logbookTheme: t, isDark } = useTheme();
   const [currentView, setCurrentView] = React.useState(
     route.params?.initialView || 'myTraining'
   ); // 'myTraining', 'coach', 'programs', 'library' or 'fun'
@@ -159,6 +176,9 @@ export default function ProgramScreen({ navigation, route }) {
   const [recommendedRoadProgram, setRecommendedRoadProgram] = React.useState(null);
   const [allSkillPrograms, setAllSkillPrograms] = React.useState([]);
   const [showSkillPicker, setShowSkillPicker] = React.useState(false);
+  // Two-step skill picker
+  const [skillPickerStep, setSkillPickerStep] = React.useState('skill'); // 'skill' | 'program'
+  const [selectedPickerSkill, setSelectedPickerSkill] = React.useState(null); // { skill, programs[] }
   const [toastMessage, setToastMessage] = React.useState(null);
   
   // Coach Program tab state
@@ -201,13 +221,18 @@ export default function ProgramScreen({ navigation, route }) {
     }
   }, [user?.id]);
 
-  // React to initialView route param changes (e.g. after onboarding or enroll)
+  // React to initialView / refreshTracks route param changes (e.g. after enroll from ProgramDetail)
   React.useEffect(() => {
     if (route.params?.initialView) {
       setCurrentView(route.params.initialView);
-      navigation.setParams({ initialView: undefined });
     }
-  }, [route.params?.initialView]);
+    if (route.params?.refreshTracks) {
+      refreshTracks();
+    }
+    if (route.params?.initialView || route.params?.refreshTracks) {
+      navigation.setParams({ initialView: undefined, refreshTracks: undefined });
+    }
+  }, [route.params?.initialView, route.params?.refreshTracks, refreshTracks, navigation]);
 
   // Reload library data when switching to Library tab (if not already loaded)
   React.useEffect(() => {
@@ -398,6 +423,21 @@ export default function ProgramScreen({ navigation, route }) {
     setAllSkillPrograms(getAllSkillFocusPrograms(allProgramsList));
   }, [user?.dupr_rating]);
 
+  // Skill picker helpers
+  const skillsWithPrograms = React.useMemo(
+    () => getSkillsWithPrograms(allSkillPrograms),
+    [allSkillPrograms]
+  );
+
+  const openSkillPicker = () => {
+    setSkillPickerStep('skill');
+    setSelectedPickerSkill(null);
+    setShowSkillPicker(true);
+    if (allSkillPrograms.length === 0) {
+      fetchLibraryPrograms();
+    }
+  };
+
   // Refresh local session progress when returning to My Training (no network reload)
   React.useEffect(() => {
     if (currentView === 'myTraining' && tracks.length > 0) {
@@ -410,7 +450,16 @@ export default function ProgramScreen({ navigation, route }) {
     if (explorePrograms.length > 0) {
       matchRecommendations(explorePrograms);
     }
-  }, [explorePrograms]);
+  }, [explorePrograms, matchRecommendations]);
+
+  // Sync preloaded catalog when auth preload finishes after mount
+  React.useEffect(() => {
+    if (preloadedPrograms?.length > 0 && explorePrograms.length === 0) {
+      setExplorePrograms(preloadedPrograms);
+      setLibraryLoading(false);
+      setLibraryError(null);
+    }
+  }, [preloadedPrograms, explorePrograms.length]);
 
   const showToast = React.useCallback((message) => {
     if (Platform.OS === 'android') {
@@ -603,7 +652,7 @@ export default function ProgramScreen({ navigation, route }) {
           {/* Master a skill */}
           <TouchableOpacity
             style={styles.goalCardSecondary}
-            onPress={() => setShowSkillPicker(true)}
+            onPress={openSkillPicker}
             activeOpacity={0.88}
           >
             <Crosshair size={20} color="#6B7280" strokeWidth={2} />
@@ -666,7 +715,7 @@ export default function ProgramScreen({ navigation, route }) {
 
         {renderMyTrainingSectionHeader('Skill Focus', {
           showAdd: !skillSlotsFull,
-          onAdd: () => setShowSkillPicker(true),
+          onAdd: openSkillPicker,
         })}
 
         {skillTracks.map(t => (
@@ -690,69 +739,182 @@ export default function ProgramScreen({ navigation, route }) {
 
   // ─── Skill picker modal ───────────────────────────────────────────────────
 
-  const renderSkillPickerModal = () => (
-    <Modal
-      visible={showSkillPicker}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => setShowSkillPicker(false)}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity
-            style={styles.modalCancelButton}
-            onPress={() => setShowSkillPicker(false)}
-          >
-            <Text style={styles.modalCancelText}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Choose a skill</Text>
-          <View style={{ width: 60 }} />
-        </View>
-        <ScrollView style={{ flex: 1 }}>
-          {allSkillPrograms.length === 0 ? (
-            <View style={{ padding: 40, alignItems: 'center' }}>
-              <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center' }}>
-                No Skill Focus programs published yet.
-              </Text>
+  const renderSkillPickerModal = () => {
+    const isStep2 = skillPickerStep === 'program' && selectedPickerSkill;
+    const step2Programs = isStep2
+      ? getProgramsForSkill(selectedPickerSkill.skill.id, allSkillPrograms)
+      : [];
+
+    // Build a lookup: skillId → entry (skill + programs[])
+    const skillMap = skillsWithPrograms.reduce((acc, e) => {
+      acc[e.skill.id] = e;
+      return acc;
+    }, {});
+
+    // Groups filtered to only skills that have programs
+    const skillGroups = getSkillGroups()
+      .map(group => ({
+        ...group,
+        entries: group.skills
+          .map(s => skillMap[s.id])
+          .filter(Boolean),
+      }))
+      .filter(group => group.entries.length > 0);
+
+    const handlePickSkill = (entry) => {
+      if (entry.programs.length === 1) {
+        navigateToSkillProgram(entry.programs[0]);
+      } else {
+        setSelectedPickerSkill(entry);
+        setSkillPickerStep('program');
+      }
+    };
+
+    const handlePickProgram = (program) => {
+      navigateToSkillProgram(program);
+    };
+
+    return (
+      <Modal
+        visible={showSkillPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSkillPicker(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
+          {/* Header */}
+          <View style={styles.modalHeader}>
+            {isStep2 ? (
               <TouchableOpacity
-                onPress={() => { setShowSkillPicker(false); setCurrentView('library'); }}
-                style={{ marginTop: 16 }}
+                style={styles.modalCancelButton}
+                onPress={() => { setSkillPickerStep('skill'); setSelectedPickerSkill(null); }}
               >
-                <Text style={{ color: '#6366F1', fontWeight: '600' }}>Browse Library</Text>
+                <Ionicons name="arrow-back" size={20} color="#6366F1" />
+                <Text style={[styles.modalCancelText, { color: '#6366F1', marginLeft: 4 }]}>Skills</Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            allSkillPrograms.map(p => (
+            ) : (
               <TouchableOpacity
-                key={p.id}
-                style={styles.skillPickerRow}
-                onPress={() => {
-                  setShowSkillPicker(false);
-                  if (skillSlotsFull) {
-                    Alert.alert(
-                      'Skill slots full',
-                      'Both skill slots are in use. Archive one from My Training or set as primary instead.',
-                      [{ text: 'OK' }]
-                    );
-                    return;
-                  }
-                  openEnrollSheet(p, 'skill_1');
-                }}
+                style={styles.modalCancelButton}
+                onPress={() => setShowSkillPicker(false)}
               >
-                <View style={styles.skillPickerInfo}>
-                  <Text style={styles.skillPickerName}>{p.name}</Text>
-                  <Text style={styles.skillPickerMeta}>
-                    {(p.routines || []).length} sessions · {p.category}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-            ))
+            )}
+            <Text style={styles.modalTitle}>
+              {isStep2 ? 'Choose a program' : 'Choose a skill'}
+            </Text>
+            <View style={{ width: 60 }} />
+          </View>
+
+          {/* Step 1 subtitle */}
+          {!isStep2 && skillsWithPrograms.length > 0 && (
+            <Text style={styles.skillPickerSubtitle}>
+              Find a program built around a specific skill.
+            </Text>
           )}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
+
+          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+
+            {/* ── Step 1 — grouped skill list ─────────────────────────────── */}
+            {!isStep2 && (
+              skillGroups.length === 0 ? (
+                libraryLoading ? (
+                  <View style={styles.skillPickerEmptyState}>
+                    <ActivityIndicator size="large" color="#6366F1" />
+                    <Text style={[styles.skillPickerEmptyBody, { marginTop: 16, marginBottom: 0 }]}>
+                      Loading skills…
+                    </Text>
+                  </View>
+                ) : (
+                // Empty state
+                <View style={styles.skillPickerEmptyState}>
+                  <Crosshair size={40} color="#D1D5DB" strokeWidth={1.5} />
+                  <Text style={styles.skillPickerEmptyTitle}>No skill programs yet</Text>
+                  <Text style={styles.skillPickerEmptyBody}>
+                    Skill-based programs are on the way. Browse the library to pick any program for now.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.skillPickerEmptyCta}
+                    onPress={() => { setShowSkillPicker(false); setCurrentView('library'); }}
+                  >
+                    <Text style={styles.skillPickerEmptyCtaText}>Browse Library</Text>
+                  </TouchableOpacity>
+                </View>
+                )
+              ) : (
+                skillGroups.map(group => (
+                  <View key={group.key}>
+                    {/* Group header */}
+                    <Text style={styles.skillPickerGroupHeader}>{group.name}</Text>
+                    {group.entries.map(entry => (
+                      <TouchableOpacity
+                        key={entry.skill.id}
+                        style={styles.skillPickerRow}
+                        onPress={() => handlePickSkill(entry)}
+                        activeOpacity={0.75}
+                      >
+                        <SkillIconBadge
+                          skillId={entry.skill.id}
+                          color={entry.skill.color}
+                          style={{ marginRight: 12 }}
+                        />
+                        <View style={styles.skillPickerInfo}>
+                          <Text style={styles.skillPickerName}>{entry.skill.name}</Text>
+                          <Text style={styles.skillPickerMeta}>
+                            {entry.programs.length} {entry.programs.length === 1 ? 'program' : 'programs'}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ))
+              )
+            )}
+
+            {/* ── Step 2 — program list for chosen skill ──────────────────── */}
+            {isStep2 && (
+              <View style={{ paddingBottom: 32 }}>
+                {step2Programs.map(p => {
+                  const sessionCount = (p.routines || []).length;
+                  const rating = p.rating ? parseFloat(p.rating).toFixed(1) : null;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.skillPickerProgramRow}
+                      onPress={() => handlePickProgram(p)}
+                      activeOpacity={0.75}
+                    >
+                      {/* Thumbnail */}
+                      {p.thumbnail_url || p.thumbnail ? (
+                        <Image
+                          source={{ uri: p.thumbnail_url || p.thumbnail }}
+                          style={styles.skillPickerProgramThumb}
+                        />
+                      ) : (
+                        <View style={[styles.skillPickerProgramThumb, styles.skillPickerProgramThumbPlaceholder]}>
+                          <Target size={20} color="#4338CA" strokeWidth={2} />
+                        </View>
+                      )}
+                      <View style={styles.skillPickerInfo}>
+                        <Text style={styles.skillPickerName} numberOfLines={2}>{p.name}</Text>
+                        <Text style={styles.skillPickerMeta}>
+                          {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}
+                          {p.category ? ` · ${p.category}` : ''}
+                          {rating ? ` · ★ ${rating}` : ''}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  };
 
   // ─── Archive confirm modal ────────────────────────────────────────────────
 
@@ -1863,6 +2025,18 @@ export default function ProgramScreen({ navigation, route }) {
     });
   };
 
+  const navigateToSkillProgram = (program) => {
+    setShowSkillPicker(false);
+    setSkillPickerStep('skill');
+    setSelectedPickerSkill(null);
+    saveLastProgram(program);
+    navigation.navigate('ProgramDetail', {
+      program,
+      source: 'skill_picker',
+      enrollRole: 'skill_1',
+    });
+  };
+
   // Render Fun tab content
   const renderFunContent = () => {
     return (
@@ -2855,54 +3029,43 @@ export default function ProgramScreen({ navigation, route }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>
-              {currentView === 'myTraining' ? 'My Training' : 'Training Programs'}
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title={currentView === 'myTraining' ? 'My Training' : 'Training Programs'}
+        subtitle={
+          currentView === 'myTraining'
+            ? 'Self-guided programs'
+            : currentView === 'library'
+            ? 'Browse catalog'
+            : 'Coach-assigned training'
+        }
+      >
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity style={styles.tab} onPress={() => setCurrentView('myTraining')}>
+            <Text style={[styles.tabText, { color: t.textMuted }, currentView === 'myTraining' && { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
+              My Training
             </Text>
-            <Text style={styles.headerSubtitle}>
-              {currentView === 'myTraining'
-                ? 'Self-guided programs'
-                : currentView === 'library'
-                ? 'Browse catalog'
-                : 'Coach-assigned training'}
+            {currentView === 'myTraining' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.tab} onPress={() => setCurrentView('library')}>
+            <Text style={[styles.tabText, { color: t.textMuted }, currentView === 'library' && { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
+              Library
             </Text>
-          </View>
-          
-          {/* Tab Navigation */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => setCurrentView('myTraining')}
-            >
-              <Text style={[styles.tabText, currentView === 'myTraining' && styles.activeTabText]}>
-                My Training
-              </Text>
-              {currentView === 'myTraining' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => setCurrentView('library')}
-            >
-              <Text style={[styles.tabText, currentView === 'library' && styles.activeTabText]}>
-                Library
-              </Text>
-              {currentView === 'library' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => setCurrentView('coach')}
-            >
-              <Text style={[styles.tabText, currentView === 'coach' && styles.activeTabText]}>
-                Coach Program
-              </Text>
-              {currentView === 'coach' && <View style={styles.activeTabIndicator} />}
-            </TouchableOpacity>
-          </View>
+            {currentView === 'library' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.tab} onPress={() => setCurrentView('coach')}>
+            <Text style={[styles.tabText, { color: t.textMuted }, currentView === 'coach' && { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
+              Coach Program
+            </Text>
+            {currentView === 'coach' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
+          </TouchableOpacity>
         </View>
-      </View>
+      </ScreenHeaderShell>
       
       {currentView === 'myTraining' ? (
         renderMyTrainingContent()
@@ -3066,10 +3229,7 @@ export default function ProgramScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
+  container: { flex: 1 },
   continueCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -3088,21 +3248,6 @@ const styles = StyleSheet.create({
   continueCardText: { flex: 1 },
   continueLabel: { fontSize: 10, color: '#6366F1', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
   continueTitle: { fontSize: 14, color: '#1F2937', fontWeight: '600', marginTop: 1 },
-  headerSafeArea: {
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
   scrollView: {
     flex: 1,
   },
@@ -4246,12 +4391,6 @@ const styles = StyleSheet.create({
   },
 
   // ─── My Training styles ───────────────────────────────────────────────────
-  headerSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-    fontWeight: '400',
-  },
   myTrainingEmptyHeader: {
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -4331,17 +4470,86 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
+  skillPickerSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    paddingTop: 2,
+  },
+  skillPickerGroupHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 4,
+  },
   skillPickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   skillPickerInfo: { flex: 1 },
   skillPickerName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   skillPickerMeta: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  skillPickerProgramRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 12,
+  },
+  skillPickerProgramThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    flexShrink: 0,
+  },
+  skillPickerProgramThumbPlaceholder: {
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skillPickerEmptyState: {
+    paddingHorizontal: 40,
+    paddingTop: 64,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  skillPickerEmptyTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 20,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  skillPickerEmptyBody: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  skillPickerEmptyCta: {
+    backgroundColor: '#6366F1',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  skillPickerEmptyCtaText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
   // Archive / Start new goal sheet
   sheet: {
     position: 'absolute',

@@ -6,6 +6,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Trophy, Target, TrendingUp, Dumbbell } from 'lucide-react-native';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 
@@ -19,29 +20,25 @@ export default function TrainingGoalScreen({ onComplete }) {
       id: 'dupr',
       title: 'Improve my DUPR rating',
       description: 'Level up and climb the rankings',
-      icon: 'trophy',
-      emoji: '🏆'
+      Icon: Trophy,
     },
     {
       id: 'basics',
       title: 'Learn the basics',
       description: 'Master fundamentals from zero to 3.0',
-      icon: 'target',
-      emoji: '🎯'
+      Icon: Target,
     },
     {
       id: 'consistency',
       title: 'Get more consistent in matches',
       description: 'Reduce errors and play smarter',
-      icon: 'trending-up',
-      emoji: '⚡'
+      Icon: TrendingUp,
     },
     {
       id: 'tournament',
       title: 'Compete in tournaments',
       description: 'Prepare for competitive play',
-      icon: 'medal',
-      emoji: '💪'
+      Icon: Dumbbell,
     }
   ];
 
@@ -56,44 +53,48 @@ export default function TrainingGoalScreen({ onComplete }) {
     onComplete({ goal: goalId });
   };
 
-  const renderGoalOption = (goal) => (
-    <TouchableOpacity
-      key={goal.id}
-      style={[
-        styles.goalCard,
-        selectedGoal === goal.id && styles.goalCardSelected
-      ]}
-      onPress={() => handleGoalSelect(goal.id)}
-    >
-      <View style={styles.goalHeader}>
-        <View style={[
-          styles.goalIcon,
-          selectedGoal === goal.id && styles.goalIconSelected
-        ]}>
-          <Text style={styles.goalEmoji}>{goal.emoji}</Text>
-        </View>
-        {selectedGoal === goal.id && (
-          <View style={styles.selectedIndicator}>
-            <ModernIcon name="checkmark" size={16} color="white" />
+  const renderGoalOption = (goal) => {
+    const isSelected = selectedGoal === goal.id;
+    const iconColor = isSelected ? '#007AFF' : '#9CA3AF';
+    return (
+      <TouchableOpacity
+        key={goal.id}
+        style={[
+          styles.goalCard,
+          isSelected && styles.goalCardSelected
+        ]}
+        onPress={() => handleGoalSelect(goal.id)}
+      >
+        <View style={styles.goalHeader}>
+          <View style={[
+            styles.goalIcon,
+            isSelected && styles.goalIconSelected
+          ]}>
+            <goal.Icon size={20} color={iconColor} strokeWidth={2} />
           </View>
-        )}
-      </View>
-      <View style={styles.goalContent}>
-        <Text style={[
-          styles.goalTitle,
-          selectedGoal === goal.id && styles.goalTitleSelected
-        ]}>
-          {goal.title}
-        </Text>
-        <Text style={[
-          styles.goalDescription,
-          selectedGoal === goal.id && styles.goalDescriptionSelected
-        ]}>
-          {goal.description}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+          {isSelected && (
+            <View style={styles.selectedIndicator}>
+              <ModernIcon name="checkmark" size={16} color="white" />
+            </View>
+          )}
+        </View>
+        <View style={styles.goalContent}>
+          <Text style={[
+            styles.goalTitle,
+            isSelected && styles.goalTitleSelected
+          ]}>
+            {goal.title}
+          </Text>
+          <Text style={[
+            styles.goalDescription,
+            isSelected && styles.goalDescriptionSelected
+          ]}>
+            {goal.description}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>          
@@ -189,9 +190,6 @@ const styles = StyleSheet.create({
   },
   goalIconSelected: {
     backgroundColor: '#E8F5FF',
-  },
-  goalEmoji: {
-    fontSize: 20,
   },
   selectedIndicator: {
     width: 24,

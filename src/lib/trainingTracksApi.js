@@ -1,5 +1,5 @@
-import { supabase, getPrograms } from './supabase';
-import skillsData from '../data/Commun_skills_tags.json';
+import { supabase } from './supabase';
+import { findSkillById as taxonomyFindSkillById, getAllSkills } from './skillTaxonomy';
 
 // ─── RPC wrappers ────────────────────────────────────────────────────────────
 
@@ -27,6 +27,7 @@ export async function getActiveTrainingTracks() {
       tier: row.program_tier,
       thumbnail_url: row.program_thumbnail_url,
       rating: row.program_rating,
+      skill_categories_json: row.program_skill_categories_json || [],
       routines: row.routines || [],
     },
   }));
@@ -90,7 +91,8 @@ export async function updateTrainingResume(programId, routineId) {
 // ─── DUPR / skill matchers ────────────────────────────────────────────────────
 
 const ROAD_CATEGORIES = ['DUPR Path', 'dupr_path'];
-const SKILL_CATEGORIES = ['Skill Focus', 'skill_focus'];
+// Legacy category values kept only as fallback for programs not yet tagged
+const LEGACY_SKILL_CATEGORIES = ['Skill Focus', 'skill_focus'];
 
 /**
  * Parse the numeric DUPR target from a program name like "Road to 4.0".
@@ -140,55 +142,146 @@ export function matchRoadToXProgram(userDupr, allPrograms) {
   return atOrBelow.length ? atOrBelow[0].p : roadPrograms[0];
 }
 
+// ─── Onboarding program matcher ──────────────────────────────────────────────
+
 /**
- * Given a skill ID (from Commun_skills_tags.json) or skill name and a list of programs,
- * returns all matching Skill Focus programs.
+ * Maps the user's onboarding goal + DUPR rating to a recommended free program
+ * and up to 2 alternatives from the published program catalog.
  *
- * @param {string} skillId - e.g. 'dinks', 'serves'
- * @param {Array} allPrograms
+ * @param {{ goal: string, duprRating: number|null, allPrograms: Array }} params
+ * @returns {{ recommended: Object|null, alternatives: Array }}
+ */
+export function matchProgramsForOnboarding({ goal, duprRating, allPrograms }) {
+  // First try DUPR-path matcher for the 'dupr' goal (no-ops today if no DUPR Path programs)
+  if (goal === 'dupr') {
+    const duprMatch = matchRoadToXProgram(duprRating, allPrograms);
+    if (duprMatch) {
+      const alternatives = allPrograms
+        .filter(p => p.id !== duprMatch.id)
+        .slice(0, 2);
+      return { recommended: duprMatch, alternatives };
+    }
+  }
+
+  // Name-keyword maps per goal — ordered by preference
+  const KEYWORD_MAP = {
+    dupr:        ['foundation', 'beginner', 'fundamentals', 'road', 'basics', 'novice'],
+    basics:      ['foundation', 'fundamentals', 'basics', 'beginner', 'novice'],
+    consistency: ['dink', 'volley', 'consistency', 'control', 'mastery'],
+    tournament:  ['competitive', 'tournament', 'advanced', 'edge', 'serve', 'pro'],
+  };
+
+  const keywords = KEYWORD_MAP[goal] || KEYWORD_MAP['basics'];
+
+  // Score each program by how many keywords appear in name+description (case-insensitive)
+  const scored = allPrograms.map(p => {
+    const searchable = `${p.name || ''} ${p.description || ''}`.toLowerCase();
+    const score = keywords.filter(kw => searchable.includes(kw)).length;
+    return { program: p, score };
+  });
+
+  // Sort by score descending; fall back to catalog order
+  scored.sort((a, b) => b.score - a.score);
+
+  const recommended = scored[0]?.program || allPrograms[0] || null;
+  const alternatives = scored
+    .slice(1, 3)
+    .map(s => s.program)
+    .filter(Boolean);
+
+  return { recommended, alternatives };
+}
+
+// ─── Program skill normalisation ─────────────────────────────────────────────
+
+/**
+ * Returns the skill tag IDs on a program as a plain string array.
+ * Handles both the new JSONB column and edge cases where the value arrives
+ * as a serialised string from Supabase.
+ */
+export function normalizeProgramSkills(program) {
+  const raw = program?.skill_categories_json;
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { /* fall through */ }
+  }
+  return [];
+}
+
+/**
+ * Returns true when a program is eligible for the My Training Skill Focus slot.
+ * Tag-first: programs that carry explicit skill tags.
+ * Legacy fallback: old `Skill Focus` / `skill_focus` category programmes
+ * that haven't been backfilled yet.
+ */
+export function isSkillEligibleProgram(program) {
+  if (normalizeProgramSkills(program).length > 0) return true;
+  // Legacy fallback
+  return (
+    LEGACY_SKILL_CATEGORIES.includes(program?.category) ||
+    (program?.category || '').toLowerCase().includes('skill')
+  );
+}
+
+/**
+ * Returns all programs that are eligible as a skill focus track.
+ * (Replaces the old `getAllSkillFocusPrograms`; export alias kept for back-compat.)
+ */
+export function getSkillEligiblePrograms(allPrograms) {
+  return (allPrograms || []).filter(isSkillEligibleProgram);
+}
+
+/** @deprecated Use getSkillEligiblePrograms instead */
+export const getAllSkillFocusPrograms = getSkillEligiblePrograms;
+
+/**
+ * Returns all programs tagged with a specific skill ID.
+ * For programs not yet tagged, falls back to the legacy fuzzy-name match.
+ *
+ * @param {string} skillId - e.g. 'serves', 'dinks'
+ * @param {Array}  allPrograms
  * @returns {Array}
  */
-export function matchSkillFocusPrograms(skillId, allPrograms) {
-  const skill = findSkillById(skillId);
+export function getProgramsForSkill(skillId, allPrograms) {
+  const tagged = (allPrograms || []).filter(p => {
+    const tags = normalizeProgramSkills(p);
+    return tags.includes(skillId);
+  });
+  if (tagged.length > 0) return tagged;
+
+  // Legacy fuzzy fallback for un-tagged programs
+  const skill = taxonomyFindSkillById(skillId);
   const searchTerms = [
     skillId?.toLowerCase(),
     skill?.name?.toLowerCase(),
     ...(skill?.tags || []),
   ].filter(Boolean);
 
-  return allPrograms.filter(p => {
-    const isSkillCategory =
-      SKILL_CATEGORIES.includes(p.category) ||
-      (p.category || '').toLowerCase().includes('skill');
-
-    if (!isSkillCategory) return false;
-
-    const searchable = [
-      p.name,
-      p.description,
-      ...(Array.isArray(p.tags) ? p.tags : []),
-    ]
+  return (allPrograms || []).filter(p => {
+    if (!isSkillEligibleProgram(p)) return false;
+    const searchable = [p.name, p.description, ...(Array.isArray(p.tags) ? p.tags : [])]
       .join(' ')
       .toLowerCase();
-
     return searchTerms.some(t => searchable.includes(t));
   });
 }
 
-/**
- * Returns all Skill Focus programs grouped loosely by their skill category.
- */
-export function getAllSkillFocusPrograms(allPrograms) {
-  return allPrograms.filter(p =>
-    SKILL_CATEGORIES.includes(p.category) ||
-    (p.category || '').toLowerCase().includes('skill')
-  );
-}
+/** @deprecated Use getProgramsForSkill instead */
+export const matchSkillFocusPrograms = getProgramsForSkill;
 
-function findSkillById(skillId) {
-  for (const category of Object.values(skillsData.skillCategories || {})) {
-    const skill = (category.skills || []).find(s => s.id === skillId);
-    if (skill) return skill;
-  }
-  return null;
+/**
+ * Builds the list for the My Training skill picker step 1.
+ * Returns skills that have ≥1 eligible published program, in taxonomy order.
+ *
+ * @param {Array} allPrograms - published programs from catalog
+ * @returns {Array<{ skill: Object, programs: Array }>}
+ */
+export function getSkillsWithPrograms(allPrograms) {
+  const allSkills = getAllSkills();
+  return allSkills
+    .map(skill => ({
+      skill,
+      programs: getProgramsForSkill(skill.id, allPrograms),
+    }))
+    .filter(entry => entry.programs.length > 0);
 }

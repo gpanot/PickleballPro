@@ -1,0 +1,26 @@
+---
+description: Use Lucide React Native icons instead of Unicode emojis in UI
+alwaysApply: true
+---
+
+# No Web / Unicode Emojis in UI
+
+Do **not** use Unicode emoji characters (`🎾`, `🥒`, `😊`, etc.) in React Native UI for this project.
+
+## Use instead
+
+- **Skill taxonomy** — `SkillIcon` or `SkillIconBadge` from `src/components/SkillIcon.js`, backed by `src/lib/skillIcons.js` and skill IDs from `skillTaxonomy.js`.
+- **Other icons** — `lucide-react-native` (same library used across the app).
+- **Ionicons** — only for system-style affordances (chevrons, close, checkmarks) where already established.
+
+## Do not
+
+- Render `skill.emoji` from `Commun_skills_tags.json` in UI (JSON field is legacy metadata only).
+- Add new emoji strings to labels, buttons, empty states, or section headers.
+- Use emoji as category or skill identifiers in new code — use skill `id` + Lucide mapping.
+
+## When adding a new skill
+
+1. Add the skill to `Commun_skills_tags.json` (emoji field optional/ignored in UI).
+2. Add a Lucide mapping in `src/lib/skillIcons.js` → `SKILL_ICON_MAP`.
+3. Use `<SkillIcon skillId="…" />` or `<SkillIconBadge skillId="…" />` in screens.

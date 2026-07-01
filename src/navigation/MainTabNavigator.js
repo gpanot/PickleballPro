@@ -20,7 +20,7 @@ const Tab = createBottomTabNavigator();
 export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2', trainingInitialView = null }) {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
-  const { theme, isDark } = useTheme();
+  const { theme, isDark, logbookTheme } = useTheme();
   const [isCoach, setIsCoach] = useState(false);
   const [coachPublished, setCoachPublished] = useState(false);
   const [checkingCoach, setCheckingCoach] = useState(true);
@@ -93,7 +93,11 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
     return null;
   }
   
+  const tabBarBg = isDark ? logbookTheme.bg : '#FFFFFF';
+  const sceneBg = isDark ? logbookTheme.bg : '#FAF7F4';
+
   return (
+    <View style={{ flex: 1, backgroundColor: tabBarBg }}>
     <Tab.Navigator
       initialRouteName={finalInitialRouteName}
       screenOptions={({ route }) => ({
@@ -116,29 +120,35 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
 
           return <TabIcon name={iconName} focused={focused} size={size} color={color} />;
         },
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.textTertiary,
+        tabBarActiveTintColor: logbookTheme.accentPurple,
+        tabBarInactiveTintColor: isDark ? '#555555' : '#C8C0D4',
         headerShown: false,
+        sceneContainerStyle: {
+          backgroundColor: sceneBg,
+        },
+        tabBarBackground: () => (
+          <View style={{ flex: 1, backgroundColor: tabBarBg }} />
+        ),
         tabBarStyle: {
-          backgroundColor: theme.tabBg,
-          borderTopWidth: isDark ? 0.5 : 0,
-          borderTopColor: isDark ? theme.border : 'transparent',
-          shadowColor: theme.tabShadow,
+          backgroundColor: tabBarBg,
+          borderTopWidth: 1,
+          borderTopColor: isDark ? '#1A1A1A' : logbookTheme.borderSubtle,
+          shadowColor: isDark ? '#000000' : logbookTheme.cardShadow.shadowColor,
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: isDark ? 0.4 : 0.1,
+          shadowOpacity: isDark ? 0.4 : 0.08,
           shadowRadius: 8,
           elevation: 8,
-          paddingBottom: 12 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
           paddingTop: 12,
-          height: 80 + insets.bottom,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
+          height: 64 + insets.bottom,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontSize: isDark ? 9 : 11,
+          fontWeight: isDark ? '700' : '600',
           marginTop: 6,
           marginBottom: 2,
+          textTransform: isDark ? 'uppercase' : 'none',
+          fontFamily: isDark ? 'BarlowCondensed_700Bold' : 'Nunito_600SemiBold',
         },
         tabBarIconStyle: {
           marginTop: 4,
@@ -198,5 +208,6 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         options={{ title: 'Feedback♥️' }}
       /> */}
     </Tab.Navigator>
+    </View>
   );
 }

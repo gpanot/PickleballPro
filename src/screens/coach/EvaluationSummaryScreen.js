@@ -10,13 +10,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronUp, ChevronDown, Sparkles } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, checkCoachAccess } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
-const PRIMARY_COLOR = '#27AE60';
-const SECONDARY_COLOR = '#F4F5F7';
 const ACCENT_COLOR = '#F39C12';
 
 const { width } = Dimensions.get('window');
@@ -74,6 +74,7 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
   const { studentId, student, assessmentKey, assessmentId, isStudentView } = route.params || {};
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
+  const { logbookTheme: t, isDark } = useTheme();
   
   const [skillsData, setSkillsData] = useState([]);
   const [rawSkillScores, setRawSkillScores] = useState(null);
@@ -159,7 +160,7 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
   const percentage = maxTotal > 0 ? Math.round((totalScore / maxTotal) * 100) : 0;
 
   const getLevelColor = (level) => {
-    if (level === 'Advanced') return PRIMARY_COLOR;
+    if (level === 'Advanced') return t.accentPurple;
     if (level === 'Intermediate') return ACCENT_COLOR;
     return '#EF4444';
   };
@@ -218,135 +219,81 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-        <Text style={styles.loadingText}>Loading assessment...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: t.bg }]}>
+        <ActivityIndicator size="large" color={t.accentPurple} />
+        <Text style={[styles.loadingText, { color: t.textMuted, fontFamily: t.fontBody }]}>Loading assessment...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Evaluation Summary</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell tokens={t} isDark={isDark} background="bg" bordered title="Evaluation Summary" onBack={() => navigation.goBack()} />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Summary Card */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Overall Assessment</Text>
-          <Text style={styles.summaryScore}>
-            {totalScore} / {maxTotal}
-          </Text>
-          <Text style={styles.summaryPercent}>{percentage}%</Text>
-          <View style={styles.progressBar}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${percentage}%`,
-                  backgroundColor: percentage >= 75 ? PRIMARY_COLOR : percentage >= 50 ? ACCENT_COLOR : '#EF4444',
-                },
-              ]}
-            />
+        <View style={[styles.summaryCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
+          <Text style={[styles.summaryTitle, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Overall Assessment</Text>
+          <Text style={[styles.summaryScore, { color: t.accentPurple, fontFamily: t.fontDisplay }]}>{totalScore} / {maxTotal}</Text>
+          <Text style={[styles.summaryPercent, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>{percentage}%</Text>
+          <View style={[styles.progressBar, { backgroundColor: isDark ? t.surfaceRaised : '#E5E7EB' }]}>
+            <View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: percentage >= 75 ? t.accentPurple : percentage >= 50 ? ACCENT_COLOR : '#EF4444' }]} />
           </View>
         </View>
 
         {/* Skills Table */}
-        <View style={styles.skillsTable}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderText, styles.tableHeaderSkill]}>Skill</Text>
-            <Text style={[styles.tableHeaderText, styles.tableHeaderScore]}>Score</Text>
-            <Text style={[styles.tableHeaderText, styles.tableHeaderLevel]}>Level</Text>
+        <View style={[styles.skillsTable, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
+          <View style={[styles.tableHeader, { borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+            <Text style={[styles.tableHeaderText, styles.tableHeaderSkill, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Skill</Text>
+            <Text style={[styles.tableHeaderText, styles.tableHeaderScore, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Score</Text>
+            <Text style={[styles.tableHeaderText, styles.tableHeaderLevel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Level</Text>
           </View>
           {skillsData.map((skill, index) => {
             const isExpanded = expandedSkill === skill.id;
             const criteria = SKILL_CRITERIA[skill.id] || [];
             const skillDetails = rawSkillScores?.[skill.id];
             const detailScores = skillDetails?.scores || {};
-            
             return (
               <View key={index}>
                 <TouchableOpacity
-                  style={styles.tableRow}
+                  style={[styles.tableRow, { borderBottomColor: isDark ? t.border : '#F3F4F6' }]}
                   onPress={() => setExpandedSkill(isExpanded ? null : skill.id)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.tableSkillName}>{skill.name}</Text>
-                  <Text style={styles.tableScore}>
-                    {skill.score}/{skill.maxScore}
-                  </Text>
-                  <View style={[
-                    styles.tableLevelBadge,
-                    { backgroundColor: getLevelColor(skill.level) + '20' },
-                  ]}>
-                    <Text
-                      style={[styles.tableLevelText, { color: getLevelColor(skill.level) }]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit={true}
-                      minimumFontScale={0.7}
-                    >
+                  <Text style={[styles.tableSkillName, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{skill.name}</Text>
+                  <Text style={[styles.tableScore, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{skill.score}/{skill.maxScore}</Text>
+                  <View style={[styles.tableLevelBadge, { backgroundColor: getLevelColor(skill.level) + '20' }]}>
+                    <Text style={[styles.tableLevelText, { color: getLevelColor(skill.level), fontFamily: t.fontBodyBold }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                       {skill.level}
                     </Text>
                   </View>
                   <View style={styles.tableChevron}>
-                    <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color="#6B7280"
-                    />
+                    {isExpanded ? <ChevronUp size={18} color={t.textMuted} strokeWidth={2} /> : <ChevronDown size={18} color={t.textMuted} strokeWidth={2} />}
                   </View>
                 </TouchableOpacity>
-                
                 {isExpanded && (
-                  <View style={styles.expandedDetails}>
-                    <View style={styles.detailsHeader}>
-                      <Text style={styles.detailsHeaderText}>Rating Breakdown</Text>
-                    </View>
+                  <View style={[styles.expandedDetails, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+                    <Text style={[styles.detailsHeaderText, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Rating Breakdown</Text>
                     {criteria.map((criterion) => {
                       const score = detailScores[criterion.id] || 0;
                       const scorePercent = (score / criterion.maxScore) * 100;
-                      const getScoreColor = (percent) => {
-                        if (percent >= 75) return PRIMARY_COLOR;
-                        if (percent >= 50) return ACCENT_COLOR;
-                        return '#EF4444';
-                      };
-                      
+                      const getScoreColor = (pct) => pct >= 75 ? t.accentPurple : pct >= 50 ? ACCENT_COLOR : '#EF4444';
                       return (
                         <View key={criterion.id} style={styles.detailRow}>
-                          <Text style={styles.detailLabel}>{criterion.label}</Text>
+                          <Text style={[styles.detailLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>{criterion.label}</Text>
                           <View style={styles.detailScoreContainer}>
-                            <View style={styles.detailScoreBar}>
-                              <View
-                                style={[
-                                  styles.detailScoreFill,
-                                  {
-                                    width: `${scorePercent}%`,
-                                    backgroundColor: getScoreColor(scorePercent),
-                                  },
-                                ]}
-                              />
+                            <View style={[styles.detailScoreBar, { backgroundColor: isDark ? t.border : '#E5E7EB' }]}>
+                              <View style={[styles.detailScoreFill, { width: `${scorePercent}%`, backgroundColor: getScoreColor(scorePercent) }]} />
                             </View>
-                            <Text
-                              style={[
-                                styles.detailScoreText,
-                                { color: getScoreColor(scorePercent) },
-                              ]}
-                            >
-                              {score}/{criterion.maxScore}
-                            </Text>
+                            <Text style={[styles.detailScoreText, { color: getScoreColor(scorePercent), fontFamily: t.fontBodyBold }]}>{score}/{criterion.maxScore}</Text>
                           </View>
                         </View>
                       );
                     })}
                     {skill.notes && (
-                      <View style={styles.detailNotes}>
-                        <Text style={styles.detailNotesLabel}>Notes:</Text>
-                        <Text style={styles.detailNotesText}>{skill.notes}</Text>
+                      <View style={[styles.detailNotes, { borderTopColor: isDark ? t.border : '#E5E7EB' }]}>
+                        <Text style={[styles.detailNotesLabel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Notes:</Text>
+                        <Text style={[styles.detailNotesText, { color: t.textSecondary, fontFamily: t.fontBody }]}>{skill.notes}</Text>
                       </View>
                     )}
                   </View>
@@ -356,51 +303,38 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
           })}
         </View>
 
-        {/* Bar Chart Visualization */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Skill Breakdown</Text>
+        {/* Bar Chart */}
+        <View style={[styles.chartCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
+          <Text style={[styles.chartTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Skill Breakdown</Text>
           {skillsData.map((skill, index) => {
             const skillPercentage = (skill.score / skill.maxScore) * 100;
+            const barColor = skillPercentage >= 75 ? t.accentPurple : skillPercentage >= 50 ? ACCENT_COLOR : '#EF4444';
             return (
               <View key={index} style={styles.barContainer}>
-                <Text style={styles.barLabel}>{skill.name}</Text>
-                <View style={styles.barBackground}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        width: `${skillPercentage}%`,
-                        backgroundColor:
-                          skillPercentage >= 75
-                            ? PRIMARY_COLOR
-                            : skillPercentage >= 50
-                            ? ACCENT_COLOR
-                            : '#EF4444',
-                      },
-                    ]}
-                  />
-                  <Text style={styles.barText}>{Math.round(skillPercentage)}%</Text>
+                <Text style={[styles.barLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>{skill.name}</Text>
+                <View style={[styles.barBackground, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
+                  <View style={[styles.barFill, { width: `${skillPercentage}%`, backgroundColor: barColor }]} />
+                  <Text style={[styles.barText, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{Math.round(skillPercentage)}%</Text>
                 </View>
               </View>
             );
           })}
         </View>
 
-        {/* AI Feedback Card */}
-        <View style={styles.feedbackCard}>
+        {/* AI Feedback */}
+        <View style={[styles.feedbackCard, { backgroundColor: t.surface, borderLeftColor: t.accentPurple, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
           <View style={styles.feedbackHeader}>
-            <Ionicons name="sparkles" size={20} color={PRIMARY_COLOR} />
-            <Text style={styles.feedbackTitle}>AI Feedback</Text>
+            <Sparkles size={18} color={t.accentPurple} strokeWidth={2} />
+            <Text style={[styles.feedbackTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>AI Feedback</Text>
           </View>
-          <Text style={styles.feedbackText}>{aiFeedback}</Text>
+          <Text style={[styles.feedbackText, { color: t.textSecondary, fontFamily: t.fontBody }]}>{aiFeedback}</Text>
         </View>
       </ScrollView>
 
-      {/* Sticky Footer - Only show for coaches, not for students */}
       {!assessmentId && !isStudentView && (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleSaveOnly} disabled={saving}>
-            <Text style={styles.secondaryButtonText}>{saving ? 'Saving...' : 'Save Assessment Only'}</Text>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16, backgroundColor: t.surface, borderTopColor: isDark ? t.border : '#E5E7EB' }]}>
+          <TouchableOpacity style={[styles.secondaryButton, { borderColor: t.accentPurple }]} onPress={handleSaveOnly} disabled={saving}>
+            <Text style={[styles.secondaryButtonText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>{saving ? 'Saving...' : 'Save Assessment Only'}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -409,42 +343,9 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: SECONDARY_COLOR,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  placeholder: {
-    width: 40,
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 15, marginTop: 16 },
   scrollView: {
     flex: 1,
   },
@@ -452,38 +353,10 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 200,
   },
-  summaryCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  summaryTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  summaryScore: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: PRIMARY_COLOR,
-    marginBottom: 8,
-  },
-  summaryPercent: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 16,
-  },
+  summaryCard: { borderRadius: 16, padding: 22, alignItems: 'center', marginBottom: 14 },
+  summaryTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  summaryScore: { fontSize: 44, marginBottom: 6 },
+  summaryPercent: { fontSize: 17, marginBottom: 14 },
   progressBar: {
     width: '100%',
     height: 12,
@@ -495,12 +368,7 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 6,
   },
-  skillsTable: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
+  skillsTable: { borderRadius: 16, padding: 14, marginBottom: 14 },
   tableHeader: {
     flexDirection: 'row',
     paddingBottom: 12,
@@ -639,18 +507,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 18,
   },
-  chartCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
+  chartCard: { borderRadius: 16, padding: 14, marginBottom: 14 },
+  chartTitle: { fontSize: 15, marginBottom: 14 },
   barContainer: {
     marginBottom: 16,
   },
@@ -679,71 +537,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
-  feedbackCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: PRIMARY_COLOR,
-  },
-  feedbackHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  feedbackTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  feedbackText: {
-    fontSize: 14,
-    color: '#4B5563',
-    lineHeight: 22,
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PRIMARY_COLOR,
-    paddingVertical: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: PRIMARY_COLOR,
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
-  },
+  feedbackCard: { borderRadius: 16, padding: 18, borderLeftWidth: 4 },
+  feedbackHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
+  feedbackTitle: { fontSize: 15 },
+  feedbackText: { fontSize: 13, lineHeight: 21 },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 14, borderTopWidth: 1 },
+  secondaryButton: { alignItems: 'center', paddingVertical: 14, borderRadius: 14, borderWidth: 2 },
+  secondaryButtonText: { fontSize: 15 },
 });
 

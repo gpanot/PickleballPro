@@ -29,6 +29,7 @@ import RoutinesTable from './admindashboard/components/RoutinesTable';
 import CategoriesTable from './admindashboard/components/CategoriesTable';
 import WebUserLogbookModal from '../components/WebUserLogbookModal';
 import skillsData from '../data/Commun_skills_tags.json';
+import SkillIcon from '../components/SkillIcon';
 import AdminTopBar from './admindashboard/components/AdminTopBar';
 import styles from './admindashboard/adminDashboardStyles';
 
@@ -270,16 +271,6 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     console.log('[AdminDashboard] 🔍 fetchPrograms() started');
     setLoading(true);
     try {
-      // Initialize program order if needed (only runs once if all programs have order_index = 0)
-      const t1 = Date.now();
-      await initializeProgramOrder();
-      console.log(`[AdminDashboard] ✅ initializeProgramOrder took ${Date.now() - t1}ms`);
-      
-      // Normalize order indices to ensure sequential ordering
-      const t2 = Date.now();
-      await normalizeOrderIndices();
-      console.log(`[AdminDashboard] ✅ normalizeOrderIndices took ${Date.now() - t2}ms`);
-      
       // Fetch programs with routine and exercise counts
       let programsQuery = supabase
         .from('programs')
@@ -301,48 +292,36 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
       if (programsError) throw programsError;
 
-      // For each program, fetch the count of routines and exercises
-      // ⚠️ This is an N×3 query pattern — 3 DB round-trips per program!
+      // Batch-fetch routine counts and exercise counts (2 queries instead of N×3)
       const t4 = Date.now();
-      const programsWithCounts = await Promise.all(
-        (programsData || []).map(async (program) => {
-          // Get routine count for this program
-          const { count: routineCount, error: routineError } = await supabase
-            .from('routines')
-            .select('*', { count: 'exact', head: true })
-            .eq('program_id', program.id);
+      const programIds = (programsData || []).map(p => p.id);
 
-          if (routineError) {
-            console.error('Error fetching routine count:', routineError);
-          }
+      const [routinesBatchRes, exercisesBatchRes] = await Promise.all([
+        programIds.length > 0
+          ? supabase.from('routines').select('id, program_id').in('program_id', programIds)
+          : Promise.resolve({ data: [], error: null }),
+        programIds.length > 0
+          ? supabase.from('routines').select('id, program_id, routine_exercises(id)').in('program_id', programIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-          // Get exercise count through routine_exercises for this program's routines
-          const { data: routineIds, error: routineIdsError } = await supabase
-            .from('routines')
-            .select('id')
-            .eq('program_id', program.id);
+      // Build lookup maps from the batch results
+      const routineCountByProgram = {};
+      const exerciseCountByProgram = {};
+      (routinesBatchRes.data || []).forEach(r => {
+        routineCountByProgram[r.program_id] = (routineCountByProgram[r.program_id] || 0) + 1;
+      });
+      (exercisesBatchRes.data || []).forEach(r => {
+        exerciseCountByProgram[r.program_id] =
+          (exerciseCountByProgram[r.program_id] || 0) + (r.routine_exercises?.length || 0);
+      });
 
-          let exerciseCount = 0;
-          if (!routineIdsError && routineIds && routineIds.length > 0) {
-            const routineIdsList = routineIds.map(r => r.id);
-            const { count: exerciseCountResult, error: exerciseError } = await supabase
-              .from('routine_exercises')
-              .select('*', { count: 'exact', head: true })
-              .in('routine_id', routineIdsList);
-
-            if (!exerciseError) {
-              exerciseCount = exerciseCountResult || 0;
-            }
-          }
-
-          return {
-            ...program,
-            routine_count: routineCount || 0,
-            exercise_count: exerciseCount
-          };
-        })
-      );
-      console.log(`[AdminDashboard] ✅ per-program N×3 count queries took ${Date.now() - t4}ms for ${programsData?.length ?? 0} programs`);
+      const programsWithCounts = (programsData || []).map(program => ({
+        ...program,
+        routine_count: routineCountByProgram[program.id] || 0,
+        exercise_count: exerciseCountByProgram[program.id] || 0,
+      }));
+      console.log(`[AdminDashboard] ✅ batch count queries (2 queries) took ${Date.now() - t4}ms for ${programsData?.length ?? 0} programs`);
 
       // For managers: enrich each program with author display name
       let finalPrograms = programsWithCounts;
@@ -2280,7 +2259,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               <>
                 {getSkillNamesFromFocusAreas(user.focus_areas).slice(0, 3).map((skill, index) => (
                   <View key={skill.id} style={[styles.skillTag, { backgroundColor: skill.color + '20' }]}>
-                    <Text style={styles.skillEmoji}>{skill.emoji}</Text>
+                    <SkillIcon skillId={skill.id} size={14} color={skill.color} />
                     <Text style={[styles.skillText, { color: skill.color }]}>{skill.name}</Text>
                   </View>
                 ))}

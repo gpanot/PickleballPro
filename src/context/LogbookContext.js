@@ -7,6 +7,15 @@ import {
   deleteLogbookEntry as deleteSupabaseLogbookEntry 
 } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import {
+  CAL_PER_HOUR,
+  feelingToMood,
+  isMoodTrendingUp,
+  parseEntryHours,
+  parseEntryFeeling,
+  parseEntryDate,
+  getActivityAndFormat,
+} from '../lib/logbookHelpers';
 
 const LogbookContext = createContext();
 
@@ -89,11 +98,11 @@ export const LogbookProvider = ({ children }) => {
           return {
             id: entry.id,
             date: entry.date,
-            hours: entry.hours,
+            hours: parseEntryHours(entry.hours, entry.duration_minutes),
             sessionType: entry.session_type,
             trainingFocus: trainingFocus,
             difficulty: difficulty,
-            feeling: entry.feeling,
+            feeling: parseEntryFeeling(entry.feeling),
             notes: entry.notes,
             location: entry.location,
             createdAt: entry.created_at,
@@ -139,7 +148,13 @@ export const LogbookProvider = ({ children }) => {
   };
 
   // Sort entries by date (most recent first)
-  const sortedEntries = [...logbookEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const normalizeEntry = (entry) => ({
+    ...entry,
+    hours: parseEntryHours(entry.hours, entry.duration_minutes),
+    feeling: parseEntryFeeling(entry.feeling),
+  });
+
+  const sortedEntries = [...logbookEntries].map(normalizeEntry).sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const addLogbookEntry = async (entry) => {
     console.log('🎯 [LogbookContext] addLogbookEntry called with entry:', entry);
@@ -197,11 +212,11 @@ export const LogbookProvider = ({ children }) => {
         const transformedEntry = {
           id: savedEntry.id,
           date: savedEntry.date,
-          hours: savedEntry.hours,
+          hours: parseEntryHours(savedEntry.hours, savedEntry.duration_minutes),
           sessionType: savedEntry.session_type,
           trainingFocus: trainingFocus,
           difficulty: difficulty,
-          feeling: savedEntry.feeling,
+          feeling: parseEntryFeeling(savedEntry.feeling),
           notes: savedEntry.notes,
           location: savedEntry.location,
           createdAt: savedEntry.created_at,
@@ -376,9 +391,11 @@ export const LogbookProvider = ({ children }) => {
   };
 
   const isDateInRange = (entryDate, startDate, endDate = new Date()) => {
-    const entry = new Date(entryDate);
+    const entry = parseEntryDate(entryDate);
     const start = new Date(startDate);
     const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
     return entry >= start && entry <= end;
   };
 
@@ -388,20 +405,20 @@ export const LogbookProvider = ({ children }) => {
     const monthStart = getMonthStart(now);
 
     // Calculate total hours
-    const totalHours = logbookEntries.reduce((sum, entry) => sum + entry.hours, 0);
+    const totalHours = logbookEntries.reduce((sum, entry) => sum + parseEntryHours(entry.hours), 0);
 
     // Calculate this week's hours and sessions
     const thisWeekEntries = logbookEntries.filter(entry => 
       isDateInRange(entry.date, weekStart, now)
     );
-    const thisWeekHours = thisWeekEntries.reduce((sum, entry) => sum + entry.hours, 0);
+    const thisWeekHours = thisWeekEntries.reduce((sum, entry) => sum + parseEntryHours(entry.hours), 0);
     const weekSessions = thisWeekEntries.length;
 
     // Calculate this month's hours and sessions
     const thisMonthEntries = logbookEntries.filter(entry => 
       isDateInRange(entry.date, monthStart, now)
     );
-    const thisMonthHours = thisMonthEntries.reduce((sum, entry) => sum + entry.hours, 0);
+    const thisMonthHours = thisMonthEntries.reduce((sum, entry) => sum + parseEntryHours(entry.hours), 0);
     const monthSessions = thisMonthEntries.length;
 
     // Calculate weekly average feeling
@@ -467,7 +484,7 @@ export const LogbookProvider = ({ children }) => {
     const sessionTypeHours = {};
     logbookEntries.forEach(entry => {
       const sessionType = entry.sessionType || 'training'; // Default to 'training' if not set
-      sessionTypeHours[sessionType] = (sessionTypeHours[sessionType] || 0) + entry.hours;
+      sessionTypeHours[sessionType] = (sessionTypeHours[sessionType] || 0) + parseEntryHours(entry.hours);
     });
 
     // Round session type hours
@@ -475,8 +492,56 @@ export const LogbookProvider = ({ children }) => {
       sessionTypeHours[type] = Math.round(sessionTypeHours[type] * 10) / 10;
     });
 
+    // Current month session-type hours (for donut)
+    const monthSessionTypeHours = {};
+    thisMonthEntries.forEach(entry => {
+      const type = entry.sessionType || 'training';
+      monthSessionTypeHours[type] = (monthSessionTypeHours[type] || 0) + parseEntryHours(entry.hours);
+    });
+    Object.keys(monthSessionTypeHours).forEach(type => {
+      monthSessionTypeHours[type] = Math.round(monthSessionTypeHours[type] * 10) / 10;
+    });
+
+    // Calories for the current month
+    const monthCalories = Math.round(thisMonthHours * CAL_PER_HOUR);
+
+    // Last 5 sessions (oldest → newest) with mood key/label/color
+    const last5Sorted = sortedEntries.slice(0, 5).reverse();
+    const last5Moods = last5Sorted.map(entry => feelingToMood(entry.feeling));
+    const moodTrendUp = isMoodTrendingUp(last5Sorted);
+
+    // Fallback to all-time stats when current month has no entries but user has history
+    const useAllTime = monthSessions === 0 && logbookEntries.length > 0;
+    const summaryEntries = useAllTime ? logbookEntries : thisMonthEntries;
+
+    // Legacy entries may lack hours — default to 1h per session for display only
+    const sumHoursWithFallback = (entries) =>
+      entries.reduce((sum, entry) => {
+        const h = parseEntryHours(entry.hours, entry.duration_minutes);
+        return sum + (h > 0 ? h : 1);
+      }, 0);
+
+    let displayHours = useAllTime
+      ? Math.round(sumHoursWithFallback(logbookEntries) * 10) / 10
+      : Math.round((thisMonthHours > 0 ? thisMonthHours : sumHoursWithFallback(thisMonthEntries)) * 10) / 10;
+
+    const displaySessions = useAllTime ? logbookEntries.length : monthSessions;
+
+    const displaySessionTypeHours = {};
+    summaryEntries.forEach(entry => {
+      const { activity } = getActivityAndFormat(entry);
+      const h = parseEntryHours(entry.hours, entry.duration_minutes) || 1;
+      displaySessionTypeHours[activity] = (displaySessionTypeHours[activity] || 0) + h;
+    });
+    Object.keys(displaySessionTypeHours).forEach(type => {
+      displaySessionTypeHours[type] = Math.round(displaySessionTypeHours[type] * 10) / 10;
+    });
+
+    const displayCalories = Math.round(displayHours * CAL_PER_HOUR);
+    const displayPeriod = useAllTime ? 'all time' : 'this month';
+
     return {
-      totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal place
+      totalHours: Math.round(totalHours * 10) / 10,
       thisWeekHours: Math.round(thisWeekHours * 10) / 10,
       thisMonthHours: Math.round(thisMonthHours * 10) / 10,
       weekSessions,
@@ -488,6 +553,15 @@ export const LogbookProvider = ({ children }) => {
       topStrongSkills,
       topWeakSkills,
       sessionTypeHours,
+      monthSessionTypeHours,
+      monthCalories,
+      last5Moods,
+      moodTrendUp,
+      displayHours,
+      displaySessions,
+      displaySessionTypeHours,
+      displayCalories,
+      displayPeriod,
     };
   };
 
@@ -503,28 +577,31 @@ export const LogbookProvider = ({ children }) => {
     const months = {};
     
     logbookEntries.forEach(entry => {
-      const date = new Date(entry.date);
+      const date = parseEntryDate(entry.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
+      const hours = parseEntryHours(entry.hours, entry.duration_minutes);
+
       if (!months[monthKey]) {
         months[monthKey] = {
           month: monthKey,
           hours: 0,
+          calories: 0,
           sessions: 0,
           averageFeeling: 0,
           entries: [],
         };
       }
-      
-      months[monthKey].hours += entry.hours;
+
+      months[monthKey].hours += hours;
+      months[monthKey].calories += Math.round(hours * CAL_PER_HOUR);
       months[monthKey].sessions += 1;
       months[monthKey].entries.push(entry);
     });
 
-    // Calculate average feelings
     Object.keys(months).forEach(monthKey => {
       const month = months[monthKey];
-      month.averageFeeling = month.entries.reduce((sum, entry) => sum + entry.feeling, 0) / month.sessions;
+      const feelings = month.entries.map(e => parseEntryFeeling(e.feeling));
+      month.averageFeeling = feelings.reduce((sum, f) => sum + f, 0) / month.sessions;
       month.hours = Math.round(month.hours * 10) / 10;
       month.averageFeeling = Math.round(month.averageFeeling * 10) / 10;
     });

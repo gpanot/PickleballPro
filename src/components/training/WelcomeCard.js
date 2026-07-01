@@ -37,9 +37,9 @@ export default function WelcomeCard({ force = false }) {
           <X size={18} color="#6B7280" strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
-      <Text style={styles.title}>Welcome to My Training</Text>
+      <Text style={styles.title}>Your program is ready</Text>
       <Text style={styles.body}>
-        Choose a program below to start your first session. Progress is saved every time you log.
+        Start your first session — progress and mood are saved every time you log.
       </Text>
     </View>
   );

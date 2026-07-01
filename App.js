@@ -6,6 +6,23 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreenExpo from 'expo-splash-screen';
+import {
+  useFonts,
+  PlayfairDisplay_600SemiBold_Italic,
+} from '@expo-google-fonts/playfair-display';
+import {
+  Nunito_400Regular,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+} from '@expo-google-fonts/nunito';
+import {
+  BarlowCondensed_700Bold,
+  BarlowCondensed_800ExtraBold,
+} from '@expo-google-fonts/barlow-condensed';
+import {
+  DMSans_400Regular,
+  DMSans_600SemiBold,
+} from '@expo-google-fonts/dm-sans';
 
 // Prevent the native splash screen from auto-hiding
 SplashScreenExpo.preventAutoHideAsync().catch(() => {
@@ -103,16 +120,6 @@ function AppContent() {
     completeIntro();
   };
 
-  const handleIntroSkip = () => {
-    // Skip onboarding entirely — jump straight to main
-    completeIntro();
-    updateOnboardingData({ gender: 'other' });
-    completeGenderSelection();
-    updateUserRating(2.5, 'self');
-    completeNameSelection();
-    completeOnboarding();
-  };
-
   const handleAuthenticate = () => {
     console.log('Authentication triggered!');
     // For authenticated users, they should bypass onboarding entirely
@@ -147,12 +154,6 @@ function AppContent() {
     completeGenderSelection();
   };
 
-  const handleGenderSkip = () => {
-    // Default to 'other' and advance
-    updateOnboardingData({ gender: 'other' });
-    completeGenderSelection();
-  };
-
   const handleGenderGoBack = () => {
     console.log('Going back to intro from gender selection');
     goBackToIntro();
@@ -160,11 +161,6 @@ function AppContent() {
 
   const handleRatingComplete = () => {
     console.log('Rating selection completed!');
-  };
-
-  const handleRatingSkip = () => {
-    // Default rating of 2.5 and advance
-    updateUserRating(2.5, 'self');
   };
 
   const handleRatingGoBack = () => {
@@ -359,7 +355,7 @@ function AppContent() {
             {!hasCompletedIntro ? (
               <>
                 <Stack.Screen name="Intro">
-                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} onSkip={handleIntroSkip} />}
+                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -368,7 +364,7 @@ function AppContent() {
             ) : !hasSelectedGender ? (
               <>
                 <Stack.Screen name="GenderSelection">
-                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} onGoBack={handleGenderGoBack} onSkip={handleGenderSkip} />}
+                  {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} onGoBack={handleGenderGoBack} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -377,7 +373,7 @@ function AppContent() {
             ) : !hasSetRating ? (
               <>
                 <Stack.Screen name="RatingSelection">
-                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} onGoBack={handleRatingGoBack} onSkip={handleRatingSkip} />}
+                  {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} onGoBack={handleRatingGoBack} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -490,6 +486,20 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_600SemiBold_Italic,
+    Nunito_400Regular,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    BarlowCondensed_700Bold,
+    BarlowCondensed_800ExtraBold,
+    DMSans_400Regular,
+    DMSans_600SemiBold,
+  });
+
+  // Fonts don't block the splash — the splash screen handles initial display.
+  // We render as soon as possible to avoid a blank white flash.
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider style={{ flex: 1 }}>

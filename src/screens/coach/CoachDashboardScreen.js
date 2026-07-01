@@ -15,19 +15,18 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Users, Library, Search, Plus, X, ChevronRight, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase, transformProgramData } from '../../lib/supabase';
 import SeededAvatar from '../../components/SeededAvatar';
-
-const PRIMARY_COLOR = '#6366F1';
-const SECONDARY_COLOR = '#F5F5F7';
-const ACCENT_COLOR = '#8B5CF6';
+import { useTheme } from '../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 export default function CoachDashboardScreen({ navigation }) {
   const { user: authUser } = useAuth();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const { logbookTheme: t, isDark } = useTheme();
   
   const [coachId, setCoachId] = useState(null);
   const [students, setStudents] = useState([]);
@@ -386,59 +385,52 @@ export default function CoachDashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      <View style={[styles.loadingContainer, { backgroundColor: t.bg }]}>
+        <ActivityIndicator size="large" color={t.accentPurple} />
+        <Text style={[styles.loadingText, { color: t.textMuted }]}>Loading dashboard...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.headerTitle}>Coach Dashboard</Text>
-        
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell tokens={t} isDark={isDark} background="surface" bordered title="Coach Dashboard">
         {/* Tabs */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'students' && styles.activeTab]}
-            onPress={() => setActiveTab('students')}
-          >
-            <Ionicons 
-              name="people" 
-              size={20} 
-              color={activeTab === 'students' ? PRIMARY_COLOR : '#9CA3AF'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'students' && styles.activeTabText]}>
-              Students
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'programs' && styles.activeTab]}
-            onPress={() => setActiveTab('programs')}
-          >
-            <Ionicons 
-              name="library" 
-              size={20} 
-              color={activeTab === 'programs' ? PRIMARY_COLOR : '#9CA3AF'} 
-            />
-            <Text style={[styles.tabText, activeTab === 'programs' && styles.activeTabText]}>
-              Programs
-            </Text>
-          </TouchableOpacity>
+          {[
+            { id: 'students', label: 'Students', Icon: Users },
+            { id: 'programs', label: 'Programs', Icon: Library },
+          ].map(({ id, label, Icon }) => {
+            const active = activeTab === id;
+            return (
+              <TouchableOpacity
+                key={id}
+                style={[styles.tab, {
+                  backgroundColor: active ? `${t.accentPurple}15` : (isDark ? t.surfaceRaised : '#F9FAFB'),
+                  borderColor: active ? t.accentPurple : (isDark ? t.border : '#E5E7EB'),
+                }]}
+                onPress={() => setActiveTab(id)}
+              >
+                <Icon size={18} color={active ? t.accentPurple : t.textMuted} strokeWidth={2} />
+                <Text style={[styles.tabText, { color: active ? t.accentPurple : t.textMuted, fontFamily: t.fontBodySemibold }]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
         
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <View style={[styles.searchContainer, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderColor: isDark ? t.border : '#E5E7EB' }]}>
+          <Search size={18} color={t.textMuted} strokeWidth={2} style={styles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: t.textPrimary, fontFamily: t.fontBody }]}
             placeholder={activeTab === 'students' ? 'Search player by name or ID' : 'Search programs'}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={t.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-      </View>
+      </ScreenHeaderShell>
 
       {/* Stats Summary removed per requirements */}
 
@@ -447,74 +439,70 @@ export default function CoachDashboardScreen({ navigation }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PRIMARY_COLOR} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accentPurple} />
         }
       >
         {activeTab === 'students' ? (
           <>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
               Students ({filteredStudents.length})
             </Text>
             
             {filteredStudents.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="people-outline" size={48} color="#D1D5DB" />
-                <Text style={styles.emptyText}>
+                <Users size={48} color={t.textMuted} strokeWidth={1.5} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>
                   {searchQuery ? 'No students match your search' : 'No students added yet'}
                 </Text>
                 {!searchQuery && (
                   <TouchableOpacity
-                    style={styles.emptyButton}
+                    style={[styles.emptyButton, { backgroundColor: t.accentPurple }]}
                     onPress={() => setShowAddStudentModal(true)}
                   >
-                    <Text style={styles.emptyButtonText}>Add Your First Student</Text>
+                    <Text style={[styles.emptyButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Add Your First Student</Text>
                   </TouchableOpacity>
                 )}
               </View>
             ) : (
               filteredStudents.map((student) => (
-                <View key={student.id} style={styles.playerCard}>
+                <View key={student.id} style={[styles.playerCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
                   <Pressable
                     style={styles.playerHeader}
                     onPress={() => handleStudentPress(student)}
                     onLongPress={() => handleRemoveStudent(student)}
                     android_ripple={{ color: 'rgba(0, 0, 0, 0.05)' }}
                   >
-                    <SeededAvatar
-                      uri={student.avatarUrl}
-                      name={student.name}
-                      size={44}
-                    />
+                    <SeededAvatar uri={student.avatarUrl} name={student.name} size={44} />
                     <View style={styles.playerInfo}>
-                      <Text style={styles.playerName}>{student.name}</Text>
+                      <Text style={[styles.playerName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{student.name}</Text>
                       <View style={styles.playerMeta}>
                         {student.duprRating && (
-                          <Text style={styles.duprText}>DUPR: {student.duprRating}</Text>
+                          <Text style={[styles.duprText, { color: t.textMuted, fontFamily: t.fontBody }]}>DUPR: {student.duprRating}</Text>
                         )}
                         {student.tier && (
-                          <Text style={styles.tierText}>• {student.tier}</Text>
+                          <Text style={[styles.tierText, { color: t.textMuted, fontFamily: t.fontBody }]}>• {student.tier}</Text>
                         )}
                       </View>
                       {student.lastAssessmentDate ? (
-                        <Text style={styles.lastAssessmentText} numberOfLines={1}>
+                        <Text style={[styles.lastAssessmentText, { color: t.textCaption, fontFamily: t.fontBody }]} numberOfLines={1}>
                           Assessment: {getRelativeTime(student.lastAssessmentDate)}
                         </Text>
                       ) : (
-                        <Text style={[styles.lastAssessmentText, { color: '#9CA3AF' }]} numberOfLines={1}>
+                        <Text style={[styles.lastAssessmentText, { color: t.textCaption, fontFamily: t.fontBody }]} numberOfLines={1}>
                           No assessment yet
                         </Text>
                       )}
                     </View>
                     {student.lastAssessmentScore !== null && (
                       <View style={styles.scoreContainer}>
-                        <Text style={styles.scoreText} numberOfLines={1}>
+                        <Text style={[styles.scoreText, { color: t.accentPurple, fontFamily: t.fontDisplay }]} numberOfLines={1}>
                           {String(student.lastAssessmentScore)}
                         </Text>
                       </View>
                     )}
                   </Pressable>
                   <TouchableOpacity
-                    style={styles.assignProgramBtn}
+                    style={[styles.assignProgramBtn, { backgroundColor: `${t.accentPurple}15` }]}
                     onPress={() => {
                       if (coachPrograms.length === 0) {
                         Alert.alert('No Programs', 'Create a coach program first before assigning.');
@@ -525,8 +513,8 @@ export default function CoachDashboardScreen({ navigation }) {
                       setShowAssignModal(true);
                     }}
                   >
-                    <Ionicons name="add-circle-outline" size={14} color={PRIMARY_COLOR} style={{ marginRight: 4 }} />
-                    <Text style={styles.assignProgramBtnText}>Assign Program</Text>
+                    <Plus size={14} color={t.accentPurple} strokeWidth={2.5} style={{ marginRight: 4 }} />
+                    <Text style={[styles.assignProgramBtnText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Assign Program</Text>
                   </TouchableOpacity>
                 </View>
               ))
@@ -534,7 +522,7 @@ export default function CoachDashboardScreen({ navigation }) {
           </>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
               Coach Programs ({coachPrograms.filter(p => 
                 p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 p.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -543,21 +531,21 @@ export default function CoachDashboardScreen({ navigation }) {
             
             {programsLoading ? (
               <View style={styles.emptyContainer}>
-                <ActivityIndicator size="large" color={PRIMARY_COLOR} />
-                <Text style={styles.emptyText}>Loading programs...</Text>
+                <ActivityIndicator size="large" color={t.accentPurple} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>Loading programs...</Text>
               </View>
             ) : programsError ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-                <Text style={styles.emptyText}>{programsError}</Text>
+                <AlertCircle size={48} color="#EF4444" strokeWidth={1.5} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>{programsError}</Text>
               </View>
             ) : coachPrograms.filter(p => 
               p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
               p.description?.toLowerCase().includes(searchQuery.toLowerCase())
             ).length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="library-outline" size={48} color="#D1D5DB" />
-                <Text style={styles.emptyText}>
+                <Library size={48} color={t.textMuted} strokeWidth={1.5} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>
                   {searchQuery ? 'No programs match your search' : 'No coach programs available'}
                 </Text>
               </View>
@@ -570,32 +558,23 @@ export default function CoachDashboardScreen({ navigation }) {
                 .map((program) => (
                   <TouchableOpacity
                     key={program.id}
-                    style={styles.programCard}
+                    style={[styles.programCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}
                     onPress={() => handleProgramPress(program)}
                   >
                     {program.thumbnail_url && (
-                      <Image 
-                        source={{ uri: program.thumbnail_url }} 
-                        style={styles.programThumbnail}
-                      />
+                      <Image source={{ uri: program.thumbnail_url }} style={[styles.programThumbnail, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]} />
                     )}
                     <View style={styles.programInfo}>
-                      <Text style={styles.programName}>{program.name}</Text>
+                      <Text style={[styles.programName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{program.name}</Text>
                       {program.description && (
-                        <Text style={styles.programDescription} numberOfLines={2}>
-                          {program.description}
-                        </Text>
+                        <Text style={[styles.programDescription, { color: t.textMuted, fontFamily: t.fontBody }]} numberOfLines={2}>{program.description}</Text>
                       )}
                       <View style={styles.programMeta}>
-                        {program.category && (
-                          <Text style={styles.programCategory}>{program.category}</Text>
-                        )}
-                        {program.tier && (
-                          <Text style={styles.programTier}>• {program.tier}</Text>
-                        )}
+                        {program.category && <Text style={[styles.programCategory, { color: t.textCaption, fontFamily: t.fontBody }]}>{program.category}</Text>}
+                        {program.tier && <Text style={[styles.programTier, { color: t.textCaption, fontFamily: t.fontBody }]}>• {program.tier}</Text>}
                       </View>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                    <ChevronRight size={20} color={t.textMuted} strokeWidth={2} />
                   </TouchableOpacity>
                 ))
             )}
@@ -606,59 +585,53 @@ export default function CoachDashboardScreen({ navigation }) {
       {/* Floating Add Button - only show on Students tab */}
       {activeTab === 'students' && (
         <TouchableOpacity
-          style={[styles.addButton, { bottom: insets.bottom + 16 }]}
+          style={[styles.addButton, { bottom: insets.bottom + 16, backgroundColor: t.accentPurple }]}
           onPress={() => setShowAddStudentModal(true)}
         >
-          <Ionicons name="add" size={28} color="white" />
+          <Plus size={28} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={2.5} />
         </TouchableOpacity>
       )}
 
       {/* Assign Program Modal */}
-      <Modal
-        visible={showAssignModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowAssignModal(false)}
-      >
+      <Modal visible={showAssignModal} animationType="slide" transparent onRequestClose={() => setShowAssignModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: t.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Assign Program</Text>
+              <Text style={[styles.modalTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Assign Program</Text>
               <TouchableOpacity onPress={() => setShowAssignModal(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <X size={22} color={t.textMuted} strokeWidth={2} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalDescription}>
+            <Text style={[styles.modalDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
               {assignTarget ? `Choose a program to assign to ${assignTarget.name}:` : ''}
             </Text>
             {coachPrograms.map(prog => (
               <TouchableOpacity
                 key={prog.id}
-                style={[styles.programPickerItem, assigningProgramId === prog.id && styles.programPickerItemActive]}
+                style={[styles.programPickerItem, {
+                  borderColor: assigningProgramId === prog.id ? t.accentPurple : (isDark ? t.border : '#E5E7EB'),
+                  backgroundColor: assigningProgramId === prog.id ? `${t.accentPurple}12` : 'transparent',
+                }]}
                 onPress={() => setAssigningProgramId(prog.id)}
               >
-                <Ionicons
-                  name={assigningProgramId === prog.id ? 'radio-button-on' : 'radio-button-off'}
-                  size={18}
-                  color={PRIMARY_COLOR}
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.programPickerText}>{prog.name}</Text>
+                <View style={[styles.radioCircle, {
+                  borderColor: t.accentPurple,
+                  backgroundColor: assigningProgramId === prog.id ? t.accentPurple : 'transparent',
+                }]} />
+                <Text style={[styles.programPickerText, { color: t.textPrimary, fontFamily: t.fontBody }]}>{prog.name}</Text>
               </TouchableOpacity>
             ))}
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowAssignModal(false)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
+              <TouchableOpacity style={[styles.modalCancelButton, { borderColor: isDark ? t.border : '#E5E7EB' }]} onPress={() => setShowAssignModal(false)}>
+                <Text style={[styles.modalCancelText, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalAddButton, (assignLoading || !assigningProgramId) && styles.modalAddButtonDisabled]}
+                style={[styles.modalAddButton, { backgroundColor: t.accentPurple }, (assignLoading || !assigningProgramId) && styles.modalAddButtonDisabled]}
                 onPress={handleAssignProgram}
                 disabled={assignLoading || !assigningProgramId}
               >
-                {assignLoading ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.modalAddText}>Assign</Text>
+                {assignLoading ? <ActivityIndicator size="small" color={isDark ? t.fabTextColor : '#fff'} /> : (
+                  <Text style={[styles.modalAddText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Assign</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -667,55 +640,42 @@ export default function CoachDashboardScreen({ navigation }) {
       </Modal>
 
       {/* Add Student Modal */}
-      <Modal
-        visible={showAddStudentModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowAddStudentModal(false)}
-      >
+      <Modal visible={showAddStudentModal} animationType="slide" transparent onRequestClose={() => setShowAddStudentModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: t.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Student</Text>
+              <Text style={[styles.modalTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Add New Student</Text>
               <TouchableOpacity onPress={() => setShowAddStudentModal(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <X size={22} color={t.textMuted} strokeWidth={2} />
               </TouchableOpacity>
             </View>
-            
-            <Text style={styles.modalDescription}>
+            <Text style={[styles.modalDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
               Enter the 4-digit student code to add a player to your roster.
             </Text>
-            
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { borderColor: isDark ? t.border : '#E5E7EB', color: t.textPrimary, backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB' }]}
               placeholder="Enter 4-digit code"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={t.textMuted}
               value={studentCodeInput}
               onChangeText={(text) => setStudentCodeInput(text.replace(/[^0-9]/g, '').slice(0, 4))}
               keyboardType="numeric"
               maxLength={4}
               autoFocus
             />
-            
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  setShowAddStudentModal(false);
-                  setStudentCodeInput('');
-                }}
+                style={[styles.modalCancelButton, { borderColor: isDark ? t.border : '#E5E7EB' }]}
+                onPress={() => { setShowAddStudentModal(false); setStudentCodeInput(''); }}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalAddButton, addingStudent && styles.modalAddButtonDisabled]}
+                style={[styles.modalAddButton, { backgroundColor: t.accentPurple }, addingStudent && styles.modalAddButtonDisabled]}
                 onPress={handleAddStudent}
                 disabled={addingStudent}
               >
-                {addingStudent ? (
-                  <ActivityIndicator size="small" color="white" />
-                ) : (
-                  <Text style={styles.modalAddText}>Add Student</Text>
+                {addingStudent ? <ActivityIndicator size="small" color={isDark ? t.fabTextColor : '#fff'} /> : (
+                  <Text style={[styles.modalAddText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Add Student</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -727,409 +687,57 @@ export default function CoachDashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: SECONDARY_COLOR,
-  },
-  assignProgramBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginTop: 6,
-    marginHorizontal: 12,
-    marginBottom: 8,
-    borderRadius: 10,
-    backgroundColor: '#EEF2FF',
-    alignSelf: 'flex-start',
-  },
-  assignProgramBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: PRIMARY_COLOR,
-  },
-  programPickerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 8,
-  },
-  programPickerItemActive: {
-    borderColor: PRIMARY_COLOR,
-    backgroundColor: '#EEF2FF',
-  },
-  programPickerText: { fontSize: 14, color: '#1F2937', flex: 1 },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: SECONDARY_COLOR,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  header: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937',
-    paddingVertical: 16,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 6,
-  },
-  activeTab: {
-    backgroundColor: PRIMARY_COLOR + '10',
-    borderColor: PRIMARY_COLOR,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  activeTabText: {
-    color: PRIMARY_COLOR,
-  },
-  programCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  programThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  programInfo: {
-    flex: 1,
-  },
-  programName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  programDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 8,
-    lineHeight: 18,
-  },
-  programMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  programCategory: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginRight: 4,
-  },
-  programTier: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: PRIMARY_COLOR,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  playerCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 11,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  playerHeader: {
-    flexDirection: 'row',
-    marginBottom: 0,
-    alignItems: 'center',
-  },
-  playerAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: PRIMARY_COLOR,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: 'white',
-  },
-  playerInfo: {
-    flex: 1,
-    justifyContent: 'center',
-    flexShrink: 1,
-  },
-  playerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  playerMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  duprText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginRight: 8,
-  },
-  tierText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  lastAssessmentText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  scoreContainer: {
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    marginLeft: 16,
-    width: 140,
-    flexShrink: 0,
-  },
-  scoreText: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: PRIMARY_COLOR,
-    lineHeight: 42,
-    textAlign: 'right',
-  },
-  assessmentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PRIMARY_COLOR,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  assessmentButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    marginTop: 24,
-    backgroundColor: PRIMARY_COLOR,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  emptyButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  addButton: {
-    position: 'absolute',
-    right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: PRIMARY_COLOR,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  modalDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 24,
-    lineHeight: 20,
-  },
-  modalInput: {
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    letterSpacing: 4,
-    marginBottom: 24,
-    fontFamily: 'monospace',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  modalAddButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: PRIMARY_COLOR,
-    alignItems: 'center',
-  },
-  modalAddButtonDisabled: {
-    opacity: 0.5,
-  },
-  modalAddText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 16, fontSize: 16 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, fontSize: 15, paddingVertical: 14 },
+  tabContainer: { flexDirection: 'row', marginBottom: 16, gap: 8 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, gap: 6 },
+  tabText: { fontSize: 14 },
+  programCard: { borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
+  programThumbnail: { width: 60, height: 60, borderRadius: 8, marginRight: 12 },
+  programInfo: { flex: 1 },
+  programName: { fontSize: 16, marginBottom: 4 },
+  programDescription: { fontSize: 13, marginBottom: 8, lineHeight: 18 },
+  programMeta: { flexDirection: 'row', alignItems: 'center' },
+  programCategory: { fontSize: 12, marginRight: 4 },
+  programTier: { fontSize: 12 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
+  sectionTitle: { fontSize: 17, marginBottom: 14 },
+  playerCard: { borderRadius: 16, padding: 11, marginBottom: 8 },
+  playerHeader: { flexDirection: 'row', alignItems: 'center' },
+  playerInfo: { flex: 1, justifyContent: 'center', flexShrink: 1, marginLeft: 12 },
+  playerName: { fontSize: 17, marginBottom: 3 },
+  playerMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
+  duprText: { fontSize: 13, marginRight: 6 },
+  tierText: { fontSize: 13 },
+  lastAssessmentText: { fontSize: 12 },
+  scoreContainer: { justifyContent: 'center', alignItems: 'flex-end', marginLeft: 12, width: 120, flexShrink: 0 },
+  scoreText: { fontSize: 34, lineHeight: 40, textAlign: 'right' },
+  assignProgramBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, marginTop: 6, marginHorizontal: 12, marginBottom: 6, borderRadius: 10, alignSelf: 'flex-start' },
+  assignProgramBtnText: { fontSize: 12 },
+  programPickerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, marginBottom: 8 },
+  radioCircle: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, marginRight: 10 },
+  programPickerText: { fontSize: 14, flex: 1 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 16, marginTop: 16, textAlign: 'center' },
+  emptyButton: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  emptyButtonText: { fontSize: 15 },
+  addButton: { position: 'absolute', right: 16, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalContent: { borderRadius: 20, padding: 24, width: '100%', maxWidth: 400 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  modalTitle: { fontSize: 19 },
+  modalDescription: { fontSize: 14, marginBottom: 20, lineHeight: 20 },
+  modalInput: { borderWidth: 2, borderRadius: 12, padding: 16, fontSize: 18, textAlign: 'center', letterSpacing: 4, marginBottom: 20, fontFamily: 'monospace' },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  modalCancelButton: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, alignItems: 'center' },
+  modalCancelText: { fontSize: 15 },
+  modalAddButton: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  modalAddButtonDisabled: { opacity: 0.5 },
+  modalAddText: { fontSize: 15 },
 });
 

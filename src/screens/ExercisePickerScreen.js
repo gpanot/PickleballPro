@@ -9,15 +9,18 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import WebIcon from '../components/WebIcon';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
+import { Plus } from 'lucide-react-native';
+import SkillIcon from '../components/SkillIcon';
 import skillsData from '../data/Commun_skills_tags.json';
 
 export default function ExercisePickerScreen({ navigation, route }) {
-  const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { logbookTheme: t, isDark } = useTheme();
   const { onAddExercise, alreadyAddedIds = [] } = route.params || {};
   
   // Track locally removed exercises for better UX
@@ -200,7 +203,6 @@ export default function ExercisePickerScreen({ navigation, route }) {
     return {
       key: skill.id,
       title: skill.name,
-      icon: skill.emoji,
       color: skill.color,
       difficulty: skill.difficulty,
       exercises: [...userExercisesForSkill, ...generatedExercises], // User exercises first
@@ -246,33 +248,30 @@ export default function ExercisePickerScreen({ navigation, route }) {
   );
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons 
-            name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-            size={24} 
-            color="#007AFF" 
-          />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Exercise</Text>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => navigation.navigate('AddExercise', { 
-            selectedSkillCategory: selectedCategory,
-            onExerciseCreated: handleExerciseCreated
-          })}
-        >
-          <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Create Yours</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title="Add Exercise"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.createButton, { backgroundColor: t.accentPurple }]}
+            onPress={() => navigation.navigate('AddExercise', {
+              selectedSkillCategory: selectedCategory,
+              onExerciseCreated: handleExerciseCreated
+            })}
+          >
+            <Plus size={15} color={isDark ? t.fabTextColor : '#FFFFFF'} strokeWidth={2.5} />
+            <Text style={[styles.createButtonText, { color: isDark ? t.fabTextColor : '#FFFFFF', fontFamily: t.fontBodySemibold }]}>Create Yours</Text>
+          </TouchableOpacity>
+        }
+      />
 
       {/* Category Tabs */}
-      <View style={styles.categoryTabsContainer}>
+      <View style={[styles.categoryTabsContainer, { backgroundColor: t.surface, borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -288,7 +287,13 @@ export default function ExercisePickerScreen({ navigation, route }) {
               ]}
               onPress={() => setSelectedCategory(category.key)}
             >
-              <Text style={styles.categoryTabIcon}>{category.icon}</Text>
+              <View style={styles.categoryTabIcon}>
+                <SkillIcon
+                  skillId={category.key}
+                  size={18}
+                  color={selectedCategory === category.key ? '#fff' : category.color}
+                />
+              </View>
               <Text style={[
                 styles.categoryTabText,
                 selectedCategory === category.key && styles.categoryTabTextActive
@@ -377,34 +382,7 @@ export default function ExercisePickerScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-    marginLeft: -4, // Align with iOS guidelines
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 32,
-  },
+  container: { flex: 1 },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -426,12 +404,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  categoryTabsContainer: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 12,
-  },
+  categoryTabsContainer: { borderBottomWidth: 1, paddingVertical: 12 },
   categoryTabsContent: {
     paddingHorizontal: 16,
     gap: 8,
@@ -452,7 +425,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
   },
   categoryTabIcon: {
-    fontSize: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
   },
   categoryTabText: {
     fontSize: 12,

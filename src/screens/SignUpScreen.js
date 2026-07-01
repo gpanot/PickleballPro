@@ -15,6 +15,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
+import { isExistingUserSignUpError } from '../lib/supabase';
+
+const DUPLICATE_EMAIL_MESSAGE = 'This email is already registered. Please sign in.';
 
 function getPasswordStrength(pw) {
   if (!pw) return 0;
@@ -106,30 +109,33 @@ export default function SignUpScreen({ onSignUp, navigation, onGoBack, onSignIn,
       if (error) {
         setIsLoading(false);
         setHasError(true);
-        const isDuplicate =
-          error.message?.includes('User already registered') ||
-          error.message?.includes('already registered') ||
-          error.message?.includes('already exists');
-        if (isDuplicate) {
-          setEmailError('This email is already registered. Try signing in.');
+        if (isExistingUserSignUpError(error)) {
+          setEmailError(DUPLICATE_EMAIL_MESSAGE);
         } else {
           setEmailError(error.message || 'Sign up failed. Please try again.');
         }
         return;
       }
 
-      if (data?.user && !error) {
+      if (data?.user && data?.session) {
         setIsLoading(false);
         if (onSignUp) onSignUp({ email, password, name });
+      } else if (data?.user && !data?.session) {
+        // Email confirmation required — stay on screen with guidance
+        setIsLoading(false);
+        setEmailError('Check your email to confirm your account, then sign in.');
+      } else {
+        setIsLoading(false);
+        setEmailError('Sign up failed. Please try again.');
       }
     } catch (error) {
       setIsLoading(false);
       setHasError(true);
-      const isDuplicate =
-        error.message?.includes('User already registered') ||
-        error.message?.includes('already registered') ||
-        error.message?.includes('already exists');
-      setEmailError(isDuplicate ? 'This email is already registered.' : 'An unexpected error occurred.');
+      setEmailError(
+        isExistingUserSignUpError(error)
+          ? DUPLICATE_EMAIL_MESSAGE
+          : 'An unexpected error occurred.'
+      );
     }
   };
 
