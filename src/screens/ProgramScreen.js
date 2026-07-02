@@ -1973,15 +1973,22 @@ export default function ProgramScreen({ navigation, route }) {
 
   const fetchCategoryOrder = async () => {
     try {
-      const { data: orderData, error: orderError } = await supabase
-        .rpc('get_category_order');
-      
-      if (orderError) {
-        setSavedCategoryOrder([]);
-      } else {
-        setSavedCategoryOrder(orderData || []);
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name, order_index, is_published')
+        .eq('is_published', true)
+        .order('order_index', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        // Fallback to legacy RPC if categories table is unavailable
+        const { data: rpcData } = await supabase.rpc('get_category_order');
+        setSavedCategoryOrder(rpcData || []);
+        return;
       }
-    } catch (error) {
+
+      setSavedCategoryOrder(data || []);
+    } catch {
       setSavedCategoryOrder([]);
     }
   };
@@ -2224,13 +2231,13 @@ export default function ProgramScreen({ navigation, route }) {
     if (coachProgramsError) {
       return (
         <View style={styles.coachProgramsContainer}>
+          {renderFindYourCoach()}
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Failed to load coach programs</Text>
             <TouchableOpacity style={styles.retryButton} onPress={loadCoachPrograms}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-          {renderFindYourCoach()}
         </View>
       );
     }
@@ -2251,6 +2258,7 @@ export default function ProgramScreen({ navigation, route }) {
             />
           }
         >
+          {renderFindYourCoach()}
           <View style={styles.coachEmptyContent}>
             {studentCode && (
               <View style={styles.studentCodeCard}>
@@ -2340,7 +2348,6 @@ export default function ProgramScreen({ navigation, route }) {
               </View>
             </View>
           </View>
-          {renderFindYourCoach()}
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -2362,6 +2369,7 @@ export default function ProgramScreen({ navigation, route }) {
             />
           }
         >
+        {renderFindYourCoach()}
         {/* Coach Cards Section */}
         {coaches.length > 0 && (
           <View style={styles.coachesSection}>
@@ -2497,7 +2505,6 @@ export default function ProgramScreen({ navigation, route }) {
               </View>
             </View>
           </View>
-          {renderFindYourCoach()}
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -2519,6 +2526,7 @@ export default function ProgramScreen({ navigation, route }) {
             />
           }
         >
+          {renderFindYourCoach()}
           {/* Coach Cards Section */}
           {coaches.length > 0 && (
             <View style={styles.coachesSection}>
@@ -2605,7 +2613,6 @@ export default function ProgramScreen({ navigation, route }) {
             </View>
           )}
           
-          {renderFindYourCoach()}
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -2626,6 +2633,7 @@ export default function ProgramScreen({ navigation, route }) {
           />
         }
       >
+        {renderFindYourCoach()}
         {/* Coach Cards Section */}
         {coaches.length > 0 && (
           <View style={styles.coachesSection}>
@@ -2714,7 +2722,6 @@ export default function ProgramScreen({ navigation, route }) {
 
         {/* Programs are now shown in player profile when tapping a coach */}
 
-        {renderFindYourCoach()}
         <View style={styles.bottomSpacing} />
       </ScrollView>
     );
@@ -2743,28 +2750,17 @@ export default function ProgramScreen({ navigation, route }) {
       );
     }
 
-    // Get all unique categories from programs and sort them according to saved order
+    // Get all unique categories present in the fetched programs
     const uniqueCategories = [...new Set(explorePrograms.map(p => p.category).filter(Boolean))];
     
-    // Sort categories according to saved order
+    // Sort categories strictly by the admin-defined order_index from the categories table.
+    // Only show categories that are published (savedCategoryOrder only contains published ones).
+    // Categories not listed in savedCategoryOrder are hidden from users.
     let categories;
     if (savedCategoryOrder && savedCategoryOrder.length > 0) {
-      // Create ordered list based on saved order
-      const orderedCategories = [];
-      
-      // Add categories in saved order
-      savedCategoryOrder.forEach(savedCat => {
-        if (uniqueCategories.includes(savedCat.name)) {
-          orderedCategories.push(savedCat.name);
-        }
-      });
-      
-      // Add any new categories that weren't in saved order
-      const savedCategoryNames = savedCategoryOrder.map(sc => sc.name);
-      const newCategories = uniqueCategories.filter(cat => !savedCategoryNames.includes(cat));
-      orderedCategories.push(...newCategories);
-      
-      categories = orderedCategories;
+      categories = savedCategoryOrder
+        .map(savedCat => savedCat.name)
+        .filter(name => uniqueCategories.includes(name));
     } else {
       categories = uniqueCategories;
     }
@@ -3862,7 +3858,7 @@ const styles = StyleSheet.create({
   },
   libraryThumbnailContainer: {
     width: '100%',
-    height: getThumbnailHeight(width, height),
+    aspectRatio: 1,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     overflow: 'hidden',

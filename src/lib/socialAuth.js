@@ -1,22 +1,38 @@
 import { Platform } from 'react-native';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
 
-GoogleSignin.configure({
-  // Web client ID — from Google Console, Web application type
-  webClientId: '140906288105-4hn6pluvlt699197qi97tv2357ielb75.apps.googleusercontent.com',
-  // iOS client ID — from GoogleService-Info.plist CLIENT_ID
-  iosClientId: '140906288105-akv9va24o1jggs7g23bjciagglel55h8.apps.googleusercontent.com',
-  offlineAccess: false,
-  scopes: ['profile', 'email'],
-});
+// @react-native-google-signin is a native module — not available in Expo Go.
+// Wrap the import so the module doesn't crash at load time.
+let GoogleSignin = null;
+let statusCodes = {};
+try {
+  const pkg = require('@react-native-google-signin/google-signin');
+  GoogleSignin = pkg.GoogleSignin;
+  statusCodes = pkg.statusCodes ?? {};
+  GoogleSignin.configure({
+    // Web client ID — from Google Console, Web application type
+    webClientId: '140906288105-4hn6pluvlt699197qi97tv2357ielb75.apps.googleusercontent.com',
+    // iOS client ID — from GoogleService-Info.plist CLIENT_ID
+    iosClientId: '140906288105-akv9va24o1jggs7g23bjciagglel55h8.apps.googleusercontent.com',
+    offlineAccess: false,
+    scopes: ['profile', 'email'],
+  });
+} catch {
+  // Running in Expo Go or environment where native module is unavailable.
+}
 
 /**
  * Native Google Sign-In using the Google Identity SDK.
  * Works on both iOS and Android without any browser redirect.
  */
 export async function signInWithGoogle() {
+  if (!GoogleSignin) {
+    throw new Error(
+      'Google Sign-In is not available in this build. Please use a development or production build.'
+    );
+  }
+
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
   } catch {
@@ -102,3 +118,4 @@ export async function signInWithApple() {
 }
 
 export { statusCodes };
+export { GoogleSignin };

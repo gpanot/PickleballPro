@@ -22,6 +22,7 @@ import {
   Image,
   Alert,
   Animated,
+  PixelRatio,
 } from 'react-native';
 import {
   PinchGestureHandler,
@@ -57,10 +58,13 @@ export default function CropAvatar({ route, navigation }) {
   const animTY    = useRef(new Animated.Value(0)).current;
 
   // ── Committed (accumulated) transform ─────────────────────────────────────
-  // Scale is relative to the initial imgDisplayW/H sizing.
   const cScale = useRef(1);
   const cTX    = useRef(0);
   const cTY    = useRef(0);
+
+  // Refs needed to allow simultaneous pinch + pan
+  const pinchRef = useRef(null);
+  const panRef   = useRef(null);
 
   // Resolve image dimensions and set the initial cover-fit scale
   useEffect(() => {
@@ -85,7 +89,6 @@ export default function CropAvatar({ route, navigation }) {
 
   // ── Pinch ──────────────────────────────────────────────────────────────────
   const onPinchEvent = (e) => {
-    // Multiply accumulated scale by live pinch delta, clamp, set animScale
     const delta = e.nativeEvent.scale;
     const liveScale = Math.max(0.5, Math.min(8, cScale.current * delta));
     animScale.setValue(liveScale);
@@ -93,7 +96,6 @@ export default function CropAvatar({ route, navigation }) {
 
   const onPinchStateChange = (e) => {
     if (e.nativeEvent.oldState === State.ACTIVE) {
-      // Commit the final scale
       const newScale = Math.max(0.5, Math.min(8, cScale.current * e.nativeEvent.scale));
       cScale.current = newScale;
       animScale.setValue(newScale);
@@ -101,8 +103,6 @@ export default function CropAvatar({ route, navigation }) {
   };
 
   // ── Pan ────────────────────────────────────────────────────────────────────
-  // Use setOffset so each new gesture's translationX/Y starts from 0 but adds
-  // to the previously committed position.
   const onPanEvent = (e) => {
     animTX.setValue(cTX.current + e.nativeEvent.translationX);
     animTY.setValue(cTY.current + e.nativeEvent.translationY);
@@ -119,57 +119,47 @@ export default function CropAvatar({ route, navigation }) {
 
   // ── Compute crop region in native pixels ──────────────────────────────────
   //
-  // Layout:
-  //  • The image wrapper is centred in the viewport (both are squares of VIEWPORT).
-  //  • The image itself is imgDisplayW × imgDisplayH (natural aspect, cover-fit).
-  //  • The total transform applied to the image wrapper is:
-  //      translate(cTX, cTY)  then  scale(cScale)
-  //    All transforms are applied around the centre of the wrapper (RN default).
+  // Coordinate system (all in display pts, origin = canvas centre):
+  //   At rest (tx=0, ty=0, scale=1) the image Animated.View is centred in the
+  //   canvas.  Its top-left is at (-imgDisplayW/2, -imgDisplayH/2).
   //
-  // We need to find, in native pixels, the rectangle of the original image that
-  // is currently visible inside the VIEWPORT × VIEWPORT circle.
+  //   After the user's transform:
+  //     image centre = (tx, ty)
+  //     image top-left at display scale = (tx - imgDisplayW*s/2, ty - imgDisplayH*s/2)
   //
-  // Step 1 — work in "display units at scale=1" (dp).
-  //   The image occupies imgDisplayW × imgDisplayH dp at cScale=1.
-  //   Its top-left in dp relative to the viewport centre is:
-  //     imgLeft_dp = -imgDisplayW/2  (centred, no translation at rest)
-  //     imgTop_dp  = -imgDisplayH/2
+  //   Viewport window (centred at canvas centre):
+  //     left = -VIEWPORT/2,  right = VIEWPORT/2
+  //     top  = -VIEWPORT/2,  bottom = VIEWPORT/2
   //
-  // Step 2 — apply current transform.
-  //   After translate(cTX, cTY) + scale(cScale):
-  //     actualImgLeft = cTX - (imgDisplayW * cScale) / 2
-  //     actualImgTop  = cTY - (imgDisplayH * cScale) / 2
-  //   (all relative to viewport centre)
+  //   Express viewport edges in image-display coords at scale=1
+  //   (i.e. offset from image top-left before any scale is applied):
+  //     imgL = (vL - tx) / s + imgDisplayW/2
+  //     imgT = (vT - ty) / s + imgDisplayH/2
+  //     imgR = (vR - tx) / s + imgDisplayW/2
+  //     imgB = (vB - ty) / s + imgDisplayH/2
   //
-  // Step 3 — the viewport window in dp (relative to viewport centre):
-  //     windowLeft = -VIEWPORT/2,  windowRight = VIEWPORT/2
-  //     windowTop  = -VIEWPORT/2,  windowBottom = VIEWPORT/2
+  //   Convert display coords → native pixels:
+  //     nativeX = imgL * (nativeW / imgDisplayW)
+  //     nativeY = imgT * (nativeH / imgDisplayH)
   //
-  // Step 4 — express the viewport corners in IMAGE display coords:
-  //     imageX = (viewportX - cTX) / cScale + imgDisplayW/2
-  //     imageY = (viewportY - cTY) / cScale + imgDisplayH/2
-  //
-  // Step 5 — scale from display dp to native pixels:
-  //     nativeX = imageX * (nativeW / imgDisplayW)
-  //     nativeY = imageY * (nativeH / imgDisplayH)
   const computeCrop = () => {
     const s  = cScale.current;
     const tx = cTX.current;
     const ty = cTY.current;
 
-    // Viewport corners in viewport-centred dp
+    // Viewport corners relative to canvas centre
     const vL = -VIEWPORT / 2;
     const vT = -VIEWPORT / 2;
     const vR =  VIEWPORT / 2;
     const vB =  VIEWPORT / 2;
 
-    // Map to image display coords (dp, origin = image top-left)
+    // Map to image display coords (offset from image top-left, scale=1 space)
     const imgL = (vL - tx) / s + imgDisplayW / 2;
     const imgT = (vT - ty) / s + imgDisplayH / 2;
     const imgR = (vR - tx) / s + imgDisplayW / 2;
     const imgB = (vB - ty) / s + imgDisplayH / 2;
 
-    // Convert dp → native pixels
+    // Convert display dp → native pixels
     const scaleToNativeX = imgNativeW / imgDisplayW;
     const scaleToNativeY = imgNativeH / imgDisplayH;
 
@@ -184,14 +174,19 @@ export default function CropAvatar({ route, navigation }) {
     cropW   = Math.min(cropW, imgNativeW - originX);
     cropH   = Math.min(cropH, imgNativeH - originY);
 
-    // Force square (take the smaller side)
+    // Force square crop (take the smaller side, keep centred)
     const side = Math.min(cropW, cropH);
+    // Re-centre within the clamped region so the square matches the circle centre
+    const adjustX = (cropW - side) / 2;
+    const adjustY = (cropH - side) / 2;
+    originX = Math.round(originX + adjustX);
+    originY = Math.round(originY + adjustY);
 
     return {
-      originX: Math.round(originX),
-      originY: Math.round(originY),
-      width:   Math.round(side),
-      height:  Math.round(side),
+      originX,
+      originY,
+      width:  Math.round(side),
+      height: Math.round(side),
     };
   };
 
@@ -250,15 +245,19 @@ export default function CropAvatar({ route, navigation }) {
 
         {/* Gesture layer — full canvas so pinch/pan work anywhere */}
         <PinchGestureHandler
+          ref={pinchRef}
           onGestureEvent={onPinchEvent}
           onHandlerStateChange={onPinchStateChange}
+          simultaneousHandlers={panRef}
         >
           <Animated.View style={StyleSheet.absoluteFillObject}>
             <PanGestureHandler
+              ref={panRef}
               onGestureEvent={onPanEvent}
               onHandlerStateChange={onPanStateChange}
               minPointers={1}
-              maxPointers={1}
+              maxPointers={2}
+              simultaneousHandlers={pinchRef}
             >
               {/* Centring wrapper — image starts in the middle of the canvas */}
               <Animated.View style={[StyleSheet.absoluteFillObject, styles.imageLayer]}>
@@ -284,15 +283,15 @@ export default function CropAvatar({ route, navigation }) {
           </Animated.View>
         </PinchGestureHandler>
 
-        {/* Dim overlay with circular cutout using a shadow trick:
-            Four rectangles around the circle + a transparent circle */}
+        {/* Solid black overlay with transparent circular cutout.
+            Four rectangles around the circle — fully opaque black. */}
         <View style={styles.overlayContainer} pointerEvents="none">
           {/* Top strip */}
           <View style={[styles.overlayStrip, { height: (screenHeight - VIEWPORT) / 2 }]} />
           {/* Middle row */}
           <View style={styles.overlayMiddleRow}>
             <View style={[styles.overlaySide, { width: (screenWidth - VIEWPORT) / 2 }]} />
-            {/* Transparent circle in the middle */}
+            {/* Transparent hole — the user sees the image here */}
             <View style={[styles.circleHole, { width: VIEWPORT, height: VIEWPORT, borderRadius: VIEWPORT / 2 }]} />
             <View style={[styles.overlaySide, { width: (screenWidth - VIEWPORT) / 2 }]} />
           </View>
@@ -300,7 +299,7 @@ export default function CropAvatar({ route, navigation }) {
           <View style={[styles.overlayStrip, { flex: 1 }]} />
         </View>
 
-        {/* Circle border */}
+        {/* White ring around the crop circle */}
         <View
           pointerEvents="none"
           style={[
@@ -366,41 +365,37 @@ const styles = StyleSheet.create({
   },
   chooseTextDisabled: { color: '#9CA3AF' },
 
-  // Canvas fills everything below the header
   canvas: {
     flex: 1,
     backgroundColor: '#000',
     overflow: 'hidden',
   },
 
-  // The layer that contains the image — centred so transforms rotate around canvas centre
   imageLayer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  // Dim overlay — four strips around the circle
   overlayContainer: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'column',
   },
   overlayStrip: {
     width: '100%',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: '#000',
   },
   overlayMiddleRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   overlaySide: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: '#000',
     alignSelf: 'stretch',
   },
   circleHole: {
     backgroundColor: 'transparent',
   },
 
-  // White ring around the crop circle
   circleBorder: {
     position: 'absolute',
     borderWidth: 2,

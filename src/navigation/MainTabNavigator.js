@@ -185,22 +185,22 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
           },
         }}
       />
+      <Tab.Screen 
+        name="Logbook" 
+        component={LogbookScreen}
+        listeners={{ tabPress: hapticLight }}
+      />
+      <Tab.Screen 
+        name="Leaderboard" 
+        component={LeaderboardScreen}
+        listeners={{ tabPress: hapticLight }}
+      />
       {isCoach && coachPublished && (
         <Tab.Screen 
           name="Academy" 
           component={CoachNavigator}
         />
       )}
-      <Tab.Screen 
-        name="Leaderboard" 
-        component={LeaderboardScreen}
-        listeners={{ tabPress: hapticLight }}
-      />
-      <Tab.Screen 
-        name="Logbook" 
-        component={LogbookScreen}
-        listeners={{ tabPress: hapticLight }}
-      />
       {/* Feedback screen hidden for now */}
       {/* <Tab.Screen 
         name="Feedback"

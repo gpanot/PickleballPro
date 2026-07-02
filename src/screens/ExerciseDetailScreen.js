@@ -256,7 +256,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
     if (!videoId) {
       return (
-        <View style={[styles.videoSection, { backgroundColor: t.bgCard }]}>
+        <View style={[styles.videoSection, { backgroundColor: t.surface }]}>
           <View style={[styles.videoContainer, { backgroundColor: isDark ? '#0F172A' : '#1F2937' }]}>
             <View style={styles.noVideoContainer}>
               <Ionicons name="videocam-off-outline" size={48} color="#9CA3AF" />
@@ -274,7 +274,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     }
 
     return (
-      <View style={[styles.videoSection, { backgroundColor: t.bgCard }]}>
+      <View style={[styles.videoSection, { backgroundColor: t.surface }]}>
         <View style={[styles.videoContainer, { backgroundColor: isDark ? '#0F172A' : '#1F2937' }]}>
           <YoutubePlayer
             ref={playerRef}
@@ -318,7 +318,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           {exercise.videoUrl && (
             <View style={styles.videoDetails}>
               <Ionicons name="logo-youtube" size={16} color="#FF0000" />
-              <Text style={[styles.videoUrlText, { color: t.textTertiary }]} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={[styles.videoUrlText, { color: t.textMuted }]} numberOfLines={1} ellipsizeMode="tail">
                 {exercise.videoUrl}
               </Text>
             </View>
@@ -332,8 +332,8 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     const instructionSections = exercise.instructions.split('\n\n');
 
     return (
-      <View style={[styles.card, { backgroundColor: t.bgCard }]}>
-        <Text style={[styles.cardTitle, { color: t.text }]}>Instructions</Text>
+      <View style={[styles.card, { backgroundColor: t.surface }]}>
+        <Text style={[styles.cardTitle, { color: t.textPrimary }]}>Instructions</Text>
 
         {instructionSections.map((section, index) => {
           const lines = section.split('\n');
@@ -359,8 +359,8 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     }
 
     return (
-      <View style={[styles.card, { backgroundColor: t.bgCard }]}>
-        <Text style={[styles.cardTitle, { color: t.text }]}>Pro Tips</Text>
+      <View style={[styles.card, { backgroundColor: t.surface }]}>
+        <Text style={[styles.cardTitle, { color: t.textPrimary }]}>Pro Tips</Text>
         <View style={styles.tipsContainer}>
           {exercise.tips.map((tip, index) => (
             <View key={index} style={styles.tipItem}>
@@ -384,10 +384,10 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.tagsSection, { borderTopColor: t.border }]}>
-        <Text style={[styles.tagsTitle, { color: t.textTertiary }]}>Tags:</Text>
+        <Text style={[styles.tagsTitle, { color: t.textMuted }]}>Tags:</Text>
         <View style={styles.tagsContainer}>
           {tags.map((tag, index) => (
-            <Text key={index} style={[styles.tagText, { color: t.textTertiary }]}>
+            <Text key={index} style={[styles.tagText, { color: t.textMuted }]}>
               {tag}{index < tags.length - 1 ? ' • ' : ''}
             </Text>
           ))}
@@ -398,18 +398,18 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
   const renderPreviousResults = () => {
     return (
-      <View style={[styles.card, { backgroundColor: t.bgCard, marginTop: 8 }]}>
-        <Text style={[styles.cardTitle, { color: t.text }]}>Previous Results</Text>
+      <View style={[styles.card, { backgroundColor: t.surface, marginTop: 8 }]}>
+        <Text style={[styles.cardTitle, { color: t.textPrimary }]}>Previous Results</Text>
 
         {loadingHistory ? (
           <View style={styles.historyLoadingContainer}>
-            <ActivityIndicator size="small" color={t.primary} />
+            <ActivityIndicator size="small" color={t.accentPurple} />
           </View>
         ) : exerciseHistory.length === 0 ? (
           <View style={[styles.historyEmptyContainer, { borderColor: t.border }]}>
-            <Ionicons name="time-outline" size={28} color={t.textTertiary} />
+            <Ionicons name="time-outline" size={28} color={t.textMuted} />
             <Text style={[styles.historyEmptyText, { color: t.textSecondary }]}>No results yet</Text>
-            <Text style={[styles.historyEmptySubtext, { color: t.textTertiary }]}>
+            <Text style={[styles.historyEmptySubtext, { color: t.textMuted }]}>
               Your logged results will appear here
             </Text>
           </View>
@@ -438,7 +438,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
                 >
                   <View style={styles.historyItemHeader}>
                     <View style={styles.historyDateRow}>
-                      <Ionicons name="calendar-outline" size={13} color={t.textTertiary} />
+                      <Ionicons name="calendar-outline" size={13} color={t.textMuted} />
                       <Text style={[styles.historyDate, { color: t.textSecondary }]}>{formattedDate}</Text>
                     </View>
                     <View style={[
@@ -461,7 +461,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
                     </View>
                   </View>
                   {notes ? (
-                    <Text style={[styles.historyNotes, { color: t.textTertiary }]} numberOfLines={2}>
+                    <Text style={[styles.historyNotes, { color: t.textMuted }]} numberOfLines={2}>
                       {notes}
                     </Text>
                   ) : null}
@@ -470,7 +470,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
             })}
 
             {exerciseHistory.length > 5 && (
-              <Text style={[styles.historyMore, { color: t.textTertiary }]}>
+              <Text style={[styles.historyMore, { color: t.textMuted }]}>
                 +{exerciseHistory.length - 5} more entries
               </Text>
             )}
@@ -513,9 +513,9 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={t.primary}
-            colors={[t.primary]}
-            progressBackgroundColor={t.bgCard}
+            tintColor={t.accentPurple}
+            colors={[t.accentPurple]}
+            progressBackgroundColor={t.surface}
           />
         }
       >

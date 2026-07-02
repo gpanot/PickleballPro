@@ -163,7 +163,7 @@ export default function OnboardingShell({
     <Animated.View style={[styles.root, { backgroundColor, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar barStyle={statusBarStyle} backgroundColor={blendActive ? blendFromBg : ot.bg} />
 
-      {showProgress && step != null && (
+      {showProgress && step != null ? (
         <Animated.View style={[styles.statusBar, { borderBottomColor: borderColor }]}>
           <View style={styles.progressRow}>
             {onBack ? (
@@ -196,7 +196,22 @@ export default function OnboardingShell({
             </Animated.View>
           </View>
         </Animated.View>
-      )}
+      ) : onBack ? (
+        <View style={styles.backOnlyRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'}
+              size={24}
+              color={backIconColor}
+            />
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       {body}
     </Animated.View>
@@ -206,6 +221,11 @@ export default function OnboardingShell({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  backOnlyRow: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   statusBar: {
     paddingHorizontal: 16,

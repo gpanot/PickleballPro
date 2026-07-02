@@ -19,6 +19,7 @@ import SkillPatternsCard from '../components/logbook/SkillPatternsCard';
 import { MOOD_COLORS } from '../theme/logbookThemes';
 import { getPrograms } from '../lib/supabase';
 import { matchProgramsForOnboarding, setActiveTrack } from '../lib/trainingTracksApi';
+import { recordOnboardingFinishView } from '../lib/onboardingFinishState';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -64,6 +65,10 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
   const onboardingData = getOnboardingData();
   const goal = onboardingData?.goal || previousData.goal || 'basics';
   const duprRating = onboardingData?.dupr_rating ?? previousData.duprRating ?? null;
+
+  useEffect(() => {
+    recordOnboardingFinishView().catch(() => {});
+  }, []);
 
   // Load programs when moving to step 2
   useEffect(() => {

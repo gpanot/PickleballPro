@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
+import {
+  loadOnboardingFinishState,
+  markOnboardingFinishComplete,
+  resetOnboardingFinishState,
+} from '../lib/onboardingFinishState';
 
 const UserContext = createContext();
 
@@ -56,8 +61,11 @@ export const UserProvider = ({ children }) => {
 
   // ── Hydrate from AsyncStorage on mount ──────────────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_STORAGE_KEY)
-      .then((raw) => {
+    Promise.all([
+      AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
+      loadOnboardingFinishState(),
+    ])
+      .then(([raw, finishState]) => {
         if (raw) {
           try {
             const saved = JSON.parse(raw);
@@ -74,6 +82,10 @@ export const UserProvider = ({ children }) => {
           } catch (e) {
             console.warn('UserContext: Failed to parse onboarding state', e);
           }
+        }
+
+        if (finishState.completed) {
+          setHasCompletedOnboarding(true);
         }
       })
       .catch((e) => console.warn('UserContext: Failed to load onboarding state', e))
@@ -289,7 +301,10 @@ export const UserProvider = ({ children }) => {
 
   const completeOnboarding = () => {
     setHasCompletedOnboarding(true);
-    // Clear storage once the flow is fully done — no need to re-run it
+    markOnboardingFinishComplete().catch((e) => {
+      console.warn('UserContext: Failed to persist onboarding finish state', e);
+    });
+    // Pre-auth onboarding scratch state is no longer needed once finish is done.
     AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY).catch(() => {});
   };
 
@@ -301,6 +316,7 @@ export const UserProvider = ({ children }) => {
     setHasSetName(false);
     setHasCompletedOnboarding(false);
     AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY).catch(() => {});
+    resetOnboardingFinishState().catch(() => {});
   };
 
   const getOnboardingData = () => {

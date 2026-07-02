@@ -86,6 +86,11 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { getThemeModeForGender } from './src/lib/applyGenderTheme';
 import { initializeDeepLinkHandling } from './src/lib/deepLinkHandler';
 import { initializeAuthDeepLinkHandling } from './src/lib/authDeepLink';
+import { getActiveTrainingTracks } from './src/lib/trainingTracksApi';
+import {
+  loadOnboardingFinishState,
+  MAX_ONBOARDING_FINISH_VIEWS,
+} from './src/lib/onboardingFinishState';
 
 const Stack = createStackNavigator();
 
@@ -94,10 +99,12 @@ function AppContent() {
   const [onboardingInitialView, setOnboardingInitialView] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
+  const [onboardingFinishGateReady, setOnboardingFinishGateReady] = useState(false);
   const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, isOnboardingHydrated, user, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading, pendingPasswordRecovery } = useAuth();
   const { setThemeMode } = useTheme();
   const navigationRef = React.useRef(null);
+  const onboardingFinishGateChecked = React.useRef(false);
 
   // Restore gender-based theme when resuming mid-onboarding
   useEffect(() => {
@@ -106,6 +113,57 @@ function AppContent() {
       setThemeMode(getThemeModeForGender(user.gender));
     }
   }, [isOnboardingHydrated, user?.gender, hasCompletedOnboarding, setThemeMode]);
+
+  // Skip OnboardingFinish when the user already has training, has seen it twice, or completed it before.
+  useEffect(() => {
+    if (!isOnboardingHydrated) return;
+
+    if (!isAuthenticated || hasCompletedOnboarding) {
+      setOnboardingFinishGateReady(true);
+      onboardingFinishGateChecked.current = false;
+      return;
+    }
+
+    if (authLoading && !authTimeout) return;
+    if (onboardingFinishGateChecked.current) return;
+
+    onboardingFinishGateChecked.current = true;
+    let cancelled = false;
+
+    (async () => {
+      setOnboardingFinishGateReady(false);
+
+      try {
+        const finishState = await loadOnboardingFinishState();
+
+        if (finishState.completed || finishState.viewCount >= MAX_ONBOARDING_FINISH_VIEWS) {
+          completeOnboarding();
+          return;
+        }
+
+        const tracks = await getActiveTrainingTracks();
+        if (tracks.length > 0) {
+          completeOnboarding();
+        }
+      } catch (error) {
+        console.warn('App: OnboardingFinish gate check failed — allowing flow', error);
+      } finally {
+        if (!cancelled) {
+          setOnboardingFinishGateReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isOnboardingHydrated,
+    isAuthenticated,
+    hasCompletedOnboarding,
+    authLoading,
+    authTimeout,
+  ]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -237,6 +295,11 @@ function AppContent() {
 
   // Wait for AsyncStorage hydration so we never flash back to Intro mid-flow
   if (!isOnboardingHydrated) {
+    return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
+  }
+
+  // Wait for OnboardingFinish eligibility check (existing training / view cap)
+  if (isAuthenticated && !hasCompletedOnboarding && !onboardingFinishGateReady) {
     return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
   }
 

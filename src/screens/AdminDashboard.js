@@ -124,6 +124,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [showRoutineProgramFilterDropdown, setShowRoutineProgramFilterDropdown] = useState(false);
   const [routineSortField, setRoutineSortField] = useState(null);
   const [routineSortDirection, setRoutineSortDirection] = useState('asc');
+  const [coachStatusFilter, setCoachStatusFilter] = useState('all');
+  const [coachVerifiedFilter, setCoachVerifiedFilter] = useState('all');
+  const [showCoachFilterDropdown, setShowCoachFilterDropdown] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [userToResetPassword, setUserToResetPassword] = useState(null);
   const [newPassword, setNewPassword] = useState('');
@@ -659,6 +662,12 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
   }, [contentTab]);
 
+  useEffect(() => {
+    if (activeTab !== 'coaches') {
+      setShowCoachFilterDropdown(false);
+    }
+  }, [activeTab]);
+
   const fetchCoaches = async () => {
     setLoading(true);
     try {
@@ -675,20 +684,14 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
       if (error) throw error;
       
-      // Filter out reset coaches (coaches that have been "deleted" - reset to new profile state)
-      // A reset coach is one where name is null/empty or is_active is explicitly false
-      const activeCoaches = (data || []).filter(coach => {
-        // Must have a valid name
-        const hasName = coach.name && typeof coach.name === 'string' && coach.name.trim() !== '';
-        // Must be explicitly active (not false, null, or undefined)
-        const isActive = coach.is_active === true;
-        // Only include coaches that have both a name and are active
-        return hasName && isActive;
+      // Hide only reset/deleted coach profiles (empty name). Inactive coaches stay visible in admin.
+      const manageableCoaches = (data || []).filter((coach) => {
+        return coach.name && typeof coach.name === 'string' && coach.name.trim() !== '';
       });
       
-      console.log(`📊 Filtered coaches: ${(data || []).length} total, ${activeCoaches.length} active`);
+      console.log(`📊 Loaded coaches: ${(data || []).length} total, ${manageableCoaches.length} in directory`);
       
-      setCoaches(activeCoaches);
+      setCoaches(manageableCoaches);
 
       // Calculate coach stats
       if (data) {
@@ -1781,6 +1784,34 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     );
   };
 
+  const hasCoachFilters = coachStatusFilter !== 'all' || coachVerifiedFilter !== 'all';
+
+  const clearCoachFilters = () => {
+    setCoachStatusFilter('all');
+    setCoachVerifiedFilter('all');
+  };
+
+  const renderCoachFilterOption = (label, value, currentValue, onSelect) => (
+    <TouchableOpacity
+      key={value}
+      style={[
+        styles.coachFilterOption,
+        currentValue === value && styles.coachFilterOptionActive,
+      ]}
+      onPress={() => onSelect(value)}
+    >
+      <Text style={[
+        styles.coachFilterOptionText,
+        currentValue === value && styles.coachFilterOptionTextActive,
+      ]}>
+        {label}
+      </Text>
+      {currentValue === value ? (
+        <Ionicons name="checkmark" size={16} color="#0369A1" />
+      ) : null}
+    </TouchableOpacity>
+  );
+
   const renderCoaches = () => (
     <View style={styles.content}>
       {/* Coach Stats Cards */}
@@ -1825,7 +1856,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         </View>
 
         {/* Search and Filter Bar */}
-        <View style={styles.searchFilterBar}>
+        <View style={[styles.searchFilterBar, showCoachFilterDropdown && styles.searchFilterBarActive]}>
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color="#6B7280" />
             <TextInput
@@ -1836,10 +1867,49 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               placeholderTextColor="#9CA3AF"
             />
           </View>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="funnel-outline" size={20} color="#6B7280" />
-            <Text style={styles.filterButtonText}>Filter</Text>
-          </TouchableOpacity>
+          <View style={styles.coachFilterButtonWrap}>
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                hasCoachFilters && styles.filterButtonActive,
+              ]}
+              onPress={() => setShowCoachFilterDropdown((prev) => !prev)}
+            >
+              <Ionicons name="funnel-outline" size={20} color={hasCoachFilters ? '#0369A1' : '#6B7280'} />
+              <Text style={[
+                styles.filterButtonText,
+                hasCoachFilters && styles.filterButtonTextActive,
+              ]}>
+                Filter
+              </Text>
+              {hasCoachFilters ? (
+                <View style={styles.filterActiveDot} />
+              ) : null}
+            </TouchableOpacity>
+
+            {showCoachFilterDropdown ? (
+              <View style={styles.coachFilterDropdown}>
+                <Text style={styles.coachFilterSectionLabel}>Status</Text>
+                {renderCoachFilterOption('All statuses', 'all', coachStatusFilter, setCoachStatusFilter)}
+                {renderCoachFilterOption('Active', 'active', coachStatusFilter, setCoachStatusFilter)}
+                {renderCoachFilterOption('Inactive', 'inactive', coachStatusFilter, setCoachStatusFilter)}
+
+                <Text style={[styles.coachFilterSectionLabel, styles.coachFilterSectionLabelSpaced]}>Verification</Text>
+                {renderCoachFilterOption('All coaches', 'all', coachVerifiedFilter, setCoachVerifiedFilter)}
+                {renderCoachFilterOption('Verified', 'verified', coachVerifiedFilter, setCoachVerifiedFilter)}
+                {renderCoachFilterOption('Pending', 'pending', coachVerifiedFilter, setCoachVerifiedFilter)}
+
+                {hasCoachFilters ? (
+                  <TouchableOpacity
+                    style={styles.coachFilterClearButton}
+                    onPress={clearCoachFilters}
+                  >
+                    <Text style={styles.coachFilterClearText}>Clear filters</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
         </View>
 
         {/* Coach Table */}
@@ -1882,12 +1952,25 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       return 'C';
     };
 
-    // Filter coaches based on search query
-    const filteredCoaches = coaches.filter(coach => 
-      coach.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coach.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      coach.location?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Filter coaches based on search query and optional admin filters
+    const filteredCoaches = coaches.filter((coach) => {
+      const matchesSearch =
+        coach.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coach.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        coach.location?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus =
+        coachStatusFilter === 'all' ||
+        (coachStatusFilter === 'active' && coach.is_active) ||
+        (coachStatusFilter === 'inactive' && !coach.is_active);
+
+      const matchesVerified =
+        coachVerifiedFilter === 'all' ||
+        (coachVerifiedFilter === 'verified' && coach.is_verified) ||
+        (coachVerifiedFilter === 'pending' && !coach.is_verified);
+
+      return matchesSearch && matchesStatus && matchesVerified;
+    });
 
     // Use only real data from database
     const coachesToRender = filteredCoaches;
@@ -1899,8 +1982,14 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           <Text style={styles.comingSoonText}>
             {loading ? 'Loading coaches...' : 'No coaches found'}
           </Text>
-          {!loading && searchQuery && (
-            <Text style={styles.comingSoonSubtext}>Try adjusting your search</Text>
+          {!loading && (searchQuery || hasCoachFilters) && (
+            <Text style={styles.comingSoonSubtext}>
+              {searchQuery && hasCoachFilters
+                ? 'Try adjusting your search or filters'
+                : searchQuery
+                ? 'Try adjusting your search'
+                : 'Try adjusting your filters'}
+            </Text>
           )}
         </View>
       );

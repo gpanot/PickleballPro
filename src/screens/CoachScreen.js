@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import {
   Search,
@@ -26,6 +27,7 @@ import {
   MessageCircle,
   ChevronRight,
   Users,
+  Check,
 } from 'lucide-react-native';
 import { usePreload } from '../context/PreloadContext';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +36,40 @@ import { getCoaches, transformCoachData, supabase } from '../lib/supabase';
 import { CoachSkeletonCard } from '../components/SkeletonCard';
 import SeededAvatar from '../components/SeededAvatar';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
+
+const IMPERIAL_REGIONS = new Set(['US', 'LR', 'MM']);
+
+function deviceUsesMetricDistance() {
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
+    const region = locale.split('-')[1]?.toUpperCase();
+    if (region) return !IMPERIAL_REGIONS.has(region);
+    return !locale.toLowerCase().includes('us');
+  } catch {
+    return false;
+  }
+}
+
+function formatCoachLocationShort(location) {
+  if (!location) return '';
+  const cleaned = location.replace(/\s*\([^)]*\)$/, '').trim();
+  const parts = cleaned.split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length <= 2) return cleaned;
+  const country = parts[parts.length - 1];
+  if (country === 'United States' || country === 'USA') {
+    return parts.length >= 2 ? `${parts[0]}, ${parts[1]}` : parts[0];
+  }
+  return `${parts[0]}, ${country}`;
+}
+
+function formatDistanceAway(distanceMiles, useKm) {
+  if (distanceMiles == null || Number.isNaN(distanceMiles)) return '';
+  if (distanceMiles > 500) return 'Far away';
+  const value = useKm ? distanceMiles * 1.60934 : distanceMiles;
+  const unit = useKm ? 'km' : 'mi';
+  if (value < 10) return `${value.toFixed(1)} ${unit} away`;
+  return `${Math.round(value).toLocaleString()} ${unit} away`;
+}
 
 export default function CoachScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,10 +98,18 @@ export default function CoachScreen({ navigation }) {
   // Avatar modal state
   const [selectedAvatarCoach, setSelectedAvatarCoach] = useState(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+
+  // Coach profile sheet
+  const [profileCoach, setProfileCoach] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
   
   const specialtyFilters = ['Verified', 'Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
   const sortOptions = ['Rating', 'Price', 'Location'];
   const px = t.headerPaddingH;
+  const useMetricDistance = useMemo(() => deviceUsesMetricDistance(), []);
+  const headerFadeColor = t.bg;
+  const activeFilterCount = selectedFilters.length + (sortBy !== 'Rating' ? 1 : 0);
 
   // Request location permission and get user location on component mount
   useEffect(() => {
@@ -556,6 +600,89 @@ export default function CoachScreen({ navigation }) {
     setShowAvatarModal(true);
   };
 
+  const openCoachProfile = (coach) => {
+    setProfileCoach(coach);
+    setShowProfileModal(true);
+  };
+
+  const getCoachDistanceMiles = (coach) => {
+    if (!userLocation || !locationPermissionGranted) return null;
+    const coachCoords = getCoachCoordinates(coach);
+    if (!coachCoords) return null;
+    return calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      coachCoords.latitude,
+      coachCoords.longitude
+    );
+  };
+
+  const getCoachLocationLine = (coach) => {
+    const shortLocation = formatCoachLocationShort(coach.location);
+    const distanceMiles = getCoachDistanceMiles(coach);
+    if (distanceMiles == null) return shortLocation;
+    return `${shortLocation} • ${formatDistanceAway(distanceMiles, useMetricDistance)}`;
+  };
+
+  const handleSortSelection = (option) => {
+    if (option === 'Location' && !locationPermissionGranted) {
+      Alert.alert(
+        'Location Permission Required',
+        'Please allow location access to sort coaches by distance.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Allow', onPress: requestLocationPermission },
+        ]
+      );
+      return;
+    }
+    setSortBy(option);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedFilters([]);
+    setSortBy('Rating');
+  };
+
+  const renderVerifiedBadge = (compact = false) => (
+    <View style={[
+      styles.verifiedBadge,
+      compact && styles.verifiedBadgeCompact,
+      { backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ECFDF5' },
+    ]}>
+      <BadgeCheck size={compact ? 12 : 14} color="#10B981" strokeWidth={2.5} />
+      <Text style={[
+        styles.verifiedBadgeText,
+        compact && styles.verifiedBadgeTextCompact,
+        { fontFamily: t.fontBodySemibold },
+      ]}>
+        Verified
+      </Text>
+    </View>
+  );
+
+  const renderCoachRating = (coach) => {
+    if (!coach.reviewCount) {
+      return (
+        <Text style={[styles.noReviewsText, { color: t.textSecondary, fontFamily: t.fontBody }]}>
+          No reviews yet
+        </Text>
+      );
+    }
+
+    return (
+      <View style={styles.metricItem}>
+        <Star size={14} color="#F59E0B" fill="#F59E0B" strokeWidth={2} />
+        <Text style={[styles.metricValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>
+          {coach.rating}
+        </Text>
+        <Text style={[styles.metricLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>
+          ({coach.reviewCount})
+        </Text>
+      </View>
+    );
+  };
+
   const getAvailableMessagingOptions = (coach) => {
     if (!coach.messagingPreferences) return [];
     
@@ -569,76 +696,153 @@ export default function CoachScreen({ navigation }) {
     if (!hourlyRate || hourlyRate === 0) return 'Contact';
     
     if (currency === 'VND') {
-      // Format VND with k suffix for thousands
-      if (hourlyRate >= 1000) {
-        const inThousands = hourlyRate / 1000;
-        // Handle decimal places for cleaner display
-        if (inThousands % 1 === 0) {
-          return `${Math.round(inThousands)}k₫`;
-        } else {
-          return `${inThousands.toFixed(1)}k₫`;
-        }
-      } else {
-        return `${hourlyRate.toLocaleString('vi-VN')}₫`;
-      }
-    } else {
-      // Format USD
-      return `$${hourlyRate}`;
+      return `${hourlyRate.toLocaleString('vi-VN')} ₫`;
     }
+
+    return `$${hourlyRate}`;
   };
 
-  const renderSortOptions = () => (
-    <View style={[styles.sortContainer, { paddingHorizontal: px, backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
-      <View style={styles.sortRow}>
-        <View style={styles.sortLabel}>
-          <SlidersHorizontal size={16} color={t.textMuted} strokeWidth={2} />
-          <Text style={[styles.sortText, { color: t.textMuted, fontFamily: t.fontBody }]}>Sort by:</Text>
+  const renderFilterChip = (filter, { inModal = false } = {}) => {
+    const active = selectedFilters.includes(filter);
+    const label = filter === 'Verified' && active && inModal ? 'Verified only' : filter;
+
+    return (
+      <TouchableOpacity
+        key={filter}
+        style={[
+          styles.filterChip,
+          inModal && styles.filterChipModal,
+          { backgroundColor: isDark ? t.surfaceRaised : '#fff', borderColor: isDark ? t.border : '#E5E7EB' },
+          active && { backgroundColor: t.accentPurple, borderColor: t.accentPurple },
+        ]}
+        onPress={() => toggleFilter(filter)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.filterChipContent}>
+          {filter === 'Verified' && (
+            <BadgeCheck
+              size={inModal ? 14 : 12}
+              color={active ? (isDark ? t.fabTextColor : 'white') : '#10B981'}
+              strokeWidth={2}
+              style={styles.filterIcon}
+            />
+          )}
+          <Text style={[
+            styles.filterChipText,
+            inModal && styles.filterChipTextModal,
+            { color: t.textSecondary, fontFamily: t.fontBody },
+            active && { color: isDark ? t.fabTextColor : 'white', fontFamily: t.fontBodySemibold },
+          ]}>
+            {label}
+          </Text>
         </View>
-        <View style={styles.sortButtons}>
-          {sortOptions.map((option) => (
+      </TouchableOpacity>
+    );
+  };
+
+  const renderFilterModal = () => (
+    <Modal
+      visible={showFilterModal}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      transparent
+      onRequestClose={() => setShowFilterModal(false)}
+    >
+      <View style={styles.filterModalOverlay}>
+        <View style={[styles.filterModalContainer, { backgroundColor: isDark ? t.bg : '#F9FAFB' }]}>
+          <View style={[styles.filterModalHeader, { borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+            <Text style={[styles.filterModalTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
+              Filter & Sort
+            </Text>
             <TouchableOpacity
-              key={option}
-              style={[
-                styles.sortButton,
-                sortBy === option && { backgroundColor: t.textPrimary },
-                option === 'Location' && !locationPermissionGranted && styles.sortButtonDisabled,
-              ]}
-              onPress={() => {
-                if (option === 'Location' && !locationPermissionGranted) {
-                  Alert.alert(
-                    'Location Permission Required',
-                    'Please allow location access to sort coaches by distance.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Allow', onPress: requestLocationPermission }
-                    ]
-                  );
-                } else {
-                  setSortBy(option);
-                }
-              }}
+              style={[styles.filterModalCloseButton, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}
+              onPress={() => setShowFilterModal(false)}
             >
-              <View style={styles.sortButtonContent}>
-                <Text style={[
-                  styles.sortButtonText,
-                  { color: t.textMuted, fontFamily: t.fontBody },
-                  sortBy === option && { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold },
-                  option === 'Location' && !locationPermissionGranted && { color: t.textCaption },
-                ]}>
-                  {option}
-                </Text>
-                {option === 'Location' && locationLoading && (
-                  <MapPin size={12} color={sortBy === option ? (isDark ? t.fabTextColor : '#fff') : t.textMuted} strokeWidth={2} />
-                )}
-                {option === 'Location' && !locationPermissionGranted && !locationLoading && (
-                  <Lock size={12} color={t.textCaption} strokeWidth={2} />
-                )}
-              </View>
+              <X size={22} color={t.textSecondary} strokeWidth={2} />
             </TouchableOpacity>
-          ))}
+          </View>
+
+          <ScrollView
+            style={styles.filterModalScroll}
+            contentContainerStyle={styles.filterModalContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={[styles.filterModalSectionLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>
+              SORT BY
+            </Text>
+            <View style={styles.sortOptionList}>
+              {sortOptions.map((option) => {
+                const selected = sortBy === option;
+                const locationLocked = option === 'Location' && !locationPermissionGranted;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.sortOptionRow,
+                      {
+                        backgroundColor: t.surface,
+                        borderColor: selected ? t.accentPurple : (isDark ? t.border : '#E5E7EB'),
+                      },
+                      selected && { backgroundColor: isDark ? t.accentPurpleMuted : '#F5F3FF' },
+                    ]}
+                    onPress={() => handleSortSelection(option)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.sortOptionLeft}>
+                      <SlidersHorizontal size={16} color={selected ? t.accentPurple : t.textSecondary} strokeWidth={2} />
+                      <Text style={[
+                        styles.sortOptionText,
+                        { color: t.textPrimary, fontFamily: selected ? t.fontBodySemibold : t.fontBody },
+                      ]}>
+                        {option}
+                      </Text>
+                      {locationLocked ? (
+                        <Lock size={13} color={t.textCaption} strokeWidth={2} />
+                      ) : null}
+                    </View>
+                    {selected ? (
+                      <View style={[styles.sortOptionCheck, { backgroundColor: t.accentPurple }]}>
+                        <Check size={14} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={2.5} />
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.filterModalSectionLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>
+              SPECIALTIES
+            </Text>
+            <View style={styles.filterModalChips}>
+              {specialtyFilters.map((filter) => renderFilterChip(filter, { inModal: true }))}
+            </View>
+          </ScrollView>
+
+          <View style={[styles.filterModalFooter, { borderTopColor: isDark ? t.border : '#E5E7EB', backgroundColor: isDark ? t.bg : '#F9FAFB' }]}>
+            <TouchableOpacity
+              style={styles.filterModalClearButton}
+              onPress={clearAllFilters}
+              disabled={activeFilterCount === 0}
+            >
+              <Text style={[
+                styles.filterModalClearText,
+                { color: activeFilterCount > 0 ? t.accentPurple : t.textCaption, fontFamily: t.fontBodySemibold },
+              ]}>
+                Clear all
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterModalApplyButton, { backgroundColor: t.accentPurple }]}
+              onPress={() => setShowFilterModal(false)}
+            >
+              <Text style={[styles.filterModalApplyText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>
+                Done
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+    </Modal>
   );
 
   const renderExpandableSearch = () => (
@@ -663,55 +867,67 @@ export default function CoachScreen({ navigation }) {
   );
 
   const renderFilters = () => (
-    <View style={[styles.filtersContainer, { paddingHorizontal: px }]}>
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersScroll}
-        contentContainerStyle={styles.filtersContent}
-      >
-        {specialtyFilters.map((filter) => {
-          const active = selectedFilters.includes(filter);
-          return (
-            <TouchableOpacity
-              key={filter}
-              style={[
-                styles.filterChip,
-                { backgroundColor: isDark ? t.surfaceRaised : '#fff', borderColor: isDark ? t.border : '#E5E7EB' },
-                active && { backgroundColor: t.accentPurple, borderColor: t.accentPurple },
-              ]}
-              onPress={() => toggleFilter(filter)}
-            >
-              <View style={styles.filterChipContent}>
-                {filter === 'Verified' && (
-                  <BadgeCheck
-                    size={14}
-                    color={active ? (isDark ? t.fabTextColor : 'white') : '#10B981'}
-                    strokeWidth={2}
-                    style={styles.filterIcon}
-                  />
-                )}
-                <Text style={[
-                  styles.filterChipText,
-                  { color: t.textMuted, fontFamily: t.fontBody },
-                  active && { color: isDark ? t.fabTextColor : 'white', fontFamily: t.fontBodySemibold },
-                ]}>
-                  {filter}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+    <View style={[styles.filtersContainer, { paddingHorizontal: px, borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+      <View style={styles.filtersRow}>
+        <TouchableOpacity
+          style={[
+            styles.filterCtaButton,
+            {
+              backgroundColor: isDark ? t.surfaceRaised : '#fff',
+              borderColor: activeFilterCount > 0 ? t.accentPurple : (isDark ? t.border : '#E5E7EB'),
+            },
+            activeFilterCount > 0 && { backgroundColor: isDark ? t.accentPurpleMuted : '#F5F3FF' },
+          ]}
+          onPress={() => setShowFilterModal(true)}
+          activeOpacity={0.7}
+        >
+          <SlidersHorizontal
+            size={16}
+            color={activeFilterCount > 0 ? t.accentPurple : t.textSecondary}
+            strokeWidth={2}
+          />
+          {activeFilterCount > 0 ? (
+            <View style={[styles.filterCtaBadge, { backgroundColor: t.accentPurple }]}>
+              <Text style={[styles.filterCtaBadgeText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>
+                {activeFilterCount}
+              </Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
+
+        <View style={styles.filtersScrollWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filtersScroll}
+            contentContainerStyle={styles.filtersContent}
+          >
+            {specialtyFilters.map((filter) => renderFilterChip(filter))}
+          </ScrollView>
+          <LinearGradient
+            colors={[`${headerFadeColor}00`, headerFadeColor]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.filterFade}
+            pointerEvents="none"
+          />
+        </View>
+      </View>
     </View>
   );
 
   const renderCoachCard = (coach) => {
     const hasValidImage = coach.image && 
       (coach.image.startsWith('http') || coach.image.startsWith('blob:'));
+    const bio = coach.bio?.trim();
     
     return (
-      <View key={coach.id} style={[styles.coachCard, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+      <TouchableOpacity
+        key={coach.id}
+        style={[styles.coachCard, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}
+        activeOpacity={0.85}
+        onPress={() => openCoachProfile(coach)}
+      >
         <View style={styles.coachHeader}>
           <TouchableOpacity 
             onPress={() => handleAvatarPress(coach)}
@@ -727,35 +943,31 @@ export default function CoachScreen({ navigation }) {
         <View style={styles.coachInfo}>
           <View style={styles.coachNameRow}>
             <Text style={[styles.coachName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{coach.name}</Text>
-            {coach.verified && (
-              <BadgeCheck size={16} color="#10B981" strokeWidth={2} />
-            )}
+            {coach.verified && renderVerifiedBadge(true)}
           </View>
           
           <View style={styles.coachMetrics}>
-            {coach.duprRating && (
+            {coach.duprRating ? (
               <View style={styles.metricItem}>
-                <Text style={[styles.metricLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>DUPR:</Text>
+                <Text style={[styles.metricLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>DUPR:</Text>
                 <Text style={[styles.metricValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{coach.duprRating}</Text>
               </View>
-            )}
-            <View style={styles.metricItem}>
-              <Star size={14} color="#F59E0B" fill="#F59E0B" strokeWidth={2} />
-              <Text style={[styles.metricValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{coach.rating}</Text>
-              <Text style={[styles.metricLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>({coach.reviewCount})</Text>
-            </View>
+            ) : null}
+            {renderCoachRating(coach)}
           </View>
         </View>
         
         <View style={styles.coachPrice}>
           <Text style={[styles.priceText, { fontFamily: t.fontDisplay }]}>{formatPrice(coach.hourlyRate, coach.currency)}</Text>
-          <Text style={[styles.priceLabel, { color: t.textMuted, fontFamily: t.fontBody }]}>per hour</Text>
+          <Text style={[styles.priceLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>per hour</Text>
         </View>
       </View>
       
-      <Text style={[styles.coachBio, { color: t.textSecondary, fontFamily: t.fontBody }]} numberOfLines={2}>
-        {coach.bio}
-      </Text>
+      {bio ? (
+        <Text style={[styles.coachBio, { color: t.textSecondary, fontFamily: t.fontBody }]} numberOfLines={2}>
+          {bio}
+        </Text>
+      ) : null}
       
       <View style={styles.specialtiesContainer}>
         {coach.specialties.slice(0, 3).map((specialty) => (
@@ -771,22 +983,13 @@ export default function CoachScreen({ navigation }) {
       </View>
       
       <View style={styles.coachLocation}>
-        <MapPin size={14} color={t.textMuted} strokeWidth={2} />
-        <Text style={[styles.locationText, { color: t.textMuted, fontFamily: t.fontBody }]}>
-          {coach.location.replace(/\s*\([^)]*\)$/, '')}
-          {userLocation && locationPermissionGranted && (() => {
-            const coachCoords = getCoachCoordinates(coach);
-            if (coachCoords) {
-              const distance = calculateDistance(
-                userLocation.latitude,
-                userLocation.longitude,
-                coachCoords.latitude,
-                coachCoords.longitude
-              );
-              return ` • ${distance.toFixed(1)} mi away`;
-            }
-            return '';
-          })()}
+        <MapPin size={14} color={t.textSecondary} strokeWidth={2} />
+        <Text
+          style={[styles.locationText, { color: t.textSecondary, fontFamily: t.fontBody }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {getCoachLocationLine(coach)}
         </Text>
       </View>
       
@@ -796,7 +999,134 @@ export default function CoachScreen({ navigation }) {
       >
         <Text style={[styles.contactButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>Contact Coach</Text>
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
+    );
+  };
+
+  const renderCoachProfileModal = () => {
+    if (!profileCoach) return null;
+
+    const hasValidImage = profileCoach.image &&
+      (profileCoach.image.startsWith('http') || profileCoach.image.startsWith('blob:'));
+    const bio = profileCoach.bio?.trim();
+
+    return (
+      <Modal
+        visible={showProfileModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        transparent
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <View style={[styles.profileModalOverlay, { backgroundColor: isDark ? t.bg : '#F9FAFB' }]}>
+          <View style={[styles.profileModalContainer, { backgroundColor: isDark ? t.bg : '#F9FAFB' }]}>
+            <View style={[styles.profileModalHeader, { borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+              <Text style={[styles.profileModalTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
+                Coach Profile
+              </Text>
+              <TouchableOpacity
+                style={[styles.profileModalCloseButton, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}
+                onPress={() => setShowProfileModal(false)}
+              >
+                <X size={22} color={t.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.profileModalScroll}
+              contentContainerStyle={styles.profileModalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.profileHero}>
+                <SeededAvatar
+                  uri={hasValidImage ? profileCoach.image : null}
+                  name={profileCoach.name}
+                  size={88}
+                />
+                <Text style={[styles.profileName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
+                  {profileCoach.name}
+                </Text>
+                {profileCoach.verified ? renderVerifiedBadge(false) : null}
+              </View>
+
+              <View style={[styles.profileStatsRow, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                {profileCoach.duprRating ? (
+                  <View style={styles.profileStat}>
+                    <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>DUPR</Text>
+                    <Text style={[styles.profileStatValue, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
+                      {profileCoach.duprRating}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.profileStat}>
+                  <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>Rating</Text>
+                  {profileCoach.reviewCount ? (
+                    <View style={styles.profileRatingValue}>
+                      <Star size={14} color="#F59E0B" fill="#F59E0B" strokeWidth={2} />
+                      <Text style={[styles.profileStatValue, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
+                        {profileCoach.rating} ({profileCoach.reviewCount})
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.profileStatValue, { color: t.textSecondary, fontFamily: t.fontBody }]}>
+                      No reviews yet
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.profileStat}>
+                  <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>Rate</Text>
+                  <Text style={[styles.profileStatValue, { color: '#10B981', fontFamily: t.fontBodyBold }]}>
+                    {formatPrice(profileCoach.hourlyRate, profileCoach.currency)}
+                  </Text>
+                  <Text style={[styles.profileStatSub, { color: t.textSecondary, fontFamily: t.fontBody }]}>per hour</Text>
+                </View>
+              </View>
+
+              {bio ? (
+                <View style={[styles.profileSection, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                  <Text style={[styles.profileSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>About</Text>
+                  <Text style={[styles.profileBio, { color: t.textSecondary, fontFamily: t.fontBody }]}>{bio}</Text>
+                </View>
+              ) : null}
+
+              {profileCoach.specialties?.length > 0 ? (
+                <View style={[styles.profileSection, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                  <Text style={[styles.profileSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Specialties</Text>
+                  <View style={styles.specialtiesContainer}>
+                    {profileCoach.specialties.map((specialty) => (
+                      <View key={specialty} style={[styles.specialtyTag, { backgroundColor: isDark ? t.accentPurpleMuted : '#F3F4F6' }]}>
+                        <Text style={[styles.specialtyText, { color: isDark ? t.accentPurple : '#4B5563', fontFamily: t.fontBody }]}>{specialty}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={[styles.profileSection, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                <Text style={[styles.profileSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Location</Text>
+                <View style={styles.coachLocation}>
+                  <MapPin size={14} color={t.textSecondary} strokeWidth={2} />
+                  <Text style={[styles.profileLocationText, { color: t.textSecondary, fontFamily: t.fontBody }]}>
+                    {getCoachLocationLine(profileCoach)}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.contactButton, styles.profileContactButton, { backgroundColor: t.accentPurple }]}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  handleContactCoach(profileCoach);
+                }}
+              >
+                <Text style={[styles.contactButtonText, { color: isDark ? t.fabTextColor : '#fff', fontFamily: t.fontBodySemibold }]}>
+                  Contact Coach
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -961,6 +1291,8 @@ export default function CoachScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       {renderAvatarModal()}
       {renderMessagingModal()}
+      {renderCoachProfileModal()}
+      {renderFilterModal()}
       <ScreenHeaderShell
         tokens={t}
         isDark={isDark}
@@ -984,7 +1316,6 @@ export default function CoachScreen({ navigation }) {
       >
         {isSearchExpanded && renderExpandableSearch()}
         {renderFilters()}
-        {renderSortOptions()}
       </ScreenHeaderShell>
       
       {loading ? (
@@ -1014,10 +1345,6 @@ export default function CoachScreen({ navigation }) {
           }
         >
           <View style={[styles.resultsContainer, { paddingHorizontal: px }]}>
-            <Text style={[styles.resultsText, { color: t.textMuted, fontFamily: t.fontBody }]}>
-              {filteredAndSortedCoaches.length} {filteredAndSortedCoaches.length === 1 ? 'coach' : 'coaches'} found
-            </Text>
-            
             {filteredAndSortedCoaches.length > 0 ? (
               filteredAndSortedCoaches.map(renderCoachCard)
             ) : (
@@ -1096,23 +1423,68 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   filtersContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterCtaButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+    position: 'relative',
+  },
+  filterCtaBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  filterCtaBadgeText: {
+    fontSize: 10,
+    lineHeight: 12,
+  },
+  filtersScrollWrap: {
+    flex: 1,
+    position: 'relative',
   },
   filtersScroll: {
-    marginBottom: 8,
+    flexGrow: 0,
   },
   filtersContent: {
     paddingRight: 24,
+    alignItems: 'center',
+  },
+  filterFade: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 24,
   },
   filterChip: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 6,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+  },
+  filterChipModal: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginRight: 8,
+    marginBottom: 8,
   },
   filterChipActive: {
     backgroundColor: '#6366F1',
@@ -1123,79 +1495,141 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterIcon: {
-    marginRight: 4,
+    marginRight: 3,
   },
   filterChipText: {
+    fontSize: 13,
+  },
+  filterChipTextModal: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
   },
   filterChipTextActive: {
     color: 'white',
   },
-  // Sort styles - matching exact UI
-  sortContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F9FAFB',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
   },
-  sortRow: {
+  filterModalContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '82%',
+    overflow: 'hidden',
+  },
+  filterModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
   },
-  sortLabel: {
+  filterModalTitle: {
+    fontSize: 18,
+  },
+  filterModalCloseButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  filterModalScroll: {
+    flexGrow: 0,
+  },
+  filterModalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  filterModalSectionLabel: {
+    fontSize: 12,
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  sortOptionList: {
+    gap: 8,
+    marginBottom: 22,
+  },
+  sortOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
-  sortText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginLeft: 8,
-  },
-  sortButtons: {
+  sortOptionLeft: {
     flexDirection: 'row',
-    gap: 0,
+    alignItems: 'center',
+    gap: 10,
   },
-  sortButton: {
-    backgroundColor: 'transparent',
+  sortOptionText: {
+    fontSize: 15,
+  },
+  sortOptionCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterModalChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginLeft: 8,
+    paddingTop: 12,
+    paddingBottom: 28,
+    borderTopWidth: 1,
+    gap: 12,
   },
-  sortButtonContent: {
+  filterModalClearButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  filterModalClearText: {
+    fontSize: 15,
+  },
+  filterModalApplyButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  filterModalApplyText: {
+    fontSize: 16,
+  },
+  verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  sortButtonActive: {
-    backgroundColor: '#1F2937',
+  verifiedBadgeCompact: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 2,
   },
-  sortButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
+  verifiedBadgeText: {
+    fontSize: 12,
+    color: '#047857',
   },
-  sortButtonTextActive: {
-    color: 'white',
+  verifiedBadgeTextCompact: {
+    fontSize: 11,
   },
-  sortButtonDisabled: {
-    opacity: 0.5,
-  },
-  sortButtonTextDisabled: {
-    color: '#9CA3AF',
+  noReviewsText: {
+    fontSize: 13,
   },
   resultsContainer: {
     paddingHorizontal: 24,
-  },
-  resultsText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
+    paddingTop: 12,
   },
   coachCard: {
     backgroundColor: 'white',
@@ -1311,6 +1745,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginLeft: 4,
+    flex: 1,
   },
   contactButton: {
     backgroundColor: '#6366F1',
@@ -1582,5 +2017,103 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#10B981',
     marginLeft: 6,
+  },
+  profileModalOverlay: {
+    flex: 1,
+  },
+  profileModalContainer: {
+    flex: 1,
+  },
+  profileModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  profileModalTitle: {
+    fontSize: 18,
+  },
+  profileModalCloseButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  profileModalScroll: {
+    flex: 1,
+  },
+  profileModalContent: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  profileHero: {
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 10,
+  },
+  profileName: {
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  profileStatsRow: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  profileStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  profileStatLabel: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  profileStatValue: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  profileStatSub: {
+    fontSize: 11,
+  },
+  profileRatingValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  profileSection: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  profileSectionTitle: {
+    fontSize: 15,
+    marginBottom: 10,
+  },
+  profileBio: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  profileLocationText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+  profileContactButton: {
+    marginTop: 8,
   },
 });

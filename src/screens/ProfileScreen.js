@@ -997,15 +997,6 @@ export default function ProfileScreen({ onLogout, navigation }) {
         {renderOverallStats()}
         {renderSettings()}
         
-        <View style={styles.deleteAccountContainer}>
-          <TouchableOpacity 
-            onPress={() => setShowDeleteAccountModal(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.deleteAccountText, { color: t.textCaption }]}>How do I delete my account</Text>
-          </TouchableOpacity>
-        </View>
-        
         <View style={styles.bottomSpacing} />
       </ScrollView>
       

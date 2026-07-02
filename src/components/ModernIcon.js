@@ -423,6 +423,28 @@ export default function ModernIcon({ name, size = 20, color = '#6B7280', focused
           </View>
         );
         
+      case 'flag':
+        return (
+          <View style={[styles.iconContainer, { width: size, height: size }]}>
+            <View style={[
+              styles.flagPole,
+              {
+                backgroundColor: color,
+                width: size * 0.12,
+                height: size * 0.85,
+              }
+            ]} />
+            <View style={[
+              styles.flagBanner,
+              {
+                backgroundColor: color,
+                width: size * 0.55,
+                height: size * 0.35,
+              }
+            ]} />
+          </View>
+        );
+
         default:
         console.log('ModernIcon: Unknown icon name:', name);
         return (
@@ -678,6 +700,22 @@ const styles = StyleSheet.create({
     right: '-10%',
   },
   
+  // Flag icon
+  flagPole: {
+    borderRadius: 1,
+    position: 'absolute',
+    left: '22%',
+    bottom: '8%',
+  },
+  flagBanner: {
+    borderTopLeftRadius: 2,
+    borderBottomLeftRadius: 2,
+    borderTopRightRadius: 2,
+    position: 'absolute',
+    left: '34%',
+    top: '18%',
+  },
+
   // Default fallback
   defaultIcon: {
     borderRadius: 50,
