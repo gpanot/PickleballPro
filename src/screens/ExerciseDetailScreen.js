@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   Platform,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
+import { useLogbook } from '../context/LogbookContext';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import YoutubePlayer from 'react-native-youtube-iframe';
 import AddLogExercise_from_routine from '../components/AddLogExercise_from_routine';
@@ -40,10 +42,13 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   const [showLogModal, setShowLogModal] = useState(false);
   const [lastLogResult, setLastLogResult] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [exerciseHistory, setExerciseHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const playerRef = useRef(null);
   const insets = useSafeAreaInsets();
   const { logbookTheme: t, isDark } = useTheme();
-  
+  const { logbookEntries } = useLogbook();
+
   // Get exercise data from navigation params or use mock data
   const initialRawExercise = route?.params?.exercise || route?.params?.rawExercise;
   const onExerciseUpdated = route?.params?.onExerciseUpdated;
@@ -80,7 +85,45 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   React.useEffect(() => {
     setIsPlaying(!!currentVideoId);
   }, [currentVideoId]);
-  
+
+  // Load exercise history from logbook entries whenever entries or exercise changes
+  const loadExerciseHistory = useCallback(() => {
+    if (!rawExercise) {
+      setExerciseHistory([]);
+      return;
+    }
+
+    setLoadingHistory(true);
+    try {
+      const exerciseName = rawExercise.title || rawExercise.name;
+      const exerciseId = rawExercise.id || rawExercise.code;
+
+      const history = (logbookEntries || []).filter(entry => {
+        if (!entry.exerciseDetails) return false;
+        if (entry.exerciseDetails.exerciseName === exerciseName) return true;
+        if (exerciseId && entry.exerciseDetails.exerciseId === exerciseId) return true;
+        return false;
+      });
+
+      const sorted = [...history].sort((a, b) => {
+        const dateA = new Date(a.date || a.createdAt);
+        const dateB = new Date(b.date || b.createdAt);
+        return dateB - dateA;
+      });
+
+      setExerciseHistory(sorted);
+    } catch (err) {
+      console.error('Error filtering exercise history:', err);
+      setExerciseHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [rawExercise, logbookEntries]);
+
+  React.useEffect(() => {
+    loadExerciseHistory();
+  }, [loadExerciseHistory]);
+
   // Debug logging for tips data
   React.useEffect(() => {
     console.log('🔍 [ExerciseDetailScreen] Raw exercise data received:', {
@@ -88,10 +131,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
       code: rawExercise?.code,
       title: rawExercise?.title,
       hasTipsJson: !!rawExercise?.tips_json,
-      tipsJson: rawExercise?.tips_json,
       tipsCount: rawExercise?.tips_json ? rawExercise.tips_json.length : 0,
-      hasCompleteExerciseData: !!rawExercise?.completeExerciseData,
-      completeDataTips: rawExercise?.completeExerciseData?.tips_json
     });
   }, [rawExercise]);
 
@@ -105,29 +145,25 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     setRefreshing(true);
     try {
       const exerciseCode = rawExercise.code || rawExercise.id;
-      
 
-      // Fetch fresh exercise data from database
       let data, error;
-      
-      // First try to find by code (for older exercises with code field)
+
       const { data: dataByCode, error: errorByCode } = await supabase
         .from('exercises')
         .select('*')
         .eq('code', exerciseCode)
         .single();
-      
+
       if (!errorByCode && dataByCode) {
         data = dataByCode;
         error = errorByCode;
       } else {
-        // If not found by code, try to find by UUID (for database exercises)
         const { data: dataById, error: errorById } = await supabase
           .from('exercises')
           .select('*')
           .eq('id', exerciseCode)
           .single();
-        
+
         data = dataById;
         error = errorById;
       }
@@ -137,8 +173,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
       } else if (data) {
         console.log('Exercise data refreshed successfully');
         setCurrentExerciseData(data);
-        
-        // Call the update callback if available
+
         if (onExerciseUpdated) {
           onExerciseUpdated(data);
         }
@@ -149,7 +184,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
       setRefreshing(false);
     }
   }, [rawExercise?.code, rawExercise?.id, onExerciseUpdated]);
-  
+
   // Transform picker exercise format to detail screen format
   const exercise = rawExercise ? {
     code: rawExercise.code || rawExercise.id || "1.1",
@@ -166,20 +201,15 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     equipment: ["Balls", "Paddle"],
     videoUrl: rawExercise.youtube_url || rawExercise.demo_video_url || rawExercise.video_url || rawExercise.videoUrl || null,
     tips: (() => {
-      // Try multiple sources for tips data
-      // 1. Direct tips_json field (from database)
       if (rawExercise.tips_json && Array.isArray(rawExercise.tips_json) && rawExercise.tips_json.length > 0) {
         return rawExercise.tips_json.filter(tip => tip && tip.trim());
       }
-      // 2. completeExerciseData.tips_json (from transformed data)
       if (rawExercise.completeExerciseData?.tips_json && Array.isArray(rawExercise.completeExerciseData.tips_json) && rawExercise.completeExerciseData.tips_json.length > 0) {
         return rawExercise.completeExerciseData.tips_json.filter(tip => tip && tip.trim());
       }
-      // 3. completeExerciseData.tips (from transformed data)
       if (rawExercise.completeExerciseData?.tips && Array.isArray(rawExercise.completeExerciseData.tips) && rawExercise.completeExerciseData.tips.length > 0) {
         return rawExercise.completeExerciseData.tips.filter(tip => tip && tip.trim());
       }
-      // 4. Legacy tips field (fallback)
       if (rawExercise.tips && Array.isArray(rawExercise.tips) && rawExercise.tips.length > 0) {
         return rawExercise.tips.filter(tip => tip && tip.trim());
       }
@@ -187,39 +217,31 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     })()
   } : null;
 
-
-  const getDifficultyStars = () => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <View
-        key={i}
-        style={[
-          styles.difficultyDot,
-          { backgroundColor: i < exercise.difficulty ? '#F59E0B' : '#E5E7EB' }
-        ]}
-      />
-    ));
-  };
-
-
   const renderGoalTargetRow = () => (
     <View style={styles.goalTargetContainer}>
-      <View style={styles.goalCard}>
+      <View style={[styles.goalCard, {
+        backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF',
+        borderColor: isDark ? '#2563EB40' : '#DBEAFE',
+      }]}>
         <View style={styles.goalContent}>
           <ModernIcon name="target" size={20} color="#2563EB" style={styles.goalIcon} />
           <View style={styles.goalTextContainer}>
-            <Text style={styles.goalTitle}>Goal</Text>
-            <Text style={styles.goalDescription}>{exercise.goal}</Text>
+            <Text style={[styles.goalTitle, { color: isDark ? '#93C5FD' : '#1E3A8A' }]}>Goal</Text>
+            <Text style={[styles.goalDescription, { color: isDark ? '#BFDBFE' : '#1E40AF' }]}>{exercise.goal}</Text>
           </View>
         </View>
       </View>
-      
+
       {exercise.targetValue && exercise.targetValue !== "Complete" && (
-        <View style={styles.targetCard}>
+        <View style={[styles.targetCard, {
+          backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
+          borderColor: isDark ? '#05966940' : '#A7F3D0',
+        }]}>
           <View style={styles.targetContent}>
             <ModernIcon name="flag" size={20} color="#059669" style={styles.targetIcon} />
             <View style={styles.targetTextContainer}>
-              <Text style={styles.targetTitle}>Target</Text>
-              <Text style={styles.targetDescription}>
+              <Text style={[styles.targetTitle, { color: isDark ? '#6EE7B7' : '#047857' }]}>Target</Text>
+              <Text style={[styles.targetDescription, { color: isDark ? '#A7F3D0' : '#065F46' }]}>
                 {exercise.targetValue} {exercise.targetUnit && exercise.targetUnit !== "attempts" ? exercise.targetUnit : ""}
               </Text>
             </View>
@@ -231,18 +253,11 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
   const renderVideoSection = () => {
     const videoId = getYouTubeVideoId(exercise.videoUrl);
-    
-    console.log('🎥 [Video Debug]', {
-      videoUrl: exercise.videoUrl,
-      extractedVideoId: videoId
-    });
-    
+
     if (!videoId) {
-      // Show placeholder if no video URL
-      console.log('❌ No video ID found');
       return (
-        <View style={styles.videoSection}>
-          <View style={styles.videoContainer}>
+        <View style={[styles.videoSection, { backgroundColor: t.bgCard }]}>
+          <View style={[styles.videoContainer, { backgroundColor: isDark ? '#0F172A' : '#1F2937' }]}>
             <View style={styles.noVideoContainer}>
               <Ionicons name="videocam-off-outline" size={48} color="#9CA3AF" />
               <Text style={styles.noVideoText}>No video available</Text>
@@ -250,19 +265,17 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           </View>
           <View style={styles.videoInfo}>
             <View style={styles.videoDetails}>
-              <ModernIcon name="time" size={16} color="#6B7280" />
-              <Text style={styles.videoDetailText}>{exercise.estimatedTime}</Text>
+              <ModernIcon name="time" size={16} color={t.textSecondary} />
+              <Text style={[styles.videoDetailText, { color: t.textSecondary }]}>{exercise.estimatedTime}</Text>
             </View>
           </View>
         </View>
       );
     }
 
-    console.log('✅ Rendering YouTube player with ID:', videoId);
-
     return (
-      <View style={styles.videoSection}>
-        <View style={styles.videoContainer}>
+      <View style={[styles.videoSection, { backgroundColor: t.bgCard }]}>
+        <View style={[styles.videoContainer, { backgroundColor: isDark ? '#0F172A' : '#1F2937' }]}>
           <YoutubePlayer
             ref={playerRef}
             width={'100%'}
@@ -273,9 +286,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
               allowsFullscreenVideo: true,
               androidLayerType: 'hardware',
             }}
-            webViewStyle={{
-              opacity: 0.99,
-            }}
+            webViewStyle={{ opacity: 0.99 }}
             initialPlayerParams={{
               autoplay: 1,
               loop: false,
@@ -285,7 +296,6 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
               preventFullScreen: false,
             }}
             onChangeState={(state) => {
-              console.log('📺 YouTube State Changed:', state);
               if (state === 'ended' || state === 'paused') {
                 setIsPlaying(false);
               } else if (state === 'playing') {
@@ -293,26 +303,22 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
               }
             }}
             onReady={() => {
-              console.log('✅ YouTube Player Ready');
               if (videoId) setIsPlaying(true);
             }}
             onError={(error) => {
-              console.log('❌ YouTube Player Error:', error);
-            }}
-            onFullScreenChange={(isFullScreen) => {
-              console.log('📺 Fullscreen changed:', isFullScreen);
+              console.log('YouTube Player Error:', error);
             }}
           />
         </View>
         <View style={styles.videoInfo}>
           <View style={styles.videoDetails}>
-            <ModernIcon name="time" size={16} color="#6B7280" />
-            <Text style={styles.videoDetailText}>{exercise.estimatedTime}</Text>
+            <ModernIcon name="time" size={16} color={t.textSecondary} />
+            <Text style={[styles.videoDetailText, { color: t.textSecondary }]}>{exercise.estimatedTime}</Text>
           </View>
           {exercise.videoUrl && (
             <View style={styles.videoDetails}>
               <Ionicons name="logo-youtube" size={16} color="#FF0000" />
-              <Text style={styles.videoUrlText} numberOfLines={1} ellipsizeMode="tail">
+              <Text style={[styles.videoUrlText, { color: t.textTertiary }]} numberOfLines={1} ellipsizeMode="tail">
                 {exercise.videoUrl}
               </Text>
             </View>
@@ -323,23 +329,22 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   };
 
   const renderInstructions = () => {
-    // Split instructions by double newlines to create sections
     const instructionSections = exercise.instructions.split('\n\n');
-    
+
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Instructions</Text>
-        
+      <View style={[styles.card, { backgroundColor: t.bgCard }]}>
+        <Text style={[styles.cardTitle, { color: t.text }]}>Instructions</Text>
+
         {instructionSections.map((section, index) => {
           const lines = section.split('\n');
           const title = lines[0];
           const items = lines.slice(1);
-          
+
           return (
             <View key={index} style={styles.instructionSection}>
-              <Text style={styles.instructionSectionTitle}>{title}</Text>
+              <Text style={[styles.instructionSectionTitle, { color: t.textSecondary }]}>{title}</Text>
               {items.map((item, itemIndex) => (
-                <Text key={itemIndex} style={styles.instructionItem}>{item}</Text>
+                <Text key={itemIndex} style={[styles.instructionItem, { color: t.textSecondary }]}>{item}</Text>
               ))}
             </View>
           );
@@ -354,15 +359,15 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     }
 
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Pro Tips</Text>
+      <View style={[styles.card, { backgroundColor: t.bgCard }]}>
+        <Text style={[styles.cardTitle, { color: t.text }]}>Pro Tips</Text>
         <View style={styles.tipsContainer}>
           {exercise.tips.map((tip, index) => (
             <View key={index} style={styles.tipItem}>
-              <View style={styles.tipNumber}>
-                <Text style={styles.tipNumberText}>{index + 1}</Text>
+              <View style={[styles.tipNumber, { backgroundColor: isDark ? '#064E3B' : '#DCFCE7' }]}>
+                <Text style={[styles.tipNumberText, { color: isDark ? '#34D399' : '#16A34A' }]}>{index + 1}</Text>
               </View>
-              <Text style={styles.tipText}>{tip}</Text>
+              <Text style={[styles.tipText, { color: t.textSecondary }]}>{tip}</Text>
             </View>
           ))}
         </View>
@@ -372,17 +377,17 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
   const renderTags = () => {
     const tags = rawExercise?.skill_categories_json || rawExercise?.tags || [];
-    
+
     if (!tags || tags.length === 0) {
       return null;
     }
 
     return (
-      <View style={styles.tagsSection}>
-        <Text style={styles.tagsTitle}>Tags:</Text>
+      <View style={[styles.tagsSection, { borderTopColor: t.border }]}>
+        <Text style={[styles.tagsTitle, { color: t.textTertiary }]}>Tags:</Text>
         <View style={styles.tagsContainer}>
           {tags.map((tag, index) => (
-            <Text key={index} style={styles.tagText}>
+            <Text key={index} style={[styles.tagText, { color: t.textTertiary }]}>
               {tag}{index < tags.length - 1 ? ' • ' : ''}
             </Text>
           ))}
@@ -391,7 +396,89 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     );
   };
 
+  const renderPreviousResults = () => {
+    return (
+      <View style={[styles.card, { backgroundColor: t.bgCard, marginTop: 8 }]}>
+        <Text style={[styles.cardTitle, { color: t.text }]}>Previous Results</Text>
 
+        {loadingHistory ? (
+          <View style={styles.historyLoadingContainer}>
+            <ActivityIndicator size="small" color={t.primary} />
+          </View>
+        ) : exerciseHistory.length === 0 ? (
+          <View style={[styles.historyEmptyContainer, { borderColor: t.border }]}>
+            <Ionicons name="time-outline" size={28} color={t.textTertiary} />
+            <Text style={[styles.historyEmptyText, { color: t.textSecondary }]}>No results yet</Text>
+            <Text style={[styles.historyEmptySubtext, { color: t.textTertiary }]}>
+              Your logged results will appear here
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.historyList}>
+            {exerciseHistory.slice(0, 5).map((entry, index) => {
+              const entryDate = new Date(entry.date || entry.createdAt);
+              const formattedDate = entryDate.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              });
+
+              const result = entry.exerciseDetails?.result || 'N/A';
+              const target = entry.exerciseDetails?.target || exercise.targetValue || 'N/A';
+              const notes = entry.exerciseDetails?.notes || '';
+              const targetMet = entry.exerciseDetails?.target_met !== false;
+
+              return (
+                <View
+                  key={entry.id || index}
+                  style={[styles.historyItem, {
+                    backgroundColor: isDark ? '#0F172A' : '#F9FAFB',
+                    borderColor: t.border,
+                  }]}
+                >
+                  <View style={styles.historyItemHeader}>
+                    <View style={styles.historyDateRow}>
+                      <Ionicons name="calendar-outline" size={13} color={t.textTertiary} />
+                      <Text style={[styles.historyDate, { color: t.textSecondary }]}>{formattedDate}</Text>
+                    </View>
+                    <View style={[
+                      styles.historyResultBadge,
+                      {
+                        backgroundColor: targetMet
+                          ? (isDark ? '#064E3B' : '#D1FAE5')
+                          : (isDark ? '#292524' : '#FEF3C7'),
+                        borderColor: targetMet
+                          ? (isDark ? '#34D399' : '#6EE7B7')
+                          : (isDark ? '#FBBF24' : '#FDE68A'),
+                      }
+                    ]}>
+                      <Text style={[
+                        styles.historyResultText,
+                        { color: targetMet ? (isDark ? '#34D399' : '#059669') : (isDark ? '#FBBF24' : '#92400E') }
+                      ]}>
+                        {result} / {target}
+                      </Text>
+                    </View>
+                  </View>
+                  {notes ? (
+                    <Text style={[styles.historyNotes, { color: t.textTertiary }]} numberOfLines={2}>
+                      {notes}
+                    </Text>
+                  ) : null}
+                </View>
+              );
+            })}
+
+            {exerciseHistory.length > 5 && (
+              <Text style={[styles.historyMore, { color: t.textTertiary }]}>
+                +{exerciseHistory.length - 5} more entries
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // Handle case when no exercise data is available
   if (!exercise) {
@@ -405,6 +492,9 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     );
   }
 
+  // Bottom padding: FAB button (56px) + gap (20) + bottom inset, or training footer height
+  const scrollBottomPadding = isTrainingMode ? 16 : insets.bottom + 96;
+
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       <ScreenHeaderShell
@@ -415,17 +505,17 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
         title={exercise.title}
         onBack={() => navigation.goBack()}
       />
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#3B82F6"
-            colors={["#3B82F6"]}
-            progressBackgroundColor="white"
+            tintColor={t.primary}
+            colors={[t.primary]}
+            progressBackgroundColor={t.bgCard}
           />
         }
       >
@@ -435,17 +525,21 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           {renderInstructions()}
           {renderTips()}
           {renderTags()}
+          {renderPreviousResults()}
         </View>
       </ScrollView>
-      
-      {/* Log Button - coach path: show for coaches viewing student exercises */}
-      {!isTrainingMode && studentId && program && routine && (
+
+      {/* FAB "Add log" — shown when not in training mode AND we have logging context */}
+      {!isTrainingMode && (
         <TouchableOpacity
-          style={[styles.logButton, { bottom: insets.bottom + 20 }]}
+          style={[styles.fab, { bottom: insets.bottom + 20, backgroundColor: '#27AE60' }]}
           onPress={() => setShowLogModal(true)}
+          activeOpacity={0.85}
+          accessibilityLabel="Add log"
+          accessibilityRole="button"
         >
-          <Ionicons name="add" size={24} color="white" />
-          <Text style={styles.logButtonText}>Add Log</Text>
+          <Ionicons name="add" size={22} color="white" />
+          <Text style={styles.fabText}>Add log</Text>
         </TouchableOpacity>
       )}
 
@@ -457,9 +551,11 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
           onLog={() => setShowLogModal(true)}
           onNext={handleNavigateNext}
           onBackToSession={() => navigation.goBack()}
+          isDark={isDark}
+          theme={t}
         />
       )}
-      
+
       {/* Log Modal */}
       <AddLogExercise_from_routine
         visible={showLogModal}
@@ -480,48 +576,8 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: {},
-  header: { borderBottomWidth: 1 },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-    marginLeft: -4, // Align with iOS guidelines
-  },
-  headerText: {
-    flex: 1,
-  },
-  levelText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  titleText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  difficultyContainer: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  difficultyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  scrollView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   content: {
     padding: 16,
     paddingTop: 12,
@@ -532,12 +588,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   goalCard: {
-    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#DBEAFE',
     borderRadius: 12,
     padding: 16,
-    flex: 0.6, // 60% width
+    flex: 0.6,
   },
   goalContent: {
     flexDirection: 'row',
@@ -547,27 +601,21 @@ const styles = StyleSheet.create({
     marginRight: 12,
     marginTop: 2,
   },
-  goalTextContainer: {
-    flex: 1,
-  },
+  goalTextContainer: { flex: 1 },
   goalTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E3A8A',
     marginBottom: 4,
   },
   goalDescription: {
     fontSize: 14,
-    color: '#1E40AF',
     lineHeight: 20,
   },
   targetCard: {
-    backgroundColor: '#ECFDF5',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
     borderRadius: 12,
     padding: 16,
-    flex: 0.4, // 40% width
+    flex: 0.4,
   },
   targetContent: {
     flexDirection: 'row',
@@ -577,18 +625,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
     marginTop: 2,
   },
-  targetTextContainer: {
-    flex: 1,
-  },
+  targetTextContainer: { flex: 1 },
   targetTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#047857',
     marginBottom: 4,
   },
   targetDescription: {
     fontSize: 14,
-    color: '#065F46',
     lineHeight: 20,
   },
   errorContainer: {
@@ -599,11 +643,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#6B7280',
     textAlign: 'center',
   },
   videoSection: {
-    backgroundColor: 'white',
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -614,11 +656,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   videoContainer: {
-    aspectRatio: 16/9,
-    backgroundColor: '#1F2937',
+    aspectRatio: 16 / 9,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
   noVideoContainer: {
     justifyContent: 'center',
@@ -629,9 +669,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
   },
-  videoInfo: {
-    padding: 16,
-  },
+  videoInfo: { padding: 16 },
   videoDetails: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -639,17 +677,14 @@ const styles = StyleSheet.create({
   },
   videoDetailText: {
     fontSize: 14,
-    color: '#6B7280',
     marginLeft: 4,
   },
   videoUrlText: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginLeft: 4,
     flex: 1,
   },
   card: {
-    backgroundColor: 'white',
     borderRadius: 8,
     padding: 20,
     marginBottom: 16,
@@ -662,27 +697,20 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
     marginBottom: 12,
   },
-  instructionSection: {
-    marginBottom: 16,
-  },
+  instructionSection: { marginBottom: 16 },
   instructionSectionTitle: {
     fontSize: 14,
     fontWeight: 'normal',
-    color: '#374151',
     marginBottom: 4,
   },
   instructionItem: {
     fontSize: 14,
-    color: '#374151',
     lineHeight: 20,
     marginBottom: 4,
   },
-  tipsContainer: {
-    gap: 12,
-  },
+  tipsContainer: { gap: 12 },
   tipItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -691,7 +719,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#DCFCE7',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -700,23 +727,20 @@ const styles = StyleSheet.create({
   tipNumberText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#16A34A',
   },
   tipText: {
     flex: 1,
     fontSize: 14,
-    color: '#374151',
     lineHeight: 20,
   },
   tagsSection: {
-    marginTop: 24,
+    marginTop: 8,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    marginBottom: 8,
   },
   tagsTitle: {
     fontSize: 12,
-    color: '#9CA3AF',
     marginBottom: 8,
     fontWeight: '500',
   },
@@ -726,15 +750,76 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 11,
-    color: '#9CA3AF',
     lineHeight: 16,
   },
-  logButton: {
+  // Previous results
+  historyLoadingContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  historyEmptyContainer: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 24,
+    alignItems: 'center',
+    gap: 6,
+  },
+  historyEmptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  historyEmptySubtext: {
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  historyList: { gap: 10 },
+  historyItem: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+  },
+  historyItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  historyDate: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  historyResultBadge: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  historyResultText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  historyNotes: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  historyMore: {
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  // FAB
+  fab: {
     position: 'absolute',
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#27AE60',
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 30,
@@ -745,7 +830,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     gap: 8,
   },
-  logButtonText: {
+  fabText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',

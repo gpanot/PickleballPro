@@ -73,15 +73,31 @@ export function isExistingUserSignUpError(error) {
   );
 }
 
+// While sign-up is being validated, Supabase may emit a transient SIGNED_IN for
+// duplicate emails before we sign out. Defer auth listener navigation until validation finishes.
+let signUpValidationPending = false;
+
+export function isSignUpValidationPending() {
+  return signUpValidationPending;
+}
+
+function finishSignUpValidation() {
+  signUpValidationPending = false;
+}
+
 async function abortDuplicateSignUp() {
   try {
     await supabase.auth.signOut();
   } catch (e) {
     console.warn('abortDuplicateSignUp: signOut failed', e?.message);
+  } finally {
+    // Keep the gate up briefly so any stale SIGNED_IN from the aborted session is ignored.
+    setTimeout(finishSignUpValidation, 150);
   }
 }
 
 export const signUp = async (email, password, userData = {}) => {
+  signUpValidationPending = true;
   try {
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -158,6 +174,7 @@ export const signUp = async (email, password, userData = {}) => {
       }
     }
 
+    finishSignUpValidation();
     return { data, error: null };
   } catch (error) {
     console.error('Error signing up:', error);
@@ -165,6 +182,7 @@ export const signUp = async (email, password, userData = {}) => {
       await abortDuplicateSignUp();
       return { data: null, error: EXISTING_USER_ERROR };
     }
+    finishSignUpValidation();
     return { data: null, error };
   }
 };
@@ -189,11 +207,35 @@ export const signOut = async () => {
   try {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    
+   
     return { error: null };
   } catch (error) {
     console.error('Error signing out:', error);
     return { error };
+  }
+};
+
+export const resetPasswordForEmail = async (email, redirectTo) => {
+  try {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error sending password reset:', error);
+    return { data: null, error };
+  }
+};
+
+export const updatePassword = async (newPassword) => {
+  try {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error updating password:', error);
+    return { data: null, error };
   }
 };
 

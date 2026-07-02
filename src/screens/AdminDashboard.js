@@ -745,6 +745,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             created_at,
             updated_at,
             is_active,
+            is_admin,
+            is_manager,
             tier,
             dupr_rating,
             goal,
@@ -770,6 +772,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             created_at, 
             updated_at, 
             is_active,
+            is_admin,
+            is_manager,
             tier,
             dupr_rating,
             goal,
@@ -2138,6 +2142,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           <View style={styles.modernTable}>
             <View style={styles.modernTableHeader}>
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>User</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Profile</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Tier</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>DUPR Rating</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Skills</Text>
@@ -2230,6 +2235,23 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               ) : null}
             </View>
           </View>
+        </View>
+
+        {/* Profile */}
+        <View style={[styles.modernTableCell, { flex: 1 }]}>
+          {(() => {
+            const role = user.is_admin ? 'admin' : user.is_manager ? 'manager' : 'player';
+            const roleConfig = {
+              admin:   { label: 'Admin',   bg: '#FEF2F2', color: '#DC2626' },
+              manager: { label: 'Manager', bg: '#FFF7ED', color: '#EA580C' },
+              player:  { label: 'Player',  bg: '#F0FDF4', color: '#16A34A' },
+            }[role];
+            return (
+              <View style={[styles.tierBadge, { backgroundColor: roleConfig.bg }]}>
+                <Text style={[styles.tierText, { color: roleConfig.color }]}>{roleConfig.label}</Text>
+              </View>
+            );
+          })()}
         </View>
 
         {/* Tier */}

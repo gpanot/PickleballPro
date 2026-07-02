@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
+import { Platform, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreenExpo from 'expo-splash-screen';
 import {
@@ -40,12 +40,16 @@ if (__DEV__) {
   };
 }
 
+import OnboardingFinishScreen from './src/screens/OnboardingFinishScreen';
 import IntroScreen from './src/screens/IntroScreen';
 import GenderSelectionScreen from './src/screens/GenderSelectionScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import RatingSelectionScreen from './src/screens/RatingSelectionScreen';
 import PersonalProgramScreen from './src/screens/PersonalProgramScreen';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
+import { onboardingStackScreenOptions } from './src/navigation/onboardingStackOptions';
+import { getOnboardingRootBackground } from './src/lib/onboardingThemeRamp';
+import { warmFriendly } from './src/theme/logbookThemes';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import ExerciseDetailScreen from './src/screens/ExerciseDetailScreen';
 import ExercisePickerScreen from './src/screens/ExercisePickerScreen';
@@ -72,12 +76,16 @@ import DoublesSetupScreen from './src/screens/fungame/DoublesSetupScreen';
 import SixPointSummaryScreen from './src/screens/fungame/6PointSummaryScreen';
 import UITestGameScreen from './src/screens/fungame/UITestGameScreen';
 import CoachScreen from './src/screens/CoachScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PreloadProvider } from './src/context/PreloadContext';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { getThemeModeForGender } from './src/lib/applyGenderTheme';
 import { initializeDeepLinkHandling } from './src/lib/deepLinkHandler';
+import { initializeAuthDeepLinkHandling } from './src/lib/authDeepLink';
 
 const Stack = createStackNavigator();
 
@@ -86,8 +94,18 @@ function AppContent() {
   const [onboardingInitialView, setOnboardingInitialView] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
-  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, isOnboardingHydrated, user, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
+  const { isAuthenticated, loading: authLoading, pendingPasswordRecovery } = useAuth();
+  const { setThemeMode } = useTheme();
+  const navigationRef = React.useRef(null);
+
+  // Restore gender-based theme when resuming mid-onboarding
+  useEffect(() => {
+    if (!isOnboardingHydrated || hasCompletedOnboarding) return;
+    if (user?.gender) {
+      setThemeMode(getThemeModeForGender(user.gender));
+    }
+  }, [isOnboardingHydrated, user?.gender, hasCompletedOnboarding, setThemeMode]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -115,6 +133,13 @@ function AppContent() {
     }
   }, [showSplash, authLoading]);
 
+  // Navigate to the password-reset form when a recovery deep-link is opened
+  useEffect(() => {
+    if (pendingPasswordRecovery && navigationRef.current) {
+      navigationRef.current.navigate('ResetPassword');
+    }
+  }, [pendingPasswordRecovery]);
+
   const handleIntroComplete = () => {
     console.log('Intro completed!');
     completeIntro();
@@ -122,19 +147,14 @@ function AppContent() {
 
   const handleAuthenticate = () => {
     console.log('Authentication triggered!');
-    // For authenticated users, they should bypass onboarding entirely
-    // The isAuthenticated check in navigation logic will handle showing Main screen
-    console.log('✅ User authenticated - navigation will show Main screen automatically');
-    
-    // Optional: Set onboarding flags for consistency, but not required for navigation
-    setTimeout(() => {
-      completeIntro();
-      completeGenderSelection();
-      updateUserRating(2.5, 'self'); // Set a default rating
-      completeNameSelection();
-      completeOnboarding();
-      console.log('✅ Onboarding flags set for authenticated user (optional consistency)');
-    }, 100);
+    // Mark all onboarding steps complete synchronously so App never briefly
+    // shows OnboardingFinish for a returning sign-in user.
+    completeIntro();
+    completeGenderSelection();
+    updateUserRating(2.5, 'self');
+    completeNameSelection();
+    completeOnboarding();
+    console.log('✅ Onboarding flags set for authenticated user');
   };
 
   const handleAuthGoBack = () => {
@@ -165,13 +185,17 @@ function AppContent() {
 
   const handleRatingGoBack = () => {
     console.log('Going back from rating selection to gender selection');
-    // Reset gender selection to go back to that step
     resetGenderSelection();
+    setThemeMode('light');
   };
 
   const handleNameComplete = (data) => {
     console.log('Name selection completed with data:', data);
     completeNameSelection();
+  };
+
+  const handleNameGoBack = () => {
+    resetRatingSelection();
   };
 
   const handlePersonalProgramComplete = (data) => {
@@ -211,46 +235,86 @@ function AppContent() {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  // Don't render anything while auth is loading, but add a timeout fallback
-  // IMPORTANT: Only block on initial auth load, not on sign-in loading
-  if (authLoading && !showSplash && !authTimeout && !isAuthenticated) {
-    console.log('⏳ Initial auth loading after splash - showing loading state');
-    return null; // Or return a loading component
+  // Wait for AsyncStorage hydration so we never flash back to Intro mid-flow
+  if (!isOnboardingHydrated) {
+    return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
   }
-  
-  // Simple decision logic: Authenticated users ALWAYS go to Main, no exceptions
-  if (isAuthenticated) {
-    console.log('🚀 Decision: Show Main (authenticated user - bypassing ALL onboarding checks)');
+
+  // Don't render anything while auth is loading, but add a timeout fallback
+  if (authLoading && !authTimeout && !isAuthenticated) {
+    console.log('⏳ Initial auth loading after splash - showing loading state');
+    return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
+  }
+
+  const inPreAuthOnboarding = !isAuthenticated;
+  const onboardingRootBg = inPreAuthOnboarding
+    ? getOnboardingRootBackground(user, { hasSelectedGender, hasSetRating, hasSetName })
+    : warmFriendly.bg;
+  const navigationTheme = inPreAuthOnboarding
+    ? {
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          background: onboardingRootBg,
+        },
+      }
+    : undefined;
+  const rootStackScreenOptions = inPreAuthOnboarding
+    ? onboardingStackScreenOptions
+    : { headerShown: false, cardStyle: { flex: 1 } };
+
+  // ── 3-way routing ──────────────────────────────────────────────────────────
+  // Branch 1: Authenticated + onboarding done → Main
+  // Branch 2: Authenticated + onboarding NOT done → OnboardingFinish (new users)
+  // Branch 3: Not authenticated → pre-auth onboarding flow
+  if (isAuthenticated && hasCompletedOnboarding) {
+    console.log('🚀 Decision: Main (authenticated, onboarding complete)');
+  } else if (isAuthenticated && !hasCompletedOnboarding) {
+    console.log('🎉 Decision: OnboardingFinish (authenticated, new user)');
   } else if (!hasCompletedIntro) {
-    console.log('👋 Decision: Show Intro screen');
+    console.log('👋 Decision: Intro screen');
   } else if (!hasSelectedGender) {
-    console.log('👤 Decision: Show GenderSelection screen');
+    console.log('👤 Decision: GenderSelection screen');
   } else if (!hasSetRating) {
-    console.log('⭐ Decision: Show RatingSelection screen'); 
+    console.log('⭐ Decision: RatingSelection screen');
   } else if (!hasSetName) {
-    console.log('📝 Decision: Show PersonalProgram screen');
+    console.log('📝 Decision: PersonalProgram screen');
   } else if (!hasCompletedOnboarding) {
-    console.log('🎯 Decision: Show Onboarding screen');
+    console.log('🎯 Decision: Onboarding screen');
   } else {
-    console.log('✅ Decision: Show Main (onboarding complete, not authenticated)');
+    console.log('✅ Decision: Main (onboarding complete, not authenticated)');
   }
 
   return (
+    <View style={{ flex: 1, backgroundColor: inPreAuthOnboarding ? onboardingRootBg : '#FFFFFF' }}>
     <NavigationContainer
-      style={{ flex: 1 }}
-      ref={(navigationRef) => {
-        // Initialize deep link handling when navigation is ready
-        if (navigationRef) {
-          const cleanup = initializeDeepLinkHandling(navigationRef);
-          // Store cleanup function for later use if needed
-          navigationRef.deepLinkCleanup = cleanup;
+      theme={navigationTheme}
+      style={{ flex: 1, backgroundColor: inPreAuthOnboarding ? onboardingRootBg : undefined }}
+      ref={(ref) => {
+        navigationRef.current = ref;
+        if (ref) {
+          // Program-share deep links
+          initializeDeepLinkHandling(ref);
+          // Auth deep links (password reset, OAuth callbacks)
+          initializeAuthDeepLinkHandling();
         }
       }}
     >
       <StatusBar style="auto" backgroundColor="transparent" translucent />
-      <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 } }}>
-        {isAuthenticated ? (
-          // AUTHENTICATED USER FLOW - Always show Main app
+      <Stack.Navigator screenOptions={rootStackScreenOptions}>
+        {isAuthenticated && !hasCompletedOnboarding ? (
+          // BRANCH 2: New authenticated user — show OnboardingFinish before Main
+          <Stack.Screen name="OnboardingFinish">
+            {(props) => (
+              <OnboardingFinishScreen
+                {...props}
+                route={{ params: { previousData: user || {} } }}
+                onComplete={handleOnboardingComplete}
+              />
+            )}
+          </Stack.Screen>
+        ) : isAuthenticated ? (
+          // BRANCH 1: Authenticated + onboarding complete → Main
           <>
             <Stack.Screen name="Main">
               {(props) => {
@@ -348,6 +412,10 @@ function AppContent() {
               component={UITestGameScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ResetPassword">
+              {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+            </Stack.Screen>
           </>
         ) : (
           // ONBOARDING FLOW - Only for non-authenticated users
@@ -360,6 +428,10 @@ function AppContent() {
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
                 </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+                </Stack.Screen>
               </>
             ) : !hasSelectedGender ? (
               <>
@@ -368,6 +440,10 @@ function AppContent() {
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
                 </Stack.Screen>
               </>
             ) : !hasSetRating ? (
@@ -378,23 +454,41 @@ function AppContent() {
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
                 </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+                </Stack.Screen>
               </>
             ) : !hasSetName ? (
               <>
                 <Stack.Screen name="PersonalProgram">
-                  {(props) => <PersonalProgramScreen {...props} onComplete={handleNameComplete} />}
+                  {(props) => <PersonalProgramScreen {...props} onComplete={handleNameComplete} onGoBack={handleNameGoBack} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
                 </Stack.Screen>
               </>
             ) : !hasCompletedOnboarding ? (
               <>
                 <Stack.Screen name="Onboarding">
-                  {(props) => <OnboardingNavigator {...props} onComplete={handleOnboardingComplete} />}
+                  {(props) => (
+                    <OnboardingNavigator
+                      {...props}
+                      onComplete={handleOnboardingComplete}
+                      onGoBackFromStart={resetNameSelection}
+                    />
+                  )}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
                 </Stack.Screen>
               </>
             ) : (
@@ -476,12 +570,17 @@ function AppContent() {
                   component={SixPointSummaryScreen}
                   options={{ headerShown: false }}
                 />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+                </Stack.Screen>
               </>
             )}
           </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
+    </View>
   );
 }
 

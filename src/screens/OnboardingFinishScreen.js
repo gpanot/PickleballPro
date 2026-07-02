@@ -16,10 +16,11 @@ import { CheckCircle, ChevronRight } from 'lucide-react-native';
 import MoodTimelineCard from '../components/logbook/MoodTimelineCard';
 import DonutChart from '../components/logbook/DonutChart';
 import SkillPatternsCard from '../components/logbook/SkillPatternsCard';
-import { warmFriendly, MOOD_COLORS } from '../theme/logbookThemes';
+import { MOOD_COLORS } from '../theme/logbookThemes';
 import { getPrograms } from '../lib/supabase';
 import { matchProgramsForOnboarding, setActiveTrack } from '../lib/trainingTracksApi';
 import { useUser } from '../context/UserContext';
+import { useTheme } from '../context/ThemeContext';
 
 // ─── Mock logbook data for the hero preview ───────────────────────────────────
 
@@ -48,6 +49,7 @@ const MOCK_WEAK_SKILLS = [
 export default function OnboardingFinishScreen({ route, onComplete }) {
   const insets = useSafeAreaInsets();
   const { getOnboardingData } = useUser();
+  const { logbookTheme: t, isDark } = useTheme();
 
   const [step, setStep] = useState(1); // 1 = logbook hero, 2 = program picker
   const [programs, setPrograms] = useState([]);
@@ -60,10 +62,8 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
 
   const previousData = route?.params?.previousData || {};
   const onboardingData = getOnboardingData();
-  const goal = previousData.goal || onboardingData?.trainingGoal || 'basics';
-  const duprRating = onboardingData?.rating || null;
-
-  const t = warmFriendly;
+  const goal = onboardingData?.goal || previousData.goal || 'basics';
+  const duprRating = onboardingData?.dupr_rating ?? previousData.duprRating ?? null;
 
   // Load programs when moving to step 2
   useEffect(() => {
@@ -112,8 +112,8 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
   // ── Step 1: Logbook hero ───────────────────────────────────────────────────
   if (step === 1) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <StatusBar style="dark" />
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: t.bg }]}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
 
         <ScrollView
           style={styles.scroll}
@@ -122,8 +122,8 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
         >
           {/* Header */}
           <View style={styles.heroHeader}>
-            <Text style={styles.heroTitle}>Your beautiful{'\n'}training journal</Text>
-            <Text style={styles.heroSubtitle}>
+            <Text style={[styles.heroTitle, { color: t.textPrimary ?? t.text }]}>Your beautiful{'\n'}training journal</Text>
+            <Text style={[styles.heroSubtitle, { color: t.textSecondary ?? t.textMuted }]}>
               Log mood after every session. See which skills you're building — automatically.
             </Text>
           </View>
@@ -167,13 +167,13 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
         </ScrollView>
 
         {/* CTA */}
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.bg, borderTopColor: t.border ?? '#F3F4F6' }]}>
           <TouchableOpacity
-            style={styles.primaryButton}
+            style={[styles.primaryButton, { backgroundColor: t.accentPurple, shadowColor: t.accentPurple }]}
             onPress={() => setStep(2)}
             activeOpacity={0.9}
           >
-            <Text style={styles.primaryButtonText}>Next</Text>
+            <Text style={[styles.primaryButtonText, { color: isDark ? t.fabTextColor : '#fff' }]}>Next</Text>
             <ChevronRight size={20} color="#fff" strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
@@ -183,8 +183,8 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
 
   // ── Step 2: Program picker ─────────────────────────────────────────────────
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <StatusBar style="dark" />
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom, backgroundColor: t.bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
         style={styles.scroll}
@@ -192,14 +192,14 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.pickerHeader}>
-          <Text style={styles.pickerTitle}>Pick your free program</Text>
-          <Text style={styles.pickerSubtitle}>
+          <Text style={[styles.pickerTitle, { color: t.textPrimary ?? t.text }]}>Pick your free program</Text>
+          <Text style={[styles.pickerSubtitle, { color: t.textSecondary ?? t.textMuted }]}>
             We matched these to your goal. You can change anytime.
           </Text>
         </View>
 
         {loadingPrograms ? (
-          <ActivityIndicator size="large" color="#6366F1" style={styles.spinner} />
+          <ActivityIndicator size="large" color={t.accentPurple} style={styles.spinner} />
         ) : programs.length === 0 ? (
           <Text style={styles.emptyText}>No programs available right now.</Text>
         ) : (
@@ -207,7 +207,7 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
             {/* Recommended */}
             {recommended && (
               <>
-                <Text style={styles.sectionLabel}>Recommended for you</Text>
+                <Text style={[styles.sectionLabel, { color: t.textMuted }]}>Recommended for you</Text>
                 <ProgramCard
                   program={recommended}
                   selected={selectedProgramId === recommended.id}
@@ -220,7 +220,7 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
             {/* Alternatives */}
             {alternatives.length > 0 && (
               <>
-                <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Other options</Text>
+                <Text style={[styles.sectionLabel, { marginTop: 20, color: t.textMuted }]}>Other options</Text>
                 {alternatives.map(p => (
                   <ProgramCard
                     key={p.id}
@@ -240,9 +240,13 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
       </ScrollView>
 
       {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12, backgroundColor: t.bg, borderTopColor: t.border ?? '#F3F4F6' }]}>
         <TouchableOpacity
-          style={[styles.primaryButton, (!selectedProgramId || enrolling) && styles.primaryButtonDisabled]}
+          style={[
+            styles.primaryButton,
+            { backgroundColor: t.accentPurple, shadowColor: t.accentPurple },
+            (!selectedProgramId || enrolling) && styles.primaryButtonDisabled,
+          ]}
           onPress={handleEnroll}
           disabled={enrolling}
           activeOpacity={0.9}
@@ -250,7 +254,7 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
           {enrolling ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.primaryButtonText}>
+            <Text style={[styles.primaryButtonText, { color: isDark ? t.fabTextColor : '#fff' }]}>
               {selectedProgramId ? 'Start my program' : 'Continue'}
             </Text>
           )}
@@ -267,14 +271,17 @@ export default function OnboardingFinishScreen({ route, onComplete }) {
 // ─── Program card sub-component ───────────────────────────────────────────────
 
 function ProgramCard({ program, selected, onPress, highlighted }) {
+  const { logbookTheme: t, isDark } = useTheme();
   const routineCount = Array.isArray(program.routines) ? program.routines.length : 0;
+  const placeholderBg = isDark ? '#334155' : '#E5E7EB';
 
   return (
     <TouchableOpacity
       style={[
         styles.programCard,
-        selected && styles.programCardSelected,
-        highlighted && styles.programCardHighlighted,
+        { backgroundColor: t.surface },
+        selected && [styles.programCardSelected, { borderColor: t.accentPurple }],
+        highlighted && { backgroundColor: t.accentPurpleMuted },
       ]}
       onPress={onPress}
       activeOpacity={0.85}
@@ -282,21 +289,21 @@ function ProgramCard({ program, selected, onPress, highlighted }) {
       {program.thumbnail_url ? (
         <Image source={{ uri: program.thumbnail_url }} style={styles.programThumb} />
       ) : (
-        <View style={[styles.programThumb, styles.programThumbPlaceholder]} />
+        <View style={[styles.programThumb, { backgroundColor: placeholderBg }]} />
       )}
 
       <View style={styles.programInfo}>
-        <Text style={styles.programName} numberOfLines={2}>{program.name}</Text>
+        <Text style={[styles.programName, { color: t.textPrimary ?? t.text }]} numberOfLines={2}>{program.name}</Text>
         {program.description ? (
-          <Text style={styles.programDesc} numberOfLines={2}>{program.description}</Text>
+          <Text style={[styles.programDesc, { color: t.textSecondary ?? t.textMuted }]} numberOfLines={2}>{program.description}</Text>
         ) : null}
         {routineCount > 0 && (
-          <Text style={styles.programMeta}>{routineCount} sessions</Text>
+          <Text style={[styles.programMeta, { color: t.textMuted }]}>{routineCount} sessions</Text>
         )}
       </View>
 
       {selected && (
-        <CheckCircle size={22} color="#6366F1" strokeWidth={2} style={styles.checkIcon} />
+        <CheckCircle size={22} color={t.accentPurple} strokeWidth={2} style={styles.checkIcon} />
       )}
     </TouchableOpacity>
   );
@@ -307,7 +314,6 @@ function ProgramCard({ program, selected, onPress, highlighted }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: warmFriendly.bg,
   },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 24 },

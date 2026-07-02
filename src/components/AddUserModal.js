@@ -27,7 +27,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
     duprRating: '',
     ratingType: 'self',
     isActive: true,
-    focusAreas: []
+    focusAreas: [],
+    profile: 'player',
   });
 
   // Initialize form data when user prop changes
@@ -42,7 +43,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
         duprRating: user.dupr_rating ? user.dupr_rating.toString() : '',
         ratingType: user.rating_type || 'self',
         isActive: user.is_active !== false,
-        focusAreas: user.focus_areas || []
+        focusAreas: user.focus_areas || [],
+        profile: user.is_admin ? 'admin' : user.is_manager ? 'manager' : 'player',
       });
     } else {
       resetForm();
@@ -59,7 +61,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
       duprRating: '',
       ratingType: 'self',
       isActive: true,
-      focusAreas: []
+      focusAreas: [],
+      profile: 'player',
     });
   };
 
@@ -99,6 +102,8 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
         rating_type: formData.ratingType,
         is_active: formData.isActive,
         focus_areas: formData.focusAreas,
+        is_admin: formData.profile === 'admin',
+        is_manager: formData.profile === 'manager',
         updated_at: new Date().toISOString()
       };
 
@@ -170,6 +175,11 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
   const goalOptions = ['dupr', 'basics', 'consistency', 'tournament'];
   const timeCommitmentOptions = ['low', 'medium', 'high'];
   const ratingTypeOptions = ['dupr', 'self', 'none'];
+  const profileOptions = [
+    { value: 'player',  label: 'Player',  description: 'Standard app user' },
+    { value: 'manager', label: 'Manager', description: 'Can manage academy content' },
+    { value: 'admin',   label: 'Admin',   description: 'Full platform access' },
+  ];
 
   return (
     <Modal
@@ -228,6 +238,51 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+            </View>
+
+            {/* Profile / Role */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Profile</Text>
+              <Text style={[styles.label, { marginTop: 0 }]}>Role</Text>
+              <View style={styles.optionsGrid}>
+                {profileOptions.map((opt) => {
+                  const isSelected = formData.profile === opt.value;
+                  const roleColors = {
+                    player:  { border: '#16A34A', bg: '#F0FDF4', text: '#16A34A' },
+                    manager: { border: '#EA580C', bg: '#FFF7ED', text: '#EA580C' },
+                    admin:   { border: '#DC2626', bg: '#FEF2F2', text: '#DC2626' },
+                  };
+                  const c = roleColors[opt.value];
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.profileOptionButton,
+                        isSelected && { backgroundColor: c.bg, borderColor: c.border },
+                      ]}
+                      onPress={() => setFormData({ ...formData, profile: opt.value })}
+                    >
+                      <Text style={[
+                        styles.profileOptionLabel,
+                        isSelected && { color: c.text, fontWeight: '700' },
+                      ]}>
+                        {opt.label}
+                      </Text>
+                      <Text style={[
+                        styles.profileOptionDesc,
+                        isSelected && { color: c.text },
+                      ]}>
+                        {opt.description}
+                      </Text>
+                      {isSelected && (
+                        <View style={[styles.profileCheckmark, { backgroundColor: c.border }]}>
+                          <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
             {/* Skill Level */}
@@ -712,5 +767,36 @@ const styles = StyleSheet.create({
   selectedSkillText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  profileOptionButton: {
+    flex: 1,
+    minWidth: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
+  profileOptionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 2,
+  },
+  profileOptionDesc: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  profileCheckmark: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -28,6 +28,7 @@ import { useTheme } from '../context/ThemeContext';
 import { checkAdminAccess, checkCoachAccess, supabase, getStudentCode } from '../lib/supabase';
 import StartAcademyModal from '../components/StartAcademyModal';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
+import { PRIVACY_POLICY_URL } from '../lib/legalUrls';
 
 import { tiers, levels } from '../data/mockData';
 
@@ -771,7 +772,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
   );
 
   const handlePrivacyPolicyPress = async () => {
-    const url = 'https://prism-8db991.ingress-haven.ewp.live/privacy-policy-piklepro-pickleball-hero/';
+    const url = PRIVACY_POLICY_URL;
     try {
       const supported = await Linking.canOpenURL(url);
       if (supported) {

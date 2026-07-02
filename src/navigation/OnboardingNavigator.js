@@ -5,14 +5,14 @@ import TimeCommitmentScreen from '../screens/TimeCommitmentScreen';
 import IntensitySelectionScreen from '../screens/IntensitySelectionScreen';
 import CreateAccountScreen from '../screens/CreateAccountScreen';
 import SignUpScreen from '../screens/SignUpScreen';
-import OnboardingFinishScreen from '../screens/OnboardingFinishScreen';
+import { onboardingStackScreenOptions } from './onboardingStackOptions';
 
 const Stack = createStackNavigator();
 
-const OnboardingNavigatorComponent = ({ onComplete }) => {
+const OnboardingNavigatorComponent = ({ onComplete, onGoBackFromStart }) => {
   return (
     <Stack.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={onboardingStackScreenOptions}
       initialRouteName="TrainingGoal"
       detachInactiveScreens={false}
     >
@@ -20,6 +20,7 @@ const OnboardingNavigatorComponent = ({ onComplete }) => {
         {(props) => (
           <TrainingGoalScreen
             {...props}
+            onGoBack={onGoBackFromStart}
             onComplete={(data) => {
               props.navigation.navigate('TimeCommitment', { previousData: data });
             }}
@@ -77,33 +78,11 @@ const OnboardingNavigatorComponent = ({ onComplete }) => {
         {(props) => (
           <SignUpScreen
             {...props}
-            onSignUp={(data) => {
-              props.navigation.navigate('OnboardingFinish', {
-                previousData: {
-                  ...props.route.params?.previousData,
-                  ...data,
-                },
-              });
+            onSignUp={() => {
+              // App.js routes authenticated new users to root OnboardingFinish.
             }}
             onSignIn={() => {
               props.navigation.getParent()?.navigate('Auth');
-            }}
-          />
-        )}
-      </Stack.Screen>
-
-      <Stack.Screen name="OnboardingFinish">
-        {(props) => (
-          <OnboardingFinishScreen
-            {...props}
-            onComplete={(result) => {
-              const allData = props.route.params?.previousData || {};
-              onComplete({
-                ...allData,
-                navigateTo: 'Training2',
-                initialView: result?.initialView || 'myTraining',
-                enrolledProgramId: result?.enrolledProgramId,
-              });
             }}
           />
         )}

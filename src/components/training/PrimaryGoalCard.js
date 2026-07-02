@@ -7,6 +7,7 @@ import {
   Image,
 } from 'react-native';
 import { Target } from 'lucide-react-native';
+import { useTheme } from '../../context/ThemeContext';
 
 /**
  * The primary training track card — shown at the top of My Training when
@@ -27,6 +28,8 @@ export default function PrimaryGoalCard({
   onStartNewGoal,
   style,
 }) {
+  const { isDark } = useTheme();
+
   if (!track) return null;
 
   const { program, lastAccessedAt, currentRoutineId } = track;
@@ -57,11 +60,36 @@ export default function PrimaryGoalCard({
 
   const progressFraction = totalSessions > 0 ? completedCount / totalSessions : 0;
 
+  // Dark mode color overrides
+  const cardBg = isDark ? '#1E1B4B' : '#EEF2FF';
+  const cardBorder = isDark ? '#3730A3' : '#C7D2FE';
+  const badgeBg = isDark ? '#312E81' : '#C7D2FE';
+  const badgeText = isDark ? '#A5B4FC' : '#4338CA';
+  const thumbPlaceholderBg = isDark ? '#312E81' : '#C7D2FE';
+  const thumbPlaceholderIcon = isDark ? '#A5B4FC' : '#4338CA';
+  const programNameColor = isDark ? '#E0E7FF' : '#1E1B4B';
+  const statusLineColor = isDark ? '#A5B4FC' : '#6366F1';
+  const progressTrackBg = isDark ? '#312E81' : '#C7D2FE';
+  const progressLabelColor = isDark ? '#A5B4FC' : '#4338CA';
+  const nextLineColor = isDark ? '#94A3B8' : '#374151';
+  const primaryBtnColor = isDark ? '#818CF8' : '#6366F1';
+  const secondaryLinkColor = isDark ? '#818CF8' : '#6366F1';
+  const secondaryMutedColor = isDark ? '#64748B' : '#6B7280';
+  const dotColor = isDark ? '#475569' : '#9CA3AF';
+
   return (
-    <View style={[styles.card, style]}>
+    <View style={[
+      styles.card,
+      {
+        backgroundColor: cardBg,
+        borderColor: cardBorder,
+        shadowColor: isDark ? '#000' : '#6366F1',
+      },
+      style,
+    ]}>
       {/* Badge */}
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>PRIMARY FOCUS</Text>
+      <View style={[styles.badge, { backgroundColor: badgeBg }]}>
+        <Text style={[styles.badgeText, { color: badgeText }]}>PRIMARY FOCUS</Text>
       </View>
 
       {/* Header row */}
@@ -69,34 +97,34 @@ export default function PrimaryGoalCard({
         {program.thumbnail_url ? (
           <Image source={{ uri: program.thumbnail_url }} style={styles.thumb} />
         ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder]}>
-            <Target size={24} color="#4338CA" strokeWidth={2} />
+          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: thumbPlaceholderBg }]}>
+            <Target size={24} color={thumbPlaceholderIcon} strokeWidth={2} />
           </View>
         )}
         <View style={styles.headerText}>
-          <Text style={styles.programName} numberOfLines={2}>{program.name}</Text>
-          <Text style={styles.statusLine}>{lastTrainedText}</Text>
+          <Text style={[styles.programName, { color: programNameColor }]} numberOfLines={2}>{program.name}</Text>
+          <Text style={[styles.statusLine, { color: statusLineColor }]}>{lastTrainedText}</Text>
         </View>
       </View>
 
       {/* Progress bar */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%` }]} />
+      <View style={[styles.progressTrack, { backgroundColor: progressTrackBg }]}>
+        <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%`, backgroundColor: primaryBtnColor }]} />
       </View>
-      <Text style={styles.progressLabel}>
+      <Text style={[styles.progressLabel, { color: progressLabelColor }]}>
         {completedCount} / {totalSessions} sessions complete
       </Text>
 
       {/* Next session line */}
       {nextRoutine && (
-        <Text style={styles.nextLine} numberOfLines={1}>
+        <Text style={[styles.nextLine, { color: nextLineColor }]} numberOfLines={1}>
           Next: Session {nextRoutineIndex} — {nextRoutine.name}
         </Text>
       )}
 
       {/* Primary CTA */}
       <TouchableOpacity
-        style={styles.primaryBtn}
+        style={[styles.primaryBtn, { backgroundColor: primaryBtnColor, shadowColor: primaryBtnColor }]}
         onPress={onContinue}
         activeOpacity={0.85}
         accessibilityLabel={ctaLabel}
@@ -108,11 +136,11 @@ export default function PrimaryGoalCard({
       {/* Secondary actions */}
       <View style={styles.secondaryRow}>
         <TouchableOpacity onPress={onViewAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.secondaryLink}>View all sessions</Text>
+          <Text style={[styles.secondaryLink, { color: secondaryLinkColor }]}>View all sessions</Text>
         </TouchableOpacity>
-        <Text style={styles.dot}>·</Text>
+        <Text style={[styles.dot, { color: dotColor }]}>·</Text>
         <TouchableOpacity onPress={onStartNewGoal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.secondaryLinkMuted}>Start new goal</Text>
+          <Text style={[styles.secondaryLinkMuted, { color: secondaryMutedColor }]}>Start new goal</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -132,21 +160,17 @@ function relativeTime(isoString) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#EEF2FF',
     borderRadius: 20,
     padding: 20,
     marginHorizontal: 16,
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#C7D2FE',
-    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 4,
   },
   badge: {
-    backgroundColor: '#C7D2FE',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -156,43 +180,37 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#4338CA',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, gap: 12 },
   thumb: { width: 52, height: 52, borderRadius: 10 },
   thumbPlaceholder: {
-    backgroundColor: '#C7D2FE',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerText: { flex: 1 },
-  programName: { fontSize: 17, fontWeight: '700', color: '#1E1B4B', lineHeight: 23 },
-  statusLine: { fontSize: 12, color: '#6366F1', marginTop: 4, fontWeight: '500' },
+  programName: { fontSize: 17, fontWeight: '700', lineHeight: 23 },
+  statusLine: { fontSize: 12, marginTop: 4, fontWeight: '500' },
   progressTrack: {
     height: 6,
-    backgroundColor: '#C7D2FE',
     borderRadius: 3,
     marginBottom: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#6366F1',
     borderRadius: 3,
   },
-  progressLabel: { fontSize: 12, color: '#4338CA', fontWeight: '500', marginBottom: 10 },
-  nextLine: { fontSize: 13, color: '#374151', marginBottom: 16, fontStyle: 'italic' },
+  progressLabel: { fontSize: 12, fontWeight: '500', marginBottom: 10 },
+  nextLine: { fontSize: 13, marginBottom: 16, fontStyle: 'italic' },
   primaryBtn: {
-    backgroundColor: '#6366F1',
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     marginBottom: 12,
     minHeight: 50,
     justifyContent: 'center',
-    shadowColor: '#6366F1',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -205,7 +223,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  secondaryLink: { fontSize: 13, color: '#6366F1', fontWeight: '600' },
-  secondaryLinkMuted: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-  dot: { fontSize: 13, color: '#9CA3AF' },
+  secondaryLink: { fontSize: 13, fontWeight: '600' },
+  secondaryLinkMuted: { fontSize: 13, fontWeight: '500' },
+  dot: { fontSize: 13 },
 });

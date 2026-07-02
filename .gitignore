@@ -110,3 +110,7 @@ node_modules
 Supabase_backup_files/
 *.backup.gz
 *.storage.zip
+
+# Apple Sign in with Apple keys (.p8 files — never commit)
+*.p8
+AuthKey_*.p8

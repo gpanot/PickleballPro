@@ -997,10 +997,10 @@ export default function RoutineDetailScreen({ navigation, route }) {
             const wasLoggedThisSession = !!exerciseResults[exercise.routineExerciseId];
             
             return (
-            <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
+            <View key={exercise.routineExerciseId} style={[styles.exerciseCard, { backgroundColor: t.surface }]}>
               {/* Success check mark badge */}
               {(hasMetTarget || wasLoggedThisSession) && (
-                <View style={styles.successBadge}>
+                <View style={[styles.successBadge, { backgroundColor: t.surface }]}>
                   <Ionicons name="checkmark-circle" size={28} color="#10B981" />
                 </View>
               )}
@@ -1015,9 +1015,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
-                  <Text style={styles.exerciseTarget}>Target: {exercise.target || exercise.goal}</Text>
-                  <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
+                  <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{exercise.name || exercise.title}</Text>
+                  <Text style={[styles.exerciseTarget, { color: t.textSecondary }]}>Target: {exercise.target || exercise.goal}</Text>
+                  <Text style={[styles.exerciseDescription, { color: t.textMuted }]}>{exercise.description || exercise.goal}</Text>
                   
                   {/* Latest Log Display */}
                   {latestLogs[exercise.id] && (
@@ -1142,8 +1142,8 @@ export default function RoutineDetailScreen({ navigation, route }) {
     };
 
     return (
-      <View style={[styles.sessionFooter, { paddingBottom: insets.bottom + 8 }]}>
-        <Text style={styles.sessionFooterHint}>
+      <View style={[styles.sessionFooter, { paddingBottom: insets.bottom + 8, backgroundColor: t.surface, borderTopColor: t.border || '#F3F4F6' }]}>
+        <Text style={[styles.sessionFooterHint, { color: t.textMuted }]}>
           {canComplete
             ? `${loggedCount} / ${totalExercises} exercises logged`
             : 'Log at least one exercise to complete this session'}
@@ -1237,10 +1237,10 @@ export default function RoutineDetailScreen({ navigation, route }) {
             const wasLoggedThisSession = !!exerciseResults[exercise.routineExerciseId];
             
             return (
-            <View key={exercise.routineExerciseId} style={styles.exerciseCard}>
+            <View key={exercise.routineExerciseId} style={[styles.exerciseCard, { backgroundColor: t.surface }]}>
               {/* Success check mark badge */}
               {(hasMetTarget || wasLoggedThisSession) && (
-                <View style={styles.successBadge}>
+                <View style={[styles.successBadge, { backgroundColor: t.surface }]}>
                   <Ionicons name="checkmark-circle" size={28} color="#10B981" />
                 </View>
               )}
@@ -1255,9 +1255,9 @@ export default function RoutineDetailScreen({ navigation, route }) {
                 onLongPress={(source === 'explore' || source === 'coach' || source === 'library' || source === 'skill_picker' || source === 'coach_assignment' || source === 'training') ? undefined : () => removeExerciseFromRoutine(exercise.routineExerciseId)}
               >
                 <View style={styles.exerciseInfo}>
-                  <Text style={styles.exerciseName}>{exercise.name || exercise.title}</Text>
-                  <Text style={styles.exerciseTarget}>Target: {exercise.target || exercise.goal}</Text>
-                  <Text style={styles.exerciseDescription}>{exercise.description || exercise.goal}</Text>
+                  <Text style={[styles.exerciseName, { color: t.textPrimary }]}>{exercise.name || exercise.title}</Text>
+                  <Text style={[styles.exerciseTarget, { color: t.textSecondary }]}>Target: {exercise.target || exercise.goal}</Text>
+                  <Text style={[styles.exerciseDescription, { color: t.textMuted }]}>{exercise.description || exercise.goal}</Text>
                   
                   {/* Latest Log Display */}
                   {latestLogs[exercise.id] && (

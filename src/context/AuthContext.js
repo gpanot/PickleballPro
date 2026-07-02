@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase, getCurrentUser, signIn, signUp, signOut } from '../lib/supabase';
+import { supabase, getCurrentUser, signIn, signUp, signOut, isSignUpValidationPending, isExistingUserSignUpError, resetPasswordForEmail as supabaseResetPassword, updatePassword as supabaseUpdatePassword } from '../lib/supabase';
 import { APP_VERSION, shouldPreserveSession } from '../lib/appVersion';
 import skillsData from '../data/Commun_skills_tags.json';
 
@@ -24,8 +24,12 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [initializationComplete, setInitializationComplete] = useState(false);
+  const [pendingPasswordRecovery, setPendingPasswordRecovery] = useState(false);
   // Tracks whether the user explicitly signed out vs. an auto-signout from token expiry
-  const explicitSignOut = React.useRef(false);
+  const explicitSignOut = useRef(false);
+  // Optional onboarding data set before an OAuth flow starts so it can be
+  // merged into the user profile after SIGNED_IN fires.
+  const pendingOAuthMetadata = useRef(null);
 
   useEffect(() => {
     // Add safety timeout to ensure loading state is eventually cleared
@@ -63,9 +67,20 @@ export const AuthProvider = ({ children }) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email || 'No user');
         console.log('🔄 Auth event details - event:', event, 'session valid:', !!session);
         
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('🔄 Handling SIGNED_IN event...');
-          await handleUserSignedIn(session.user);
+        if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          console.log('🔐 Handling PASSWORD_RECOVERY event...');
+          setUser(session.user);
+          setIsAuthenticated(true);
+          setPendingPasswordRecovery(true);
+          setLoading(false);
+          setInitializationComplete(true);
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          if (isSignUpValidationPending()) {
+            console.log('🔄 Deferring SIGNED_IN during sign-up validation');
+          } else {
+            console.log('🔄 Handling SIGNED_IN event...');
+            await handleUserSignedIn(session.user);
+          }
         } else if (event === 'SIGNED_OUT') {
           console.log('🔄 Handling SIGNED_OUT event...');
           // Only wipe backup if the user explicitly signed out.
@@ -388,18 +403,33 @@ export const AuthProvider = ({ children }) => {
       
       // Get all skill IDs for default
       const allSkillIds = getAllSkillIds();
+
+      // Grab any onboarding metadata stored before an OAuth flow started
+      const rawMeta = pendingOAuthMetadata.current || {};
+      pendingOAuthMetadata.current = null;
+      // Only include known `users` table columns so we don't send UI-only fields
+      const KNOWN_PROFILE_FIELDS = ['name', 'dupr_rating', 'gender', 'training_goal',
+        'time_commitment', 'intensity', 'focus_areas', 'tier'];
+      const oauthMeta = Object.fromEntries(
+        Object.entries(rawMeta).filter(([k]) => KNOWN_PROFILE_FIELDS.includes(k))
+      );
       
       if (error && error.code === 'PGRST116') {
         // Profile not found, create new profile with all skills as default
-        const defaultName = authUser.email ? authUser.email.split('@')[0] : authUser.id;
+        const defaultName =
+          oauthMeta.name ||
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          (authUser.email ? authUser.email.split('@')[0] : authUser.id);
         const { data: newProfile, error: createError } = await supabase
           .from('users')
           .insert({
             id: authUser.id,
             email: authUser.email,
             name: defaultName,
-            dupr_rating: 2.0,
-            focus_areas: allSkillIds // Set all skills as default
+            dupr_rating: oauthMeta.dupr_rating || 2.0,
+            focus_areas: allSkillIds, // Set all skills as default
+            ...oauthMeta,
           })
           .select()
           .single();
@@ -506,22 +536,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   const handleSignUp = async (email, password, userData = {}) => {
+    // Do NOT toggle the global loading flag here — it causes App.js to briefly return
+    // null (black screen) while isAuthenticated is still false. SignUpScreen manages its
+    // own local isLoading state and shows "Creating Account..." on the button.
     try {
-      setLoading(true);
       const { data, error } = await signUp(email, password, userData);
-      
       if (error) {
-        throw error;
+        if (isExistingUserSignUpError(error)) {
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
+        }
+        return { data: null, error };
       }
-
-      // Note: User will be signed in automatically if email confirmation is disabled
-      // Otherwise, they'll need to confirm their email first
+      if (data?.user && data?.session) {
+        await handleUserSignedIn(data.user);
+      }
       return { data, error: null };
     } catch (error) {
       console.error('Sign up error:', error);
+      if (isExistingUserSignUpError(error)) {
+        setUser(null);
+        setProfile(null);
+        setIsAuthenticated(false);
+      }
       return { data: null, error };
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -590,15 +629,39 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const handleResetPassword = async (email, redirectTo) => {
+    return supabaseResetPassword(email, redirectTo);
+  };
+
+  const handleUpdatePassword = async (newPassword) => {
+    const result = await supabaseUpdatePassword(newPassword);
+    if (!result.error) {
+      setPendingPasswordRecovery(false);
+    }
+    return result;
+  };
+
+  /**
+   * Store onboarding data collected before an OAuth sign-in so it can be
+   * merged into the user profile once SIGNED_IN fires.
+   */
+  const setPendingOAuthMetadataFn = (metadata) => {
+    pendingOAuthMetadata.current = metadata;
+  };
+
   const value = {
     user,
     profile,
     loading,
     isAuthenticated,
+    pendingPasswordRecovery,
     signUp: handleSignUp,
     signIn: handleSignIn,
     signOut: handleSignOut,
     updateProfile,
+    resetPassword: handleResetPassword,
+    updatePassword: handleUpdatePassword,
+    setPendingOAuthMetadata: setPendingOAuthMetadataFn,
   };
 
   return (

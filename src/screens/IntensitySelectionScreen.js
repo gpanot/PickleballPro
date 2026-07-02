@@ -1,368 +1,183 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Zap, Scale, Flame } from 'lucide-react-native';
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
+import { ONBOARDING_STEPS } from '../lib/onboardingSteps';
+import OnboardingShell from '../components/onboarding/OnboardingShell';
+import { useOnboardingTheme } from '../components/onboarding/useOnboardingTheme';
 
-export default function IntensitySelectionScreen({ onComplete }) {
+const INTENSITY_OPTIONS = [
+  { id: 'short', title: 'Light & simple', duration: '~20 min', description: '2 drills/session', Icon: Zap, badge: 'QUICK' },
+  { id: 'balanced', title: 'Balanced', duration: '~30–40 min', description: '3 drills/session', Icon: Scale, badge: 'RECOMMENDED' },
+  { id: 'full', title: 'Challenging', duration: '~45–60 min', description: '4+ drills/session', Icon: Flame, badge: null },
+];
+
+const BENEFITS = {
+  short: ['Perfect for busy schedules', 'Easy to stay consistent'],
+  balanced: ['Good variety & progress', 'Manageable time commitment'],
+  full: ['Maximum skill development', 'Comprehensive training'],
+};
+
+export default function IntensitySelectionScreen({ navigation, onComplete }) {
   const [selectedIntensity, setSelectedIntensity] = useState(null);
-  const insets = useSafeAreaInsets();
   const { updateOnboardingData } = useUser();
+  const ot = useOnboardingTheme(ONBOARDING_STEPS.INTENSITY);
 
-  const intensityOptions = [
-    {
-      id: 'short',
-      title: 'Light & simple',
-      duration: '~20 min',
-      description: '2 drills/session',
-      Icon: Zap,
-      badge: 'QUICK'
-    },
-    {
-      id: 'balanced',
-      title: 'Balanced',
-      duration: '~30–40 min',
-      description: '3 drills/session',
-      Icon: Scale,
-      badge: 'RECOMMENDED'
-    },
-    {
-      id: 'full',
-      title: 'Challenging',
-      duration: '~45–60 min',
-      description: '4+ drills/session',
-      Icon: Flame,
-      badge: null
-    }
-  ];
+  const handleBack = () => {
+    if (navigation?.canGoBack?.()) navigation.goBack();
+  };
 
   const handleIntensitySelect = async (intensityId) => {
     setSelectedIntensity(intensityId);
-    
-    // Save intensity data to UserContext (note: this might not have a direct DB field)
-    console.log('IntensitySelectionScreen: Saving intensity to UserContext:', intensityId);
     await updateOnboardingData({ intensity: intensityId });
-    
-    // Immediately proceed to next screen
     onComplete({ intensity: intensityId });
   };
 
-  const renderIntensityOption = (option) => {
-    const isSelected = selectedIntensity === option.id;
-    const iconColor = isSelected ? '#007AFF' : '#9CA3AF';
-    return (
-    <TouchableOpacity
-      key={option.id}
-      style={[
-        styles.intensityCard,
-        isSelected && styles.intensityCardSelected
-      ]}
-      onPress={() => handleIntensitySelect(option.id)}
-    >
-      {option.badge && (
-        <View style={[
-          styles.badge,
-          option.badge === 'RECOMMENDED' && styles.badgeRecommended,
-          option.badge === 'QUICK' && styles.badgeQuick
-        ]}>
-          <Text style={styles.badgeText}>{option.badge}</Text>
-        </View>
-      )}
-      
-      <View style={styles.intensityHeader}>
-        <View style={[
-          styles.intensityIcon,
-          isSelected && styles.intensityIconSelected
-        ]}>
-          <option.Icon size={20} color={iconColor} strokeWidth={2} />
-        </View>
-        <View style={styles.durationContainer}>
-          <Text style={[
-            styles.durationText,
-            isSelected && styles.durationTextSelected
-          ]}>
-            {option.duration}
-          </Text>
-        </View>
-        {isSelected && (
-          <View style={styles.selectedIndicator}>
-            <ModernIcon name="checkmark" size={16} color="white" />
-          </View>
-        )}
-      </View>
-      
-      <View style={styles.intensityContent}>
-        <Text style={[
-          styles.intensityTitle,
-          isSelected && styles.intensityTitleSelected
-        ]}>
-          {option.title}
-        </Text>
-        <Text style={[
-          styles.intensityDescription,
-          isSelected && styles.intensityDescriptionSelected
-        ]}>
-          {option.description}
-        </Text>
-      </View>
-
-      {/* Benefits for each option */}
-      <View style={styles.benefitsList}>
-        {option.id === 'short' && (
-          <>
-            <View style={styles.benefitItem}>
-              <ModernIcon name="checkmark-circle" size={14} color="#007AFF" />
-              <Text style={styles.benefitText}>Perfect for busy schedules</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <ModernIcon name="checkmark-circle" size={14} color="#007AFF" />
-              <Text style={styles.benefitText}>Easy to stay consistent</Text>
-            </View>
-          </>
-        )}
-        {option.id === 'balanced' && (
-          <>
-            <View style={styles.benefitItem}>
-              <ModernIcon name="checkmark-circle" size={14} color="#007AFF" />
-              <Text style={styles.benefitText}>Good variety & progress</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <ModernIcon name="checkmark-circle" size={14} color="#007AFF" />
-              <Text style={styles.benefitText}>Manageable time commitment</Text>
-            </View>
-          </>
-        )}
-        {option.id === 'full' && (
-          <>
-            <View style={styles.benefitItem}>
-              <ModernIcon name="checkmark-circle" size={14} color="#007AFF" />
-              <Text style={styles.benefitText}>Maximum skill development</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <ModernIcon name="checkmark-circle" size={14} color="#007AFF" />
-              <Text style={styles.benefitText}>Comprehensive training</Text>
-            </View>
-          </>
-        )}
-      </View>
-    </TouchableOpacity>
-    );
-  };
-
   return (
-    <>
-      {/* Phone Status Bar */}
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
-      <View style={[styles.container, { 
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom 
-      }]}>          
-        {/* Progress Status Bar */}
-        <View style={styles.statusBar}>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '100%' }]} />
+    <OnboardingShell
+      step={ONBOARDING_STEPS.INTENSITY}
+      title="How intense should your sessions be?"
+      subtitle="Choose the training intensity that fits your lifestyle"
+      onBack={handleBack}
+      scrollable
+      contentStyle={styles.content}
+    >
+      {INTENSITY_OPTIONS.map((option) => {
+        const isSelected = selectedIntensity === option.id;
+        return (
+          <TouchableOpacity
+            key={option.id}
+            style={[
+              styles.card,
+              {
+                backgroundColor: ot.surface,
+                borderColor: isSelected ? ot.accent : ot.borderColor,
+                shadowColor: isSelected ? ot.accent : '#000',
+              },
+              isSelected && styles.cardSelected,
+            ]}
+            onPress={() => handleIntensitySelect(option.id)}
+            activeOpacity={0.85}
+          >
+            {option.badge && (
+              <View style={[styles.badge, { backgroundColor: option.badge === 'RECOMMENDED' ? ot.accent : '#F59E0B' }]}>
+                <Text style={[styles.badgeText, { color: option.badge === 'RECOMMENDED' ? ot.primaryButtonTextColor : '#fff' }]}>
+                  {option.badge}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconWrap, { backgroundColor: isSelected ? ot.accentMuted : ot.isDark ? ot.t.surfaceRaised : '#F8F9FA' }]}>
+                <option.Icon size={20} color={isSelected ? ot.accent : ot.iconMuted} strokeWidth={2} />
+              </View>
+              <Text style={[styles.duration, { color: isSelected ? ot.accent : ot.textMuted, fontFamily: ot.t.fontBodySemibold }]}>
+                {option.duration}
+              </Text>
+              {isSelected && (
+                <View style={[styles.check, { backgroundColor: ot.accent }]}>
+                  <ModernIcon name="checkmark" size={14} color={ot.primaryButtonTextColor} />
+                </View>
+              )}
             </View>
-          </View>
-        </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>How intense should your sessions be?</Text>
-        <Text style={styles.subtitle}>
-          Choose the training intensity that fits your lifestyle
-        </Text>
-      </View>
+            <Text style={[styles.cardTitle, { color: isSelected ? ot.accent : ot.textPrimary, fontFamily: ot.t.fontBodySemibold }]}>
+              {option.title}
+            </Text>
+            <Text style={[styles.cardDesc, { color: isSelected ? ot.accent : ot.textSecondary, fontFamily: ot.t.fontBody }]}>
+              {option.description}
+            </Text>
 
-      {/* Intensity Options */}
-      <View style={styles.intensityContainer}>
-        {intensityOptions.map(option => renderIntensityOption(option))}
-      </View>
-      </View>
-    </>
+            <View style={styles.benefits}>
+              {(BENEFITS[option.id] || []).map((line) => (
+                <View key={line} style={styles.benefitRow}>
+                  <ModernIcon name="checkmark-circle" size={14} color={ot.accent} />
+                  <Text style={[styles.benefitText, { color: ot.textMuted, fontFamily: ot.t.fontBody }]}>{line}</Text>
+                </View>
+              ))}
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </OnboardingShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 30,
-    justifyContent: 'space-between',
+  content: {
+    paddingBottom: 32,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#000000',
-    textAlign: 'center',
-    lineHeight: 40,
-    letterSpacing: -1,
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 22,
-    fontWeight: '400',
-  },
-  intensityContainer: {
-    flex: 1,
-    justifyContent: 'space-evenly',
-    paddingVertical: 16,
-  },
-  intensityCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  card: {
+    borderRadius: 20,
     padding: 16,
     borderWidth: 2,
-    borderColor: '#E5E5E5',
-    position: 'relative',
-    shadowColor: '#000000',
+    marginBottom: 14,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
+    position: 'relative',
   },
-  intensityCardSelected: {
-    backgroundColor: '#ffffff',
-    borderColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+  cardSelected: {
+    shadowOpacity: 0.22,
+    elevation: 6,
   },
   badge: {
     position: 'absolute',
     top: -8,
     right: 16,
-    backgroundColor: '#6B7280',
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     zIndex: 1,
-  },
-  badgeRecommended: {
-    backgroundColor: '#007AFF',
-  },
-  badgeQuick: {
-    backgroundColor: '#FF9500',
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: 'white',
-    textTransform: 'uppercase',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
-  intensityHeader: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+    gap: 10,
+    marginBottom: 8,
   },
-  intensityIcon: {
+  iconWrap: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F8F9FA',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  intensityIconSelected: {
-    backgroundColor: '#E8F5FF',
-  },
-  durationContainer: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginLeft: 10,
-  },
-  durationText: {
+  duration: {
+    flex: 1,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#666666',
   },
-  durationTextSelected: {
-    color: '#007AFF',
-  },
-  selectedIndicator: {
+  check: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  intensityContent: {
-    marginBottom: 8,
-  },
-  intensityTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000000',
+  cardTitle: {
+    fontSize: 16,
     marginBottom: 2,
   },
-  intensityTitleSelected: {
-    color: '#007AFF',
+  cardDesc: {
+    fontSize: 13,
+    marginBottom: 8,
   },
-  intensityDescription: {
-    fontSize: 12,
-    color: '#666666',
-    lineHeight: 16,
-  },
-  intensityDescriptionSelected: {
-    color: '#007AFF',
-  },
-  benefitsList: {
+  benefits: {
     gap: 4,
   },
-  benefitItem: {
+  benefitRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   benefitText: {
-    fontSize: 10,
-    color: '#666666',
-    fontWeight: '500',
-  },
-  statusBar: {
-    paddingHorizontal: 30,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    marginBottom: 20,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 2,
+    fontSize: 11,
   },
 });

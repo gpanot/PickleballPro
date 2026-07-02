@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 
 const UserContext = createContext();
@@ -11,56 +12,126 @@ export const useUser = () => {
   return context;
 };
 
+const ONBOARDING_STORAGE_KEY = '@picklepro_onboarding_state';
+
+const DEFAULT_USER = {
+  id: null,
+  name: null,
+  email: null,
+  gender: null,
+  duprRating: null,
+  ratingType: null,
+  tier: null,
+  goal: null,
+  timeCommitment: null,
+  intensity: null,
+  focus_areas: [],
+  coachPreference: null,
+  personalizedProgram: null,
+  avatarUrl: null,
+  badges: [
+    { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
+    { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
+    { id: 3, name: 'Beginner Champion', emoji: '🏆', unlocked: true },
+    { id: 4, name: 'Level 6 Complete', emoji: '⭐', unlocked: false },
+  ],
+};
+
 export const UserProvider = ({ children }) => {
   const { updateProfile, user: authUser, profile, isAuthenticated } = useAuth();
-  
-  // Initialize user state for onboarding - will be populated from AuthContext when authenticated
-  const [user, setUser] = useState({
-    // Initialize with empty onboarding data structure
-    id: null,
-    name: null,
-    email: null,
-    gender: null,
-    duprRating: null,
-    ratingType: null,
-    tier: null,
-    goal: null,
-    timeCommitment: null,
-    intensity: null, // workout intensity preference
-    focus_areas: [],
-    coachPreference: null,
-    personalizedProgram: null,
-    avatarUrl: null, // Profile picture URL
-    badges: [
-      { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
-      { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
-      { id: 3, name: 'Beginner Champion', emoji: '🏆', unlocked: true },
-      { id: 4, name: 'Level 6 Complete', emoji: '⭐', unlocked: false },
-    ],
-  });
-  
-  // Sync UserContext with AuthContext when authentication state changes
+
+  const [user, setUser] = useState(DEFAULT_USER);
+
+  const [hasCompletedIntro, setHasCompletedIntro] = useState(false);
+  const [hasSelectedGender, setHasSelectedGender] = useState(false);
+  const [hasSetRating, setHasSetRating] = useState(false);
+  const [hasSetName, setHasSetName] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+
+  // True once the initial AsyncStorage read is done — App waits on this to avoid routing flash
+  const [isOnboardingHydrated, setIsOnboardingHydrated] = useState(false);
+
+  // Skip persisting during the initial hydration read
+  const skipPersist = useRef(true);
+
+  // ── Hydrate from AsyncStorage on mount ──────────────────────────────────────
+  useEffect(() => {
+    AsyncStorage.getItem(ONBOARDING_STORAGE_KEY)
+      .then((raw) => {
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw);
+            if (saved.flags) {
+              if (saved.flags.hasCompletedIntro)    setHasCompletedIntro(true);
+              if (saved.flags.hasSelectedGender)    setHasSelectedGender(true);
+              if (saved.flags.hasSetRating)         setHasSetRating(true);
+              if (saved.flags.hasSetName)           setHasSetName(true);
+              if (saved.flags.hasCompletedOnboarding) setHasCompletedOnboarding(true);
+            }
+            if (saved.user) {
+              setUser(prev => ({ ...prev, ...saved.user }));
+            }
+          } catch (e) {
+            console.warn('UserContext: Failed to parse onboarding state', e);
+          }
+        }
+      })
+      .catch((e) => console.warn('UserContext: Failed to load onboarding state', e))
+      .finally(() => {
+        skipPersist.current = false;
+        setIsOnboardingHydrated(true);
+      });
+  }, []);
+
+  // ── Persist whenever flags or relevant user fields change ──────────────────
+  // We use a ref to batch all the individual setters into one write per render cycle.
+  const persistTimerRef = useRef(null);
+
+  const schedulePersist = (
+    flags,
+    userData,
+  ) => {
+    if (skipPersist.current) return;
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      const payload = {
+        flags,
+        user: {
+          name: userData.name,
+          gender: userData.gender,
+          duprRating: userData.duprRating,
+          ratingType: userData.ratingType,
+          tier: userData.tier,
+          goal: userData.goal,
+          timeCommitment: userData.timeCommitment,
+          intensity: userData.intensity,
+        },
+      };
+      AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(payload)).catch(
+        (e) => console.warn('UserContext: Failed to persist onboarding state', e),
+      );
+    }, 100);
+  };
+
+  // ── Sync UserContext with AuthContext when authentication state changes ─────
   useEffect(() => {
     if (isAuthenticated && authUser) {
-      // Create user object from authenticated user and profile data
-      // Preserve any local onboarding data that might not be in profile yet
       const syncedUser = {
-        ...user, // Preserve existing local data
-        id: authUser.id, // Real user ID from Supabase
+        ...user,
+        id: authUser.id,
         name: profile?.name || user?.name || authUser.email?.split('@')[0] || 'User',
         email: authUser.email,
         joinedDate: authUser.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-        // Use profile data if available, otherwise keep local onboarding data
         duprRating: profile?.dupr_rating || user?.duprRating || null,
         tier: profile?.tier || user?.tier || null,
         ratingType: profile?.rating_type || user?.ratingType || null,
         gender: profile?.gender || user?.gender || null,
         goal: profile?.goal || user?.goal || null,
         timeCommitment: profile?.time_commitment || user?.timeCommitment || null,
-        intensity: profile?.intensity || user?.intensity || null, // workout intensity preference
+        intensity: profile?.intensity || user?.intensity || null,
         focus_areas: profile?.focus_areas || user?.focus_areas || [],
         coachPreference: profile?.coach_preference || user?.coachPreference || null,
-        personalizedProgram: null, // Will be loaded separately
+        personalizedProgram: null,
         avatarUrl: profile?.avatar_url || user?.avatarUrl || null,
         badges: [
           { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
@@ -69,48 +140,52 @@ export const UserProvider = ({ children }) => {
           { id: 4, name: 'Level 6 Complete', emoji: '⭐', unlocked: false },
         ],
       };
-      
       setUser(syncedUser);
-      
-      // Note: Personalized program loading from local storage removed - programs are now managed in context only
     } else {
-      // Don't clear user data during onboarding - just clear auth-specific fields
       if (user?.id) {
         setUser(prevUser => ({
           ...prevUser,
           id: null,
           email: null,
-          joinedDate: null
+          joinedDate: null,
         }));
       }
     }
   }, [isAuthenticated, authUser, profile]);
 
-  const [hasCompletedIntro, setHasCompletedIntro] = useState(false);
-  const [hasSelectedGender, setHasSelectedGender] = useState(false);
-  const [hasSetRating, setHasSetRating] = useState(false);
-  const [hasSetName, setHasSetName] = useState(false);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  const getTierFromRating = (rating) => {
+    if (rating >= 2.0 && rating < 3.0) return 'Beginner';
+    if (rating >= 3.0 && rating < 4.0) return 'Intermediate';
+    if (rating >= 4.0 && rating < 5.0) return 'Advanced';
+    if (rating >= 5.0) return 'Pro';
+    return 'Beginner';
+  };
 
   const updateUserRating = (rating, ratingType) => {
     const tier = getTierFromRating(rating);
-    setUser(prevUser => ({
-      ...prevUser,
-      duprRating: rating,
-      ratingType,
-      tier
-    }));
+    setUser(prevUser => {
+      const next = { ...prevUser, duprRating: rating, ratingType, tier };
+      schedulePersist(
+        { hasCompletedIntro, hasSelectedGender, hasSetRating: true, hasSetName, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
     setHasSetRating(true);
   };
 
   const updateOnboardingData = async (data) => {
-    // Update local state
-    setUser(prevUser => ({
-      ...prevUser,
-      ...data
-    }));
-    
-    // Only save to database if user is authenticated
+    setUser(prevUser => {
+      const next = { ...prevUser, ...data };
+      schedulePersist(
+        { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
+
     if (isAuthenticated && authUser && updateProfile) {
       try {
         const result = await updateProfile(data);
@@ -124,52 +199,98 @@ export const UserProvider = ({ children }) => {
   };
 
   const updateUserName = (name) => {
-    setUser(prevUser => ({
-      ...prevUser,
-      name
-    }));
+    setUser(prevUser => {
+      const next = { ...prevUser, name };
+      schedulePersist(
+        { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
     setHasSetName(true);
   };
 
   const completeNameSelection = () => {
     setHasSetName(true);
+    schedulePersist(
+      { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
+      user,
+    );
   };
 
   const storePersonalizedProgram = (program) => {
-    setUser(prevUser => ({
-      ...prevUser,
-      personalizedProgram: program
-    }));
+    setUser(prevUser => ({ ...prevUser, personalizedProgram: program }));
     console.log('Personalized program stored in user context:', program);
   };
 
-
   const completeIntro = () => {
-    console.log('UserContext: completeIntro called - setting hasCompletedIntro to true');
+    console.log('UserContext: completeIntro called');
     setHasCompletedIntro(true);
-    console.log('UserContext: hasCompletedIntro state should now be true');
+    schedulePersist(
+      { hasCompletedIntro: true, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+      user,
+    );
   };
 
   const goBackToIntro = () => {
     setHasCompletedIntro(false);
+    schedulePersist(
+      { hasCompletedIntro: false, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+      user,
+    );
   };
 
   const completeGenderSelection = () => {
     setHasSelectedGender(true);
+    schedulePersist(
+      { hasCompletedIntro, hasSelectedGender: true, hasSetRating, hasSetName, hasCompletedOnboarding },
+      user,
+    );
   };
 
   const resetGenderSelection = () => {
     console.log('UserContext: Resetting gender selection');
     setHasSelectedGender(false);
-    // Also clear the gender data
-    setUser(prevUser => ({
-      ...prevUser,
-      gender: null
-    }));
+    setUser(prevUser => {
+      const next = { ...prevUser, gender: null };
+      schedulePersist(
+        { hasCompletedIntro, hasSelectedGender: false, hasSetRating, hasSetName, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
+  };
+
+  const resetRatingSelection = () => {
+    console.log('UserContext: Resetting rating selection');
+    setHasSetRating(false);
+    setUser(prevUser => {
+      const next = { ...prevUser, duprRating: null, ratingType: null, tier: null };
+      schedulePersist(
+        { hasCompletedIntro, hasSelectedGender, hasSetRating: false, hasSetName, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
+  };
+
+  const resetNameSelection = () => {
+    console.log('UserContext: Resetting name selection');
+    setHasSetName(false);
+    setUser(prevUser => {
+      const next = { ...prevUser, name: null };
+      schedulePersist(
+        { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: false, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
   };
 
   const completeOnboarding = () => {
     setHasCompletedOnboarding(true);
+    // Clear storage once the flow is fully done — no need to re-run it
+    AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY).catch(() => {});
   };
 
   const resetAllOnboarding = () => {
@@ -179,41 +300,30 @@ export const UserProvider = ({ children }) => {
     setHasSetRating(false);
     setHasSetName(false);
     setHasCompletedOnboarding(false);
+    AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY).catch(() => {});
   };
 
-  const getTierFromRating = (rating) => {
-    if (rating >= 2.0 && rating < 3.0) return 'Beginner';
-    if (rating >= 3.0 && rating < 4.0) return 'Intermediate';
-    if (rating >= 4.0 && rating < 5.0) return 'Advanced';
-    if (rating >= 5.0) return 'Pro';
-    return 'Beginner'; // Default fallback
-  };
-
-  // Function to get all onboarding data collected locally
   const getOnboardingData = () => {
     if (!user) return {};
-    
-    // Only include fields that have been set (not null/undefined)
     const data = {};
-    
-    if (user.name) data.name = user.name;
-    if (user.gender) data.gender = user.gender;
+    if (user.name)       data.name         = user.name;
+    if (user.gender)     data.gender       = user.gender;
     if (user.duprRating !== null && user.duprRating !== undefined) data.dupr_rating = user.duprRating;
-    if (user.ratingType) data.rating_type = user.ratingType;
-    if (user.tier) data.tier = user.tier;
-    if (user.goal) data.goal = user.goal;
+    if (user.ratingType) data.rating_type  = user.ratingType;
+    if (user.tier)       data.tier         = user.tier;
+    if (user.goal)       data.goal         = user.goal;
     if (user.timeCommitment) data.time_commitment = user.timeCommitment;
-    if (user.intensity) data.intensity = user.intensity; // workout intensity preference
+    if (user.intensity)  data.intensity    = user.intensity;
     if (user.focus_areas && user.focus_areas.length > 0) data.focus_areas = user.focus_areas;
-    if (user.coachPreference) data.coach_preference = user.coachPreference;
+    if (user.coachPreference)    data.coach_preference   = user.coachPreference;
     if (user.personalizedProgram) data.personalized_program = user.personalizedProgram;
-    
     console.log('UserContext: getOnboardingData returning:', data);
     return data;
   };
 
   const value = {
     user,
+    isOnboardingHydrated,
     hasCompletedIntro,
     hasSelectedGender,
     hasSetRating,
@@ -227,12 +337,14 @@ export const UserProvider = ({ children }) => {
     goBackToIntro,
     completeGenderSelection,
     resetGenderSelection,
+    resetRatingSelection,
+    resetNameSelection,
     completeNameSelection,
     completeOnboarding,
     resetAllOnboarding,
     setUser,
     getOnboardingData,
-    getTierFromRating
+    getTierFromRating,
   };
 
   return (

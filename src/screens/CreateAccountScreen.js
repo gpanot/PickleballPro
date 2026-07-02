@@ -1,266 +1,151 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  StatusBar,
-  Platform,
-  Alert,
+  Linking,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '../context/UserContext';
+import { useAuth } from '../context/AuthContext';
+import { PRIVACY_POLICY_URL, TERMS_URL } from '../lib/legalUrls';
+import { ONBOARDING_STEPS } from '../lib/onboardingSteps';
+import OnboardingShell from '../components/onboarding/OnboardingShell';
+import { useOnboardingTheme } from '../components/onboarding/useOnboardingTheme';
+import SocialAuthButtons from '../components/auth/SocialAuthButtons';
 
 export default function CreateAccountScreen({
   navigation,
   route,
   onContinueWithEmail,
-  onGoBack,
   onSignIn,
 }) {
-  const insets = useSafeAreaInsets();
   const { user } = useUser();
+  const { setPendingOAuthMetadata } = useAuth();
+  const ot = useOnboardingTheme(ONBOARDING_STEPS.CREATE_ACCOUNT);
   const previousData = route?.params?.previousData || {};
   const userName = previousData?.name || user?.name || '';
 
   const handleBack = () => {
-    if (navigation?.goBack) {
-      navigation.goBack();
-    } else if (onGoBack) {
-      onGoBack();
-    }
+    if (navigation?.goBack) navigation.goBack();
   };
 
-  // Google authentication will be implemented later
-  // const handleContinueWithGoogle = () => {
-  //   Alert.alert(
-  //     'Coming Soon',
-  //     'This feature will be implemented soon',
-  //     [{ text: 'OK' }]
-  //   );
-  // };
+  const openLegalUrl = (url) => {
+    Linking.openURL(url).catch(() => {});
+  };
 
   const handleContinueWithEmail = () => {
     if (navigation?.navigate) {
-      navigation.navigate('SignUp', { 
-        previousData: {
-          ...previousData,
-          prefilledName: userName
-        }
+      navigation.navigate('SignUp', {
+        previousData: { ...previousData, prefilledName: userName },
       });
     } else if (onContinueWithEmail) {
-      onContinueWithEmail({
-        ...previousData,
-        prefilledName: userName
-      });
+      onContinueWithEmail({ ...previousData, prefilledName: userName });
     }
   };
 
+  const handleSocialAuthStart = () => {
+    // Store onboarding data collected so far so fetchOrCreateUserProfile can
+    // merge it into the new user's profile row after SIGNED_IN fires.
+    setPendingOAuthMetadata({
+      name: userName || undefined,
+      ...previousData,
+    });
+  };
+
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={[styles.container, { 
-        paddingTop: insets.top,
-        paddingBottom: insets.bottom 
-      }]}>          
-        {/* Status Bar */}
-        <View style={styles.statusBar}>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '100%' }]} />
-            </View>
-          </View>
-        </View>
+    <OnboardingShell
+      step={ONBOARDING_STEPS.CREATE_ACCOUNT}
+      title="Create an account"
+      subtitle="Save your workouts, progress, settings, and more."
+      onBack={handleBack}
+      contentStyle={styles.content}
+    >
+      {/* Social sign-in options */}
+      <SocialAuthButtons
+        step={ONBOARDING_STEPS.CREATE_ACCOUNT}
+        onBeforeSignIn={handleSocialAuthStart}
+      />
 
-        {/* Content Section */}
-        <View style={styles.contentSection}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Create an account</Text>
-            <Text style={styles.subtitle}>
-              Save your workouts, progress, settings, and more.
-            </Text>
-          </View>
+      {/* Divider */}
+      <View style={styles.dividerRow}>
+        <View style={[styles.dividerLine, { backgroundColor: ot.borderColor }]} />
+        <Text style={[styles.dividerText, { color: ot.textMuted, fontFamily: ot.t.fontBody }]}>or</Text>
+        <View style={[styles.dividerLine, { backgroundColor: ot.borderColor }]} />
+      </View>
 
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            {/* Google authentication will be implemented later */}
-            {/* <TouchableOpacity 
-              style={styles.googleButton}
-              onPress={handleContinueWithGoogle}
-              activeOpacity={0.8}
-            >
-              <View style={styles.googleButtonContent}>
-                <View style={styles.googleIcon}>
-                  <Text style={styles.googleG}>G</Text>
-                </View>
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
-              </View>
-            </TouchableOpacity> */}
+      {/* Email registration */}
+      <TouchableOpacity
+        style={[styles.emailButton, { borderColor: ot.borderColor, backgroundColor: ot.surface }]}
+        onPress={handleContinueWithEmail}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.emailButtonText, { color: ot.textPrimary, fontFamily: ot.t.fontBodySemibold }]}>
+          Register via email
+        </Text>
+      </TouchableOpacity>
 
-            {/* Continue with Email Button */}
-            <TouchableOpacity 
-              style={styles.emailButton}
-              onPress={handleContinueWithEmail}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.emailButtonText}>Continue with Email</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              By continuing you are agreeing to PicklePro's{' '}
-            </Text>
-            <View style={styles.footerLinks}>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Privacy Policy</Text>
-              </TouchableOpacity>
-              <Text style={styles.footerText}> and </Text>
-              <TouchableOpacity>
-                <Text style={styles.footerLink}>Terms of Service</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Sign In link */}
-          {onSignIn && (
-            <View style={styles.signInRow}>
-              <Text style={styles.footerText}>Already have an account? </Text>
-              <TouchableOpacity onPress={onSignIn}>
-                <Text style={styles.signInLink}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+      <View style={styles.footer}>
+        <Text style={[styles.footerText, { color: ot.textSecondary, fontFamily: ot.t.fontBody }]}>
+          By continuing you are agreeing to PicklePro's{' '}
+        </Text>
+        <View style={styles.footerLinks}>
+          <TouchableOpacity onPress={() => openLegalUrl(PRIVACY_POLICY_URL)}>
+            <Text style={[styles.footerLink, { color: ot.accent }]}>Privacy Policy</Text>
+          </TouchableOpacity>
+          <Text style={[styles.footerText, { color: ot.textSecondary }]}> and </Text>
+          <TouchableOpacity onPress={() => openLegalUrl(TERMS_URL)}>
+            <Text style={[styles.footerLink, { color: ot.accent }]}>Terms of Service</Text>
+          </TouchableOpacity>
         </View>
       </View>
-    </>
+
+      {onSignIn && (
+        <View style={styles.signInRow}>
+          <Text style={[styles.footerText, { color: ot.textSecondary }]}>Already have an account? </Text>
+          <TouchableOpacity onPress={onSignIn}>
+            <Text style={[styles.signInLink, { color: ot.accent, fontFamily: ot.t.fontBodyBold }]}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </OnboardingShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 30,
-  },
-  contentSection: {
+  content: {
     flex: 1,
     justifyContent: 'center',
+    gap: 16,
   },
-  statusBar: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    marginBottom: 20,
-    marginHorizontal: -30,
-    paddingHorizontal: 30,
-  },
-  progressContainer: {
+  dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
   },
-  progressBar: {
+  dividerLine: {
     flex: 1,
-    height: 4,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 2,
-    overflow: 'hidden',
+    height: 1,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 2,
+  dividerText: {
+    fontSize: 13,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#000000',
-    textAlign: 'center',
-    lineHeight: 52,
-    letterSpacing: -1,
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '400',
-  },
-  buttonContainer: {
-    gap: 20,
-    marginBottom: 24,
-  },
-  // Google button styles - will be used when Google auth is implemented
-  // googleButton: {
-  //   backgroundColor: '#ffffff',
-  //   borderRadius: 20,
-  //   padding: 24,
-  //   borderWidth: 2,
-  //   borderColor: '#E5E5E5',
-  //   shadowColor: '#000000',
-  //   shadowOffset: { width: 0, height: 2 },
-  //   shadowOpacity: 0.1,
-  //   shadowRadius: 8,
-  //   elevation: 4,
-  // },
-  // googleButtonContent: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   justifyContent: 'center',
-  //   gap: 12,
-  // },
-  // googleIcon: {
-  //   width: 24,
-  //   height: 24,
-  //   borderRadius: 12,
-  //   backgroundColor: '#4285F4',
-  //   alignItems: 'center',
-  //   justifyContent: 'center',
-  // },
-  // googleG: {
-  //   color: 'white',
-  //   fontSize: 14,
-  //   fontWeight: '700',
-  // },
-  // googleButtonText: {
-  //   fontSize: 18,
-  //   fontWeight: '600',
-  //   color: '#000000',
-  // },
   emailButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    borderRadius: 30,
+    paddingVertical: 15,
+    borderWidth: 1.5,
+    alignItems: 'center',
   },
   emailButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
-    textAlign: 'center',
+    fontSize: 16,
   },
   footer: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
+    marginTop: 4,
   },
   footerText: {
     fontSize: 14,
-    color: '#666666',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -269,21 +154,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     justifyContent: 'center',
+    marginTop: 4,
   },
   footerLink: {
     fontSize: 14,
-    color: '#007AFF',
     fontWeight: '600',
   },
   signInRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 8,
   },
   signInLink: {
     fontSize: 14,
-    color: '#6366F1',
     fontWeight: '700',
   },
 });

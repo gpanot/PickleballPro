@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,238 +6,257 @@ import {
   StyleSheet,
   Image,
   Dimensions,
-  Platform,
+  Animated,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import ModernIcon from '../components/ModernIcon';
+import { useTheme } from '../context/ThemeContext';
+import { getThemeModeForGender } from '../lib/applyGenderTheme';
+import { ONBOARDING_STEPS } from '../lib/onboardingSteps';
+import {
+  ONBOARDING_BG_RAMP,
+  getOnboardingLogbookTheme,
+} from '../lib/onboardingThemeRamp';
+import { warmFriendly } from '../theme/logbookThemes';
+import OnboardingShell from '../components/onboarding/OnboardingShell';
+import { useOnboardingTheme } from '../components/onboarding/useOnboardingTheme';
 
 const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 48 - 16) / 2;
+const MALE_GENDER_FADE_MS = 2000;
+const FEMALE_ADVANCE_MS = 450;
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function GenderSelectionScreen({ navigation, onComplete, onGoBack }) {
   const [selectedGender, setSelectedGender] = useState(null);
-  const insets = useSafeAreaInsets();
+  const [isMaleTransitioning, setIsMaleTransitioning] = useState(false);
+  const advancing = useRef(false);
+  const maleFadeAnim = useRef(new Animated.Value(0)).current;
+  const { setThemeMode } = useTheme();
+  const ot = useOnboardingTheme(ONBOARDING_STEPS.GENDER);
+
+  const maleTheme = useMemo(
+    () => getOnboardingLogbookTheme(ONBOARDING_STEPS.GENDER, 'male'),
+    [],
+  );
 
   const genderOptions = [
-    {
-      id: 'female',
-      title: 'Female',
-      image: require('../../assets/images/female.png')
-    },
-    {
-      id: 'male',
-      title: 'Male',
-      image: require('../../assets/images/male.png')
-    }
+    { id: 'female', title: 'Female', image: require('../../assets/images/female.png') },
+    { id: 'male', title: 'Male', image: require('../../assets/images/male.png') },
   ];
 
-  const handleGenderSelect = (genderId) => {
-    setSelectedGender(genderId);
-    // Automatically proceed to next screen
-    onComplete({ gender: genderId });
+  const handleBack = () => {
+    if (isMaleTransitioning || advancing.current) return;
+    if (onGoBack) onGoBack();
+    else if (navigation?.canGoBack?.()) navigation.goBack();
   };
 
-  const renderGenderOption = (option) => {
-    const isSelected = selectedGender === option.id;
-    
-    return (
-      <TouchableOpacity
-        key={option.id}
-        style={[
-          styles.genderCard,
-          isSelected && styles.genderCardSelected
-        ]}
-        onPress={() => handleGenderSelect(option.id)}
-        activeOpacity={0.8}
-      >
-        <View style={styles.imageSection}>
-          <Image 
-            source={option.image}
-            style={styles.genderImage}
-            resizeMode="cover"
-          />
-        </View>
-        
-        <View style={styles.genderContent}>
-          <Text style={[
-            styles.genderTitle,
-            isSelected && styles.genderTitleSelected
-          ]}>
-            {option.title.toUpperCase()}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
+  const finishMaleTransition = () => {
+    setThemeMode(getThemeModeForGender('male'));
+    onComplete({ gender: 'male' });
   };
+
+  const handleGenderSelect = (genderId) => {
+    if (advancing.current) return;
+    advancing.current = true;
+    setSelectedGender(genderId);
+
+    if (genderId === 'female') {
+      setThemeMode(getThemeModeForGender('female'));
+      setTimeout(() => {
+        onComplete({ gender: genderId });
+      }, FEMALE_ADVANCE_MS);
+      return;
+    }
+
+    setIsMaleTransitioning(true);
+    maleFadeAnim.setValue(0);
+    Animated.timing(maleFadeAnim, {
+      toValue: 1,
+      duration: MALE_GENDER_FADE_MS,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (finished) {
+        finishMaleTransition();
+      } else {
+        advancing.current = false;
+        setIsMaleTransitioning(false);
+      }
+    });
+  };
+
+  // Screen fade for female card + hint (follows warm → male with the shell).
+  const fadeCardSurface = isMaleTransitioning
+    ? maleFadeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [warmFriendly.surface, maleTheme.surface],
+      })
+    : ot.surface;
+
+  const fadeCardBorder = isMaleTransitioning
+    ? maleFadeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['#E5E7EB', maleTheme.borderSubtle],
+      })
+    : ot.borderColor;
+
+  const fadeHintColor = isMaleTransitioning
+    ? maleFadeAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [warmFriendly.textMuted, maleTheme.textMuted],
+      })
+    : ot.textMuted;
 
   return (
-    <View style={[styles.container, { 
-      paddingTop: insets.top,
-      paddingBottom: insets.bottom 
-    }]}>
-      {/* Status Bar */}
-      <View style={styles.statusBar}>
-        <View style={styles.progressContainer}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => {
-              if (onGoBack) {
-                onGoBack();
-              } else if (navigation.canGoBack()) {
-                navigation.goBack();
-              }
-            }}
-          >
-            <Ionicons 
-              name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-              size={24} 
-              color="#007AFF" 
-            />
-          </TouchableOpacity>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '12.5%' }]} />
-          </View>
-        </View>
+    <OnboardingShell
+      step={ONBOARDING_STEPS.GENDER}
+      title="Tell us about yourself"
+      subtitle="Pick your style — we'll personalize your training journal"
+      onBack={handleBack}
+      contentStyle={styles.content}
+      themeBlend={
+        isMaleTransitioning
+          ? {
+              progress: maleFadeAnim,
+              fromBg: warmFriendly.bg,
+              toBg: ONBOARDING_BG_RAMP[0],
+              toTextPrimary: maleTheme.textPrimary,
+              toTextSecondary: maleTheme.textSecondary,
+              toBorderColor: maleTheme.borderSubtle,
+              toAccent: maleTheme.accentPurple,
+              toProgressTrack: maleTheme.borderSubtle,
+              lockBack: true,
+            }
+          : undefined
+      }
+    >
+      <View style={styles.genderRow}>
+        {genderOptions.map((option) => {
+          const isSelected = selectedGender === option.id;
+          const isMaleCardSelected = option.id === 'male' && isSelected && isMaleTransitioning;
+
+          // Male card: snap to dark grey + lime immediately (no purple/pink crossfade).
+          const borderColor = isMaleCardSelected
+            ? maleTheme.accentPurple
+            : isSelected
+              ? isMaleTransitioning
+                ? maleFadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [warmFriendly.accentPurple, maleTheme.accentPurple],
+                  })
+                : ot.accent
+              : fadeCardBorder;
+
+          const cardSurface = isMaleCardSelected ? maleTheme.surface : fadeCardSurface;
+          const shadowColor = isMaleCardSelected
+            ? maleTheme.accentPurple
+            : isSelected
+              ? isMaleTransitioning
+                ? maleFadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [warmFriendly.accentPurple, maleTheme.accentPurple],
+                  })
+                : ot.accent
+              : '#000';
+
+          const labelBg = isMaleCardSelected
+            ? maleTheme.accentPurple
+            : isSelected
+              ? isMaleTransitioning
+                ? maleFadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [warmFriendly.accentPurple, maleTheme.accentPurple],
+                  })
+                : ot.accent
+              : 'rgba(0,0,0,0.75)';
+
+          const CardWrapper = isMaleTransitioning && !isMaleCardSelected ? AnimatedTouchable : TouchableOpacity;
+          const LabelWrap = isMaleCardSelected ? View : isMaleTransitioning && isSelected ? Animated.View : View;
+
+          return (
+            <CardWrapper
+              key={option.id}
+              style={[
+                styles.genderCard,
+                {
+                  borderColor,
+                  backgroundColor: cardSurface,
+                  shadowColor,
+                },
+                isSelected && styles.genderCardSelected,
+              ]}
+              onPress={() => handleGenderSelect(option.id)}
+              activeOpacity={0.85}
+              disabled={!!selectedGender}
+            >
+              <Image source={option.image} style={styles.genderImage} resizeMode="cover" />
+              <LabelWrap style={[styles.genderLabel, { backgroundColor: labelBg }]}>
+                <Text style={[styles.genderTitle, { fontFamily: ot.t.fontBodyBold }]}>
+                  {option.title.toUpperCase()}
+                </Text>
+              </LabelWrap>
+            </CardWrapper>
+          );
+        })}
       </View>
 
-      <View style={styles.contentSection}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Tell us about yourself</Text>
-          <Text style={styles.subtitle}>
-            This helps us personalize your training experience
-          </Text>
-        </View>
-
-        {/* Gender Selection */}
-        <View style={styles.genderContainer}>
-          {genderOptions.map(option => renderGenderOption(option))}
-        </View>
-      </View>
-
-      {/* Spacer for bottom padding */}
-      <View style={styles.bottomSpacer} />
-    </View>
+      {isMaleTransitioning ? (
+        <Animated.Text style={[styles.hint, { color: fadeHintColor, fontFamily: ot.t.fontBody }]}>
+          Sport dark theme applied
+        </Animated.Text>
+      ) : (
+        <Text style={[styles.hint, { color: ot.textMuted, fontFamily: ot.t.fontBody }]}>
+          {selectedGender === 'female' && 'Warm & friendly theme applied'}
+          {!selectedGender && 'Female = warm light · Male = sporty dark'}
+        </Text>
+      )}
+    </OnboardingShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 30,
-    justifyContent: 'space-between',
-  },
-  contentSection: {
+  content: {
     flex: 1,
     justifyContent: 'center',
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#000000',
-    textAlign: 'center',
-    lineHeight: 52,
-    letterSpacing: -1,
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '400',
-  },
-  genderContainer: {
+  genderRow: {
     flexDirection: 'row',
     gap: 16,
     justifyContent: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
   },
   genderCard: {
+    width: CARD_WIDTH,
     borderRadius: 20,
     borderWidth: 3,
-    borderColor: '#E5E5E5',
-    width: (width - 60) / 2, // Wider cards for better image display
-    shadowColor: '#000000',
+    overflow: 'hidden',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
   },
   genderCardSelected: {
-    borderColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
     elevation: 8,
-  },
-  imageSection: {
-    width: '100%',
-    height: 200,
-    position: 'relative',
   },
   genderImage: {
     width: '100%',
-    height: '100%',
-    borderTopLeftRadius: 17,
-    borderTopRightRadius: 17,
+    height: 200,
   },
-  genderContent: {
+  genderLabel: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    borderBottomLeftRadius: 17,
-    borderBottomRightRadius: 17,
+    paddingVertical: 14,
   },
   genderTitle: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 1.5,
+  },
+  hint: {
     textAlign: 'center',
-    letterSpacing: 2,
-  },
-  genderTitleSelected: {
-    color: '#FFFFFF',
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-  statusBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    marginBottom: 20,
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  progressBar: {
-    flex: 1,
-    height: 4,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
 });

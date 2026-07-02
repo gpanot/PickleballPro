@@ -11,13 +11,14 @@ import {
 import { Mail, ShieldCheck, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
+import { PRIVACY_POLICY_URL } from '../lib/legalUrls';
 
 export default function HelpSupportScreen({ navigation }) {
   const { logbookTheme: t, isDark } = useTheme();
   const [expandedFaq, setExpandedFaq] = useState(null);
 
   const supportEmail = 'gpanot@yahoo.fr';
-  const privacyPolicyUrl = 'https://prism-8db991.ingress-haven.ewp.live/privacy-policy-piklepro-pickleball-hero/';
+  const privacyPolicyUrl = PRIVACY_POLICY_URL;
 
   const faqs = [
     { id: 1, question: 'How do I update my DUPR rating?', answer: 'Go to your Profile screen and tap on the DUPR rating section. You can manually edit your rating or sync it from your official DUPR account.' },

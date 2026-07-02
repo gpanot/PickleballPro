@@ -8,9 +8,7 @@
     "userInterfaceStyle": "light",
     "scheme": "pickleballhero",
     "splash": {
-      "image": "./assets/images/splash_ball.png",
-      "backgroundColor": "#000000",
-      "resizeMode": "contain"
+      "backgroundColor": "#FAF7F4"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -19,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.picklepro.mobile",
       "icon": "./assets/images/icon.png",
-      "associatedDomains": ["applinks:pickleballhero.app"],
+      "associatedDomains": [
+        "applinks:pickleballhero.app"
+      ],
       "config": {
         "googleMapsApiKey": "AIzaSyAMNdMtfFdyekAB1VwDORs9Fesl41JUajg"
       },
@@ -28,13 +28,13 @@
       }
     },
     "android": {
-      "backgroundColor": "#000000",
+      "backgroundColor": "#FAF7F4",
       "package": "com.picklepro.mobile",
       "versionCode": 12,
       "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#FAF7F4"
       },
       "intentFilters": [
         {
@@ -44,7 +44,10 @@
               "scheme": "pickleballhero"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ],
       "permissions": [
@@ -72,6 +75,7 @@
     "plugins": [
       "expo-font",
       "expo-camera",
+      "expo-apple-authentication",
       [
         "expo-build-properties",
         {
@@ -80,6 +84,12 @@
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0"
           }
+        }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.140906288105-akv9va24o1jggs7g23bjciagglel55h8"
         }
       ]
     ],

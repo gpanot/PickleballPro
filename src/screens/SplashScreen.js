@@ -1,36 +1,31 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  View,
   StyleSheet,
   Animated,
   Dimensions,
-  Image,
+  View,
   StatusBar,
   Text,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreenExpo from 'expo-splash-screen';
+import { warmFriendly } from '../theme/logbookThemes';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
+const CIRCLE_SIZE = 120;
 
 export default function SplashScreen({ onComplete }) {
-  // Animation values
   const bounceValue = useRef(new Animated.Value(0)).current;
-  const rotationValue = useRef(new Animated.Value(0)).current;
   const scaleValue = useRef(new Animated.Value(0.8)).current;
   const fadeValue = useRef(new Animated.Value(0)).current;
   const textFadeValue = useRef(new Animated.Value(0)).current;
-  const glowPulse = useRef(new Animated.Value(0.3)).current;
+  const glowPulse = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
-    // CRITICAL: Hide the native Expo splash screen immediately
-    SplashScreenExpo.hideAsync().catch(() => {
-      // Ignore errors if already hidden
-    });
+    SplashScreenExpo.hideAsync().catch(() => {});
 
-    // Start all animations
     startAnimations();
 
-    // Complete splash after 1.8 seconds (reduced by 40% from 3s)
     const timer = setTimeout(() => {
       if (onComplete) {
         onComplete();
@@ -41,21 +36,18 @@ export default function SplashScreen({ onComplete }) {
   }, []);
 
   const startAnimations = () => {
-    // Fade in animation (300ms, was 500ms)
     Animated.timing(fadeValue, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
 
-    // Scale up animation (480ms, was 800ms)
     Animated.timing(scaleValue, {
       toValue: 1,
       duration: 480,
       useNativeDriver: true,
     }).start();
 
-    // Text fade in with delay (delay 600ms, duration 480ms; was 1000ms / 800ms)
     Animated.timing(textFadeValue, {
       toValue: 1,
       duration: 480,
@@ -63,27 +55,25 @@ export default function SplashScreen({ onComplete }) {
       useNativeDriver: true,
     }).start();
 
-    // Glow pulse animation (600ms each, was 1000ms)
     const glowAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(glowPulse, {
-          toValue: 0.8,
+          toValue: 0.7,
           duration: 600,
           useNativeDriver: true,
         }),
         Animated.timing(glowPulse, {
-          toValue: 0.3,
+          toValue: 0.35,
           duration: 600,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
-    // Bouncing animation (360ms each, was 600ms)
     const bounceAnimation = Animated.loop(
       Animated.sequence([
         Animated.timing(bounceValue, {
-          toValue: -50,
+          toValue: -44,
           duration: 360,
           useNativeDriver: true,
         }),
@@ -92,107 +82,102 @@ export default function SplashScreen({ onComplete }) {
           duration: 360,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
-    // Rotation animation (1800ms per spin, was 3000ms)
-    const rotationAnimation = Animated.loop(
-      Animated.timing(rotationValue, {
-        toValue: 1,
-        duration: 1800,
-        useNativeDriver: true,
-      })
-    );
-
-    // Start continuous animations (300ms delay, was 500ms)
     setTimeout(() => {
       bounceAnimation.start();
-      rotationAnimation.start();
       glowAnimation.start();
     }, 300);
   };
 
-  // Interpolate rotation
-  const rotation = rotationValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
-      {/* Animated pickleball ball */}
+    <LinearGradient
+      colors={warmFriendly.gradientSummary}
+      style={styles.container}
+    >
+      <StatusBar barStyle="dark-content" backgroundColor={warmFriendly.bg} />
+
       <Animated.View
         style={[
-          styles.ballContainer,
+          styles.circleCluster,
           {
             transform: [
               { translateY: bounceValue },
               { scale: scaleValue },
-              { rotate: rotation },
             ],
             opacity: fadeValue,
           },
         ]}
       >
-        <Image
-          source={require('../../assets/images/splash_ball.png')}
-          style={styles.ball}
-          resizeMode="contain"
+        <Animated.View
+          style={[
+            styles.halo,
+            {
+              opacity: glowPulse,
+              transform: [{ scale: scaleValue }],
+            },
+          ]}
         />
+
+        <LinearGradient
+          colors={warmFriendly.gradientPrimary}
+          start={{ x: 0.15, y: 0.1 }}
+          end={{ x: 0.85, y: 0.95 }}
+          style={styles.circle}
+        >
+          <View style={styles.circleShine} />
+        </LinearGradient>
       </Animated.View>
 
-      {/* Optional glow effect behind the ball */}
-      <Animated.View
-        style={[
-          styles.glowEffect,
-          {
-            opacity: glowPulse,
-            transform: [{ scale: scaleValue }],
-          },
-        ]}
-      />
-
-      {/* App title */}
       <Animated.View style={[styles.titleContainer, { opacity: textFadeValue }]}>
         <Text style={styles.title}>PicklePro</Text>
         <Text style={styles.subtitle}>Train Like a Pro</Text>
       </Animated.View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ballContainer: {
+  circleCluster: {
     justifyContent: 'center',
     alignItems: 'center',
+    width: CIRCLE_SIZE + 80,
+    height: CIRCLE_SIZE + 80,
     marginBottom: 60,
   },
-  ball: {
-    width: 150,
-    height: 150,
-  },
-  glowEffect: {
+  halo: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#9EF01A',
-    shadowColor: '#9EF01A',
-    shadowOffset: {
-      width: 0,
-      height: 0,
-    },
-    shadowOpacity: 0.8,
-    shadowRadius: 50,
-    elevation: 20,
+    width: CIRCLE_SIZE + 56,
+    height: CIRCLE_SIZE + 56,
+    borderRadius: (CIRCLE_SIZE + 56) / 2,
+    backgroundColor: warmFriendly.accentPurpleMuted,
+    shadowColor: warmFriendly.accentRose,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 32,
+    elevation: 8,
+  },
+  circle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    overflow: 'hidden',
+    ...warmFriendly.cardShadow,
+  },
+  circleShine: {
+    position: 'absolute',
+    top: 18,
+    left: 22,
+    width: 36,
+    height: 22,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.38)',
   },
   titleContainer: {
     alignItems: 'center',
@@ -202,16 +187,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#9EF01A',
+    color: warmFriendly.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: 2,
   },
   subtitle: {
     fontSize: 16,
-    color: '#9EF01A',
+    color: warmFriendly.textSecondary,
     textAlign: 'center',
-    opacity: 0.8,
     letterSpacing: 1,
   },
 });

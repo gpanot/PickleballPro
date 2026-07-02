@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckCircle, Dumbbell, ChevronRight, ChevronLeft } from 'lucide-react-native';
+import { CheckCircle, Dumbbell, ChevronRight, ChevronLeft, Plus } from 'lucide-react-native';
 
 /**
  * Post-log inline success strip + navigation footer for ExerciseDetail in training mode.
@@ -12,6 +12,8 @@ import { CheckCircle, Dumbbell, ChevronRight, ChevronLeft } from 'lucide-react-n
  *   onLog           {function}     – open the log modal
  *   onNext          {function}     – navigate to next exercise
  *   onBackToSession {function}     – go back to RoutineDetail
+ *   isDark          {boolean}      – dark mode flag
+ *   theme           {object}       – theme tokens from ThemeContext
  */
 export default function ExerciseTrainingFooter({
   logResult = null,
@@ -19,27 +21,54 @@ export default function ExerciseTrainingFooter({
   onLog,
   onNext,
   onBackToSession,
+  isDark = false,
+  theme = null,
 }) {
   const insets = useSafeAreaInsets();
 
+  // Resolved colors that respect dark mode
+  const containerBg = theme?.bgCard ?? (isDark ? '#1E293B' : '#fff');
+  const containerBorder = theme?.border ?? (isDark ? '#334155' : '#F3F4F6');
+  const backBtnBg = isDark ? '#334155' : '#F3F4F6';
+  const backBtnText = theme?.text ?? (isDark ? '#F1F5F9' : '#374151');
+  const primaryColor = theme?.primary ?? '#6366F1';
+  const relogColor = theme?.textSecondary ?? (isDark ? '#94A3B8' : '#6B7280');
+
   if (logResult) {
     const targetMet = logResult.target_met !== false;
+    const successBg = targetMet
+      ? (isDark ? '#064E3B' : '#D1FAE5')
+      : (isDark ? '#451A03' : '#FEF3C7');
+    const successTextColor = targetMet
+      ? (isDark ? '#34D399' : '#065F46')
+      : (isDark ? '#FBBF24' : '#92400E');
+    const iconColor = targetMet
+      ? (isDark ? '#34D399' : '#065F46')
+      : (isDark ? '#FBBF24' : '#92400E');
+
     return (
-      <View style={[styles.container, { paddingBottom: insets.bottom + 12 }]}>
-        <View style={[styles.successStrip, targetMet ? styles.successGreen : styles.successAmber]}>
+      <View style={[
+        styles.container,
+        {
+          backgroundColor: containerBg,
+          borderTopColor: containerBorder,
+          paddingBottom: insets.bottom + 12,
+        }
+      ]}>
+        <View style={[styles.successStrip, { backgroundColor: successBg }]}>
           {targetMet ? (
-            <CheckCircle size={18} color="#065F46" strokeWidth={2.5} />
+            <CheckCircle size={18} color={iconColor} strokeWidth={2.5} />
           ) : (
-            <Dumbbell size={18} color="#92400E" strokeWidth={2.5} />
+            <Dumbbell size={18} color={iconColor} strokeWidth={2.5} />
           )}
-          <Text style={styles.successText}>
+          <Text style={[styles.successText, { color: successTextColor }]}>
             {targetMet ? 'Logged! Target met' : 'Logged — keep practicing'}
           </Text>
         </View>
         <View style={styles.postLogRow}>
           {hasNextExercise ? (
             <TouchableOpacity
-              style={styles.nextBtn}
+              style={[styles.nextBtn, { backgroundColor: primaryColor }]}
               onPress={onNext}
               accessibilityLabel="Next exercise"
               accessibilityRole="button"
@@ -49,17 +78,17 @@ export default function ExerciseTrainingFooter({
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.backBtn}
+              style={[styles.backBtn, { backgroundColor: backBtnBg }]}
               onPress={onBackToSession}
               accessibilityLabel="Back to session"
               accessibilityRole="button"
             >
-              <ChevronLeft size={16} color="#374151" strokeWidth={2.5} />
-              <Text style={styles.backBtnText}>Back to session</Text>
+              <ChevronLeft size={16} color={backBtnText} strokeWidth={2.5} />
+              <Text style={[styles.backBtnText, { color: backBtnText }]}>Back to session</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={onLog} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.relogLink}>Log again</Text>
+            <Text style={[styles.relogLink, { color: relogColor }]}>Log again</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -67,15 +96,23 @@ export default function ExerciseTrainingFooter({
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: insets.bottom + 12 }]}>
+    <View style={[
+      styles.container,
+      {
+        backgroundColor: containerBg,
+        borderTopColor: containerBorder,
+        paddingBottom: insets.bottom + 12,
+      }
+    ]}>
       <TouchableOpacity
-        style={styles.logBtn}
+        style={[styles.logBtn, { backgroundColor: primaryColor, shadowColor: primaryColor }]}
         onPress={onLog}
         activeOpacity={0.85}
-        accessibilityLabel="Log result"
+        accessibilityLabel="Add log"
         accessibilityRole="button"
       >
-        <Text style={styles.logBtnText}>Log result</Text>
+        <Plus size={18} color="#fff" strokeWidth={2.5} />
+        <Text style={styles.logBtnText}>Add log</Text>
       </TouchableOpacity>
     </View>
   );
@@ -83,20 +120,18 @@ export default function ExerciseTrainingFooter({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
     paddingHorizontal: 16,
     paddingTop: 12,
   },
   logBtn: {
-    backgroundColor: '#6366F1',
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     minHeight: 52,
     justifyContent: 'center',
-    shadowColor: '#6366F1',
+    flexDirection: 'row',
+    gap: 8,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -112,9 +147,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
-  successGreen: { backgroundColor: '#D1FAE5' },
-  successAmber: { backgroundColor: '#FEF3C7' },
-  successText: { fontSize: 14, fontWeight: '600', color: '#065F46', flex: 1 },
+  successText: { fontSize: 14, fontWeight: '600', flex: 1 },
   postLogRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -124,7 +157,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#6366F1',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -136,13 +168,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F3F4F6',
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
     minHeight: 44,
     justifyContent: 'center',
   },
-  backBtnText: { color: '#374151', fontSize: 14, fontWeight: '600' },
-  relogLink: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  backBtnText: { fontSize: 14, fontWeight: '600' },
+  relogLink: { fontSize: 13, fontWeight: '500' },
 });
