@@ -17,126 +17,89 @@ import { supabase, checkCoachAccess, getStudentCoach } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
+import {
+  getAssessmentTemplate,
+  DEFAULT_EXPERIENCE_TEMPLATE,
+  evaluateCondition,
+} from '../../lib/assessmentTemplatesApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const QUESTIONS = {
-  // First question - always shown
-  playedPickleball: {
-    id: 'playedPickleball',
-    question: 'Have you ever played Pickleball ?',
-    type: 'button',
-    options: [
-      { label: '✅ Yes', value: 'yes' },
-      { label: '❌ No', value: 'no' },
-    ],
-  },
-  
-  // If YES to pickleball - ask duration
-  pbDuration: {
-    id: 'pbDuration',
-    question: 'For how long have you been playing?',
-    type: 'button',
-    condition: (answers) => answers.playedPickleball === 'yes',
-    options: [
-      { label: '📅 Less than 6 months', value: 'less6months' },
-      { label: '📆 More than 6 months', value: 'more6months' },
-    ],
-  },
-  
-  // If NO to pickleball - ask about other racket sports
-  racketSport: {
-    id: 'racketSport',
-    question: 'Have you ever played any racket sport?',
-    type: 'button',
-    condition: (answers) => answers.playedPickleball === 'no',
-    options: [
-      { label: '🎾 Tennis', value: 'tennis' },
-      { label: '🏸 Badminton', value: 'badminton' },
-      { label: '🏓 Ping Pong', value: 'pingpong' },
-      { label: '🎾 Squash', value: 'squash' },
-      { label: '❌ None', value: 'none' },
-    ],
-  },
-  
-  // If they played a racket sport - ask skill level
-  racketSkillLevel: {
-    id: 'racketSkillLevel',
-    question: 'How good are you at that sport?',
-    type: 'button',
-    condition: (answers) => answers.racketSport && answers.racketSport !== 'none',
-    options: [
-      { label: '🌱 Beginner', value: 'beginner' },
-      { label: '👍 Normal', value: 'normal' },
-      { label: '⭐ Semi Pro', value: 'semipro' },
-      { label: '🏆 Pro Player', value: 'pro' },
-    ],
-  },
-};
 
 export default function FirstTimeAssessmentScreen({ route, navigation }) {
   const { studentId, student } = route.params;
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { logbookTheme: t, isDark } = useTheme();
-  
-  const [currentQuestionKey, setCurrentQuestionKey] = useState('playedPickleball');
+
+  // Template-driven questions (array, replaces hardcoded QUESTIONS object)
+  const [questions, setQuestions] = useState(DEFAULT_EXPERIENCE_TEMPLATE.questions);
+  const [templateId, setTemplateId] = useState(null);
+
+  const [currentQuestionKey, setCurrentQuestionKey] = useState(
+    DEFAULT_EXPERIENCE_TEMPLATE.questions[0]?.id || 'playedPickleball'
+  );
   const [answers, setAnswers] = useState({});
   const [loading, setLoading] = useState(false);
-  const [questionFlow, setQuestionFlow] = useState(['playedPickleball']); // Track the flow
+  const [questionFlow, setQuestionFlow] = useState([
+    DEFAULT_EXPERIENCE_TEMPLATE.questions[0]?.id || 'playedPickleball',
+  ]);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const assessmentKey = `newbie_assessment_${studentId}`;
 
+  // Load the template from Supabase on mount, then restore any saved progress
   useEffect(() => {
-    loadSavedProgress();
+    let cancelled = false;
+    getAssessmentTemplate('experience').then((tmpl) => {
+      if (cancelled) return;
+      if (tmpl?.questions?.length) {
+        setQuestions(tmpl.questions);
+        setTemplateId(tmpl.id || null);
+        const firstId = tmpl.questions[0].id;
+        setCurrentQuestionKey(firstId);
+        setQuestionFlow([firstId]);
+      }
+      loadSavedProgress(tmpl?.questions || DEFAULT_EXPERIENCE_TEMPLATE.questions);
+    });
+    return () => { cancelled = true; };
   }, []);
 
+  // Helper: build a lookup map from question array
+  const getQuestionById = (qArr, id) => qArr.find(q => q.id === id) || null;
+
   // Determine the next question based on current answers
-  const getNextQuestion = (currentKey, currentAnswers) => {
-    const questionKeys = Object.keys(QUESTIONS);
-    const currentIndex = questionKeys.indexOf(currentKey);
-    
-    // Check remaining questions for one that meets conditions
-    for (let i = currentIndex + 1; i < questionKeys.length; i++) {
-      const key = questionKeys[i];
-      const question = QUESTIONS[key];
-      
-      // If no condition, or condition is met, this is the next question
-      if (!question.condition || question.condition(currentAnswers)) {
-        return key;
+  const getNextQuestion = (currentKey, currentAnswers, qArr) => {
+    const currentIndex = qArr.findIndex(q => q.id === currentKey);
+    for (let i = currentIndex + 1; i < qArr.length; i++) {
+      const q = qArr[i];
+      if (evaluateCondition(q.condition, currentAnswers)) {
+        return q.id;
       }
     }
-    
-    return null; // No more questions
+    return null;
   };
 
-  const loadSavedProgress = async () => {
+  const loadSavedProgress = async (qArr) => {
     try {
       const saved = await AsyncStorage.getItem(assessmentKey);
       if (saved) {
         const data = JSON.parse(saved);
         setAnswers(data.answers || {});
-        setQuestionFlow(data.questionFlow || ['playedPickleball']);
-        
-        // Find the last answered question in the flow
-        const flow = data.questionFlow || ['playedPickleball'];
+        const firstId = qArr[0]?.id || 'playedPickleball';
+        setQuestionFlow(data.questionFlow || [firstId]);
+
+        const flow = data.questionFlow || [firstId];
         let lastAnsweredKey = null;
-        
         for (const key of flow) {
-          if (data.answers?.[key]) {
-            lastAnsweredKey = key;
-          }
+          if (data.answers?.[key]) lastAnsweredKey = key;
         }
-        
+
         if (lastAnsweredKey) {
-          // Check if there's a next question
-          const nextKey = getNextQuestion(lastAnsweredKey, data.answers);
+          const nextKey = getNextQuestion(lastAnsweredKey, data.answers, qArr);
           if (nextKey) {
             setCurrentQuestionKey(nextKey);
             setQuestionFlow([...flow, nextKey]);
           } else {
-            // All questions answered, show summary
             setCurrentQuestionKey('summary');
           }
         }
@@ -161,22 +124,19 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
     const newAnswers = { ...answers, [questionKey]: answer };
     setAnswers(newAnswers);
 
-    // Animate slide out
     Animated.timing(slideAnim, {
       toValue: -SCREEN_WIDTH,
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      // Determine next question based on the answer
-      const nextKey = getNextQuestion(questionKey, newAnswers);
-      
+      const nextKey = getNextQuestion(questionKey, newAnswers, questions);
+
       if (nextKey) {
         const newFlow = [...questionFlow, nextKey];
         setQuestionFlow(newFlow);
         setCurrentQuestionKey(nextKey);
         saveProgress(newAnswers, newFlow);
-        
-        // Reset animation for next slide in
+
         slideAnim.setValue(SCREEN_WIDTH);
         Animated.timing(slideAnim, {
           toValue: 0,
@@ -184,7 +144,6 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
           useNativeDriver: true,
         }).start();
       } else {
-        // All questions answered, show summary
         setCurrentQuestionKey('summary');
         saveProgress(newAnswers, questionFlow);
         slideAnim.setValue(0);
@@ -238,17 +197,19 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
       const payload = {
         coach_id: coachId,
         student_id: studentId,
-        total_score: 0, // No scoring for Q&A session
-        max_score: 0, // No scoring for Q&A session
+        total_score: 0,
+        max_score: 0,
         skills_data: {
           branching_assessment: {
             type: 'branching_experience_assessment',
             answers: answers,
             questionFlow: questionFlow,
-            questions: Object.keys(QUESTIONS).map(key => ({
-              id: QUESTIONS[key].id,
-              question: QUESTIONS[key].question,
-              type: QUESTIONS[key].type,
+            template_id: templateId || null,
+            questions: questions.map(q => ({
+              id: q.id,
+              question: q.question,
+              type: q.type,
+              options: q.options,
             })),
           },
         },
@@ -296,7 +257,6 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
 
     const currentAnswer = answers[question.id];
     const questionIndex = questionFlow.indexOf(question.id) + 1;
-    const totalQuestions = Object.keys(QUESTIONS).length;
 
     return (
       <Animated.View
@@ -337,10 +297,10 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
   };
 
   const renderSummary = () => {
-    // Only show questions that were part of the flow
     const answeredQuestions = questionFlow
       .filter(key => key !== 'summary')
-      .map(key => QUESTIONS[key]);
+      .map(key => getQuestionById(questions, key))
+      .filter(Boolean);
 
     return (
       <View style={[styles.summaryContainer, { backgroundColor: t.bg }]}>
@@ -378,8 +338,9 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.secondaryButton} onPress={() => {
-            setCurrentQuestionKey('playedPickleball');
-            setQuestionFlow(['playedPickleball']);
+            const firstId = questions[0]?.id || 'playedPickleball';
+            setCurrentQuestionKey(firstId);
+            setQuestionFlow([firstId]);
           }}>
             <Text style={[styles.secondaryButtonText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Edit Answers</Text>
           </TouchableOpacity>
@@ -388,14 +349,15 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
     );
   };
 
-  // Calculate progress based on answered questions
-  const totalPossibleQuestions = Object.keys(QUESTIONS).length;
+  const totalPossibleQuestions = questions.length;
   const answeredCount = Object.keys(answers).length;
-  const progress = currentQuestionKey === 'summary' 
-    ? 100 
+  const progress = currentQuestionKey === 'summary'
+    ? 100
     : (answeredCount / totalPossibleQuestions) * 100;
 
-  const currentQuestion = currentQuestionKey !== 'summary' ? QUESTIONS[currentQuestionKey] : null;
+  const currentQuestion = currentQuestionKey !== 'summary'
+    ? getQuestionById(questions, currentQuestionKey)
+    : null;
   const isSummary = currentQuestionKey === 'summary';
 
   return (

@@ -47,6 +47,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const { logbookTheme: t, isDark } = useTheme();
+  const styles = React.useMemo(() => createStyles(t), [t]);
   const isCatalogPreview = source === 'library' || source === 'explore' || source === 'skill_picker';
 
   // Library enrollment (used when source === 'library' or 'explore')
@@ -887,7 +888,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
                       {isDone && (
                         <Ionicons name="checkmark-circle" size={16} color="#10B981" />
                       )}
-                      <Text style={[styles.routineName, isDone && { color: '#6B7280' }]}>{routine.name}</Text>
+                      <Text style={[styles.routineName, isDone && { color: t.training.cardSubtitle }]}>{routine.name}</Text>
                     </View>
                     {routine.description ? (
                       <Text style={styles.routineDescription}>{routine.description}</Text>
@@ -1332,7 +1333,9 @@ export default function ProgramDetailScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(t) {
+  const c = t.training;
+  return StyleSheet.create({
   container: { flex: 1 },
   headerContent: {
     flex: 1,
@@ -1363,7 +1366,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.cardSubtitle,
     lineHeight: 20,
   },
   scrollView: {
@@ -1394,13 +1397,13 @@ const styles = StyleSheet.create({
   emptyRoutinesTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyRoutinesDescription: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
@@ -1433,15 +1436,15 @@ const styles = StyleSheet.create({
   routinesTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   routinesSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   routineCard: {
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -1449,6 +1452,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: c.cardBorder,
   },
   routineCardDone: {
     borderLeftWidth: 3,
@@ -1456,13 +1461,13 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   progressContainer: {
-    backgroundColor: '#F8FAFF',
+    backgroundColor: c.progressBg,
     borderRadius: 12,
     padding: 14,
     marginHorizontal: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#EEF2FF',
+    borderColor: c.progressBorder,
   },
   progressLabelRow: {
     flexDirection: 'row',
@@ -1472,21 +1477,21 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.progressLabel,
   },
   progressCount: {
     fontSize: 12,
-    color: '#6B7280',
+    color: c.progressCount,
   },
   progressTrack: {
     height: 6,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: c.progressTrack,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: 6,
-    backgroundColor: '#6366F1',
+    backgroundColor: c.progressFill,
     borderRadius: 3,
   },
   progressCompleteRow: {
@@ -1512,12 +1517,12 @@ const styles = StyleSheet.create({
   routineName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.cardTitle,
     marginBottom: 4,
   },
   routineDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.cardSubtitle,
     marginBottom: 8,
     lineHeight: 20,
   },
@@ -1528,7 +1533,7 @@ const styles = StyleSheet.create({
   },
   routineStatsText: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: c.cardMeta,
   },
   routineActions: {
     flexDirection: 'row',
@@ -1540,7 +1545,7 @@ const styles = StyleSheet.create({
   chevronText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.cardSubtitle,
   },
   addMoreRoutinesButton: {
     flexDirection: 'row',
@@ -1564,7 +1569,7 @@ const styles = StyleSheet.create({
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1574,19 +1579,19 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: c.cardBorder,
   },
   modalCancelButton: {
     padding: 8,
   },
   modalCancelText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.cardSubtitle,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.cardTitle,
   },
   modalCreateButton: {
     padding: 8,
@@ -1600,7 +1605,7 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   modalCreateTextDisabled: {
-    color: '#9CA3AF',
+    color: c.cardMeta,
   },
   modalContent: {
     flex: 1,
@@ -1611,18 +1616,18 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.cardTitle,
     marginBottom: 8,
   },
   modalInput: {
     backgroundColor: 'white',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
+    color: c.cardTitle,
     marginBottom: 16,
   },
   modalInputMultiline: {
@@ -1637,9 +1642,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   uploadImageButton: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 32,
@@ -1650,12 +1655,12 @@ const styles = StyleSheet.create({
   uploadImageText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: c.cardSubtitle,
     marginBottom: 4,
   },
   uploadImageSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.cardSubtitle,
   },
   selectedImageContainer: {
     position: 'relative',
@@ -1665,7 +1670,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
   },
   removeImageButton: {
     position: 'absolute',
@@ -1713,7 +1718,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     paddingTop: 24,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: c.cardBorder,
   },
   sharingSectionHeader: {
     marginBottom: 20,
@@ -1729,12 +1734,12 @@ const styles = StyleSheet.create({
   sharingSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.cardTitle,
     marginBottom: 4,
   },
   sharingSectionSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.cardSubtitle,
   },
   sharingContent: {
     alignItems: 'center',
@@ -1753,17 +1758,17 @@ const styles = StyleSheet.create({
   qrCodePlaceholder: {
     width: 120,
     height: 120,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     borderStyle: 'dashed',
   },
   qrCodePlaceholderText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: c.cardMeta,
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -1774,13 +1779,13 @@ const styles = StyleSheet.create({
   shareProgramName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.cardTitle,
     marginBottom: 4,
     textAlign: 'center',
   },
   shareDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.cardSubtitle,
     textAlign: 'center',
   },
   shareButton: {
@@ -1813,7 +1818,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: c.cardBorder,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -1869,7 +1874,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   libraryPrimaryBtn: {
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
@@ -1884,16 +1889,16 @@ const styles = StyleSheet.create({
   libraryPrimaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
   librarySecondaryBtn: {
     borderWidth: 1.5,
-    borderColor: '#6366F1',
+    borderColor: c.accent,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     minHeight: 48,
     justifyContent: 'center',
   },
-  librarySecondaryBtnText: { color: '#6366F1', fontSize: 15, fontWeight: '600' },
+  librarySecondaryBtnText: { color: c.accent, fontSize: 15, fontWeight: '600' },
   librarySaveLink: { alignItems: 'center', paddingVertical: 10 },
-  librarySaveLinkText: { color: '#6B7280', fontSize: 14, fontWeight: '500' },
+  librarySaveLinkText: { color: c.cardSubtitle, fontSize: 14, fontWeight: '500' },
 
   // Toast
   toastOverlay: {
@@ -1912,3 +1917,4 @@ const styles = StyleSheet.create({
   },
   toastText: { color: '#fff', fontSize: 14, fontWeight: '500' },
 });
+}

@@ -13,8 +13,9 @@ import {
 import SeededAvatar from '../components/SeededAvatar';
 import EmptyState from '../components/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
-import { Globe, MapPin, User, Users } from 'lucide-react-native';
+import { Globe, MapPin, Trophy, User, Users } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
@@ -22,6 +23,7 @@ import * as Location from 'expo-location';
 
 export default function LeaderboardScreen({ navigation }) {
   const { user } = useAuth();
+  const { user: userProfile } = useUser();
   const { logbookTheme: t, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -258,6 +260,35 @@ export default function LeaderboardScreen({ navigation }) {
   const nudgeBg = isDark ? t.surfaceRaised : '#EEF2FF';
   const nudgeBorder = isDark ? t.border : '#C7D2FE';
 
+  const avatarInitials = userProfile?.name
+    ? userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : 'U';
+
+  const avatarRightAction = (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Profile')}
+      activeOpacity={0.7}
+      style={styles.avatarButton}
+    >
+      <View style={[
+        styles.avatarContainer,
+        {
+          backgroundColor: isDark ? t.surfaceRaised : t.accentPurpleMuted || '#EDE9FE',
+          borderWidth: 1,
+          borderColor: isDark ? t.border : t.borderSubtle || '#DDD6FE',
+        },
+      ]}>
+        {userProfile?.avatarUrl ? (
+          <Image source={{ uri: userProfile.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+        ) : (
+          <Text style={[styles.avatarText, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
+            {avatarInitials}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       <ScreenHeaderShell
@@ -267,6 +298,7 @@ export default function LeaderboardScreen({ navigation }) {
         bordered
         title="Leaderboard"
         subtitle={`${filterSubtitle} · based on latest coach assessment`}
+        rightAction={avatarRightAction}
       />
 
       {/* Current User Card */}
@@ -310,7 +342,7 @@ export default function LeaderboardScreen({ navigation }) {
           >
             {leaderboardData.length === 0 ? (
               <EmptyState
-                emoji={selectedFilter === 'nearby' ? '📍' : '🏆'}
+                Icon={selectedFilter === 'nearby' ? MapPin : Trophy}
                 title={selectedFilter === 'nearby' ? 'No players found nearby' : 'No rankings yet'}
                 subtitle={selectedFilter === 'nearby'
                   ? 'Try enabling location access or switch to Global rankings.'
@@ -501,5 +533,25 @@ const styles = StyleSheet.create({
   playerScore: { alignItems: 'flex-end' },
   scoreValue: { fontSize: 24, marginBottom: 2 },
   scoreLabel: { fontSize: 12 },
+  avatarButton: {
+    marginTop: 4,
+    padding: 2,
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });
 

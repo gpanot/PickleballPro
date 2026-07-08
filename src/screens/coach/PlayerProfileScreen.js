@@ -17,40 +17,68 @@ import { supabase, transformProgramData, getLogbookEntriesByUserId } from '../..
 import SeededAvatar from '../../components/SeededAvatar';
 import { useTheme } from '../../context/ThemeContext';
 import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
+import {
+  getAssessmentTemplate,
+  DEFAULT_PLAYER_EVALUATION_TEMPLATE,
+} from '../../lib/assessmentTemplatesApi';
 
 const PRIMARY_COLOR = '#27AE60';
+
+// Chart colors assigned by position (stable across re-renders)
+const SKILL_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#F43F5E', '#06B6D4', '#84CC16'];
 
 export default function PlayerProfileScreen({ route, navigation }) {
   const { studentId, student, isStudentView } = route.params || {};
   const isFocused = useIsFocused();
   const { logbookTheme: t, isDark } = useTheme();
-  
+
   const [player, setPlayer] = useState(student || null);
   const [loading, setLoading] = useState(!student);
   const [loadingAssessments, setLoadingAssessments] = useState(true);
   const [activeTab, setActiveTab] = useState('Assessment');
   const [assessments, setAssessments] = useState([]);
   const [programs, setPrograms] = useState([]);
-  const [progress, setProgress] = useState(null); // kept but not used
+  const [progress, setProgress] = useState(null);
   const [progressSeries, setProgressSeries] = useState(null);
   const [progressDeltas, setProgressDeltas] = useState(null);
   const [latestSummary, setLatestSummary] = useState(null);
-  const [expandedSkill, setExpandedSkill] = useState(null); // for large modal view
+  const [expandedSkill, setExpandedSkill] = useState(null);
   const [avgSkillScores, setAvgSkillScores] = useState(null);
   const [skillOverviewExpanded, setSkillOverviewExpanded] = useState(true);
   const [hasFirstTimeAssessment, setHasFirstTimeAssessment] = useState(false);
   const [logbookEntries, setLogbookEntries] = useState([]);
   const [loadingLogbook, setLoadingLogbook] = useState(false);
 
-  // Include all assessed skills
-  const PROGRESS_SKILLS = [
-    { id: 'serves', name: 'Serves', color: '#3B82F6' },
-    { id: 'dinks', name: 'Dinks', color: '#10B981' },
-    { id: 'volleys', name: 'Volleys / Resets', color: '#F59E0B' },
-    { id: 'third_shot', name: '3rd Shot', color: '#8B5CF6' },
-    { id: 'footwork', name: 'Footwork', color: '#EC4899' },
-    { id: 'game_play', name: 'Game Play / Scenarios', color: '#F43F5E' },
-  ];
+  // Template-driven skill list for progress charts
+  const [PROGRESS_SKILLS, setProgressSkills] = useState(() =>
+    DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills.map((s, i) => ({
+      id: s.id,
+      name: s.name,
+      color: SKILL_COLORS[i % SKILL_COLORS.length],
+    }))
+  );
+
+  // Ref so template-loaded skills can be passed into compute functions without
+  // stale closures (the functions are called with the value directly).
+  const assessmentsRef = React.useRef([]);
+
+  useEffect(() => {
+    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+      if (tmpl?.skills?.length) {
+        const newSkills = tmpl.skills.map((s, i) => ({
+          id: s.id,
+          name: s.name,
+          color: SKILL_COLORS[i % SKILL_COLORS.length],
+        }));
+        setProgressSkills(newSkills);
+        // If assessments were already loaded, recompute charts with the real skills
+        if (assessmentsRef.current.length > 0) {
+          computeProgress(assessmentsRef.current, newSkills);
+          computeSkillAverages(assessmentsRef.current, newSkills);
+        }
+      }
+    });
+  }, []);
 
   const CHART_WIDTH = 300;
   const CHART_HEIGHT = 140;
@@ -111,14 +139,13 @@ export default function PlayerProfileScreen({ route, navigation }) {
       if (error) throw error;
       const list = data || [];
       setAssessments(list);
-      
-      // Check if First Time Assessment exists
-      // Check if there's a First Time Assessment (either new or old format)
+      assessmentsRef.current = list;
+
       const firstTimeExists = list.some(assessment => isFirstTimeAssessment(assessment));
       setHasFirstTimeAssessment(firstTimeExists);
       
-      computeProgress(list);
-      computeSkillAverages(list);
+      computeProgress(list, PROGRESS_SKILLS);
+      computeSkillAverages(list, PROGRESS_SKILLS);
     } catch (error) {
       console.error('Error loading assessments:', error);
     } finally {
@@ -136,8 +163,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
     return assessment?.skills_data?.newbie_assessment?.type === 'first_time_assessment';
   };
 
-  const computeProgress = (list) => {
-    // Filter out First Time Assessments
+  const computeProgress = (list, skills = PROGRESS_SKILLS) => {
     const filteredList = (list || []).filter(a => !isFirstTimeAssessment(a));
     
     if (!filteredList || filteredList.length === 0) {
@@ -146,25 +172,23 @@ export default function PlayerProfileScreen({ route, navigation }) {
       setLatestSummary(null);
       return;
     }
-    // Take last 5 assessments in chronological order
     const lastFive = [...filteredList].slice(0, 5).reverse();
-    const labels = lastFive.map((a, idx) => `A${lastFive.length - idx}`); // A1..A5
-    const dates = lastFive.map((a) => a.created_at); // Store actual dates
+    const labels = lastFive.map((a, idx) => `A${lastFive.length - idx}`);
+    const dates = lastFive.map((a) => a.created_at);
 
-    const series = PROGRESS_SKILLS.map((skill) => {
+    const series = skills.map((skill) => {
       const values = lastFive.map((a) => {
         const s = a.skills_data?.[skill.id];
-        return s?.total ?? 0; // 0-50
+        return s?.total ?? 0;
       });
       return { id: skill.id, name: skill.name, color: skill.color, values, dates };
     });
 
-    // Deltas between last two assessments (if available)
     let deltas = null;
     if (filteredList.length >= 2) {
       const latest = filteredList[0];
       const prev = filteredList[1];
-      deltas = PROGRESS_SKILLS.map((skill) => {
+      deltas = skills.map((skill) => {
         const lastVal = latest.skills_data?.[skill.id]?.total ?? 0;
         const prevVal = prev.skills_data?.[skill.id]?.total ?? 0;
         return { id: skill.id, name: skill.name, color: skill.color, delta: lastVal - prevVal };
@@ -174,10 +198,9 @@ export default function PlayerProfileScreen({ route, navigation }) {
     setProgressSeries({ labels, series });
     setProgressDeltas(deltas);
 
-    // Latest evaluation summary (most recent assessment)
     const latest = filteredList[0];
     if (latest && latest.skills_data) {
-      const summary = PROGRESS_SKILLS.map((skill) => {
+      const summary = skills.map((skill) => {
         const sd = latest.skills_data?.[skill.id];
         const score = sd?.total ?? 0;
         const maxScore = sd?.maxScore ?? 50;
@@ -191,8 +214,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
     }
   };
 
-  const computeSkillAverages = (list) => {
-    // Filter out First Time Assessments
+  const computeSkillAverages = (list, skills = PROGRESS_SKILLS) => {
     const filteredList = (list || []).filter(a => !isFirstTimeAssessment(a));
     
     if (!filteredList || filteredList.length === 0) {
@@ -201,12 +223,12 @@ export default function PlayerProfileScreen({ route, navigation }) {
     }
     const sums = {};
     const counts = {};
-    PROGRESS_SKILLS.forEach((s) => {
+    skills.forEach((s) => {
       sums[s.id] = 0;
       counts[s.id] = 0;
     });
     filteredList.forEach((a) => {
-      PROGRESS_SKILLS.forEach((skill) => {
+      skills.forEach((skill) => {
         const v = a.skills_data?.[skill.id]?.total;
         if (v !== undefined && v !== null) {
           sums[skill.id] += v;
@@ -214,7 +236,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
         }
       });
     });
-    const avgs = PROGRESS_SKILLS.map((s) => {
+    const avgs = skills.map((s) => {
       const avg = counts[s.id] ? Math.round(sums[s.id] / counts[s.id]) : 0;
       const pct = (avg / 50) * 100;
       let color = '#EF4444';

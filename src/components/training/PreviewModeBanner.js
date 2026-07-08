@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Eye, X } from 'lucide-react-native';
+import { useTheme } from '../../context/ThemeContext';
 
-function ShineAddButton({ onPress }) {
+function ShineAddButton({ onPress, btnColor }) {
   const shineX = useRef(new Animated.Value(-40)).current;
 
   useEffect(() => {
@@ -23,7 +24,7 @@ function ShineAddButton({ onPress }) {
   }, [shineX]);
 
   return (
-    <TouchableOpacity style={styles.addBtn} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.addBtn, { backgroundColor: btnColor }]} onPress={onPress} activeOpacity={0.85}>
       <Text style={styles.addBtnText}>Add</Text>
       <Animated.View
         pointerEvents="none"
@@ -48,25 +49,27 @@ function ShineAddButton({ onPress }) {
  *   onEnroll {function} – optional shortcut to open EnrollmentConfirmSheet
  */
 export default function PreviewModeBanner({ onEnroll }) {
+  const { logbookTheme: t } = useTheme();
+  const c = t.training;
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
 
   return (
-    <View style={styles.banner}>
+    <View style={[styles.banner, { backgroundColor: c.previewBannerBg, borderBottomColor: c.previewBannerBorder }]}>
       <View style={styles.row}>
-        <Eye size={18} color="#92400E" strokeWidth={2} />
+        <Eye size={18} color={c.previewBannerText} strokeWidth={2} />
         <View style={styles.textBlock}>
-          <Text style={styles.label}>Preview mode</Text>
-          <Text style={styles.sub}>Add to My Training to log progress</Text>
+          <Text style={[styles.label, { color: c.previewBannerText }]}>Preview mode</Text>
+          <Text style={[styles.sub, { color: c.previewBannerSubtext }]}>Add to My Training to log progress</Text>
         </View>
-        {onEnroll && <ShineAddButton onPress={onEnroll} />}
+        {onEnroll && <ShineAddButton onPress={onEnroll} btnColor={c.previewBannerBtn} />}
         <TouchableOpacity
           onPress={() => setDismissed(true)}
           hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
           style={styles.closeHit}
         >
-          <X size={16} color="#92400E" strokeWidth={2.5} />
+          <X size={16} color={c.previewBannerText} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
     </View>
@@ -75,9 +78,7 @@ export default function PreviewModeBanner({ onEnroll }) {
 
 const styles = StyleSheet.create({
   banner: {
-    backgroundColor: '#FFFBEB',
     borderBottomWidth: 1,
-    borderBottomColor: '#FDE68A',
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -87,10 +88,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   textBlock: { flex: 1 },
-  label: { fontSize: 13, fontWeight: '700', color: '#92400E' },
-  sub: { fontSize: 12, color: '#78350F', marginTop: 1 },
+  label: { fontSize: 13, fontWeight: '700' },
+  sub: { fontSize: 12, marginTop: 1 },
   addBtn: {
-    backgroundColor: '#D97706',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,

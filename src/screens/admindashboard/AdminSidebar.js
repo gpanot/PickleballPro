@@ -9,22 +9,24 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const ALL_NAV_ITEMS = [
-  { id: 'dashboard',  label: 'Dashboard',         icon: 'grid-outline' },
-  { id: 'content',    label: 'Content Management', icon: 'library-outline' },
-  { id: 'users',      label: 'User Management',    icon: 'people-outline' },
-  { id: 'coaches',    label: 'Coach Management',   icon: 'person-outline' },
-  { id: 'feedback',   label: 'Feedback',           icon: 'heart-outline' },
-  { id: 'analytics',  label: 'Analytics',          icon: 'analytics-outline' },
-  { id: 'settings',   label: 'Settings',           icon: 'settings-outline' },
+  { id: 'dashboard',   label: 'Dashboard',          icon: 'grid-outline' },
+  { id: 'content',     label: 'Content Management', icon: 'library-outline' },
+  { id: 'users',       label: 'User Management',    icon: 'people-outline' },
+  { id: 'coaches',     label: 'Coach Management',   icon: 'person-outline' },
+  { id: 'assessments', label: 'Assessments',        icon: 'clipboard-outline' },
+  { id: 'feedback',    label: 'Feedback',            icon: 'heart-outline' },
+  { id: 'analytics',   label: 'Analytics',          icon: 'analytics-outline' },
+  { id: 'settings',    label: 'Settings',            icon: 'settings-outline' },
 ];
 
-const COACH_NAV_IDS   = ['dashboard', 'content'];
-const MANAGER_NAV_IDS = ['dashboard', 'content', 'academy'];
+const COACH_NAV_IDS   = ['dashboard', 'content', 'assessments'];
+const MANAGER_NAV_IDS = ['dashboard', 'content', 'academy', 'assessments'];
 
-function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole }) {
+function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole, insets }) {
   const managerNavItem = { id: 'academy', label: 'My Academy', icon: 'school-outline' };
 
   let navItems;
@@ -39,10 +41,13 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
     navItems = ALL_NAV_ITEMS;
   }
 
+  const topPad = isMobile && insets ? insets.top : 0;
+  const bottomPad = isMobile && insets ? insets.bottom : 0;
+
   return (
     <View style={[localStyles.sidebar, isMobile ? localStyles.sidebarMobile : { width: sidebarCollapsed ? 80 : 280 }]}>
-      {/* Header */}
-      <View style={localStyles.sidebarHeader}>
+      {/* Header — padded for status bar on mobile */}
+      <View style={[localStyles.sidebarHeader, topPad > 0 && { paddingTop: topPad + 14 }]}>
         {(!sidebarCollapsed || isMobile) && (
           <View style={localStyles.logoContainer}>
             <View style={localStyles.logoIcon}>
@@ -99,8 +104,8 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
         ))}
       </ScrollView>
 
-      {/* User / Exit section */}
-      <View style={localStyles.userSection}>
+      {/* User / Exit section — padded for home indicator on mobile */}
+      <View style={[localStyles.userSection, bottomPad > 0 && { paddingBottom: bottomPad + 16 }]}>
         <View style={localStyles.userProfile}>
           <View style={localStyles.userAvatar}>
             <Text style={localStyles.userAvatarText}>
@@ -147,6 +152,7 @@ export default function AdminSidebar({
   isMobile = false,
   styles: _ignored, // parent passes styles but we use local ones now
 }) {
+  const insets = useSafeAreaInsets();
 
   if (isMobile) {
     return (
@@ -172,6 +178,7 @@ export default function AdminSidebar({
               onToggleCollapse={onCloseMobileDrawer}
               sessionRole={sessionRole}
               isMobile
+              insets={insets}
             />
           </View>
         </View>

@@ -42,6 +42,8 @@ import {
   Zap,
   CircleDot,
   Plus,
+  Moon,
+  Sun,
 } from 'lucide-react-native';
 import { useLastOpenedProgram } from '../hooks/useLastOpenedProgram';
 import { ProgramSkeletonCard, CoachSkeletonCard, ImageWithSkeleton } from '../components/SkeletonCard';
@@ -135,7 +137,8 @@ export default function ProgramScreen({ navigation, route }) {
     programs: preloadedPrograms,
   } = usePreload();
   const insets = useSafeAreaInsets();
-  const { logbookTheme: t, isDark } = useTheme();
+  const { logbookTheme: t, isDark, setThemeMode } = useTheme();
+  const styles = React.useMemo(() => createStyles(t), [t]);
   const [currentView, setCurrentView] = React.useState(
     route.params?.initialView || 'myTraining'
   ); // 'myTraining', 'coach', 'programs', 'library' or 'fun'
@@ -3039,6 +3042,29 @@ export default function ProgramScreen({ navigation, route }) {
             ? 'Browse catalog'
             : 'Coach-assigned training'
         }
+        rightAction={
+          <TouchableOpacity
+            onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
+            activeOpacity={0.7}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: isDark ? t.surfaceRaised : t.accentPurpleMuted || '#EDE9FE',
+              borderWidth: 1,
+              borderColor: isDark ? t.border : t.borderSubtle || '#DDD6FE',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            accessibilityRole="button"
+          >
+            {isDark
+              ? <Sun size={18} color={t.accentPurple} strokeWidth={2} />
+              : <Moon size={18} color={t.accentPurple} strokeWidth={2} />
+            }
+          </TouchableOpacity>
+        }
       >
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
@@ -3224,13 +3250,15 @@ export default function ProgramScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(t) {
+  const c = t.training;
+  return StyleSheet.create({
   container: { flex: 1 },
   continueCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: c.accentMuted,
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 4,
@@ -3238,12 +3266,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: c.accentBorder,
   },
   continueCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
   continueCardText: { flex: 1 },
-  continueLabel: { fontSize: 10, color: '#6366F1', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
-  continueTitle: { fontSize: 14, color: '#1F2937', fontWeight: '600', marginTop: 1 },
+  continueLabel: { fontSize: 10, color: c.accent, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  continueTitle: { fontSize: 14, color: c.sectionTitle, fontWeight: '600', marginTop: 1 },
   scrollView: {
     flex: 1,
   },
@@ -3269,13 +3297,13 @@ const styles = StyleSheet.create({
   emptyCustomListTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyCustomListDescription: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
@@ -3323,12 +3351,12 @@ const styles = StyleSheet.create({
   aiGenerateButtonLarge: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     paddingHorizontal: 32,
     paddingVertical: 18,
     borderRadius: 16,
     marginBottom: 20,
-    shadowColor: '#6366F1',
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -3363,12 +3391,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
   },
   addFirstProgramButtonSecondaryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
   },
   programsList: {
@@ -3384,15 +3412,15 @@ const styles = StyleSheet.create({
   programsTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   programsSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   programCard: {
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -3415,14 +3443,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginRight: (width === 768 && height >= 1024) ? 20 : 16, // More spacing for iPad portrait
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
   },
   programThumbnail: {
     width: '100%',
@@ -3432,12 +3460,12 @@ const styles = StyleSheet.create({
   programPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     borderStyle: 'dashed',
   },
   programInfo: {
@@ -3446,12 +3474,12 @@ const styles = StyleSheet.create({
   programName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   programDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     marginBottom: 8,
     lineHeight: 20,
   },
@@ -3468,7 +3496,7 @@ const styles = StyleSheet.create({
   },
   programStatsText: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: c.cardMeta,
   },
   aiGeneratedText: {
     color: '#8B5CF6',
@@ -3508,12 +3536,12 @@ const styles = StyleSheet.create({
   chevronText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -3521,7 +3549,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -3530,12 +3558,12 @@ const styles = StyleSheet.create({
   },
   modalCancelText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
   },
   modalCreateButton: {
     padding: 8,
@@ -3549,7 +3577,7 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
   },
   modalCreateTextDisabled: {
-    color: '#9CA3AF',
+    color: c.cardMeta,
   },
   modalContent: {
     flex: 1,
@@ -3560,18 +3588,18 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 8,
   },
   modalInput: {
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 16,
   },
   modalInputMultiline: {
@@ -3583,9 +3611,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   uploadImageButton: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 32,
@@ -3600,12 +3628,12 @@ const styles = StyleSheet.create({
   uploadImageText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: c.cardSubtitle,
     marginBottom: 4,
   },
   uploadImageSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   selectedImageContainer: {
     position: 'relative',
@@ -3615,7 +3643,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
   },
   removeImageButton: {
     position: 'absolute',
@@ -3648,7 +3676,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
   },
   loadingBall: {
     width: 60,
@@ -3656,7 +3684,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     marginTop: 16,
     textAlign: 'center',
   },
@@ -3669,7 +3697,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   aiGenerationContent: {
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 24,
     paddingVertical: 48,
     paddingHorizontal: 32,
@@ -3690,13 +3718,13 @@ const styles = StyleSheet.create({
   aiGenerationTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     textAlign: 'center',
     marginBottom: 8,
   },
   aiGenerationSubtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -3716,13 +3744,13 @@ const styles = StyleSheet.create({
   },
   aiProgressFill: {
     height: '100%',
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     borderRadius: 3,
     transition: 'width 0.5s ease-in-out',
   },
   aiProgressText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: c.cardMeta,
     fontWeight: '500',
   },
   aiGenerationNote: {
@@ -3738,12 +3766,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   aiCancelText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -3751,7 +3779,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -3777,10 +3805,10 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#9CA3AF',
+    color: c.cardMeta,
   },
   activeTabText: {
-    color: '#1F2937',
+    color: c.sectionTitle,
     fontWeight: '600',
   },
   activeTabIndicator: {
@@ -3796,7 +3824,7 @@ const styles = StyleSheet.create({
   libraryHeaderContainer: {
     paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16,
     paddingVertical: (width === 768 && height >= 1024) ? 20 : 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     marginBottom: 16,
@@ -3804,12 +3832,12 @@ const styles = StyleSheet.create({
   libraryHeaderTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
   },
   libraryExerciseCount: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     marginTop: 4,
   },
   libraryCategoriesSection: {
@@ -3819,7 +3847,7 @@ const styles = StyleSheet.create({
   librarySectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 16,
   },
   libraryProgramsGrid: {
@@ -3837,7 +3865,7 @@ const styles = StyleSheet.create({
     width: getCardWidth(width, height),
     marginRight: 12,
     marginBottom: (width === 768 && height >= 1024) ? 20 : 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -3848,7 +3876,7 @@ const styles = StyleSheet.create({
   libraryHorizontalProgramCard: {
     width: getHorizontalCardWidth(width, height),
     marginRight: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -3862,9 +3890,9 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
   },
   libraryProgramThumbnail: {
     width: '100%',
@@ -3873,17 +3901,17 @@ const styles = StyleSheet.create({
   libraryPlaceholderThumbnail: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     borderStyle: 'dashed',
   },
   libraryPlaceholderText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   libraryProgramDetails: {
     padding: (width === 768 && height >= 1024) ? 14 : 12,
@@ -3891,7 +3919,7 @@ const styles = StyleSheet.create({
   libraryProgramTitle: {
     fontSize: (width === 768 && height >= 1024) ? 15 : 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.cardTitle,
     marginBottom: 6,
     lineHeight: (width === 768 && height >= 1024) ? 20 : 18,
   },
@@ -3903,12 +3931,12 @@ const styles = StyleSheet.create({
   libraryRatingText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.cardTitle,
     marginLeft: 4,
   },
   libraryAddedText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     marginLeft: 4,
     flexShrink: 1,
   },
@@ -3945,7 +3973,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
   },
   // Coach Program tab styles
@@ -3972,7 +4000,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -3980,13 +4008,13 @@ const styles = StyleSheet.create({
   coachEmptyTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 12,
     textAlign: 'center',
   },
   coachEmptyDescription: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
@@ -4000,7 +4028,7 @@ const styles = StyleSheet.create({
   stepCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -4010,7 +4038,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: c.cardBorder,
   },
   stepIcon: {
     width: 56,
@@ -4026,7 +4054,7 @@ const styles = StyleSheet.create({
   stepNumber: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: c.cardMeta,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -4034,12 +4062,12 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
   },
   stepConnector: {
     width: 2,
     height: 16,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: c.cardBorder,
     marginLeft: 28,
     marginBottom: 4,
   },
@@ -4050,7 +4078,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   quickInfoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
@@ -4065,13 +4093,13 @@ const styles = StyleSheet.create({
   quickInfoTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginTop: 12,
     marginBottom: 4,
   },
   quickInfoText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -4082,10 +4110,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 24,
     padding: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
   },
   statusDot: {
     width: 8,
@@ -4097,7 +4125,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   coachProgramsHeader: {
     paddingHorizontal: (width === 768 && height >= 1024) ? 24 : 16,
@@ -4107,12 +4135,12 @@ const styles = StyleSheet.create({
   coachProgramsTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   coachProgramsSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     lineHeight: 20,
   },
   coachProgramHeader: {
@@ -4124,7 +4152,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   coachBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -4132,11 +4160,11 @@ const styles = StyleSheet.create({
   coachBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   // Student code card styles
   studentCodeCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -4147,7 +4175,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
   },
   studentCodeHeader: {
     flexDirection: 'row',
@@ -4158,7 +4186,7 @@ const styles = StyleSheet.create({
   studentCodeLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -4170,7 +4198,7 @@ const styles = StyleSheet.create({
   studentCodeValue: {
     fontSize: 48,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     letterSpacing: 2,
     flex: 1,
     includeFontPadding: false,
@@ -4201,11 +4229,11 @@ const styles = StyleSheet.create({
   coachesSectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 12,
   },
   coachCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -4214,7 +4242,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
   },
   coachCardContent: {
     flexDirection: 'row',
@@ -4252,16 +4280,16 @@ const styles = StyleSheet.create({
   coachCardName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
   },
   coachCardSubtext: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     marginBottom: 2,
   },
   coachCardBio: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: c.cardMeta,
     marginTop: 4,
   },
   // Fun tab styles
@@ -4269,7 +4297,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   doubleChallengeCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 16,
     padding: 24,
     shadowColor: '#000',
@@ -4278,7 +4306,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     position: 'relative',
   },
   doubleChallengeIcon: {
@@ -4288,13 +4316,13 @@ const styles = StyleSheet.create({
   doubleChallengeTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
+    color: c.sectionTitle,
     textAlign: 'center',
     marginBottom: 12,
   },
   doubleChallengeDescription: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 16,
@@ -4311,21 +4339,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 8,
     padding: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     borderRadius: 8,
   },
   checkbox: {
     width: 20,
     height: 20,
     borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
     borderRadius: 4,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
   },
   checkboxChecked: {
     backgroundColor: '#3B82F6',
@@ -4337,12 +4365,12 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   checkboxDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     lineHeight: 18,
   },
   // Find your coach section styles
@@ -4355,7 +4383,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   findCoachCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     padding: 18,
     flexDirection: 'row',
@@ -4366,7 +4394,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
   },
   findCoachIconDirect: {
     marginRight: 14,
@@ -4377,12 +4405,12 @@ const styles = StyleSheet.create({
   findCoachTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   findCoachDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     lineHeight: 20,
   },
 
@@ -4395,12 +4423,12 @@ const styles = StyleSheet.create({
   myTrainingEmptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: c.cardTitle,
     marginBottom: 6,
   },
   myTrainingEmptySubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     lineHeight: 20,
   },
   goalCard: {
@@ -4408,8 +4436,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#6366F1',
-    backgroundColor: '#EEF2FF',
+    borderColor: c.goalCardBorder,
+    backgroundColor: c.goalCardBg,
     overflow: 'hidden',
   },
   goalCardInner: {
@@ -4419,21 +4447,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   goalCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  goalCardTitle: { fontSize: 15, fontWeight: '700', color: '#1E1B4B' },
-  goalCardMeta: { fontSize: 12, color: '#6366F1', marginTop: 2 },
+  goalCardTitle: { fontSize: 15, fontWeight: '700', color: c.goalCardTitle },
+  goalCardMeta: { fontSize: 12, color: c.accent, marginTop: 2 },
   goalCardSecondary: {
     marginHorizontal: 16,
     marginBottom: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    borderColor: c.cardBorder,
+    backgroundColor: c.cardBg,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 14,
     gap: 12,
   },
-  goalCardSecondaryText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#374151' },
+  goalCardSecondaryText: { flex: 1, fontSize: 15, fontWeight: '600', color: c.cardSubtitle },
   myTrainingSectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4446,7 +4474,7 @@ const styles = StyleSheet.create({
   myTrainingSectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6B7280',
+    color: c.sectionLabel,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
@@ -4455,10 +4483,10 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#6366F1',
+    borderColor: c.goalCardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: c.accentMuted,
   },
   swipeRowWrap: {
     marginHorizontal: 16,
@@ -4468,7 +4496,7 @@ const styles = StyleSheet.create({
   },
   skillPickerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     paddingHorizontal: 20,
     paddingBottom: 8,
     paddingTop: 2,
@@ -4476,7 +4504,7 @@ const styles = StyleSheet.create({
   skillPickerGroupHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: c.cardMeta,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     paddingHorizontal: 20,
@@ -4492,8 +4520,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   skillPickerInfo: { flex: 1 },
-  skillPickerName: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  skillPickerMeta: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  skillPickerName: { fontSize: 15, fontWeight: '600', color: c.cardTitle },
+  skillPickerMeta: { fontSize: 13, color: c.sectionSubtitle, marginTop: 2 },
   skillPickerProgramRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -4510,7 +4538,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   skillPickerProgramThumbPlaceholder: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: c.accentMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4523,20 +4551,20 @@ const styles = StyleSheet.create({
   skillPickerEmptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: c.cardTitle,
     marginTop: 20,
     marginBottom: 8,
     textAlign: 'center',
   },
   skillPickerEmptyBody: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 24,
   },
   skillPickerEmptyCta: {
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 12,
@@ -4552,7 +4580,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fff',
+    backgroundColor: c.cardBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -4566,11 +4594,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 20,
   },
-  sheetTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 10 },
-  sheetBody: { fontSize: 14, color: '#374151', lineHeight: 21, marginBottom: 6 },
-  sheetMeta: { fontSize: 13, color: '#6B7280', marginBottom: 20 },
+  sheetTitle: { fontSize: 18, fontWeight: '700', color: c.cardTitle, marginBottom: 10 },
+  sheetBody: { fontSize: 14, color: c.cardSubtitle, lineHeight: 21, marginBottom: 6 },
+  sheetMeta: { fontSize: 13, color: c.sectionSubtitle, marginBottom: 20 },
   sheetPrimaryBtn: {
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
@@ -4579,7 +4607,7 @@ const styles = StyleSheet.create({
   },
   sheetPrimaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   sheetCancelBtn: { alignItems: 'center', paddingVertical: 14 },
-  sheetCancelBtnText: { color: '#6B7280', fontSize: 15, fontWeight: '500' },
+  sheetCancelBtnText: { color: c.sectionSubtitle, fontSize: 15, fontWeight: '500' },
   // Toast
   toastOverlay: {
     position: 'absolute',
@@ -4597,3 +4625,4 @@ const styles = StyleSheet.create({
   },
   toastText: { color: '#fff', fontSize: 14, fontWeight: '500' },
 });
+}

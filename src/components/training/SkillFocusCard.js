@@ -11,15 +11,10 @@ import { useTheme } from '../../context/ThemeContext';
 
 /**
  * Compact card for a skill focus track.
- *
- * Props:
- *   track        {object}   – active track from useActiveTraining
- *   completedIds {string[]} – completed routine IDs for this program
- *   onContinue   {function}
- *   onArchive    {function} – "Remove" via long-press or menu
  */
 export default function SkillFocusCard({ track, completedIds = [], onContinue, onArchive, style }) {
-  const { isDark } = useTheme();
+  const { logbookTheme: t } = useTheme();
+  const c = t.training.skillFocus;
 
   if (!track) return null;
 
@@ -36,22 +31,12 @@ export default function SkillFocusCard({ track, completedIds = [], onContinue, o
 
   const nextIndex = nextRoutine ? routines.indexOf(nextRoutine) + 1 : totalSessions;
 
-  // Dark mode colors
-  const cardBg = isDark ? '#1E293B' : '#fff';
-  const cardBorder = isDark ? '#334155' : '#E5E7EB';
-  const thumbPlaceholderBg = isDark ? '#1E1B4B' : '#EEF2FF';
-  const thumbPlaceholderIcon = isDark ? '#818CF8' : '#4338CA';
-  const nameColor = isDark ? '#F1F5F9' : '#111827';
-  const metaColor = isDark ? '#64748B' : '#6B7280';
-  const progressTrackBg = isDark ? '#334155' : '#E5E7EB';
-  const primaryColor = isDark ? '#818CF8' : '#6366F1';
-
   return (
     <View style={[
       styles.card,
       {
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
+        backgroundColor: c.cardBg,
+        borderColor: c.cardBorder,
       },
       style,
     ]}>
@@ -59,24 +44,24 @@ export default function SkillFocusCard({ track, completedIds = [], onContinue, o
         {program.thumbnail_url ? (
           <Image source={{ uri: program.thumbnail_url }} style={styles.thumb} />
         ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: thumbPlaceholderBg }]}>
-            <Target size={20} color={thumbPlaceholderIcon} strokeWidth={2} />
+          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: c.thumbPlaceholderBg }]}>
+            <Target size={20} color={c.thumbPlaceholderIcon} strokeWidth={2} />
           </View>
         )}
         <View style={styles.info}>
-          <Text style={[styles.name, { color: nameColor }]} numberOfLines={1}>{program.name}</Text>
-          <Text style={[styles.meta, { color: metaColor }]}>Session {nextIndex} of {totalSessions}</Text>
-          <View style={[styles.progressTrack, { backgroundColor: progressTrackBg }]}>
-            <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%`, backgroundColor: primaryColor }]} />
+          <Text style={[styles.name, { color: c.name }]} numberOfLines={1}>{program.name}</Text>
+          <Text style={[styles.meta, { color: c.meta }]}>Session {nextIndex} of {totalSessions}</Text>
+          <View style={[styles.progressTrack, { backgroundColor: c.progressTrack }]}>
+            <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%`, backgroundColor: c.accent }]} />
           </View>
         </View>
         <TouchableOpacity
-          style={[styles.continueBtn, { borderColor: primaryColor }]}
+          style={[styles.continueBtn, { borderColor: c.accent }]}
           onPress={onContinue}
           accessibilityLabel={`Continue ${program.name}`}
           accessibilityRole="button"
         >
-          <Text style={[styles.continueBtnText, { color: primaryColor }]}>Continue</Text>
+          <Text style={[styles.continueBtnText, { color: c.accent }]}>Continue</Text>
         </TouchableOpacity>
       </View>
     </View>

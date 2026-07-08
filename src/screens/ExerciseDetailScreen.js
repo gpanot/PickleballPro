@@ -86,6 +86,45 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     setIsPlaying(!!currentVideoId);
   }, [currentVideoId]);
 
+  // Fetch fresh exercise data from Supabase on mount so video and content are always up-to-date
+  React.useEffect(() => {
+    const fetchFreshData = async () => {
+      const code = initialRawExercise?.code;
+      const id = initialRawExercise?.id;
+      if (!code && !id) return;
+
+      try {
+        let data = null;
+
+        const { data: byCode, error: errByCode } = await supabase
+          .from('exercises')
+          .select('*')
+          .eq('code', code || '')
+          .single();
+
+        if (!errByCode && byCode) {
+          data = byCode;
+        } else if (id) {
+          const { data: byId, error: errById } = await supabase
+            .from('exercises')
+            .select('*')
+            .eq('id', id)
+            .single();
+          if (!errById && byId) data = byId;
+        }
+
+        if (data) {
+          setCurrentExerciseData(data);
+          if (onExerciseUpdated) onExerciseUpdated(data);
+        }
+      } catch (err) {
+        // Silently fall back to route.params data
+      }
+    };
+
+    fetchFreshData();
+  }, []);
+
   // Load exercise history from logbook entries whenever entries or exercise changes
   const loadExerciseHistory = useCallback(() => {
     if (!rawExercise) {
@@ -217,31 +256,33 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
     })()
   } : null;
 
-  const renderGoalTargetRow = () => (
+  const renderGoalTargetRow = () => {
+    const ex = t.training.exercise;
+    return (
     <View style={styles.goalTargetContainer}>
       <View style={[styles.goalCard, {
-        backgroundColor: isDark ? '#1E3A5F' : '#EFF6FF',
-        borderColor: isDark ? '#2563EB40' : '#DBEAFE',
+        backgroundColor: ex.goalCardBg,
+        borderColor: ex.goalCardBorder,
       }]}>
         <View style={styles.goalContent}>
-          <ModernIcon name="target" size={20} color="#2563EB" style={styles.goalIcon} />
+          <ModernIcon name="target" size={20} color={ex.goalTitle} style={styles.goalIcon} />
           <View style={styles.goalTextContainer}>
-            <Text style={[styles.goalTitle, { color: isDark ? '#93C5FD' : '#1E3A8A' }]}>Goal</Text>
-            <Text style={[styles.goalDescription, { color: isDark ? '#BFDBFE' : '#1E40AF' }]}>{exercise.goal}</Text>
+            <Text style={[styles.goalTitle, { color: ex.goalTitle }]}>Goal</Text>
+            <Text style={[styles.goalDescription, { color: ex.goalBody }]}>{exercise.goal}</Text>
           </View>
         </View>
       </View>
 
       {exercise.targetValue && exercise.targetValue !== "Complete" && (
         <View style={[styles.targetCard, {
-          backgroundColor: isDark ? '#064E3B' : '#ECFDF5',
-          borderColor: isDark ? '#05966940' : '#A7F3D0',
+          backgroundColor: ex.targetCardBg,
+          borderColor: ex.targetCardBorder,
         }]}>
           <View style={styles.targetContent}>
-            <ModernIcon name="flag" size={20} color="#059669" style={styles.targetIcon} />
+            <ModernIcon name="flag" size={20} color={ex.targetTitle} style={styles.targetIcon} />
             <View style={styles.targetTextContainer}>
-              <Text style={[styles.targetTitle, { color: isDark ? '#6EE7B7' : '#047857' }]}>Target</Text>
-              <Text style={[styles.targetDescription, { color: isDark ? '#A7F3D0' : '#065F46' }]}>
+              <Text style={[styles.targetTitle, { color: ex.targetTitle }]}>Target</Text>
+              <Text style={[styles.targetDescription, { color: ex.targetBody }]}>
                 {exercise.targetValue} {exercise.targetUnit && exercise.targetUnit !== "attempts" ? exercise.targetUnit : ""}
               </Text>
             </View>
@@ -250,17 +291,19 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
       )}
     </View>
   );
+  };
 
   const renderVideoSection = () => {
+    const ex = t.training.exercise;
     const videoId = getYouTubeVideoId(exercise.videoUrl);
 
     if (!videoId) {
       return (
         <View style={[styles.videoSection, { backgroundColor: t.surface }]}>
-          <View style={[styles.videoContainer, { backgroundColor: isDark ? '#0F172A' : '#1F2937' }]}>
+          <View style={[styles.videoContainer, { backgroundColor: ex.videoBg }]}>
             <View style={styles.noVideoContainer}>
-              <Ionicons name="videocam-off-outline" size={48} color="#9CA3AF" />
-              <Text style={styles.noVideoText}>No video available</Text>
+              <Ionicons name="videocam-off-outline" size={48} color={ex.videoMuted} />
+              <Text style={[styles.noVideoText, { color: ex.videoMuted }]}>No video available</Text>
             </View>
           </View>
           <View style={styles.videoInfo}>
@@ -275,7 +318,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.videoSection, { backgroundColor: t.surface }]}>
-        <View style={[styles.videoContainer, { backgroundColor: isDark ? '#0F172A' : '#1F2937' }]}>
+        <View style={[styles.videoContainer, { backgroundColor: ex.videoBg }]}>
           <YoutubePlayer
             ref={playerRef}
             width={'100%'}
@@ -329,6 +372,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   };
 
   const renderInstructions = () => {
+    const ex = t.training.exercise;
     const instructionSections = exercise.instructions.split('\n\n');
 
     return (
@@ -344,7 +388,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
             <View key={index} style={styles.instructionSection}>
               <Text style={[styles.instructionSectionTitle, { color: t.textSecondary }]}>{title}</Text>
               {items.map((item, itemIndex) => (
-                <Text key={itemIndex} style={[styles.instructionItem, { color: t.textSecondary }]}>{item}</Text>
+                <Text key={itemIndex} style={[styles.instructionItem, { color: ex.instructionsText }]}>{item}</Text>
               ))}
             </View>
           );
@@ -354,6 +398,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
   };
 
   const renderTips = () => {
+    const ex = t.training.exercise;
     if (!exercise.tips || exercise.tips.length === 0) {
       return null;
     }
@@ -364,10 +409,10 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
         <View style={styles.tipsContainer}>
           {exercise.tips.map((tip, index) => (
             <View key={index} style={styles.tipItem}>
-              <View style={[styles.tipNumber, { backgroundColor: isDark ? '#064E3B' : '#DCFCE7' }]}>
-                <Text style={[styles.tipNumberText, { color: isDark ? '#34D399' : '#16A34A' }]}>{index + 1}</Text>
+              <View style={[styles.tipNumber, { backgroundColor: ex.tipNumberBg }]}>
+                <Text style={[styles.tipNumberText, { color: ex.tipNumberText }]}>{index + 1}</Text>
               </View>
-              <Text style={[styles.tipText, { color: t.textSecondary }]}>{tip}</Text>
+              <Text style={[styles.tipText, { color: ex.instructionsText }]}>{tip}</Text>
             </View>
           ))}
         </View>
@@ -432,7 +477,7 @@ const ExerciseDetailScreen = ({ route, navigation }) => {
                 <View
                   key={entry.id || index}
                   style={[styles.historyItem, {
-                    backgroundColor: isDark ? '#0F172A' : '#F9FAFB',
+                    backgroundColor: t.training.exercise.instructionsBg,
                     borderColor: t.border,
                   }]}
                 >

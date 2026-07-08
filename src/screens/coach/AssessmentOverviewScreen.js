@@ -12,25 +12,27 @@ import { CheckCircle, PlayCircle, ChevronRight } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
-
-const SKILLS = [
-  { id: 'serves', name: 'Serves', maxScore: 50 },
-  { id: 'dinks', name: 'Dinks', maxScore: 40 },
-  { id: 'volleys', name: 'Volleys / Resets', maxScore: 50 },
-  { id: 'third_shot', name: '3rd Shot', maxScore: 40 },
-  { id: 'footwork', name: 'Footwork', maxScore: 30 },
-  { id: 'game_play', name: 'Game Play / Scenarios', maxScore: 40 },
-];
+import {
+  getAssessmentTemplate,
+  DEFAULT_PLAYER_EVALUATION_TEMPLATE,
+} from '../../lib/assessmentTemplatesApi';
 
 export default function AssessmentOverviewScreen({ route, navigation }) {
   const { studentId, student, assessmentId } = route.params;
   const insets = useSafeAreaInsets();
   const { logbookTheme: t, isDark } = useTheme();
 
+  const [skills, setSkills] = useState(DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills);
   const [skillScores, setSkillScores] = useState({});
   const [loading, setLoading] = useState(true);
 
   const assessmentKey = `assessment_${studentId}_${assessmentId || 'draft'}`;
+
+  useEffect(() => {
+    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+      if (tmpl?.skills?.length) setSkills(tmpl.skills);
+    });
+  }, []);
 
   useEffect(() => { loadSavedAssessment(); }, []);
 
@@ -68,7 +70,7 @@ export default function AssessmentOverviewScreen({ route, navigation }) {
     catch { return 0; }
   }, [skillScores]);
 
-  const maxTotal = SKILLS.reduce((sum, skill) => sum + skill.maxScore, 0);
+  const maxTotal = skills.reduce((sum, skill) => sum + skill.maxScore, 0);
 
   if (loading) {
     return (
@@ -96,7 +98,7 @@ export default function AssessmentOverviewScreen({ route, navigation }) {
       />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {SKILLS.map((skill) => {
+        {skills.map((skill) => {
           const scored = !!skillScores[skill.id]?.total;
           return (
             <TouchableOpacity

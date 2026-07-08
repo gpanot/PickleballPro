@@ -43,22 +43,22 @@ const light = {
 
 const dark = {
   // Backgrounds
-  bg: '#0F172A',
-  bgSecondary: '#1E293B',
-  bgCard: '#1E293B',
-  bgInput: '#334155',
-  bgSheet: '#1E293B',
+  bg: '#0C0C0C',
+  bgSecondary: '#111111',
+  bgCard: '#181818',
+  bgInput: '#222222',
+  bgSheet: '#181818',
   // Text
-  text: '#F1F5F9',
-  textSecondary: '#94A3B8',
-  textTertiary: '#64748B',
+  text: '#FFFFFF',
+  textSecondary: '#B8B8B8',
+  textTertiary: '#9A9A9A',
   // Brand
-  primary: '#818CF8',
-  primaryLight: '#1E1B4B',
-  primaryBorder: '#3730A3',
+  primary: '#C5F22A',
+  primaryLight: '#C5F22A18',
+  primaryBorder: '#C5F22A40',
   // UI chrome
-  border: '#334155',
-  borderStrong: '#475569',
+  border: '#2A2A2A',
+  borderStrong: '#3A3A3A',
   // Status
   success: '#34D399',
   successLight: '#064E3B',
@@ -67,12 +67,12 @@ const dark = {
   warning: '#FBBF24',
   warningLight: '#451A03',
   // Tab bar
-  tabBg: '#1E293B',
-  tabBorder: '#334155',
+  tabBg: '#111111',
+  tabBorder: '#2A2A2A',
   tabShadow: '#000000',
   // Header
-  headerBg: '#0F172A',
-  headerText: '#F1F5F9',
+  headerBg: '#0C0C0C',
+  headerText: '#FFFFFF',
 };
 
 // ------------------------------------------------------------------

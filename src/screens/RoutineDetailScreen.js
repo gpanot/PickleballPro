@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Dumbbell, Smile, Activity } from 'lucide-react-native';
 import WebIcon from '../components/WebIcon';
@@ -28,6 +29,7 @@ export default function RoutineDetailScreen({ navigation, route }) {
   const { user } = useUser();
   const insets = useSafeAreaInsets();
   const { logbookTheme: t, isDark } = useTheme();
+  const styles = React.useMemo(() => createStyles(t), [t]);
   
   // Ensure routine has exercises array, transform routine_exercises if needed
   const normalizedRoutine = React.useMemo(() => {
@@ -183,6 +185,14 @@ export default function RoutineDetailScreen({ navigation, route }) {
   React.useEffect(() => {
     fetchLatestLogs();
   }, [fetchLatestLogs]);
+
+  // Re-fetch latest logs every time this screen comes back into focus
+  // (e.g., after user logs a result in ExerciseDetailScreen and navigates back)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchLatestLogs();
+    }, [fetchLatestLogs])
+  );
 
   // Helper function to parse numeric value from string (e.g., "7/10" -> 0.7, "15 consecutive" -> 15)
   const parseNumericValue = (str) => {
@@ -1466,16 +1476,18 @@ export default function RoutineDetailScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(t) {
+  const c = t.training;
+  return StyleSheet.create({
   container: { flex: 1 },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     fontStyle: 'italic',
   },
   headerDescription: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     lineHeight: 20,
     marginTop: 4,
   },
@@ -1505,13 +1517,13 @@ const styles = StyleSheet.create({
   emptyExercisesTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 8,
     textAlign: 'center',
   },
   emptyExercisesDescription: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
@@ -1520,7 +1532,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#3B82F6',
+    backgroundColor: c.accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1550,31 +1562,31 @@ const styles = StyleSheet.create({
   exercisesTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
   },
   addExerciseHeaderButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: c.cardBorder,
     gap: 4,
   },
   addExerciseHeaderButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3B82F6',
+    color: c.accent,
   },
   exercisesSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   exerciseCard: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
@@ -1589,7 +1601,7 @@ const styles = StyleSheet.create({
     top: 8,
     right: 8,
     zIndex: 10,
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1601,7 +1613,7 @@ const styles = StyleSheet.create({
     width: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
     flexDirection: 'column',
@@ -1623,17 +1635,17 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: c.sectionTitle,
     marginBottom: 4,
   },
   exerciseTarget: {
     fontSize: 14,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     marginBottom: 4,
   },
   exerciseDescription: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: c.cardMeta,
     lineHeight: 18,
   },
   exerciseActions: {
@@ -1649,7 +1661,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: c.accent,
     minWidth: 80,
     alignItems: 'center',
   },
@@ -1657,7 +1669,7 @@ const styles = StyleSheet.create({
     borderColor: '#10B981',
   },
   seeLogsButton: {
-    borderColor: '#3B82F6',
+    borderColor: c.accent,
     backgroundColor: '#EFF6FF',
     flexDirection: 'row',
     alignItems: 'center',
@@ -1681,7 +1693,7 @@ const styles = StyleSheet.create({
   sessionModalContainer: {
     width: '100%',
     maxWidth: 400,
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -1700,13 +1712,13 @@ const styles = StyleSheet.create({
   sessionModalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     textAlign: 'center',
     marginBottom: 4,
   },
   sessionModalSubtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
   },
   sessionModalMessage: {
@@ -1714,13 +1726,13 @@ const styles = StyleSheet.create({
   },
   sessionModalText: {
     fontSize: 16,
-    color: '#374151',
+    color: c.cardSubtitle,
     lineHeight: 24,
     textAlign: 'center',
     marginBottom: 12,
   },
   sessionModalInfo: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -1733,7 +1745,7 @@ const styles = StyleSheet.create({
   },
   sessionInfoText: {
     fontSize: 14,
-    color: '#374151',
+    color: c.cardSubtitle,
     flex: 1,
   },
   sessionModalActions: {
@@ -1742,17 +1754,17 @@ const styles = StyleSheet.create({
   },
   sessionModalCancelButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
   },
   sessionModalCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   sessionModalStartButton: {
     flex: 2,
@@ -1786,11 +1798,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: c.placeholderBg,
     padding: 16,
     paddingBottom: 34, // Account for home indicator on newer devices
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: c.cardBorder,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -1816,7 +1828,7 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   activeSessionContainer: {
-    backgroundColor: 'white',
+    backgroundColor: c.cardBg,
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -1825,7 +1837,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     borderWidth: 2,
-    borderColor: '#3B82F6',
+    borderColor: c.accent,
   },
   timerContainer: {
     flexDirection: 'row',
@@ -1837,7 +1849,7 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: c.sectionTitle,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   sessionActions: {
@@ -1846,21 +1858,21 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: c.sectionSubtitle,
   },
   completeButton: {
     flex: 1,
-    backgroundColor: '#3B82F6',
+    backgroundColor: c.accent,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -1894,9 +1906,9 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
   },
   latestLogNeutral: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: c.cardBorder,
   },
   latestLogLabel: {
     fontSize: 13,
@@ -1912,7 +1924,7 @@ const styles = StyleSheet.create({
   // Training mode styles
   trainingLogBtn: {
     borderWidth: 1.5,
-    borderColor: '#6366F1',
+    borderColor: c.accent,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -1924,23 +1936,23 @@ const styles = StyleSheet.create({
     borderColor: '#10B981',
     backgroundColor: '#D1FAE5',
   },
-  trainingLogBtnText: { fontSize: 13, fontWeight: '700', color: '#6366F1' },
+  trainingLogBtnText: { fontSize: 13, fontWeight: '700', color: c.accent },
   trainingLogBtnTextDone: { color: '#059669' },
   sessionFooter: {
-    backgroundColor: '#fff',
+    backgroundColor: c.cardBg,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: c.cardBorder,
     paddingHorizontal: 16,
     paddingTop: 12,
   },
   sessionFooterHint: {
     fontSize: 12,
-    color: '#6B7280',
+    color: c.sectionSubtitle,
     textAlign: 'center',
     marginBottom: 8,
   },
   completeSessionBtn: {
-    backgroundColor: '#6366F1',
+    backgroundColor: c.accent,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
@@ -1950,8 +1962,9 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   completeSessionBtnDisabled: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: c.inputBg,
   },
   completeSessionBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  completeSessionBtnTextDisabled: { color: '#9CA3AF' },
+  completeSessionBtnTextDisabled: { color: c.cardMeta },
 });
+}

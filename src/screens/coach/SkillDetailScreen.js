@@ -12,58 +12,13 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
+import {
+  getAssessmentTemplate,
+  DEFAULT_PLAYER_EVALUATION_TEMPLATE,
+} from '../../lib/assessmentTemplatesApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ACCENT_COLOR = '#F39C12';
-
-const SKILL_CRITERIA = {
-  serves: [
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'depth_control', label: 'Depth Control', maxScore: 10 },
-    { id: 'placement', label: 'Placement Accuracy', maxScore: 10 },
-    { id: 'spin', label: 'Spin / Variation', maxScore: 10 },
-    { id: 'power_recovery', label: 'Power + Recovery', maxScore: 10 },
-  ],
-  dinks: [
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'depth', label: 'Depth Control', maxScore: 10 },
-    { id: 'direction', label: 'Direction Control', maxScore: 10 },
-    { id: 'pace', label: 'Pace Control', maxScore: 10 },
-  ],
-  volleys: [
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'placement', label: 'Placement', maxScore: 10 },
-    { id: 'power', label: 'Power Control', maxScore: 10 },
-    { id: 'reset_ability', label: 'Reset Ability', maxScore: 10 },
-    { id: 'court_position', label: 'Court Position', maxScore: 10 },
-  ],
-  third_shot: [
-    { id: 'placement', label: 'Placement', maxScore: 10 },
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'depth', label: 'Depth Control', maxScore: 10 },
-    { id: 'follow_through', label: 'Follow Through', maxScore: 10 },
-  ],
-  footwork: [
-    { id: 'agility', label: 'Agility', maxScore: 10 },
-    { id: 'positioning', label: 'Positioning', maxScore: 10 },
-    { id: 'balance', label: 'Balance', maxScore: 10 },
-  ],
-  game_play: [
-    { id: 'strategy', label: 'Strategy', maxScore: 10 },
-    { id: 'adaptability', label: 'Adaptability', maxScore: 10 },
-    { id: 'decision_making', label: 'Decision Making', maxScore: 10 },
-    { id: 'pressure_handling', label: 'Pressure Handling', maxScore: 10 },
-  ],
-};
-
-const ALL_SKILLS = [
-  { id: 'serves', name: 'Serves' },
-  { id: 'dinks', name: 'Dinks' },
-  { id: 'volleys', name: 'Volleys / Resets' },
-  { id: 'third_shot', name: '3rd Shot' },
-  { id: 'footwork', name: 'Footwork' },
-  { id: 'game_play', name: 'Game Play / Scenarios' },
-];
 
 // Custom Slider Component
 function CustomSlider({ value, onValueChange, min = 0, max = 10, color = '#27AE60', trackColor = '#E5E7EB' }) {
@@ -128,20 +83,25 @@ export default function SkillDetailScreen({ route, navigation }) {
   const { studentId, student, skillId, skillName, maxScore, assessmentKey } = route.params;
   const { logbookTheme: t, isDark } = useTheme();
 
-  const criteria = SKILL_CRITERIA[skillId] || [];
+  // Criteria loaded from template, falling back to defaults
+  const [criteria, setCriteria] = useState(() => {
+    const fallback = DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills.find(s => s.id === skillId);
+    return fallback?.criteria || [];
+  });
   const [scores, setScores] = useState({});
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
+    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+      const skill = tmpl?.skills?.find(s => s.id === skillId);
+      if (skill?.criteria?.length) setCriteria(skill.criteria);
+    });
     loadSavedScores();
-    
-    // Cleanup timeout on unmount
+
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, []);
 
@@ -165,16 +125,9 @@ export default function SkillDetailScreen({ route, navigation }) {
 
   const saveScores = async (newScores, newNotes) => {
     try {
-      console.log('Saving scores for skill:', skillId);
-      // Get existing assessment data
       const saved = await AsyncStorage.getItem(assessmentKey);
       const existingData = saved ? JSON.parse(saved) : { skillScores: {} };
-      
-      // Calculate total score for this skill
       const skillTotal = Object.values(newScores).reduce((sum, val) => sum + (val || 0), 0);
-      console.log('Skill total:', skillTotal);
-      
-      // Update the skill data
       existingData.skillScores = existingData.skillScores || {};
       existingData.skillScores[skillId] = {
         scores: newScores,
@@ -182,13 +135,7 @@ export default function SkillDetailScreen({ route, navigation }) {
         total: skillTotal,
         maxScore: maxScore,
       };
-      
-      console.log('Saving to key:', assessmentKey);
-      console.log('Full data:', JSON.stringify(existingData));
-      
-      // Save back to AsyncStorage
       await AsyncStorage.setItem(assessmentKey, JSON.stringify(existingData));
-      console.log('Save successful');
     } catch (error) {
       console.error('Error saving scores:', error);
     }

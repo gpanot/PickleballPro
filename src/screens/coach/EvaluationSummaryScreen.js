@@ -16,66 +16,44 @@ import { supabase, checkCoachAccess } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
+import {
+  getAssessmentTemplate,
+  DEFAULT_PLAYER_EVALUATION_TEMPLATE,
+} from '../../lib/assessmentTemplatesApi';
 
 const ACCENT_COLOR = '#F39C12';
 
 const { width } = Dimensions.get('window');
 
-const SKILL_CRITERIA = {
-  serves: [
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'depth_control', label: 'Depth Control', maxScore: 10 },
-    { id: 'placement', label: 'Placement Accuracy', maxScore: 10 },
-    { id: 'spin', label: 'Spin / Variation', maxScore: 10 },
-    { id: 'power_recovery', label: 'Power + Recovery', maxScore: 10 },
-  ],
-  dinks: [
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'depth', label: 'Depth Control', maxScore: 10 },
-    { id: 'direction', label: 'Direction Control', maxScore: 10 },
-    { id: 'pace', label: 'Pace Control', maxScore: 10 },
-  ],
-  volleys: [
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'placement', label: 'Placement', maxScore: 10 },
-    { id: 'power', label: 'Power Control', maxScore: 10 },
-    { id: 'reset_ability', label: 'Reset Ability', maxScore: 10 },
-    { id: 'court_position', label: 'Court Position', maxScore: 10 },
-  ],
-  third_shot: [
-    { id: 'placement', label: 'Placement', maxScore: 10 },
-    { id: 'consistency', label: 'Consistency', maxScore: 10 },
-    { id: 'depth', label: 'Depth Control', maxScore: 10 },
-    { id: 'follow_through', label: 'Follow Through', maxScore: 10 },
-  ],
-  footwork: [
-    { id: 'agility', label: 'Agility', maxScore: 10 },
-    { id: 'positioning', label: 'Positioning', maxScore: 10 },
-    { id: 'balance', label: 'Balance', maxScore: 10 },
-  ],
-  game_play: [
-    { id: 'strategy', label: 'Strategy', maxScore: 10 },
-    { id: 'adaptability', label: 'Adaptability', maxScore: 10 },
-    { id: 'decision_making', label: 'Decision Making', maxScore: 10 },
-    { id: 'pressure_handling', label: 'Pressure Handling', maxScore: 10 },
-  ],
-};
-
-const SKILLS = [
-  { id: 'serves', name: 'Serves', maxScore: 50 },
-  { id: 'dinks', name: 'Dinks', maxScore: 40 },
-  { id: 'volleys', name: 'Volleys / Resets', maxScore: 50 },
-  { id: 'third_shot', name: '3rd Shot', maxScore: 40 },
-  { id: 'footwork', name: 'Footwork', maxScore: 30 },
-  { id: 'game_play', name: 'Game Play / Scenarios', maxScore: 40 },
-];
+// Helper to map raw scores against a skills template array
+function buildSkillsData(skillsTemplate, rawScores) {
+  return skillsTemplate.map(skill => {
+    const skillData = rawScores?.[skill.id];
+    const score = skillData?.total || 0;
+    const percentage = skill.maxScore > 0 ? (score / skill.maxScore) * 100 : 0;
+    let level = 'Beginner';
+    if (percentage >= 75) level = 'Advanced';
+    else if (percentage >= 50) level = 'Intermediate';
+    return {
+      id: skill.id,
+      name: skill.name,
+      score,
+      maxScore: skill.maxScore,
+      level,
+      notes: skillData?.notes || '',
+      criteria: skill.criteria || [],
+    };
+  });
+}
 
 export default function EvaluationSummaryScreen({ route, navigation }) {
   const { studentId, student, assessmentKey, assessmentId, isStudentView } = route.params || {};
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { logbookTheme: t, isDark } = useTheme();
-  
+
+  // Template-driven skills list
+  const [skillsTemplate, setSkillsTemplate] = useState(DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills);
   const [skillsData, setSkillsData] = useState([]);
   const [rawSkillScores, setRawSkillScores] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -83,10 +61,16 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
   const [expandedSkill, setExpandedSkill] = useState(null);
 
   useEffect(() => {
-    loadAssessmentData();
+    // Fetch template first, then assessment data
+    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+      const tpl = tmpl?.skills?.length ? tmpl.skills : DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills;
+      setSkillsTemplate(tpl);
+      loadAssessmentData(tpl);
+    });
   }, [assessmentKey, assessmentId]);
 
-  const loadAssessmentData = async () => {
+  const loadAssessmentData = async (tpl) => {
+    const skillsTpl = tpl || skillsTemplate;
     try {
       // Case 1: Coming from draft flow with AsyncStorage key
       if (assessmentKey) {
@@ -94,23 +78,7 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
         if (saved) {
           const data = JSON.parse(saved);
           setRawSkillScores(data.skillScores || {});
-          const skills = SKILLS.map(skill => {
-            const skillData = data.skillScores?.[skill.id];
-            const score = skillData?.total || 0;
-            const percentage = (score / skill.maxScore) * 100;
-            let level = 'Beginner';
-            if (percentage >= 75) level = 'Advanced';
-            else if (percentage >= 50) level = 'Intermediate';
-            return {
-              id: skill.id,
-              name: skill.name,
-              score: score,
-              maxScore: skill.maxScore,
-              level: level,
-              notes: skillData?.notes || '',
-            };
-          });
-          setSkillsData(skills);
+          setSkillsData(buildSkillsData(skillsTpl, data.skillScores || {}));
           return;
         }
       }
@@ -125,23 +93,7 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
         if (error) throw error;
         const skillsDataJson = data?.skills_data || {};
         setRawSkillScores(skillsDataJson);
-        const skills = SKILLS.map(skill => {
-          const skillData = skillsDataJson?.[skill.id];
-          const score = skillData?.total || 0;
-          const percentage = (score / skill.maxScore) * 100;
-          let level = 'Beginner';
-          if (percentage >= 75) level = 'Advanced';
-          else if (percentage >= 50) level = 'Intermediate';
-          return {
-            id: skill.id,
-            name: skill.name,
-            score: score,
-            maxScore: skill.maxScore,
-            level: level,
-            notes: skillData?.notes || '',
-          };
-        });
-        setSkillsData(skills);
+        setSkillsData(buildSkillsData(skillsTpl, skillsDataJson));
         return;
       }
 
@@ -250,7 +202,7 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
           </View>
           {skillsData.map((skill, index) => {
             const isExpanded = expandedSkill === skill.id;
-            const criteria = SKILL_CRITERIA[skill.id] || [];
+            const criteria = skill.criteria || [];
             const skillDetails = rawSkillScores?.[skill.id];
             const detailScores = skillDetails?.scores || {};
             return (

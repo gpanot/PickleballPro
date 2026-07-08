@@ -90,14 +90,16 @@ export default function AddLogExercise_from_routine({
         entries = logbookEntries || [];
       }
 
+      const exerciseName = exercise.name || exercise.title;
+
       // Filter entries for this specific exercise
       const history = entries.filter(entry => {
         // Check if this entry has exerciseDetails and matches the current exercise name
         if (entry.exerciseDetails && entry.exerciseDetails.exerciseName) {
-          return entry.exerciseDetails.exerciseName === exercise.name;
+          return entry.exerciseDetails.exerciseName === exerciseName;
         }
         // Also check in notes for legacy format
-        if (entry.notes && entry.notes.includes(exercise.name + ':')) {
+        if (exerciseName && entry.notes && entry.notes.includes(exerciseName + ':')) {
           return true;
         }
         return false;
@@ -120,7 +122,7 @@ export default function AddLogExercise_from_routine({
   };
 
   const getExerciseCategory = (exercise) => {
-    const exerciseName = exercise.name.toLowerCase();
+    const exerciseName = (exercise.name || exercise.title || '').toLowerCase();
     if (exerciseName.includes('dink')) return ['dinks'];
     if (exerciseName.includes('drive')) return ['drives'];
     if (exerciseName.includes('serve')) return ['serves'];
@@ -152,13 +154,13 @@ export default function AddLogExercise_from_routine({
       hours: 0.5, // Default exercise duration
       feeling: 3, // Default neutral feeling
       trainingFocus: getExerciseCategory(exercise),
-      notes: `${exercise.name}: ${logResult}${logNotes ? '\n' + logNotes : ''}`,
+      notes: `${exercise.name || exercise.title}: ${logResult}${logNotes ? '\n' + logNotes : ''}`,
       exerciseDetails: {
-        exerciseName: exercise.name,
-        target: exercise.target,
+        exerciseName: exercise.name || exercise.title,
+        target: exercise.target || exercise.target_value,
         result: logResult,
-        routineName: routine.name,
-        programName: program.name
+        routineName: routine?.name ?? null,
+        programName: program?.name ?? null,
       },
       createdAt: new Date().toISOString(),
     };

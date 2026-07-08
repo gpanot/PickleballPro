@@ -1,3 +1,4 @@
+import './src/lib/devConsole';
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -102,7 +103,7 @@ function AppContent() {
   const [onboardingFinishGateReady, setOnboardingFinishGateReady] = useState(false);
   const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, isOnboardingHydrated, user, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading, pendingPasswordRecovery } = useAuth();
-  const { setThemeMode } = useTheme();
+  const { setThemeMode, logbookTheme, isDark } = useTheme();
   const navigationRef = React.useRef(null);
   const onboardingFinishGateChecked = React.useRef(false);
 
@@ -310,9 +311,10 @@ function AppContent() {
   }
 
   const inPreAuthOnboarding = !isAuthenticated;
+  const appBg = logbookTheme?.bg || warmFriendly.bg;
   const onboardingRootBg = inPreAuthOnboarding
     ? getOnboardingRootBackground(user, { hasSelectedGender, hasSetRating, hasSetName })
-    : warmFriendly.bg;
+    : appBg;
   const navigationTheme = inPreAuthOnboarding
     ? {
         ...DefaultTheme,
@@ -321,10 +323,16 @@ function AppContent() {
           background: onboardingRootBg,
         },
       }
-    : undefined;
+    : {
+        ...DefaultTheme,
+        colors: {
+          ...DefaultTheme.colors,
+          background: appBg,
+        },
+      };
   const rootStackScreenOptions = inPreAuthOnboarding
     ? onboardingStackScreenOptions
-    : { headerShown: false, cardStyle: { flex: 1 } };
+    : { headerShown: false, cardStyle: { flex: 1, backgroundColor: appBg } };
 
   // ── 3-way routing ──────────────────────────────────────────────────────────
   // Branch 1: Authenticated + onboarding done → Main
@@ -349,10 +357,10 @@ function AppContent() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: inPreAuthOnboarding ? onboardingRootBg : '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: inPreAuthOnboarding ? onboardingRootBg : appBg }}>
     <NavigationContainer
       theme={navigationTheme}
-      style={{ flex: 1, backgroundColor: inPreAuthOnboarding ? onboardingRootBg : undefined }}
+      style={{ flex: 1, backgroundColor: inPreAuthOnboarding ? onboardingRootBg : appBg }}
       ref={(ref) => {
         navigationRef.current = ref;
         if (ref) {

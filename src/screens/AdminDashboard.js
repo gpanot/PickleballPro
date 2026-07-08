@@ -31,6 +31,7 @@ import WebUserLogbookModal from '../components/WebUserLogbookModal';
 import skillsData from '../data/Commun_skills_tags.json';
 import SkillIcon from '../components/SkillIcon';
 import AdminTopBar from './admindashboard/components/AdminTopBar';
+import AssessmentsPanel from './admindashboard/components/AssessmentsPanel';
 import styles from './admindashboard/adminDashboardStyles';
 
 const getSkillNamesFromFocusAreas = (focusAreas) => {
@@ -152,8 +153,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
   const isCoachSession   = sessionRole === 'coach';
   const isManagerSession = sessionRole === 'manager';
-  const COACH_ALLOWED_TABS   = ['dashboard', 'content'];
-  const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'academy'];
+  const COACH_ALLOWED_TABS   = ['dashboard', 'content', 'assessments'];
+  const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'academy', 'assessments'];
 
   useEffect(() => {
     // Redirect restricted roles away from tabs they should not access
@@ -187,7 +188,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     } else if (activeTab === 'academy') {
       fetchAcademyMembers();
     }
-  }, [activeTab, contentTab]);
+  }, [activeTab, contentTab, isCoachSession, isManagerSession]);
 
   const fetchStats = async () => {
     const t0 = Date.now();
@@ -2744,6 +2745,11 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   );
 
   const renderContent = () => {
+    // Render-time role guard — prevents a restricted tab from rendering even
+    // for one frame before the useEffect redirect fires.
+    if (isCoachSession && !COACH_ALLOWED_TABS.includes(activeTab)) return renderOverview();
+    if (isManagerSession && !MANAGER_ALLOWED_TABS.includes(activeTab)) return renderOverview();
+
     switch (activeTab) {
       case 'dashboard':
         return renderOverview();
@@ -2761,6 +2767,13 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         return renderSettings();
       case 'academy':
         return renderAcademyTab();
+      case 'assessments':
+        return (
+          <AssessmentsPanel
+            academyId={academyId || null}
+            sessionRole={sessionRole}
+          />
+        );
       default:
         return renderOverview();
     }

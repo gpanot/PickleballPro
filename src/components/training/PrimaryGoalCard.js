@@ -12,13 +12,6 @@ import { useTheme } from '../../context/ThemeContext';
 /**
  * The primary training track card — shown at the top of My Training when
  * the user has an active primary program enrolled.
- *
- * Props:
- *   track           {object}  – active track from useActiveTraining
- *   completedIds    {string[]}– routine IDs marked complete (from AsyncStorage)
- *   onContinue      {function}– tap to resume the next session
- *   onViewAll       {function}– "View all sessions" → ProgramDetail training
- *   onStartNewGoal  {function}– "Start new goal" → archive confirm sheet
  */
 export default function PrimaryGoalCard({
   track,
@@ -28,16 +21,16 @@ export default function PrimaryGoalCard({
   onStartNewGoal,
   style,
 }) {
-  const { isDark } = useTheme();
+  const { logbookTheme: t } = useTheme();
+  const c = t.training.primaryGoal;
 
   if (!track) return null;
 
-  const { program, lastAccessedAt, currentRoutineId } = track;
+  const { program, lastAccessedAt } = track;
   const routines = program.routines || [];
   const totalSessions = routines.length;
   const completedCount = completedIds.length;
 
-  // Determine next session: first uncompleted routine, in order
   const nextRoutine = routines
     .slice()
     .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
@@ -60,87 +53,64 @@ export default function PrimaryGoalCard({
 
   const progressFraction = totalSessions > 0 ? completedCount / totalSessions : 0;
 
-  // Dark mode color overrides
-  const cardBg = isDark ? '#1E1B4B' : '#EEF2FF';
-  const cardBorder = isDark ? '#3730A3' : '#C7D2FE';
-  const badgeBg = isDark ? '#312E81' : '#C7D2FE';
-  const badgeText = isDark ? '#A5B4FC' : '#4338CA';
-  const thumbPlaceholderBg = isDark ? '#312E81' : '#C7D2FE';
-  const thumbPlaceholderIcon = isDark ? '#A5B4FC' : '#4338CA';
-  const programNameColor = isDark ? '#E0E7FF' : '#1E1B4B';
-  const statusLineColor = isDark ? '#A5B4FC' : '#6366F1';
-  const progressTrackBg = isDark ? '#312E81' : '#C7D2FE';
-  const progressLabelColor = isDark ? '#A5B4FC' : '#4338CA';
-  const nextLineColor = isDark ? '#94A3B8' : '#374151';
-  const primaryBtnColor = isDark ? '#818CF8' : '#6366F1';
-  const secondaryLinkColor = isDark ? '#818CF8' : '#6366F1';
-  const secondaryMutedColor = isDark ? '#64748B' : '#6B7280';
-  const dotColor = isDark ? '#475569' : '#9CA3AF';
-
   return (
     <View style={[
       styles.card,
       {
-        backgroundColor: cardBg,
-        borderColor: cardBorder,
-        shadowColor: isDark ? '#000' : '#6366F1',
+        backgroundColor: c.cardBg,
+        borderColor: c.cardBorder,
+        shadowColor: '#000',
       },
       style,
     ]}>
-      {/* Badge */}
-      <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-        <Text style={[styles.badgeText, { color: badgeText }]}>PRIMARY FOCUS</Text>
+      <View style={[styles.badge, { backgroundColor: c.badgeBg }]}>
+        <Text style={[styles.badgeText, { color: c.badgeText }]}>PRIMARY FOCUS</Text>
       </View>
 
-      {/* Header row */}
       <View style={styles.headerRow}>
         {program.thumbnail_url ? (
           <Image source={{ uri: program.thumbnail_url }} style={styles.thumb} />
         ) : (
-          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: thumbPlaceholderBg }]}>
-            <Target size={24} color={thumbPlaceholderIcon} strokeWidth={2} />
+          <View style={[styles.thumb, styles.thumbPlaceholder, { backgroundColor: c.thumbPlaceholderBg }]}>
+            <Target size={24} color={c.thumbPlaceholderIcon} strokeWidth={2} />
           </View>
         )}
         <View style={styles.headerText}>
-          <Text style={[styles.programName, { color: programNameColor }]} numberOfLines={2}>{program.name}</Text>
-          <Text style={[styles.statusLine, { color: statusLineColor }]}>{lastTrainedText}</Text>
+          <Text style={[styles.programName, { color: c.programName }]} numberOfLines={2}>{program.name}</Text>
+          <Text style={[styles.statusLine, { color: c.statusLine }]}>{lastTrainedText}</Text>
         </View>
       </View>
 
-      {/* Progress bar */}
-      <View style={[styles.progressTrack, { backgroundColor: progressTrackBg }]}>
-        <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%`, backgroundColor: primaryBtnColor }]} />
+      <View style={[styles.progressTrack, { backgroundColor: c.progressTrack }]}>
+        <View style={[styles.progressFill, { width: `${Math.round(progressFraction * 100)}%`, backgroundColor: c.primaryBtn }]} />
       </View>
-      <Text style={[styles.progressLabel, { color: progressLabelColor }]}>
+      <Text style={[styles.progressLabel, { color: c.progressLabel }]}>
         {completedCount} / {totalSessions} sessions complete
       </Text>
 
-      {/* Next session line */}
       {nextRoutine && (
-        <Text style={[styles.nextLine, { color: nextLineColor }]} numberOfLines={1}>
+        <Text style={[styles.nextLine, { color: c.nextLine }]} numberOfLines={1}>
           Next: Session {nextRoutineIndex} — {nextRoutine.name}
         </Text>
       )}
 
-      {/* Primary CTA */}
       <TouchableOpacity
-        style={[styles.primaryBtn, { backgroundColor: primaryBtnColor, shadowColor: primaryBtnColor }]}
+        style={[styles.primaryBtn, { backgroundColor: c.primaryBtn, shadowColor: c.primaryBtn }]}
         onPress={onContinue}
         activeOpacity={0.85}
         accessibilityLabel={ctaLabel}
         accessibilityRole="button"
       >
-        <Text style={styles.primaryBtnText}>{ctaLabel}</Text>
+        <Text style={[styles.primaryBtnText, { color: t.fabTextColor }]}>{ctaLabel}</Text>
       </TouchableOpacity>
 
-      {/* Secondary actions */}
       <View style={styles.secondaryRow}>
         <TouchableOpacity onPress={onViewAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={[styles.secondaryLink, { color: secondaryLinkColor }]}>View all sessions</Text>
+          <Text style={[styles.secondaryLink, { color: c.secondaryLink }]}>View all sessions</Text>
         </TouchableOpacity>
-        <Text style={[styles.dot, { color: dotColor }]}>·</Text>
+        <Text style={[styles.dot, { color: c.dot }]}>·</Text>
         <TouchableOpacity onPress={onStartNewGoal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={[styles.secondaryLinkMuted, { color: secondaryMutedColor }]}>Start new goal</Text>
+          <Text style={[styles.secondaryLinkMuted, { color: c.secondaryMuted }]}>Start new goal</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -216,7 +186,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
   secondaryRow: {
     flexDirection: 'row',
     justifyContent: 'center',
