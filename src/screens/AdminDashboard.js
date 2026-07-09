@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
   Platform,
+  StyleSheet,
   Image,
   useWindowDimensions,
 } from 'react-native';
@@ -32,6 +33,7 @@ import skillsData from '../data/Commun_skills_tags.json';
 import SkillIcon from '../components/SkillIcon';
 import AdminTopBar from './admindashboard/components/AdminTopBar';
 import AssessmentsPanel from './admindashboard/components/AssessmentsPanel';
+import SportsPanel from './admindashboard/components/SportsPanel';
 import styles from './admindashboard/adminDashboardStyles';
 
 const getSkillNamesFromFocusAreas = (focusAreas) => {
@@ -45,6 +47,93 @@ const getSkillNamesFromFocusAreas = (focusAreas) => {
     .map(focusAreaId => allSkills.find(skill => skill.id === focusAreaId))
     .filter(Boolean);
 };
+
+// ─── Settings Panel — tabbed shell (superadmin only) ────────────────────────
+
+const SETTINGS_TABS = [
+  { id: 'sports', label: 'Sports', icon: 'tennisball-outline' },
+  // Add more settings tabs here as needed
+];
+
+function SettingsPanel({ sessionRole, academyId }) {
+  const [activeSettingsTab, setActiveSettingsTab] = React.useState('sports');
+  const isSuperAdmin = !academyId && sessionRole !== 'coach' && sessionRole !== 'manager';
+
+  if (!isSuperAdmin) {
+    return (
+      <View style={settingsPanelStyles.container}>
+        <View style={settingsPanelStyles.locked}>
+          <Ionicons name="lock-closed-outline" size={40} color="#D1D5DB" />
+          <Text style={settingsPanelStyles.lockedText}>Settings are only available to superadmins.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={settingsPanelStyles.container}>
+      {/* Tab bar */}
+      <View style={settingsPanelStyles.tabBar}>
+        {SETTINGS_TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[settingsPanelStyles.tab, activeSettingsTab === tab.id && settingsPanelStyles.tabActive]}
+            onPress={() => setActiveSettingsTab(tab.id)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={tab.icon}
+              size={16}
+              color={activeSettingsTab === tab.id ? '#18181b' : '#6B7280'}
+            />
+            <Text style={[settingsPanelStyles.tabLabel, activeSettingsTab === tab.id && settingsPanelStyles.tabLabelActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Active tab content */}
+      <View style={settingsPanelStyles.content}>
+        {activeSettingsTab === 'sports' && (
+          <SportsPanel sessionRole={sessionRole} academyId={academyId} />
+        )}
+      </View>
+    </View>
+  );
+}
+
+const settingsPanelStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fafafa' },
+  locked: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  lockedText: { fontSize: 14, color: '#6B7280', textAlign: 'center', maxWidth: 280 },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e4e4e7',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 4,
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+    marginBottom: -1,
+    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+  },
+  tabActive: { borderBottomColor: '#18181b' },
+  tabLabel: { fontSize: 14, fontWeight: '500', color: '#6B7280' },
+  tabLabelActive: { color: '#18181b', fontWeight: '600' },
+  content: { flex: 1 },
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard({ navigation, adminRole, sessionRole, coachId, academyId }) {
   const { user, profile, signOut } = useAuth();
@@ -2936,12 +3025,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   );
 
   const renderSettings = () => (
-    <View style={styles.content}>
-      <View style={styles.comingSoon}>
-        <Ionicons name="settings-outline" size={48} color="#9CA3AF" />
-        <Text style={styles.comingSoonText}>Settings panel coming soon</Text>
-      </View>
-    </View>
+    <SettingsPanel sessionRole={sessionRole} academyId={academyId} />
   );
 
   const handleEditCoach = (coach) => {
