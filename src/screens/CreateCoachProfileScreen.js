@@ -1009,7 +1009,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <View style={styles.introSection}>
-            <Text style={[styles.introTitle, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>Earn More with PicklePro</Text>
+            <Text style={[styles.introTitle, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>Earn More with AcademyPro</Text>
             <Text style={[styles.introDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
               Share your pickleball expertise and help others improve their game. Fill out your profile to get started.
             </Text>
@@ -1182,7 +1182,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
             <Text style={[styles.formSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Professional Details</Text>
             
             <View style={styles.formField}>
-              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>DUPR Rating</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Skill Rating</Text>
               <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
                 {userProfile?.dupr_rating 
                   ? 'Auto-populated from your profile. You can edit if needed (x.xxx format)'
@@ -1241,7 +1241,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
                     const rating = parseFloat(formData.duprRating);
                     if (isNaN(rating)) return '❌ Invalid format';
                     if (rating < 1 || rating > 8) return '❌ Rating must be between 1.000 and 8.000';
-                    return `✅ Valid DUPR rating: ${rating.toFixed(3)}`;
+                    return `✅ Valid skill rating: ${rating.toFixed(3)}`;
                   })()}
                 </Text>
               )}

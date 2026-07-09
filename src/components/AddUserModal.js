@@ -304,7 +304,7 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
                 ))}
               </View>
 
-              <Text style={styles.label}>DUPR Rating (Optional)</Text>
+              <Text style={styles.label}>Skill Rating (Optional)</Text>
               <TextInput
                 style={styles.input}
                 value={formData.duprRating}

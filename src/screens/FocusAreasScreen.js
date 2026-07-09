@@ -9,33 +9,23 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ModernIcon from '../components/ModernIcon';
 import { SkillIconBadge } from '../components/SkillIcon';
-import skillsData from '../data/Commun_skills_tags.json';
+import { getSportSkills } from '../lib/skillTaxonomy';
 import { useUser } from '../context/UserContext';
 
 export default function FocusAreasScreen({ onComplete }) {
   const [selectedFocus, setSelectedFocus] = useState([]);
   const insets = useSafeAreaInsets();
-  const { updateOnboardingData } = useUser();
+  const { updateOnboardingData, user } = useUser();
 
-  // Get first 8 skills from the skills data
-  const getFirst8Skills = () => {
-    const allSkills = [];
-    
-    // Collect all skills from all categories
-    Object.values(skillsData.skillCategories).forEach(category => {
-      allSkills.push(...category.skills);
-    });
-    
-    // Return first 8 skills mapped to focus areas format
-    return allSkills.slice(0, 8).map(skill => ({
+  // First 8 skills for the selected sport
+  const focusAreas = getSportSkills(user?.sportId)
+    .slice(0, 8)
+    .map(skill => ({
       id: skill.id,
       title: skill.name,
       color: skill.color,
-      description: skill.description
+      description: skill.description,
     }));
-  };
-
-  const focusAreas = getFirst8Skills();
 
   const handleFocusSelect = (focusId) => {
     setSelectedFocus(prev => {

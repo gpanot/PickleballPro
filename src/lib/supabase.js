@@ -1,56 +1,44 @@
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 export const supabaseUrl = 'https://qdlvidtnfqnqjgrhxwtz.supabase.co';
 export const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbHZpZHRuZnFucWpncmh4d3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzg3MTksImV4cCI6MjA5Nzc1NDcxOX0.zlRtmQrST5Z1JdBZXHbsSZ_GT-v__HJ_M7MJziOR7L0';
 
-// Custom storage adapter for React Native
-const customStorage = {
-  getItem: async (key) => {
-    try {
-      const value = await AsyncStorage.getItem(key);
-      console.log('🔐 Storage getItem:', key, value ? 'found' : 'not found');
-      return value;
-    } catch (error) {
-      console.error('🔐 Storage getItem error:', error);
-      return null;
+// On web, use synchronous localStorage directly so the Supabase JS client can
+// read the session token synchronously before firing HTTP requests. Using the
+// async AsyncStorage adapter on web causes every request to fire before the
+// token resolves, resulting in 403s.
+//
+// On native (iOS/Android), AsyncStorage is required because localStorage
+// doesn't exist.
+const webStorage = Platform.OS === 'web' && typeof localStorage !== 'undefined'
+  ? {
+      getItem: (key) => localStorage.getItem(key),
+      setItem: (key, value) => localStorage.setItem(key, value),
+      removeItem: (key) => localStorage.removeItem(key),
     }
-  },
-  setItem: async (key, value) => {
-    try {
-      await AsyncStorage.setItem(key, value);
-      console.log('🔐 Storage setItem:', key, 'saved');
-    } catch (error) {
-      console.error('🔐 Storage setItem error:', error);
-    }
-  },
-  removeItem: async (key) => {
-    try {
-      await AsyncStorage.removeItem(key);
-      console.log('🔐 Storage removeItem:', key, 'removed');
-    } catch (error) {
-      console.error('🔐 Storage removeItem error:', error);
-    }
-  }
+  : null;
+
+const nativeStorage = {
+  getItem: (key) => AsyncStorage.getItem(key),
+  setItem: (key, value) => AsyncStorage.setItem(key, value),
+  removeItem: (key) => AsyncStorage.removeItem(key),
 };
+
+const storageAdapter = webStorage || nativeStorage;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: customStorage,
+    storage: storageAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    // Increase session duration for better persistence
-    flowType: 'pkce'
   }
 });
 
-// Add auth state listener for debugging
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log('🔐 Supabase Auth State Change:', event, session?.user?.email || 'No user');
-  console.log('🔐 Supabase Session valid:', !!session);
-  console.log('🔐 Supabase Access token present:', !!session?.access_token);
-});
+// Auth state listener (kept for session refresh handling)
+supabase.auth.onAuthStateChange((_event, _session) => {});
 
 // Authentication functions
 

@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "PicklePro",
+    "name": "AcademyPro",
     "slug": "picklepro-mobile",
     "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "pickleballhero",
+    "scheme": "academypro",
     "splash": {
       "backgroundColor": "#FAF7F4"
     },
@@ -42,7 +42,7 @@
           "action": "VIEW",
           "data": [
             {
-              "scheme": "pickleballhero"
+              "scheme": "academypro"
             }
           ],
           "category": [

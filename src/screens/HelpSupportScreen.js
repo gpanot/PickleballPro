@@ -21,7 +21,7 @@ export default function HelpSupportScreen({ navigation }) {
   const privacyPolicyUrl = PRIVACY_POLICY_URL;
 
   const faqs = [
-    { id: 1, question: 'How do I update my DUPR rating?', answer: 'Go to your Profile screen and tap on the DUPR rating section. You can manually edit your rating or sync it from your official DUPR account.' },
+    { id: 1, question: 'How do I update my skill rating?', answer: 'Go to your Profile screen and tap on the rating section. You can manually edit your rating or sync it from your official account.' },
     { id: 2, question: 'How do I track my progress?', answer: 'Use the Logbook feature to record your training sessions, drills, and match results. You can access it from the main menu.' },
     { id: 3, question: 'Can I create custom training programs?', answer: 'Yes! Navigate to the Programs screen and you can create custom training programs tailored to your skill level and goals.' },
     { id: 4, question: 'How do I earn badges?', answer: 'Badges are earned by completing training programs, reaching skill milestones, and consistently practicing. Check your Profile to see available badges.' },
@@ -29,7 +29,7 @@ export default function HelpSupportScreen({ navigation }) {
   ];
 
   const handleEmailSupport = async () => {
-    const subject = 'Support Request - PiklePro';
+    const subject = 'Support Request - AcademyPro';
     const body = 'Please describe your issue or question:';
     const mailtoUrl = `mailto:${supportEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     try {
@@ -127,9 +127,9 @@ export default function HelpSupportScreen({ navigation }) {
         ))}
 
         <View style={[styles.appInfoContainer]}>
-          <Text style={[styles.appInfoTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>PiklePro — Pickleball Hero</Text>
+          <Text style={[styles.appInfoTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>AcademyPro</Text>
           <Text style={[styles.appInfoSubtitle, { color: t.textMuted, fontFamily: t.fontBody }]}>Version 1.0.0</Text>
-          <Text style={[styles.appInfoDescription, { color: t.textCaption, fontFamily: t.fontBody }]}>Your personal pickleball training companion</Text>
+          <Text style={[styles.appInfoDescription, { color: t.textCaption, fontFamily: t.fontBody }]}>Your personal sports training companion</Text>
         </View>
 
         <View style={styles.bottomSpacing} />

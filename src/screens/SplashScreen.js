@@ -131,7 +131,7 @@ export default function SplashScreen({ onComplete }) {
       </Animated.View>
 
       <Animated.View style={[styles.titleContainer, { opacity: textFadeValue }]}>
-        <Text style={styles.title}>PicklePro</Text>
+        <Text style={styles.title}>AcademyPro</Text>
         <Text style={styles.subtitle}>Train Like a Pro</Text>
       </Animated.View>
     </LinearGradient>

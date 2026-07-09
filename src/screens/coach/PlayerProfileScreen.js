@@ -63,7 +63,7 @@ export default function PlayerProfileScreen({ route, navigation }) {
   const assessmentsRef = React.useRef([]);
 
   useEffect(() => {
-    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+    getAssessmentTemplate('player_evaluation', null, (student || player)?.sportId || 'pickleball').then((tmpl) => {
       if (tmpl?.skills?.length) {
         const newSkills = tmpl.skills.map((s, i) => ({
           id: s.id,
@@ -581,7 +581,7 @@ function SparkLine({ values, color, height = 64, style }) {
                 <View style={styles.compactChips}>
                   {player?.dupr_rating && (
                     <View style={[styles.chip, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}>
-                      <Text style={[styles.chipLabel, { color: t.textMuted }]}>DUPR</Text>
+                      <Text style={[styles.chipLabel, { color: t.textMuted }]}>Rating</Text>
                       <Text style={[styles.chipValue, { color: t.textPrimary }]}>{player.dupr_rating}</Text>
                     </View>
                   )}

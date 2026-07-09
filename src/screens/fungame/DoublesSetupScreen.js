@@ -140,8 +140,8 @@ export default function DoublesSetupScreen({ navigation, route }) {
     if (scannedCode) return;
     
     try {
-      // Parse the deep link: pickleballhero://doubles/join/CODE
-      if (data && data.startsWith('pickleballhero://doubles/join/')) {
+      // Parse the deep link: academypro://doubles/join/CODE
+      if (data && data.startsWith('academypro://doubles/join/')) {
         const code = data.split('/').pop();
         handleJoinCode(code);
       } else {
@@ -245,7 +245,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
   };
 
   const handleCopyLink = async () => {
-    const link = `pickleballhero://doubles/join/${joinCode}`;
+    const link = `academypro://doubles/join/${joinCode}`;
     try {
       if (Platform.OS !== 'web') {
         await Share.share({
@@ -499,7 +499,7 @@ export default function DoublesSetupScreen({ navigation, route }) {
         {/* <View style={styles.connectRow}>
           <View style={styles.qrCard}>
             <QRCode
-              value={`pickleballhero://doubles/join/${joinCode}`}
+              value={`academypro://doubles/join/${joinCode}`}
               size={120}
               color="#1F2937"
               backgroundColor="#FFFFFF"

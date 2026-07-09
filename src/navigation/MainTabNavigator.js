@@ -31,7 +31,14 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
     if (!authUser?.id) return;
     const checkBadge = async () => {
       try {
-        const lastSeen = await AsyncStorage.getItem('@pickleHero_programTabLastSeen');
+        // Dual-read migration: try new key, fall back to legacy key
+        let lastSeen = await AsyncStorage.getItem('@academypro_programTabLastSeen');
+        if (lastSeen === null) {
+          lastSeen = await AsyncStorage.getItem('@pickleHero_programTabLastSeen');
+          if (lastSeen !== null) {
+            await AsyncStorage.setItem('@academypro_programTabLastSeen', lastSeen);
+          }
+        }
         const since = lastSeen ? new Date(lastSeen) : new Date(Date.now() - 7 * 24 * 3600 * 1000);
         // user_programs uses added_at (not created_at) and has no source column
         const { data } = await supabase
@@ -180,7 +187,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
             hapticLight();
             if (programBadge) {
               setProgramBadge(false);
-              AsyncStorage.setItem('@pickleHero_programTabLastSeen', new Date().toISOString()).catch(() => {});
+              AsyncStorage.setItem('@academypro_programTabLastSeen', new Date().toISOString()).catch(() => {});
             }
           },
         }}

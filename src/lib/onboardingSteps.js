@@ -1,5 +1,6 @@
-/** Ordered onboarding steps after Intro (8 steps total). */
+/** Ordered onboarding steps (SPORT is a pre-step before numbered flow). */
 export const ONBOARDING_STEPS = {
+  SPORT: 0,
   GENDER: 1,
   RATING: 2,
   NAME: 3,

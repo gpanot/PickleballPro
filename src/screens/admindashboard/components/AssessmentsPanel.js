@@ -16,6 +16,7 @@ import {
   listAssessmentTemplates,
   saveAssessmentTemplate,
   deleteAssessmentTemplate,
+  seedDefaultTemplates,
   DEFAULT_EXPERIENCE_TEMPLATE,
   DEFAULT_PLAYER_EVALUATION_TEMPLATE,
 } from '../../../lib/assessmentTemplatesApi';
@@ -534,15 +535,40 @@ export default function AssessmentsPanel({ academyId, sessionRole }) {
   const [loadingEditor, setLoadingEditor] = useState(false);
   const [showNewTypePicker, setShowNewTypePicker] = useState(false);
 
-  const isReadOnly = sessionRole === 'coach';
-  // Superadmin (no academy scope, not coach/manager) sees all templates
-  const isSuperAdmin = !academyId && sessionRole !== 'coach' && sessionRole !== 'manager';
+  // Coaches must never reach this panel. The sidebar and route guard already
+  // block them; this is a defence-in-depth fallback.
+  if (sessionRole === 'coach') {
+    return (
+      <View style={styles.panelContainer}>
+        <View style={styles.emptyWrap}>
+          <Ionicons name="lock-closed-outline" size={40} color="#D1D5DB" />
+          <Text style={styles.emptyText}>Access restricted</Text>
+          <Text style={styles.emptySubText}>
+            Assessment templates can only be managed by academy managers and admins.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Managers need an academy to create/edit templates.
+  // Superadmin (no academy) can view and edit all global defaults.
+  const isReadOnly = false;
+  const isSuperAdmin = !academyId && sessionRole !== 'manager';
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const data = await listAssessmentTemplates(academyId || null, { showAll: isSuperAdmin });
+      let data = await listAssessmentTemplates(academyId || null, { showAll: isSuperAdmin });
+
+      // If a superadmin sees no default templates, seed them now.
+      // This is a safety net for fresh databases or after a data wipe.
+      if (isSuperAdmin && data.length === 0) {
+        await seedDefaultTemplates();
+        data = await listAssessmentTemplates(null, { showAll: true });
+      }
+
       setTemplates(data);
     } catch (err) {
       console.warn('[AssessmentsPanel] load error:', err?.message);
@@ -744,6 +770,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f4f4f5',
+    // Keep the "+ New template" dropdown above the stats strip below
+    zIndex: 20,
+    ...(Platform.OS === 'web' && { position: 'relative' }),
   },
   panelTitle: { fontSize: 20, fontWeight: '700', color: '#18181b' },
   panelSubtitle: { fontSize: 13, color: '#71717a', marginTop: 2 },
@@ -757,6 +786,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f4f4f5',
+    zIndex: 1,
   },
   statCard: {
     flex: 1,
@@ -769,7 +799,10 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, color: '#71717a', marginTop: 2 },
 
   // New button
-  newBtnWrap: { position: 'relative' },
+  newBtnWrap: {
+    position: 'relative',
+    zIndex: 30,
+  },
   newBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -788,10 +821,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e4e4e7',
-    zIndex: 100,
+    zIndex: 50,
     minWidth: 220,
-    ...(Platform.OS === 'web' && { boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }),
-    elevation: 8,
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    }),
+    elevation: 12,
   },
   typePickerItem: {
     flexDirection: 'row',

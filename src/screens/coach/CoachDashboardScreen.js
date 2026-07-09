@@ -477,7 +477,7 @@ export default function CoachDashboardScreen({ navigation }) {
                       <Text style={[styles.playerName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{student.name}</Text>
                       <View style={styles.playerMeta}>
                         {student.duprRating && (
-                          <Text style={[styles.duprText, { color: t.textMuted, fontFamily: t.fontBody }]}>DUPR: {student.duprRating}</Text>
+                          <Text style={[styles.duprText, { color: t.textMuted, fontFamily: t.fontBody }]}>Rating: {student.duprRating}</Text>
                         )}
                         {student.tier && (
                           <Text style={[styles.tierText, { color: t.textMuted, fontFamily: t.fontBody }]}>• {student.tier}</Text>

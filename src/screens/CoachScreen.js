@@ -509,7 +509,7 @@ export default function CoachScreen({ navigation }) {
   };
 
   const handleWhatsApp = (phoneNumber, coachName) => {
-    const message = encodeURIComponent(`Hi ${coachName}, I found your profile on PicklePro and I'm interested in pickleball coaching. Are you available?`);
+    const message = encodeURIComponent(`Hi ${coachName}, I found your profile on AcademyPro and I'm interested in coaching. Are you available?`);
     const whatsappUrl = `whatsapp://send?phone=${phoneNumber}&text=${message}`;
     const webWhatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
     
@@ -530,7 +530,7 @@ export default function CoachScreen({ navigation }) {
 
   const handleiMessage = (phoneNumber, coachName) => {
     if (Platform.OS === 'ios') {
-      const message = encodeURIComponent(`Hi ${coachName}, I found your profile on PicklePro and I'm interested in pickleball coaching. Are you available?`);
+      const message = encodeURIComponent(`Hi ${coachName}, I found your profile on AcademyPro and I'm interested in coaching. Are you available?`);
       const imessageUrl = `sms:${phoneNumber}&body=${message}`;
       
       Linking.openURL(imessageUrl)
@@ -582,7 +582,7 @@ export default function CoachScreen({ navigation }) {
   const handleFallbackSMS = (coach) => {
     const phoneNumber = coach.phone?.replace(/[^0-9+]/g, '') || '';
     if (phoneNumber) {
-      const message = encodeURIComponent(`Hi ${coach.name}, I found your profile on PicklePro and I'm interested in pickleball coaching. Are you available?`);
+      const message = encodeURIComponent(`Hi ${coach.name}, I found your profile on AcademyPro and I'm interested in coaching. Are you available?`);
       const smsUrl = `sms:${phoneNumber}${Platform.OS === 'ios' ? '&' : '?'}body=${message}`;
       
       Linking.openURL(smsUrl)
@@ -949,7 +949,7 @@ export default function CoachScreen({ navigation }) {
           <View style={styles.coachMetrics}>
             {coach.duprRating ? (
               <View style={styles.metricItem}>
-                <Text style={[styles.metricLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>DUPR:</Text>
+                <Text style={[styles.metricLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>Rating:</Text>
                 <Text style={[styles.metricValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{coach.duprRating}</Text>
               </View>
             ) : null}
@@ -1052,7 +1052,7 @@ export default function CoachScreen({ navigation }) {
               <View style={[styles.profileStatsRow, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
                 {profileCoach.duprRating ? (
                   <View style={styles.profileStat}>
-                    <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>DUPR</Text>
+                    <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>Rating</Text>
                     <Text style={[styles.profileStatValue, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
                       {profileCoach.duprRating}
                     </Text>

@@ -62,7 +62,7 @@ export default function EvaluationSummaryScreen({ route, navigation }) {
 
   useEffect(() => {
     // Fetch template first, then assessment data
-    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+    getAssessmentTemplate('player_evaluation', null, student?.sportId || 'pickleball').then((tmpl) => {
       const tpl = tmpl?.skills?.length ? tmpl.skills : DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills;
       setSkillsTemplate(tpl);
       loadAssessmentData(tpl);

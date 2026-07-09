@@ -4,26 +4,69 @@
  * Single source of truth for skill IDs, names, and metadata derived from
  * Commun_skills_tags.json. Import from here instead of importing the JSON
  * directly in feature code.
+ *
+ * Sport-aware entry points:
+ *   getSportSkills(sportId)  — flat skill list for any sport
+ *   getSportGroups(sportId)  — grouped skills for any sport
  */
 import skillsData from '../data/Commun_skills_tags.json';
+import { getSport } from './sportConfig';
 
-// ─── Internal flat list (computed once) ──────────────────────────────────────
+// ─── Internal flat list (computed once per sport) ─────────────────────────────
 
-let _flatSkills = null;
+const _flatSkillsCache = {};
 
-function flatSkills() {
-  if (_flatSkills) return _flatSkills;
+function flatSkillsForData(data) {
   const result = [];
-  for (const [groupKey, group] of Object.entries(skillsData.skillCategories || {})) {
+  for (const [groupKey, group] of Object.entries(data.skillCategories || {})) {
     for (const skill of group.skills || []) {
       result.push({ ...skill, groupKey, groupName: group.name });
     }
   }
-  _flatSkills = result;
   return result;
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+function flatSkills() {
+  if (!_flatSkillsCache._default) {
+    _flatSkillsCache._default = flatSkillsForData(skillsData);
+  }
+  return _flatSkillsCache._default;
+}
+
+// ─── Sport-aware helpers ──────────────────────────────────────────────────────
+
+/**
+ * Get the skill data object (same shape as Commun_skills_tags.json) for a sport.
+ */
+export function getSportSkillsData(sportId) {
+  const sport = getSport(sportId);
+  return sport.skillsData ? sport.skillsData() : skillsData;
+}
+
+/**
+ * Return all skills as a flat array for the given sport.
+ */
+export function getSportSkills(sportId) {
+  const cacheKey = sportId || 'pickleball';
+  if (!_flatSkillsCache[cacheKey]) {
+    _flatSkillsCache[cacheKey] = flatSkillsForData(getSportSkillsData(sportId));
+  }
+  return _flatSkillsCache[cacheKey];
+}
+
+/**
+ * Return skill groups for a given sport.
+ */
+export function getSportGroups(sportId) {
+  const data = getSportSkillsData(sportId);
+  return Object.entries(data.skillCategories || {}).map(([key, group]) => ({
+    key,
+    name: group.name,
+    skills: group.skills || [],
+  }));
+}
+
+// ─── Public API (pickleball / legacy) ─────────────────────────────────────────
 
 /**
  * All skills as a flat array. Each entry has the full JSON shape plus
@@ -32,9 +75,7 @@ function flatSkills() {
  */
 export function getAllSkills() {
   return flatSkills();
-}
-
-/**
+}/**
  * Find a single skill by its `id` field (e.g. 'serves', 'dinks').
  * Returns undefined if not found.
  */

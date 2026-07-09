@@ -10,41 +10,19 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUser } from '../context/UserContext';
+import { getSport } from '../lib/sportConfig';
 
 // Minimum space reserved for title, dots, and CTA buttons on compact iPhones
 const BOTTOM_PANEL_MIN = 300;
-
-const SLIDES = [
-  {
-    key: '1',
-    // Slide 1: logbook — place your image at assets/images/onboarding/slide_logbook.jpg
-    // Required dimensions: 1080 × 1400 px (portrait, ~3:4 ratio) — crop to the summary cards area
-    image: require('../../assets/images/onboarding/slide_logbook.jpg'),
-    title: 'Your beautiful\ntraining journal',
-    subtitle: 'Track mood, skills, and every session in one place',
-  },
-  {
-    key: '2',
-    // Slide 2: original intro hero image (certified pros)
-    image: require('../../assets/images/intro.png'),
-    title: 'Get trained by\ncertified Pros',
-    subtitle: 'Follow programs from top coaches and level up faster',
-  },
-  {
-    key: '3',
-    // Slide 3: program / Tanner Academy — place your image at assets/images/onboarding/slide_program.jpg
-    // Required dimensions: 1080 × 1400 px (portrait, ~3:4 ratio) — landscape program card or court action shot
-    image: require('../../assets/images/onboarding/slide_program.png'),
-    title: 'Free DUPR\nProgram to 4.0+',
-    subtitle: 'Structured path matched to your rating — start today',
-  },
-];
 
 export default function IntroScreen({ onComplete, navigation }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const { user } = useUser();
+  const SLIDES = getSport(user?.sportId).introSlides;
 
   const availableHeight = height - insets.top - insets.bottom;
   const imageHeight = Math.min(availableHeight * 0.55, availableHeight - BOTTOM_PANEL_MIN);

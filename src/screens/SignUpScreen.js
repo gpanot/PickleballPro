@@ -121,7 +121,7 @@ export default function SignUpScreen({ onSignUp, navigation, onSignIn, route }) 
       <OnboardingShell
         step={ONBOARDING_STEPS.SIGNUP}
         title="Create Account"
-        subtitle="Join PicklePro and start your training journey"
+        subtitle="Join AcademyPro and start your training journey"
         onBack={handleBack}
         scrollable
         contentStyle={styles.content}

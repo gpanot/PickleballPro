@@ -62,6 +62,8 @@ export const SKILL_ICON_MAP = {
   general: Target,
 };
 
-export function getSkillIconComponent(skillId) {
+export function getSkillIconComponent(skillId, sportId) {
+  // sportId is reserved for future per-sport icon maps; currently all sports
+  // share the same Lucide mapping since only pickleball is supported.
   return SKILL_ICON_MAP[skillId] || CircleDot;
 }

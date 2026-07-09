@@ -37,7 +37,7 @@ export const initializeDeepLinkHandling = (navigation) => {
 
 /**
  * Handle program share deep links
- * Format: pickleballhero://program/share/{program_id}?token={share_token}
+ * Format: academypro://program/share/{program_id}?token={share_token}
  */
 const handleProgramShareLink = async (url, navigation) => {
   try {
@@ -48,7 +48,7 @@ const handleProgramShareLink = async (url, navigation) => {
     const pathParts = urlObj.pathname.split('/');
     
     // Check if it's a program share link
-    if (urlObj.protocol !== 'pickleballhero:' || pathParts[1] !== 'program' || pathParts[2] !== 'share') {
+    if (urlObj.protocol !== 'academypro:' || pathParts[1] !== 'program' || pathParts[2] !== 'share') {
       console.log('🔗 [DeepLink] Not a program share link, ignoring');
       return;
     }
@@ -193,7 +193,7 @@ export const isProgramShareLink = (url) => {
     const pathParts = urlObj.pathname.split('/');
     
     return (
-      urlObj.protocol === 'pickleballhero:' &&
+      urlObj.protocol === 'academypro:' &&
       pathParts[1] === 'program' &&
       pathParts[2] === 'share' &&
       pathParts[3] && // program ID

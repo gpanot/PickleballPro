@@ -94,7 +94,7 @@ export default function SkillDetailScreen({ route, navigation }) {
   const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
-    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+    getAssessmentTemplate('player_evaluation', null, student?.sportId || 'pickleball').then((tmpl) => {
       const skill = tmpl?.skills?.find(s => s.id === skillId);
       if (skill?.criteria?.length) setCriteria(skill.criteria);
     });

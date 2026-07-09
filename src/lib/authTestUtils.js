@@ -4,8 +4,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
-const APP_VERSION_KEY = '@pickleball_hero:app_version';
-const SESSION_BACKUP_KEY = '@pickleball_hero:session_backup';
+const APP_VERSION_KEY = '@academypro:app_version';
+const SESSION_BACKUP_KEY = '@academypro:session_backup';
 
 export const authTestUtils = {
   // Check current authentication state

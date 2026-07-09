@@ -1,5 +1,6 @@
-// Dynamic Program Generator for Pickleball Hero
-// Generates personalized 4-session programs based on user focus areas and DUPR rating
+// Dynamic Program Generator — local exercise bank (pickleball only)
+// Generates personalized 4-session programs based on user focus areas and skill rating.
+// For non-pickleball sports, generatePersonalizedProgram returns null (callers must use DB).
 
 import skillsData from '../data/Commun_skills_tags.json';
 
@@ -276,13 +277,17 @@ const sessionTemplates = [
 ];
 
 /**
- * Generates a personalized 4-session program based on user's focus areas and DUPR rating
+ * Generates a personalized 4-session program based on user's focus areas and skill rating.
+ * Returns null for non-pickleball sports (caller must use DB-based AI generation instead).
+ *
  * @param {Array} userFocusAreas - Array of skill IDs the user selected
- * @param {number} duprRating - User's DUPR rating (used for difficulty adjustment)
- * @param {Object} userProfile - Additional user info (name, tier, etc.)
- * @returns {Object} Complete program with 4 sessions and exercises
+ * @param {number} duprRating - User's skill rating (used for difficulty adjustment)
+ * @param {Object} userProfile - Additional user info (name, tier, sportId, etc.)
+ * @returns {Object|null} Complete program, or null if sport is not pickleball
  */
 export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, userProfile = {}) {
+  // Local exercise bank only covers pickleball — return null for other sports.
+  if ((userProfile.sportId ?? 'pickleball') !== 'pickleball') return null;
   // Handle empty focus areas case - use default fundamental skills
   const defaultFocusAreas = ['dinks', 'serves', 'returns', 'volleys'];
   const focusAreas = userFocusAreas && userFocusAreas.length > 0 ? userFocusAreas : defaultFocusAreas;
@@ -387,7 +392,7 @@ export function generatePersonalizedProgram(userFocusAreas, duprRating = 3.0, us
           skillsData.skillCategories.physical?.skills?.find(s => s.id === skill)?.name ||
           skill
         ).join(', ')}`
-      : `Customized 4-session program covering fundamental pickleball skills: ${focusAreas.join(', ')}`,
+      : `Customized 4-session program covering fundamental skills: ${focusAreas.join(', ')}`,
     category: 'Personal Training',
     tier: difficultyLevel.charAt(0).toUpperCase() + difficultyLevel.slice(1),
     difficulty_level: difficultyLevel === 'beginner' ? 2 : difficultyLevel === 'intermediate' ? 3 : 4,

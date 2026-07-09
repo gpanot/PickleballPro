@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
 import {
   formatSessionDate,
   getActivityAndFormat,
@@ -21,17 +22,10 @@ import {
   parseEntryFeeling,
   parseEntryHours,
 } from '../../lib/logbookHelpers';
-import skillsData from '../../data/Commun_skills_tags.json';
+import { getSport } from '../../lib/sportConfig';
+import { getSportGroups } from '../../lib/skillTaxonomy';
 
 const IS_WEB = Platform.OS === 'web';
-
-const QUICK_SKILL_IDS = ['dinks', 'drives', 'returns', 'drops', 'volleys', 'third_shot'];
-
-const SKILL_GROUPS = [
-  { label: 'Control', ids: ['dinks', 'drops', 'volleys', 'third_shot', 'slices', 'lobs'] },
-  { label: 'Attack', ids: ['drives', 'serves', 'smashes', 'putaways', 'erne'] },
-  { label: 'Movement', ids: ['returns', 'footwork', 'positioning', 'transitions'] },
-];
 
 const ACTIVITIES = [
   { id: 'training', label: 'Training' },
@@ -99,6 +93,7 @@ function SectionLabel({ tokens, children }) {
 
 function SkillChipSection({
   tokens, isLight, title, selected, onToggle, activeBg, activeColor,
+  quickSkillIds, skillGroups,
 }) {
   const [expanded, setExpanded] = useState(false);
   const expandColor = isLight ? activeBg : tokens.accentPurple;
@@ -129,6 +124,8 @@ function SkillChipSection({
     );
   };
 
+  const extraCount = skillGroups.reduce((acc, g) => acc + g.ids.length, 0);
+
   return (
     <View>
       <SectionLabel tokens={tokens}>{title}</SectionLabel>
@@ -136,11 +133,11 @@ function SkillChipSection({
         Tap to select
       </Text>
       <View style={styles.chipWrap}>
-        {QUICK_SKILL_IDS.map(renderChip)}
+        {quickSkillIds.map(renderChip)}
       </View>
       {expanded ? (
         <View style={{ marginTop: 8 }}>
-          {SKILL_GROUPS.map(group => (
+          {skillGroups.map(group => (
             <View key={group.label} style={{ marginBottom: 12 }}>
               <Text style={{
                 fontSize: 10,
@@ -165,7 +162,7 @@ function SkillChipSection({
       ) : (
         <TouchableOpacity onPress={() => setExpanded(true)} style={styles.expandBtn}>
           <Ionicons name="chevron-down" size={14} color={expandColor} />
-          <Text style={{ color: expandColor, fontSize: 12, fontFamily: tokens.fontBodySemibold }}>+ 9 more skills</Text>
+          <Text style={{ color: expandColor, fontSize: 12, fontFamily: tokens.fontBodySemibold }}>+ {extraCount} more skills</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -183,8 +180,17 @@ export default function LogSessionForm({
 }) {
   const insets = useSafeAreaInsets();
   const { logbookTheme: tokens, isDark } = useTheme();
+  const { user } = useUser();
   const isLight = !isDark;
   const px = isLight ? 20 : 20;
+
+  // Sport-specific skill lists
+  const sportId = user?.sportId;
+  const quickSkillIds = getSport(sportId).quickSkillIds;
+  const skillGroups = getSportGroups(sportId).map(g => ({
+    label: g.name,
+    ids: g.skills.map(s => s.id),
+  }));
 
   const initial = useMemo(() => {
     if (mode === 'edit' && initialEntry) {
@@ -208,13 +214,13 @@ export default function LogSessionForm({
       hours: prefillData?.hours || 1.5,
       date: new Date(),
       feeling: 4,
-      trainingFocus: ['dinks'],
-      difficulty: ['drops'],
+      trainingFocus: [quickSkillIds[0] || 'dinks'],
+      difficulty: [quickSkillIds[1] || 'drops'],
       activity: prefillData?.sessionType === 'training' ? 'training' : 'social',
       format: 'double',
       notes: initialNotes || '',
     };
-  }, [mode, initialEntry, prefillData, initialNotes]);
+  }, [mode, initialEntry, prefillData, initialNotes, quickSkillIds]);
 
   const [hours, setHours] = useState(initial.hours);
   const [date, setDate] = useState(initial.date);
@@ -457,6 +463,8 @@ export default function LogSessionForm({
             onToggle={v => toggleSkill(setTrainingFocus, v)}
             activeBg={isLight ? tokens.accentPurple : tokens.accentPurple}
             activeColor={isLight ? '#FFFFFF' : tokens.bg}
+            quickSkillIds={quickSkillIds}
+            skillGroups={skillGroups}
           />
         </Card>
 
@@ -470,6 +478,8 @@ export default function LogSessionForm({
             onToggle={v => toggleSkill(setDifficulty, v)}
             activeBg={isLight ? tokens.accentRose : '#F97316'}
             activeColor={isLight ? '#FFFFFF' : tokens.bg}
+            quickSkillIds={quickSkillIds}
+            skillGroups={skillGroups}
           />
         </Card>
 

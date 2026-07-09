@@ -709,10 +709,10 @@ export default function EditableProgramStructureModal({ visible, program, onClos
                         );
                       })()}
 
-                      {/* DUPR Range Section */}
+                      {/* Level Range Section */}
                       {exercise.dupr_range_min && exercise.dupr_range_max && (
                         <View style={styles.duprRangeContainer}>
-                          <Text style={styles.duprRangeLabel}>DUPR Range: </Text>
+                          <Text style={styles.duprRangeLabel}>Level Range: </Text>
                           <View style={styles.duprRangeBadge}>
                             <Text style={styles.duprRangeText}>
                               {exercise.dupr_range_min}–{exercise.dupr_range_max}

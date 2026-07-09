@@ -1127,9 +1127,14 @@ export default function RoutineDetailScreen({ navigation, route }) {
       }
 
       // Mark this routine as completed in AsyncStorage
-      const progressKey = `@pickleHero_progress_${program?.id}`;
+      const progressKey = `@academypro_progress_${program?.id}`;
+      const legacyProgressKey = `@pickleHero_progress_${program?.id}`;
       try {
-        const raw = await AsyncStorage.getItem(progressKey);
+        // Dual-read migration: try new key, fall back to legacy key
+        let raw = await AsyncStorage.getItem(progressKey);
+        if (raw === null) {
+          raw = await AsyncStorage.getItem(legacyProgressKey);
+        }
         const completed = raw ? JSON.parse(raw) : [];
         if (!completed.includes(routine.id)) {
           completed.push(routine.id);

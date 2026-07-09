@@ -1,0 +1,548 @@
+{
+  "skillCategories": {
+    "technical": {
+      "name": "Technical Skills",
+      "description": "Core pickleball techniques and shots",
+      "skills": [
+        {
+          "id": "dinks",
+          "name": "Dinks",
+          "emoji": "🥒",
+          "color": "#10B981",
+          "category": "technical",
+          "difficulty": "beginner",
+          "description": "Soft shots played at the net",
+          "tags": ["net_play", "touch", "control", "strategy"],
+          "aiRecommendations": {
+            "relatedSkills": ["volleys", "drops"],
+            "progressionPath": ["serves", "returns", "dinks", "volleys"],
+            "practiceFrequency": "high",
+            "importance": 9
+          }
+        },
+        {
+          "id": "drives",
+          "name": "Drives",
+          "emoji": "🚀",
+          "color": "#3B82F6",
+          "category": "technical",
+          "difficulty": "beginner",
+          "description": "Hard, fast shots hit with pace",
+          "tags": ["power", "offense", "baseline", "aggression"],
+          "aiRecommendations": {
+            "relatedSkills": ["serves", "returns"],
+            "progressionPath": ["serves", "drives", "volleys"],
+            "practiceFrequency": "medium",
+            "importance": 7
+          }
+        },
+        {
+          "id": "serves",
+          "name": "Serves",
+          "emoji": "🎾",
+          "color": "#F59E0B",
+          "category": "technical",
+          "difficulty": "beginner",
+          "description": "Starting point of every rally",
+          "tags": ["fundamentals", "consistency", "placement", "strategy"],
+          "aiRecommendations": {
+            "relatedSkills": ["returns", "drives"],
+            "progressionPath": ["serves", "returns", "drives"],
+            "practiceFrequency": "high",
+            "importance": 10
+          }
+        },
+        {
+          "id": "returns",
+          "name": "Returns",
+          "emoji": "↩️",
+          "color": "#8B5CF6",
+          "category": "technical",
+          "difficulty": "beginner",
+          "description": "Responding to serves effectively",
+          "tags": ["fundamentals", "consistency", "defensive", "positioning"],
+          "aiRecommendations": {
+            "relatedSkills": ["serves", "drives", "drops"],
+            "progressionPath": ["serves", "returns", "drops"],
+            "practiceFrequency": "high",
+            "importance": 9
+          }
+        },
+        {
+          "id": "volleys",
+          "name": "Volleys/Resets",
+          "emoji": "🛡️",
+          "color": "#EF4444",
+          "category": "technical",
+          "difficulty": "intermediate",
+          "description": "Defensive shots to neutralize attacks",
+          "tags": ["defense", "net_play", "control", "reaction"],
+          "aiRecommendations": {
+            "relatedSkills": ["dinks", "drops"],
+            "progressionPath": ["dinks", "volleys", "lobs"],
+            "practiceFrequency": "high",
+            "importance": 8
+          }
+        },
+        {
+          "id": "lobs",
+          "name": "Lobs",
+          "emoji": "🌙",
+          "color": "#06B6D4",
+          "category": "technical",
+          "difficulty": "intermediate",
+          "description": "High arcing shots over opponents",
+          "tags": ["strategy", "offense", "positioning", "court_awareness"],
+          "aiRecommendations": {
+            "relatedSkills": ["drops", "dinks"],
+            "progressionPath": ["volleys", "lobs", "overheads"],
+            "practiceFrequency": "medium",
+            "importance": 6
+          }
+        },
+        {
+          "id": "drops",
+          "name": "Drop Shots",
+          "emoji": "💧",
+          "color": "#84CC16",
+          "category": "technical",
+          "difficulty": "intermediate",
+          "description": "Soft shots that land in the kitchen",
+          "tags": ["transition", "strategy", "touch", "net_approach"],
+          "aiRecommendations": {
+            "relatedSkills": ["dinks", "returns"],
+            "progressionPath": ["returns", "drops", "dinks"],
+            "practiceFrequency": "high",
+            "importance": 8
+          }
+        },
+        {
+          "id": "resets",
+          "name": "Resets",
+          "emoji": "🔄",
+          "color": "#6366F1",
+          "category": "technical",
+          "difficulty": "intermediate",
+          "description": "Neutralizing attacking shots to reset the rally",
+          "tags": ["defense", "control", "net_play", "reaction"],
+          "aiRecommendations": {
+            "relatedSkills": ["volleys", "dinks"],
+            "progressionPath": ["volleys", "resets", "dinks"],
+            "practiceFrequency": "high",
+            "importance": 8
+          }
+        },
+        {
+          "id": "third_shot",
+          "name": "3rd Shot",
+          "emoji": "3️⃣",
+          "color": "#DC2626",
+          "category": "technical",
+          "difficulty": "intermediate",
+          "description": "Critical shot after the serve and return",
+          "tags": ["strategy", "transition", "fundamentals", "net_approach"],
+          "aiRecommendations": {
+            "relatedSkills": ["drops", "drives", "serves"],
+            "progressionPath": ["serves", "returns", "third_shot"],
+            "practiceFrequency": "high",
+            "importance": 9
+          }
+        },
+        {
+          "id": "smashes",
+          "name": "Smashes",
+          "emoji": "💥",
+          "color": "#B91C1C",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Overhead attacking shots",
+          "tags": ["offense", "power", "aggression", "finishing"],
+          "aiRecommendations": {
+            "relatedSkills": ["lobs", "putaways"],
+            "progressionPath": ["lobs", "smashes", "putaways"],
+            "practiceFrequency": "medium",
+            "importance": 7
+          }
+        },
+        {
+          "id": "slices",
+          "name": "Slices",
+          "emoji": "🌀",
+          "color": "#7C3AED",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Shots with underspin for control and deception",
+          "tags": ["spin", "control", "deception", "strategy"],
+          "aiRecommendations": {
+            "relatedSkills": ["spin_control", "disguise"],
+            "progressionPath": ["serves", "slices", "spin_control"],
+            "practiceFrequency": "medium",
+            "importance": 6
+          }
+        },
+        {
+          "id": "spin_control",
+          "name": "Spin Control",
+          "emoji": "🌪️",
+          "color": "#059669",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Managing and creating spin on shots",
+          "tags": ["spin", "control", "touch", "strategy"],
+          "aiRecommendations": {
+            "relatedSkills": ["slices", "rolls"],
+            "progressionPath": ["serves", "spin_control", "slices"],
+            "practiceFrequency": "medium",
+            "importance": 7
+          }
+        },
+        {
+          "id": "rolls",
+          "name": "Rolls",
+          "emoji": "🎳",
+          "color": "#0891B2",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Topspin shots that roll over the net",
+          "tags": ["spin", "offense", "net_play", "aggression"],
+          "aiRecommendations": {
+            "relatedSkills": ["spin_control", "flicks"],
+            "progressionPath": ["spin_control", "rolls", "flicks"],
+            "practiceFrequency": "medium",
+            "importance": 6
+          }
+        },
+        {
+          "id": "flicks",
+          "name": "Flicks / Speed-ups",
+          "emoji": "⚡",
+          "color": "#EA580C",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Quick attacking shots from dinking position",
+          "tags": ["offense", "speed", "net_play", "surprise"],
+          "aiRecommendations": {
+            "relatedSkills": ["dinks", "putaways"],
+            "progressionPath": ["dinks", "flicks", "putaways"],
+            "practiceFrequency": "medium",
+            "importance": 7
+          }
+        },
+        {
+          "id": "putaways",
+          "name": "Putaways",
+          "emoji": "🎯",
+          "color": "#BE185D",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Finishing shots to end points",
+          "tags": ["offense", "finishing", "power", "placement"],
+          "aiRecommendations": {
+            "relatedSkills": ["smashes", "flicks"],
+            "progressionPath": ["flicks", "putaways", "smashes"],
+            "practiceFrequency": "medium",
+            "importance": 8
+          }
+        },
+        {
+          "id": "defensive_saves",
+          "name": "Defensive Saves",
+          "emoji": "🛟",
+          "color": "#0F766E",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Emergency defensive shots to stay in points",
+          "tags": ["defense", "reaction", "emergency", "consistency"],
+          "aiRecommendations": {
+            "relatedSkills": ["resets", "volleys"],
+            "progressionPath": ["volleys", "resets", "defensive_saves"],
+            "practiceFrequency": "medium",
+            "importance": 6
+          }
+        },
+        {
+          "id": "erne",
+          "name": "Erne",
+          "emoji": "🦅",
+          "color": "#7C2D12",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Advanced shot hitting ball from outside court bounds",
+          "tags": ["advanced", "movement", "surprise", "aggression"],
+          "aiRecommendations": {
+            "relatedSkills": ["positioning", "footwork"],
+            "progressionPath": ["positioning", "footwork", "erne"],
+            "practiceFrequency": "low",
+            "importance": 4
+          }
+        },
+        {
+          "id": "atp",
+          "name": "ATP (Around The Post)",
+          "emoji": "🔄",
+          "color": "#991B1B",
+          "category": "technical",
+          "difficulty": "advanced",
+          "description": "Shot that goes around the net post",
+          "tags": ["advanced", "geometry", "surprise", "emergency"],
+          "aiRecommendations": {
+            "relatedSkills": ["angles", "court_awareness"],
+            "progressionPath": ["court_awareness", "angles", "atp"],
+            "practiceFrequency": "low",
+            "importance": 3
+          }
+        }
+      ]
+    },
+    "movement": {
+      "name": "Movement & Positioning",
+      "description": "Physical movement and court positioning skills",
+      "skills": [
+        {
+          "id": "footwork",
+          "name": "Footwork",
+          "emoji": "👟",
+          "color": "#F97316",
+          "category": "movement",
+          "difficulty": "beginner",
+          "description": "Proper movement and positioning on court",
+          "tags": ["fundamentals", "agility", "positioning", "balance"],
+          "aiRecommendations": {
+            "relatedSkills": ["positioning", "transitions"],
+            "progressionPath": ["footwork", "positioning", "transitions"],
+            "practiceFrequency": "high",
+            "importance": 9
+          }
+        },
+        {
+          "id": "positioning",
+          "name": "Positioning",
+          "emoji": "📍",
+          "color": "#0D9488",
+          "category": "movement",
+          "difficulty": "intermediate",
+          "description": "Strategic court positioning and spacing",
+          "tags": ["strategy", "court_awareness", "spacing", "fundamentals"],
+          "aiRecommendations": {
+            "relatedSkills": ["footwork", "transitions"],
+            "progressionPath": ["footwork", "positioning", "court_awareness"],
+            "practiceFrequency": "high",
+            "importance": 8
+          }
+        },
+        {
+          "id": "transitions",
+          "name": "Transitions",
+          "emoji": "🔄",
+          "color": "#7C3AED",
+          "category": "movement",
+          "difficulty": "intermediate",
+          "description": "Moving between different court positions effectively",
+          "tags": ["movement", "strategy", "timing", "flow"],
+          "aiRecommendations": {
+            "relatedSkills": ["positioning", "footwork"],
+            "progressionPath": ["positioning", "transitions", "patterns"],
+            "practiceFrequency": "high",
+            "importance": 7
+          }
+        }
+      ]
+    },
+    "strategic": {
+      "name": "Strategic & Mental",
+      "description": "Game strategy, tactics, and mental aspects",
+      "skills": [
+        {
+          "id": "game_play",
+          "name": "Game Play / Scenarios",
+          "emoji": "🎮",
+          "color": "#1D4ED8",
+          "category": "strategic",
+          "difficulty": "intermediate",
+          "description": "Understanding game situations and appropriate responses",
+          "tags": ["strategy", "decision_making", "game_sense", "scenarios"],
+          "aiRecommendations": {
+            "relatedSkills": ["patterns", "communication"],
+            "progressionPath": ["fundamentals", "game_play", "patterns"],
+            "practiceFrequency": "high",
+            "importance": 9
+          }
+        },
+        {
+          "id": "patterns",
+          "name": "Patterns",
+          "emoji": "🧩",
+          "color": "#7C2D12",
+          "category": "strategic",
+          "difficulty": "advanced",
+          "description": "Recognizing and executing strategic shot patterns",
+          "tags": ["strategy", "patterns", "game_sense", "advanced"],
+          "aiRecommendations": {
+            "relatedSkills": ["game_play", "positioning"],
+            "progressionPath": ["game_play", "patterns", "pressure_points"],
+            "practiceFrequency": "medium",
+            "importance": 8
+          }
+        },
+        {
+          "id": "communication",
+          "name": "Communication",
+          "emoji": "💬",
+          "color": "#059669",
+          "category": "strategic",
+          "difficulty": "beginner",
+          "description": "Partner communication and court calls",
+          "tags": ["teamwork", "doubles", "communication", "fundamentals"],
+          "aiRecommendations": {
+            "relatedSkills": ["poaching", "positioning"],
+            "progressionPath": ["communication", "poaching", "patterns"],
+            "practiceFrequency": "high",
+            "importance": 8
+          }
+        },
+        {
+          "id": "pressure_points",
+          "name": "Pressure Points",
+          "emoji": "💎",
+          "color": "#7C3AED",
+          "category": "strategic",
+          "difficulty": "advanced",
+          "description": "High-pressure situations and clutch performance",
+          "tags": ["mental", "pressure", "clutch", "advanced"],
+          "aiRecommendations": {
+            "relatedSkills": ["patterns", "game_play"],
+            "progressionPath": ["game_play", "pressure_points", "mental_toughness"],
+            "practiceFrequency": "medium",
+            "importance": 7
+          }
+        },
+        {
+          "id": "poaching",
+          "name": "Poaching",
+          "emoji": "🎯",
+          "color": "#DC2626",
+          "category": "strategic",
+          "difficulty": "advanced",
+          "description": "Intercepting shots intended for partner",
+          "tags": ["doubles", "aggression", "timing", "teamwork"],
+          "aiRecommendations": {
+            "relatedSkills": ["communication", "positioning"],
+            "progressionPath": ["communication", "positioning", "poaching"],
+            "practiceFrequency": "medium",
+            "importance": 6
+          }
+        },
+        {
+          "id": "disguise",
+          "name": "Disguise",
+          "emoji": "🎭",
+          "color": "#7C2D12",
+          "category": "strategic",
+          "difficulty": "advanced",
+          "description": "Concealing shot intentions until last moment",
+          "tags": ["deception", "advanced", "mental", "surprise"],
+          "aiRecommendations": {
+            "relatedSkills": ["slices", "flicks"],
+            "progressionPath": ["consistency", "disguise", "patterns"],
+            "practiceFrequency": "low",
+            "importance": 5
+          }
+        }
+      ]
+    },
+    "physical": {
+      "name": "Physical & Conditioning",
+      "description": "Physical fitness and conditioning for pickleball",
+      "skills": [
+        {
+          "id": "conditioning",
+          "name": "Conditioning",
+          "emoji": "💪",
+          "color": "#B91C1C",
+          "category": "physical",
+          "difficulty": "beginner",
+          "description": "Overall fitness and endurance for pickleball",
+          "tags": ["fitness", "endurance", "strength", "fundamentals"],
+          "aiRecommendations": {
+            "relatedSkills": ["footwork", "agility"],
+            "progressionPath": ["conditioning", "footwork", "agility"],
+            "practiceFrequency": "high",
+            "importance": 8
+          }
+        }
+      ]
+    }
+  },
+  "skillLevels": {
+    "beginner": {
+      "name": "Beginner",
+      "description": "Foundation skills every player should master",
+      "color": "#10B981"
+    },
+    "intermediate": {
+      "name": "Intermediate",
+      "description": "Advanced techniques for improving players",
+      "color": "#F59E0B"
+    },
+    "advanced": {
+      "name": "Advanced",
+      "description": "High-level skills for competitive play",
+      "color": "#EF4444"
+    }
+  },
+  "tags": {
+    "fundamentals": "Core skills essential for all players",
+    "net_play": "Skills used primarily at the net",
+    "baseline": "Skills used from the back of the court",
+    "offense": "Attacking shots and strategies",
+    "defense": "Defensive shots and positioning",
+    "strategy": "Tactical and strategic elements",
+    "power": "Shots requiring strength and pace",
+    "touch": "Shots requiring finesse and control",
+    "control": "Skills focused on placement and accuracy",
+    "consistency": "Skills focused on reducing errors",
+    "positioning": "Court awareness and movement",
+    "transition": "Moving between court positions",
+    "reaction": "Quick response skills",
+    "court_awareness": "Understanding court positioning and angles",
+    "aggression": "Offensive mindset and shot selection",
+    "placement": "Accurate shot targeting",
+    "balance": "Physical stability and control",
+    "agility": "Quick movement and direction changes",
+    "net_approach": "Moving forward to the net effectively",
+    "spin": "Shots involving spin control and manipulation",
+    "deception": "Skills focused on disguising shot intentions",
+    "speed": "Quick execution and fast-paced shots",
+    "surprise": "Unexpected shots and tactics",
+    "finishing": "Shots designed to end points",
+    "emergency": "Crisis management and desperate shots",
+    "advanced": "High-level techniques requiring experience",
+    "geometry": "Understanding court angles and physics",
+    "movement": "Physical movement and court coverage",
+    "timing": "Proper timing and rhythm",
+    "flow": "Smooth transitions and game rhythm",
+    "spacing": "Proper court spacing and positioning",
+    "decision_making": "Strategic decision making skills",
+    "game_sense": "Understanding game situations",
+    "scenarios": "Specific game situations and responses",
+    "patterns": "Recognizing and executing shot patterns",
+    "teamwork": "Partner coordination and cooperation",
+    "doubles": "Doubles-specific skills and strategies",
+    "communication": "Verbal and non-verbal communication",
+    "mental": "Mental game and psychological aspects",
+    "pressure": "Performance under pressure",
+    "clutch": "Performing in critical moments",
+    "fitness": "Physical fitness and conditioning",
+    "endurance": "Cardiovascular endurance",
+    "strength": "Physical strength and power"
+  },
+  "metadata": {
+    "version": "2.0",
+    "lastUpdated": "2025-09-23",
+    "description": "Comprehensive skills and tags for pickleball training recommendations and tracking",
+    "usage": "This file contains standardized skill definitions for use across the app in training logs, recommendations, and AI analysis",
+    "totalSkills": 25,
+    "categories": ["technical", "movement", "strategic", "physical"],
+    "difficultyLevels": ["beginner", "intermediate", "advanced"]
+  }
+}

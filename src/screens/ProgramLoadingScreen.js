@@ -13,13 +13,13 @@ import { Hand, Target, TrendingUp, ChevronRight } from 'lucide-react-native';
 const WELCOME_STEPS = [
   {
     Icon: Hand,
-    title: 'Welcome to PicklePro',
-    body: 'Your personal training app for pickleball players of every level.',
+    title: 'Welcome to AcademyPro',
+    body: 'Your personal training app for athletes of every level.',
   },
   {
     Icon: Target,
     title: 'Your training lives in My Training',
-    body: 'Pick a goal — a DUPR milestone or a skill focus — and follow a structured program at your own pace.',
+    body: 'Pick a goal — a rating milestone or a skill focus — and follow a structured program at your own pace.',
   },
   {
     Icon: TrendingUp,

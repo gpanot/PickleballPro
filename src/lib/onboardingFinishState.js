@@ -1,13 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const ONBOARDING_FINISH_KEY = '@picklepro_onboarding_finish_state';
+export const ONBOARDING_FINISH_KEY = '@academypro_onboarding_finish_state';
+const LEGACY_FINISH_KEY = '@picklepro_onboarding_finish_state';
 export const MAX_ONBOARDING_FINISH_VIEWS = 2;
 
 const DEFAULT_STATE = { completed: false, viewCount: 0 };
 
 export async function loadOnboardingFinishState() {
   try {
-    const raw = await AsyncStorage.getItem(ONBOARDING_FINISH_KEY);
+    // Dual-read migration: try new key, fall back to legacy key
+    let raw = await AsyncStorage.getItem(ONBOARDING_FINISH_KEY);
+    if (raw === null) {
+      raw = await AsyncStorage.getItem(LEGACY_FINISH_KEY);
+      if (raw !== null) {
+        await AsyncStorage.setItem(ONBOARDING_FINISH_KEY, raw);
+      }
+    }
     if (!raw) return { ...DEFAULT_STATE };
     const parsed = JSON.parse(raw);
     return {

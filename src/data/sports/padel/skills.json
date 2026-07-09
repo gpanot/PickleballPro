@@ -1,0 +1,43 @@
+{
+  "skillCategories": {
+    "technical": {
+      "name": "Technical Skills",
+      "skills": [
+        { "id": "serve",       "name": "Serve",        "color": "#3B82F6", "category": "technical" },
+        { "id": "bandeja",     "name": "Bandeja",       "color": "#3B82F6", "category": "technical" },
+        { "id": "vibora",      "name": "Víbora",        "color": "#3B82F6", "category": "technical" },
+        { "id": "lob",         "name": "Lob",           "color": "#3B82F6", "category": "technical" },
+        { "id": "volley",      "name": "Volley",        "color": "#3B82F6", "category": "technical" },
+        { "id": "smash",       "name": "Smash",         "color": "#3B82F6", "category": "technical" },
+        { "id": "wall_shot",   "name": "Wall Shot",     "color": "#3B82F6", "category": "technical" },
+        { "id": "bajada",      "name": "Bajada",        "color": "#3B82F6", "category": "technical" }
+      ]
+    },
+    "movement": {
+      "name": "Movement",
+      "skills": [
+        { "id": "lateral",     "name": "Lateral Speed",   "color": "#10B981", "category": "movement" },
+        { "id": "court_cover", "name": "Court Coverage",  "color": "#10B981", "category": "movement" },
+        { "id": "positioning", "name": "Net Position",    "color": "#10B981", "category": "movement" },
+        { "id": "retreat",     "name": "Back Wall Retreat","color": "#10B981", "category": "movement" }
+      ]
+    },
+    "strategic": {
+      "name": "Strategy",
+      "skills": [
+        { "id": "attack_patterns", "name": "Attack Patterns", "color": "#F59E0B", "category": "strategic" },
+        { "id": "defense",        "name": "Defense Systems",  "color": "#F59E0B", "category": "strategic" },
+        { "id": "net_game",       "name": "Net Game",         "color": "#F59E0B", "category": "strategic" },
+        { "id": "wall_play",      "name": "Wall Play Strategy","color": "#F59E0B", "category": "strategic" }
+      ]
+    },
+    "physical": {
+      "name": "Physical",
+      "skills": [
+        { "id": "explosiveness", "name": "Explosiveness", "color": "#EF4444", "category": "physical" },
+        { "id": "endurance",     "name": "Endurance",     "color": "#EF4444", "category": "physical" },
+        { "id": "balance",       "name": "Balance",       "color": "#EF4444", "category": "physical" }
+      ]
+    }
+  }
+}

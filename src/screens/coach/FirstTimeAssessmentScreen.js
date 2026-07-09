@@ -50,7 +50,7 @@ export default function FirstTimeAssessmentScreen({ route, navigation }) {
   // Load the template from Supabase on mount, then restore any saved progress
   useEffect(() => {
     let cancelled = false;
-    getAssessmentTemplate('experience').then((tmpl) => {
+    getAssessmentTemplate('experience', null, student?.sportId || 'pickleball').then((tmpl) => {
       if (cancelled) return;
       if (tmpl?.questions?.length) {
         setQuestions(tmpl.questions);

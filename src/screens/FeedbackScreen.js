@@ -216,7 +216,7 @@ export default function FeedbackScreen() {
 
           {/* Thank you note */}
           <Text style={styles.thankYouText}>
-            Thank you for helping us build a better pickleball training experience!
+            Thank you for helping us build a better training experience!
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

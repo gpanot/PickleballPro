@@ -15,8 +15,11 @@ export const useAuth = () => {
 };
 
 // Storage keys for persistence
-const APP_VERSION_KEY = '@pickleball_hero:app_version';
-const SESSION_BACKUP_KEY = '@pickleball_hero:session_backup';
+const APP_VERSION_KEY = '@academypro:app_version';
+const SESSION_BACKUP_KEY = '@academypro:session_backup';
+// Legacy keys for one-time migration (dual-read until N+2 cleanup release)
+const LEGACY_APP_VERSION_KEY = '@pickleball_hero:app_version';
+const LEGACY_SESSION_BACKUP_KEY = '@pickleball_hero:session_backup';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -190,7 +193,15 @@ export const AuthProvider = ({ children }) => {
   // Helper function to check app version and handle updates
   const checkAppVersion = async () => {
     try {
-      const storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
+      // Dual-read migration: try new key, fall back to legacy key
+      let storedVersion = await AsyncStorage.getItem(APP_VERSION_KEY);
+      if (storedVersion === null) {
+        const legacyVersion = await AsyncStorage.getItem(LEGACY_APP_VERSION_KEY);
+        if (legacyVersion !== null) {
+          storedVersion = legacyVersion;
+          await AsyncStorage.setItem(APP_VERSION_KEY, storedVersion);
+        }
+      }
       console.log('🔄 AuthContext: App version check - stored:', storedVersion, 'current:', APP_VERSION);
       
       if (storedVersion !== APP_VERSION) {
@@ -246,7 +257,14 @@ export const AuthProvider = ({ children }) => {
       
       // Add timeout for recovery operations
       const recoveryPromise = (async () => {
-        const backupData = await AsyncStorage.getItem(SESSION_BACKUP_KEY);
+        // Dual-read migration: try new key, fall back to legacy key
+        let backupData = await AsyncStorage.getItem(SESSION_BACKUP_KEY);
+        if (backupData === null) {
+          backupData = await AsyncStorage.getItem(LEGACY_SESSION_BACKUP_KEY);
+          if (backupData !== null) {
+            await AsyncStorage.setItem(SESSION_BACKUP_KEY, backupData);
+          }
+        }
         if (!backupData) {
           console.log('🔄 AuthContext: No backup session found');
           setUser(null);

@@ -6,5 +6,5 @@ export const AUTH_CALLBACK_PATH = 'auth/callback';
  * uses this, only the forgot-password email flow does.
  */
 export function getAuthRedirectUri() {
-  return `pickleballhero://${AUTH_CALLBACK_PATH}`;
+  return `academypro://${AUTH_CALLBACK_PATH}`;
 }

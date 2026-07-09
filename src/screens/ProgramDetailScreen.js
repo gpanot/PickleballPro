@@ -117,13 +117,22 @@ export default function ProgramDetailScreen({ navigation, route }) {
 
   // Progress tracker — which routine IDs have been "completed" (opened & scrolled through)
   const [completedRoutineIds, setCompletedRoutineIds] = React.useState([]);
-  const PROGRESS_KEY = `@pickleHero_progress_${program.id}`;
+  const PROGRESS_KEY = `@academypro_progress_${program.id}`;
+  const LEGACY_PROGRESS_KEY = `@pickleHero_progress_${program.id}`;
 
   // Load + save progress
   React.useEffect(() => {
-    AsyncStorage.getItem(PROGRESS_KEY).then(v => {
+    const loadProgress = async () => {
+      let v = await AsyncStorage.getItem(PROGRESS_KEY);
+      if (v === null) {
+        v = await AsyncStorage.getItem(LEGACY_PROGRESS_KEY);
+        if (v !== null) {
+          await AsyncStorage.setItem(PROGRESS_KEY, v);
+        }
+      }
       if (v) setCompletedRoutineIds(JSON.parse(v));
-    }).catch(() => {});
+    };
+    loadProgress().catch(() => {});
   }, [PROGRESS_KEY]);
 
   React.useEffect(() => {
@@ -754,8 +763,8 @@ export default function ProgramDetailScreen({ navigation, route }) {
     const token = await generateShareToken();
     if (!token) return null;
     
-    // Deep link structure: pickleballhero://program/share/{program_id}?token={share_token}
-    return `pickleballhero://program/share/${program.id}?token=${token}`;
+    // Deep link structure: academypro://program/share/{program_id}?token={share_token}
+    return `academypro://program/share/${program.id}?token=${token}`;
   };
 
   const handleShare = async () => {
@@ -764,9 +773,9 @@ export default function ProgramDetailScreen({ navigation, route }) {
       if (!shareUrl) return;
 
       const result = await Share.share({
-        message: `Check out this pickleball training program: "${program.name}"\n\n${shareUrl}`,
+        message: `Check out this training program: "${program.name}"\n\n${shareUrl}`,
         url: shareUrl, // iOS only
-        title: `${program.name} - Pickleball Training Program`,
+        title: `${program.name} - Training Program`,
       });
 
       if (result.action === Share.sharedAction) {
@@ -963,7 +972,7 @@ export default function ProgramDetailScreen({ navigation, route }) {
                 <View style={styles.qrCodeContainer}>
                   {shareToken || !isGeneratingShare ? (
                     <QRCode
-                      value={shareToken ? `pickleballhero://program/share/${program.id}?token=${shareToken}` : 'generating...'}
+                      value={shareToken ? `academypro://program/share/${program.id}?token=${shareToken}` : 'generating...'}
                       size={120}
                       color="#1F2937"
                       backgroundColor="white"

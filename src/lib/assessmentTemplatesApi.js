@@ -1,59 +1,84 @@
 import { supabase } from './supabase';
+import { getSport } from './sportConfig';
+
+// ─── Sport UUID resolver ─────────────────────────────────────────────────────
+
+const _sportUuidCache = {};
+
+/**
+ * Resolve a sport slug (e.g. 'pickleball') to its UUID in public.sports.
+ * Result is cached in-memory for the session lifetime.
+ */
+async function resolveSportUuid(slug) {
+  if (!slug) return null;
+  if (_sportUuidCache[slug]) return _sportUuidCache[slug];
+  const { data } = await supabase
+    .from('sports')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+  if (data?.id) _sportUuidCache[slug] = data.id;
+  return data?.id ?? null;
+}
 
 // ─── Hardcoded fallback defaults ────────────────────────────────────────────
 // These mirror the data seeded into assessment_templates. Used when the
 // Supabase fetch fails (offline, permissions, etc.) so coach screens never
 // break.
 
-export const DEFAULT_EXPERIENCE_TEMPLATE = {
-  questions: [
-    {
-      id: 'playedPickleball',
-      question: 'Have you ever played Pickleball?',
-      type: 'button',
-      condition: null,
-      options: [
-        { label: 'Yes', value: 'yes' },
-        { label: 'No', value: 'no' },
-      ],
-    },
-    {
-      id: 'pbDuration',
-      question: 'For how long have you been playing?',
-      type: 'button',
-      condition: { key: 'playedPickleball', value: 'yes' },
-      options: [
-        { label: 'Less than 6 months', value: 'less6months' },
-        { label: 'More than 6 months', value: 'more6months' },
-      ],
-    },
-    {
-      id: 'racketSport',
-      question: 'Have you ever played any racket sport?',
-      type: 'button',
-      condition: { key: 'playedPickleball', value: 'no' },
-      options: [
-        { label: 'Tennis', value: 'tennis' },
-        { label: 'Badminton', value: 'badminton' },
-        { label: 'Ping Pong', value: 'pingpong' },
-        { label: 'Squash', value: 'squash' },
-        { label: 'None', value: 'none' },
-      ],
-    },
-    {
-      id: 'racketSkillLevel',
-      question: 'How good are you at that sport?',
-      type: 'button',
-      condition: { key: 'racketSport', notValue: 'none', mustExist: true },
-      options: [
-        { label: 'Beginner', value: 'beginner' },
-        { label: 'Normal', value: 'normal' },
-        { label: 'Semi Pro', value: 'semipro' },
-        { label: 'Pro Player', value: 'pro' },
-      ],
-    },
-  ],
-};
+/**
+ * Build a default experience template for a given sport.
+ * The first question is pulled from sport config so it is sport-agnostic.
+ * Falls back to pickleball if sportId is unknown.
+ */
+export function getDefaultExperienceTemplate(sportId) {
+  const config = getSport(sportId).assessmentConfig;
+  const firstQ = config.firstQuestion;
+  const qId = firstQ.id;
+  return {
+    questions: [
+      firstQ,
+      {
+        id: 'sportDuration',
+        question: config.durationLabel ?? 'For how long have you been playing?',
+        type: 'button',
+        condition: { key: qId, value: 'yes' },
+        options: [
+          { label: 'Less than 6 months', value: 'less6months' },
+          { label: 'More than 6 months', value: 'more6months' },
+        ],
+      },
+      {
+        id: 'racketSport',
+        question: 'Have you ever played any racket sport?',
+        type: 'button',
+        condition: { key: qId, value: 'no' },
+        options: [
+          { label: 'Tennis', value: 'tennis' },
+          { label: 'Badminton', value: 'badminton' },
+          { label: 'Ping Pong', value: 'pingpong' },
+          { label: 'Squash', value: 'squash' },
+          { label: 'None', value: 'none' },
+        ],
+      },
+      {
+        id: 'racketSkillLevel',
+        question: 'How good are you at that sport?',
+        type: 'button',
+        condition: { key: 'racketSport', notValue: 'none', mustExist: true },
+        options: [
+          { label: 'Beginner', value: 'beginner' },
+          { label: 'Normal', value: 'normal' },
+          { label: 'Semi Pro', value: 'semipro' },
+          { label: 'Pro Player', value: 'pro' },
+        ],
+      },
+    ],
+  };
+}
+
+// Backward-compat export (pickleball default)
+export const DEFAULT_EXPERIENCE_TEMPLATE = getDefaultExperienceTemplate('pickleball');
 
 export const DEFAULT_PLAYER_EVALUATION_TEMPLATE = {
   skills: [
@@ -154,37 +179,40 @@ export function evaluateCondition(condition, answers) {
  *
  * @param {'experience'|'player_evaluation'} type
  * @param {string|null} academyId
+ * @param {string|null} sportId  — sport slug (e.g. 'pickleball', 'padel')
  * @returns {Promise<object>} The template payload (questions[] or skills[])
  */
-export async function getAssessmentTemplate(type, academyId = null) {
+export async function getAssessmentTemplate(type, academyId = null, sportId = null) {
   try {
+    const sportUuid = sportId ? await resolveSportUuid(sportId) : null;
+
     // Try academy-scoped first, then fall back to global default
     const queries = [];
 
     if (academyId) {
-      queries.push(
-        supabase
-          .from('assessment_templates')
-          .select('id, name, template')
-          .eq('type', type)
-          .eq('academy_id', academyId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single()
-      );
-    }
-
-    queries.push(
-      supabase
+      let q = supabase
         .from('assessment_templates')
         .select('id, name, template')
         .eq('type', type)
-        .eq('is_default', true)
-        .is('academy_id', null)
+        .eq('academy_id', academyId)
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single()
-    );
+        .single();
+      if (sportUuid) q = q.eq('sport_id', sportUuid);
+      queries.push(q);
+    }
+
+    let globalQ = supabase
+      .from('assessment_templates')
+      .select('id, name, template')
+      .eq('type', type)
+      .eq('is_default', true)
+      .is('academy_id', null)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (sportUuid) globalQ = globalQ.eq('sport_id', sportUuid);
+    queries.push(globalQ);
 
     for (const query of queries) {
       const { data, error } = await query;
@@ -197,7 +225,7 @@ export async function getAssessmentTemplate(type, academyId = null) {
   }
 
   // Hardcoded fallback
-  if (type === 'experience') return { ...DEFAULT_EXPERIENCE_TEMPLATE };
+  if (type === 'experience') return { ...getDefaultExperienceTemplate(sportId || 'pickleball') };
   return { ...DEFAULT_PLAYER_EVALUATION_TEMPLATE };
 }
 
@@ -208,9 +236,12 @@ export async function getAssessmentTemplate(type, academyId = null) {
  *   academyId provided  → global defaults (academy_id IS NULL) + academy overrides
  *   academyId null      → global defaults only (superadmin / no-academy context)
  *   showAll = true      → all rows regardless of academy (superadmin view)
+ *   sportId provided    → filter to a specific sport slug
  */
-export async function listAssessmentTemplates(academyId = null, { showAll = false } = {}) {
+export async function listAssessmentTemplates(academyId = null, { showAll = false, sportId = null } = {}) {
   try {
+    const sportUuid = sportId ? await resolveSportUuid(sportId) : null;
+
     let query = supabase
       .from('assessment_templates')
       .select('id, type, name, description, is_default, academy_id, created_at, updated_at')
@@ -223,6 +254,10 @@ export async function listAssessmentTemplates(academyId = null, { showAll = fals
       } else {
         query = query.is('academy_id', null);
       }
+    }
+
+    if (sportUuid) {
+      query = query.eq('sport_id', sportUuid);
     }
 
     const { data, error } = await query;
@@ -276,4 +311,50 @@ export async function deleteAssessmentTemplate(id) {
     .delete()
     .eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * Seeds the two default templates if they don't already exist.
+ * Called automatically by AssessmentsPanel when a superadmin sees 0 templates.
+ * Checks each type individually and only inserts if missing.
+ */
+export async function seedDefaultTemplates() {
+  const defaults = [
+    {
+      type: 'experience',
+      name: 'Experience Assessment',
+      description: "Branching questionnaire to assess a new student's background and experience level.",
+      template: getDefaultExperienceTemplate('pickleball'),
+      is_default: true,
+      academy_id: null,
+    },
+    {
+      type: 'player_evaluation',
+      name: 'Player Assessment',
+      description: 'Scored evaluation of core pickleball skills using sliders for each sub-criterion.',
+      template: DEFAULT_PLAYER_EVALUATION_TEMPLATE,
+      is_default: true,
+      academy_id: null,
+    },
+  ];
+
+  for (const row of defaults) {
+    // Check if a default of this type already exists
+    const { data: existing } = await supabase
+      .from('assessment_templates')
+      .select('id')
+      .eq('type', row.type)
+      .eq('is_default', true)
+      .is('academy_id', null)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error } = await supabase
+        .from('assessment_templates')
+        .insert(row);
+      if (error) {
+        console.warn('[assessmentTemplatesApi] seedDefaultTemplates insert failed:', error.message);
+      }
+    }
+  }
 }

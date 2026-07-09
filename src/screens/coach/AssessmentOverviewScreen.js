@@ -29,7 +29,7 @@ export default function AssessmentOverviewScreen({ route, navigation }) {
   const assessmentKey = `assessment_${studentId}_${assessmentId || 'draft'}`;
 
   useEffect(() => {
-    getAssessmentTemplate('player_evaluation').then((tmpl) => {
+    getAssessmentTemplate('player_evaluation', null, student?.sportId || 'pickleball').then((tmpl) => {
       if (tmpl?.skills?.length) setSkills(tmpl.skills);
     });
   }, []);

@@ -23,7 +23,7 @@ const ALL_NAV_ITEMS = [
   { id: 'settings',    label: 'Settings',            icon: 'settings-outline' },
 ];
 
-const COACH_NAV_IDS   = ['dashboard', 'content', 'assessments'];
+const COACH_NAV_IDS   = ['dashboard', 'content'];
 const MANAGER_NAV_IDS = ['dashboard', 'content', 'academy', 'assessments'];
 
 function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole, insets }) {
@@ -54,7 +54,7 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
               <Ionicons name="tennisball" size={20} color="#FFFFFF" />
             </View>
             <View style={localStyles.logoTextContainer}>
-              <Text style={localStyles.logoText}>PicklePro</Text>
+              <Text style={localStyles.logoText}>AcademyPro</Text>
               <Text style={localStyles.logoSubtext}>
                 {sessionRole === 'manager' ? 'Academy Dashboard'
                   : sessionRole === 'coach' ? 'Coach Dashboard'

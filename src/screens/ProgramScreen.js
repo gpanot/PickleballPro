@@ -20,6 +20,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../context/UserContext';
+import { getSport } from '../lib/sportConfig';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { generateAIProgram, validateUserForAIGeneration, saveAIProgram, syncUnsyncedAIPrograms } from '../lib/aiProgramGenerator';
@@ -356,8 +357,9 @@ export default function ProgramScreen({ navigation, route }) {
     }
   }, [route.params?.newProgram, navigation]);
 
-  // Static exercises for customized tab
-  const staticExercises = {
+  // Static exercise suggestions for the Customized tab — pickleball only.
+  // For other sports, the customized flow uses DB-backed AI generation.
+  const staticExercises = user?.sportId === 'pickleball' ? {
     dinks: [
       { id: "1.1", name: "Dink Wall Drill", target: "15 consecutive soft dinks", difficulty: 2, description: "Practice consistent dinking against a wall" },
       { id: "1.2", name: "Cross-Court Dinks", target: "8 consecutive cross-court dinks", difficulty: 2, description: "Develop cross-court dinking accuracy" },
@@ -393,7 +395,7 @@ export default function ProgramScreen({ navigation, route }) {
       { id: "s5.3", name: "Court Positioning", target: "8/10 optimal positions", difficulty: 4, description: "Maintain optimal court position" },
       { id: "s6.3", name: "Endurance Rally", target: "25+ shot rallies", difficulty: 4, description: "Long rally endurance training" }
     ]
-  };
+  } : {};
 
   // Program management functions
   
@@ -407,9 +409,16 @@ export default function ProgramScreen({ navigation, route }) {
   const loadCompletedRoutines = React.useCallback(async (trackList) => {
     const result = {};
     for (const t of trackList) {
-      const key = `@pickleHero_progress_${t.program.id}`;
+      const key = `@academypro_progress_${t.program.id}`;
+      const legacyKey = `@pickleHero_progress_${t.program.id}`;
       try {
-        const raw = await AsyncStorage.getItem(key);
+        let raw = await AsyncStorage.getItem(key);
+        if (raw === null) {
+          raw = await AsyncStorage.getItem(legacyKey);
+          if (raw !== null) {
+            await AsyncStorage.setItem(key, raw);
+          }
+        }
         result[t.program.id] = raw ? JSON.parse(raw) : [];
       } catch {
         result[t.program.id] = [];
@@ -1171,7 +1180,7 @@ export default function ProgramScreen({ navigation, route }) {
     // Show confirmation dialog
     Alert.alert(
       'Update Your AI Program',
-      `This will replace your current AI program "${existingAIProgram.name}" with a new one based on your current DUPR rating and focus areas.\n\nYour old program will be permanently deleted.`,
+      `This will replace your current AI program "${existingAIProgram.name}" with a new one based on your current skill rating and focus areas.\n\nYour old program will be permanently deleted.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -2049,6 +2058,16 @@ export default function ProgramScreen({ navigation, route }) {
 
   // Render Fun tab content
   const renderFunContent = () => {
+    const funEnabled = getSport(user?.sportId).funGameEnabled;
+    if (!funEnabled) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Text style={{ fontSize: 16, color: '#6B7280', textAlign: 'center' }}>
+            Fun games are not yet available for your sport.
+          </Text>
+        </View>
+      );
+    }
     return (
       <ScrollView 
         style={styles.scrollView} 
@@ -2122,7 +2141,7 @@ export default function ProgramScreen({ navigation, route }) {
     const progressMessages = [
       {
         title: "Analyzing Your Profile",
-        subtitle: "Reviewing your DUPR rating and focus areas..."
+        subtitle: "Reviewing your skill rating and focus areas..."
       },
       {
         title: "Finding Perfect Exercises", 

@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
 import { useTheme } from '../context/ThemeContext';
 import { checkAdminAccess, checkCoachAccess, supabase, getStudentCode } from '../lib/supabase';
+import { getSport } from '../lib/sportConfig';
 import StartAcademyModal from '../components/StartAcademyModal';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import { PRIVACY_POLICY_URL } from '../lib/legalUrls';
@@ -147,13 +148,14 @@ export default function ProfileScreen({ onLogout, navigation }) {
   
 
   const handleSyncDUPR = () => {
+    const rs = getSport(user?.sportId).ratingSystem;
     if (user.ratingType === 'dupr') {
       Alert.alert(
-        'Sync DUPR Rating',
-        'This will update your rating from your official DUPR account.',
+        `Sync ${rs.label} Rating`,
+        `This will update your rating from your official ${rs.label} account.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Sync Now', onPress: () => Alert.alert('Success', 'DUPR rating synced successfully!') }
+          { text: 'Sync Now', onPress: () => Alert.alert('Success', `${rs.label} rating synced successfully!`) }
         ]
       );
     } else {
@@ -223,25 +225,27 @@ export default function ProfileScreen({ onLogout, navigation }) {
   };
 
   const handleDuprEdit = () => {
-    setDuprInput((user.duprRating || 2.000).toFixed(3));
+    const rs = getSport(user?.sportId).ratingSystem;
+    setDuprInput((user.duprRating || rs.min).toFixed(3));
     setShowDuprModal(true);
   };
 
   const validateDuprFormat = (value) => {
-    // DUPR format: x.xxx (one digit before decimal, three after)
-    const duprPattern = /^\d\.\d{3}$/;
-    return duprPattern.test(value);
+    // Accept decimal numbers: up to 1 integer digit and up to 3 decimal places
+    const pattern = /^\d(\.\d{1,3})?$/;
+    return pattern.test(value);
   };
 
   const saveDuprRating = async () => {
+    const rs = getSport(user?.sportId).ratingSystem;
     if (!validateDuprFormat(duprInput)) {
-      Alert.alert('Invalid Format', 'DUPR rating must be in format x.xxx (e.g., 3.500)');
+      Alert.alert('Invalid Format', `${rs.label} rating must be a number (e.g., ${rs.placeholder})`);
       return;
     }
 
     const newRating = parseFloat(duprInput);
-    if (newRating < 1.000 || newRating > 8.000) {
-      Alert.alert('Invalid Range', 'DUPR rating must be between 1.000 and 8.000');
+    if (newRating < rs.min || newRating > rs.max) {
+      Alert.alert('Invalid Range', rs.inputHint);
       return;
     }
 
@@ -253,8 +257,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
         .eq('id', authUser.id);
 
       if (updateError) {
-        console.error('Error updating DUPR rating in database:', updateError);
-        Alert.alert('Error', 'Failed to update DUPR rating. Please try again.');
+        console.error(`Error updating ${rs.label} rating in database:`, updateError);
+        Alert.alert('Error', `Failed to update ${rs.label} rating. Please try again.`);
         return;
       }
 
@@ -265,10 +269,10 @@ export default function ProfileScreen({ onLogout, navigation }) {
       }));
       
       setShowDuprModal(false);
-      Alert.alert('Success', 'DUPR rating updated successfully!');
+      Alert.alert('Success', `${rs.label} rating updated successfully!`);
     } catch (error) {
-      console.error('Error saving DUPR rating:', error);
-      Alert.alert('Error', 'Failed to update DUPR rating. Please try again.');
+      console.error(`Error saving ${rs.label} rating:`, error);
+      Alert.alert('Error', `Failed to update ${rs.label} rating. Please try again.`);
     }
   };
 
@@ -552,7 +556,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
         </View>
 
         <View style={[styles.duprSection, { backgroundColor: isDark ? t.surfaceRaised : '#F8FAFC', borderColor: isDark ? t.border : '#E2E8F0' }]}>
-          <Text style={[styles.duprLabel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>DUPR RATING</Text>
+          <Text style={[styles.duprLabel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>{getSport(user?.sportId).ratingSystem.label.toUpperCase()} RATING</Text>
           <TouchableOpacity onPress={handleDuprEdit} activeOpacity={0.7} style={styles.duprEditRow}>
             <Text style={[styles.duprRating, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>{user.duprRating?.toFixed(3) || '2.000'}</Text>
             <Ionicons name="pencil-outline" size={13} color={t.textMuted} style={{ marginLeft: 4 }} />
@@ -684,48 +688,51 @@ export default function ProfileScreen({ onLogout, navigation }) {
   );
 
 
-  const renderDuprEditModal = () => (
-    <Modal
-      visible={showDuprModal}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={() => setShowDuprModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Edit DUPR Rating</Text>
-          <Text style={styles.modalSubtitle}>Enter your rating in format x.xxx</Text>
-          
-          <TextInput
-            style={styles.duprInput}
-            value={duprInput}
-            onChangeText={setDuprInput}
-            placeholder="3.500"
-            keyboardType="numeric"
-            maxLength={5}
-            autoFocus={true}
-            selectTextOnFocus={true}
-          />
-          
-          <View style={styles.modalButtons}>
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.modalButtonHalf, styles.cancelButton]} 
-              onPress={() => setShowDuprModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+  const renderDuprEditModal = () => {
+    const rs = getSport(user?.sportId).ratingSystem;
+    return (
+      <Modal
+        visible={showDuprModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDuprModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit {rs.label} Rating</Text>
+            <Text style={styles.modalSubtitle}>{rs.inputHint}</Text>
             
-            <TouchableOpacity 
-              style={[styles.modalButton, styles.modalButtonHalf, styles.saveButton]} 
-              onPress={saveDuprRating}
-            >
-              <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
+            <TextInput
+              style={styles.duprInput}
+              value={duprInput}
+              onChangeText={setDuprInput}
+              placeholder={rs.placeholder}
+              keyboardType="numeric"
+              maxLength={6}
+              autoFocus={true}
+              selectTextOnFocus={true}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonHalf, styles.cancelButton]} 
+                onPress={() => setShowDuprModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.modalButtonHalf, styles.saveButton]} 
+                onPress={saveDuprRating}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   const renderNameEditModal = () => (
     <Modal

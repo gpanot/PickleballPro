@@ -43,6 +43,7 @@ if (__DEV__) {
 
 import OnboardingFinishScreen from './src/screens/OnboardingFinishScreen';
 import IntroScreen from './src/screens/IntroScreen';
+import SportSelectionScreen from './src/screens/SportSelectionScreen';
 import GenderSelectionScreen from './src/screens/GenderSelectionScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import RatingSelectionScreen from './src/screens/RatingSelectionScreen';
@@ -101,7 +102,7 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [onboardingFinishGateReady, setOnboardingFinishGateReady] = useState(false);
-  const { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, isOnboardingHydrated, user, updateOnboardingData, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
+  const { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, isOnboardingHydrated, user, updateOnboardingData, completeSportSelection, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
   const { isAuthenticated, loading: authLoading, pendingPasswordRecovery } = useAuth();
   const { setThemeMode, logbookTheme, isDark } = useTheme();
   const navigationRef = React.useRef(null);
@@ -204,10 +205,16 @@ function AppContent() {
     completeIntro();
   };
 
+  const handleSportSelected = (sportId) => {
+    console.log('Sport selected:', sportId);
+    completeSportSelection(sportId);
+  };
+
   const handleAuthenticate = () => {
     console.log('Authentication triggered!');
     // Mark all onboarding steps complete synchronously so App never briefly
     // shows OnboardingFinish for a returning sign-in user.
+    completeSportSelection('pickleball');
     completeIntro();
     completeGenderSelection();
     updateUserRating(2.5, 'self');
@@ -283,7 +290,7 @@ function AppContent() {
     setShowSplash(false);
   };
 
-  console.log('App render - hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasSetName:', hasSetName, 'hasCompletedOnboarding:', hasCompletedOnboarding);
+  console.log('App render - hasSelectedSport:', hasSelectedSport, 'hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasSetName:', hasSetName, 'hasCompletedOnboarding:', hasCompletedOnboarding);
   
   // Debug navigation logic
   console.log('🔐 Authentication status - isAuthenticated:', isAuthenticated, 'authLoading:', authLoading);
@@ -342,6 +349,8 @@ function AppContent() {
     console.log('🚀 Decision: Main (authenticated, onboarding complete)');
   } else if (isAuthenticated && !hasCompletedOnboarding) {
     console.log('🎉 Decision: OnboardingFinish (authenticated, new user)');
+  } else if (!hasSelectedSport) {
+    console.log('🏅 Decision: SportSelection screen');
   } else if (!hasCompletedIntro) {
     console.log('👋 Decision: Intro screen');
   } else if (!hasSelectedGender) {
@@ -491,7 +500,20 @@ function AppContent() {
         ) : (
           // ONBOARDING FLOW - Only for non-authenticated users
           <>
-            {!hasCompletedIntro ? (
+            {!hasSelectedSport ? (
+              <>
+                <Stack.Screen name="SportSelection">
+                  {(props) => <SportSelectionScreen {...props} onComplete={handleSportSelected} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+                </Stack.Screen>
+              </>
+            ) : !hasCompletedIntro ? (
               <>
                 <Stack.Screen name="Intro">
                   {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}

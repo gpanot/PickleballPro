@@ -1,15 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const KEY = '@pickleHero_lastOpenedProgram';
+const KEY = '@academypro_lastOpenedProgram';
+const LEGACY_KEY = '@pickleHero_lastOpenedProgram';
 
 export function useLastOpenedProgram() {
   const [lastProgram, setLastProgram] = useState(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(KEY)
-      .then(raw => { if (raw) setLastProgram(JSON.parse(raw)); })
-      .catch(() => {});
+    const loadLastProgram = async () => {
+      let raw = await AsyncStorage.getItem(KEY);
+      if (raw === null) {
+        raw = await AsyncStorage.getItem(LEGACY_KEY);
+        if (raw !== null) {
+          await AsyncStorage.setItem(KEY, raw);
+        }
+      }
+      if (raw) setLastProgram(JSON.parse(raw));
+    };
+    loadLastProgram().catch(() => {});
   }, []);
 
   const saveLastProgram = useCallback((program) => {

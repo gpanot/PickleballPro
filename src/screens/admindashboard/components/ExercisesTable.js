@@ -220,7 +220,7 @@ export default function ExercisesTable({
               <Text style={[styles.modernTableHeaderText, { flex: 1.8 }]}>Description</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 0.9 }]}>Difficulty</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.3 }]}>Categories</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>DUPR</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Level</Text>
               <SortButton field="program" label="Program" flex={1.1} />
               <SortButton field="routine" label="Routine" flex={1.1} />
               <Text style={[styles.modernTableHeaderText, { flex: 0.8 }]}>Type</Text>

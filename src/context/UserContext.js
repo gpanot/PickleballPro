@@ -17,7 +17,8 @@ export const useUser = () => {
   return context;
 };
 
-const ONBOARDING_STORAGE_KEY = '@picklepro_onboarding_state';
+const ONBOARDING_STORAGE_KEY = '@academypro_onboarding_state';
+const LEGACY_ONBOARDING_KEY = '@picklepro_onboarding_state';
 
 const DEFAULT_USER = {
   id: null,
@@ -34,6 +35,7 @@ const DEFAULT_USER = {
   coachPreference: null,
   personalizedProgram: null,
   avatarUrl: null,
+  sportId: 'pickleball',
   badges: [
     { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
     { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -48,6 +50,7 @@ export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(DEFAULT_USER);
 
   const [hasCompletedIntro, setHasCompletedIntro] = useState(false);
+  const [hasSelectedSport, setHasSelectedSport] = useState(false);
   const [hasSelectedGender, setHasSelectedGender] = useState(false);
   const [hasSetRating, setHasSetRating] = useState(false);
   const [hasSetName, setHasSetName] = useState(false);
@@ -61,8 +64,20 @@ export const UserProvider = ({ children }) => {
 
   // ── Hydrate from AsyncStorage on mount ──────────────────────────────────────
   useEffect(() => {
+    const loadOnboarding = async () => {
+      // Dual-read migration: try new key, fall back to legacy key
+      let raw = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+      if (raw === null) {
+        raw = await AsyncStorage.getItem(LEGACY_ONBOARDING_KEY);
+        if (raw !== null) {
+          await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, raw);
+        }
+      }
+      return raw;
+    };
+
     Promise.all([
-      AsyncStorage.getItem(ONBOARDING_STORAGE_KEY),
+      loadOnboarding(),
       loadOnboardingFinishState(),
     ])
       .then(([raw, finishState]) => {
@@ -70,6 +85,9 @@ export const UserProvider = ({ children }) => {
           try {
             const saved = JSON.parse(raw);
             if (saved.flags) {
+              if (saved.flags.hasSelectedSport)   setHasSelectedSport(true);
+              // Backward compat: users who completed intro before sport selection was added
+              if (saved.flags.hasCompletedIntro)  setHasSelectedSport(true);
               if (saved.flags.hasCompletedIntro)    setHasCompletedIntro(true);
               if (saved.flags.hasSelectedGender)    setHasSelectedGender(true);
               if (saved.flags.hasSetRating)         setHasSetRating(true);
@@ -117,6 +135,7 @@ export const UserProvider = ({ children }) => {
           goal: userData.goal,
           timeCommitment: userData.timeCommitment,
           intensity: userData.intensity,
+          sportId: userData.sportId,
         },
       };
       AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(payload)).catch(
@@ -134,6 +153,9 @@ export const UserProvider = ({ children }) => {
         name: profile?.name || user?.name || authUser.email?.split('@')[0] || 'User',
         email: authUser.email,
         joinedDate: authUser.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        // TODO(multi-sport): map sport_id UUID → slug via a sports lookup instead of hardcoding.
+        // Safe for now because only 'pickleball' is an active sport.
+        sportId: profile?.sport_id ? 'pickleball' : (user?.sportId || 'pickleball'),
         duprRating: profile?.dupr_rating || user?.duprRating || null,
         tier: profile?.tier || user?.tier || null,
         ratingType: profile?.rating_type || user?.ratingType || null,
@@ -180,7 +202,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, duprRating: rating, ratingType, tier };
       schedulePersist(
-        { hasCompletedIntro, hasSelectedGender, hasSetRating: true, hasSetName, hasCompletedOnboarding },
+        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating: true, hasSetName, hasCompletedOnboarding },
         next,
       );
       return next;
@@ -188,11 +210,35 @@ export const UserProvider = ({ children }) => {
     setHasSetRating(true);
   };
 
+  const completeSportSelection = (sportId = 'pickleball') => {
+    setHasSelectedSport(true);
+    setUser(prevUser => {
+      const next = { ...prevUser, sportId };
+      schedulePersist(
+        { hasSelectedSport: true, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
+  };
+
+  const resetSportSelection = () => {
+    setHasSelectedSport(false);
+    setUser(prevUser => {
+      const next = { ...prevUser, sportId: 'pickleball' };
+      schedulePersist(
+        { hasSelectedSport: false, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        next,
+      );
+      return next;
+    });
+  };
+
   const updateOnboardingData = async (data) => {
     setUser(prevUser => {
       const next = { ...prevUser, ...data };
       schedulePersist(
-        { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
         next,
       );
       return next;
@@ -214,7 +260,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, name };
       schedulePersist(
-        { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
+        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
         next,
       );
       return next;
@@ -225,7 +271,7 @@ export const UserProvider = ({ children }) => {
   const completeNameSelection = () => {
     setHasSetName(true);
     schedulePersist(
-      { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
+      { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
       user,
     );
   };
@@ -239,7 +285,7 @@ export const UserProvider = ({ children }) => {
     console.log('UserContext: completeIntro called');
     setHasCompletedIntro(true);
     schedulePersist(
-      { hasCompletedIntro: true, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+      { hasSelectedSport, hasCompletedIntro: true, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
       user,
     );
   };
@@ -247,7 +293,7 @@ export const UserProvider = ({ children }) => {
   const goBackToIntro = () => {
     setHasCompletedIntro(false);
     schedulePersist(
-      { hasCompletedIntro: false, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+      { hasSelectedSport, hasCompletedIntro: false, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
       user,
     );
   };
@@ -255,7 +301,7 @@ export const UserProvider = ({ children }) => {
   const completeGenderSelection = () => {
     setHasSelectedGender(true);
     schedulePersist(
-      { hasCompletedIntro, hasSelectedGender: true, hasSetRating, hasSetName, hasCompletedOnboarding },
+      { hasSelectedSport, hasCompletedIntro, hasSelectedGender: true, hasSetRating, hasSetName, hasCompletedOnboarding },
       user,
     );
   };
@@ -266,7 +312,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, gender: null };
       schedulePersist(
-        { hasCompletedIntro, hasSelectedGender: false, hasSetRating, hasSetName, hasCompletedOnboarding },
+        { hasSelectedSport, hasCompletedIntro, hasSelectedGender: false, hasSetRating, hasSetName, hasCompletedOnboarding },
         next,
       );
       return next;
@@ -279,7 +325,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, duprRating: null, ratingType: null, tier: null };
       schedulePersist(
-        { hasCompletedIntro, hasSelectedGender, hasSetRating: false, hasSetName, hasCompletedOnboarding },
+        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating: false, hasSetName, hasCompletedOnboarding },
         next,
       );
       return next;
@@ -292,7 +338,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, name: null };
       schedulePersist(
-        { hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: false, hasCompletedOnboarding },
+        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: false, hasCompletedOnboarding },
         next,
       );
       return next;
@@ -310,6 +356,7 @@ export const UserProvider = ({ children }) => {
 
   const resetAllOnboarding = () => {
     console.log('UserContext: Resetting all onboarding state');
+    setHasSelectedSport(false);
     setHasCompletedIntro(false);
     setHasSelectedGender(false);
     setHasSetRating(false);
@@ -340,6 +387,7 @@ export const UserProvider = ({ children }) => {
   const value = {
     user,
     isOnboardingHydrated,
+    hasSelectedSport,
     hasCompletedIntro,
     hasSelectedGender,
     hasSetRating,
@@ -349,6 +397,8 @@ export const UserProvider = ({ children }) => {
     updateUserName,
     updateOnboardingData,
     storePersonalizedProgram,
+    completeSportSelection,
+    resetSportSelection,
     completeIntro,
     goBackToIntro,
     completeGenderSelection,

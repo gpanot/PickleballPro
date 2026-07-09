@@ -423,7 +423,7 @@ export default function WebCreateExerciseModal({ visible, onClose, onSuccess, ed
       const minValue = parseFloat(duprRangeMin);
       const maxValue = parseFloat(duprRangeMax);
       if (minValue > maxValue) {
-        Alert.alert('Error', 'DUPR minimum value cannot be greater than maximum value');
+        Alert.alert('Error', 'Minimum level value cannot be greater than maximum value');
         return;
       }
     }
@@ -1022,7 +1022,7 @@ Complete the target successfully`}
               ))}
             </View>
 
-            <Text style={styles.modalLabel}>DUPR Range (Optional)</Text>
+            <Text style={styles.modalLabel}>Level Range (Optional)</Text>
             <View style={styles.duprRangeContainer}>
               <View style={styles.duprDropdownContainer}>
                 <Text style={styles.duprLabel}>From</Text>
@@ -1134,7 +1134,7 @@ Complete the target successfully`}
             {duprRangeMin && duprRangeMax && (
               <View style={styles.duprRangePreview}>
                 <Text style={styles.duprRangePreviewText}>
-                  DUPR Range: {duprRangeMin}–{duprRangeMax}
+                  Level Range: {duprRangeMin}–{duprRangeMax}
                 </Text>
               </View>
             )}
@@ -1222,7 +1222,7 @@ Complete the target successfully`}
               <View style={styles.infoItem}>
                 <Ionicons name="stats-chart-outline" size={16} color="#6B7280" />
                 <Text style={styles.infoText}>
-                  DUPR Range helps specify the skill level range (e.g., 2.0–3.0) that this exercise is most suitable for.
+                  Level Range helps specify the skill level range (e.g., 2.0–3.0) that this exercise is most suitable for.
                 </Text>
               </View>
             </View>

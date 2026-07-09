@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { warmFriendly, sportDark } from '../theme/logbookThemes';
 
-const THEME_KEY = '@pickleHero_themeMode';
+const THEME_KEY = '@academypro_themeMode';
+const LEGACY_THEME_KEY = '@pickleHero_themeMode';
 
 // ------------------------------------------------------------------
 // Design tokens — light and dark palettes
@@ -93,12 +94,18 @@ export function ThemeProvider({ children }) {
 
   // Load persisted preference (migrate legacy 'system' → 'light')
   useEffect(() => {
-    AsyncStorage.getItem(THEME_KEY)
-      .then(v => {
-        if (v === 'dark' || v === 'light') setThemeModeState(v);
-        else if (v === 'system') setThemeModeState('light');
-      })
-      .catch(() => {});
+    const loadTheme = async () => {
+      let v = await AsyncStorage.getItem(THEME_KEY);
+      if (v === null) {
+        v = await AsyncStorage.getItem(LEGACY_THEME_KEY);
+        if (v !== null) {
+          await AsyncStorage.setItem(THEME_KEY, v);
+        }
+      }
+      if (v === 'dark' || v === 'light') setThemeModeState(v);
+      else if (v === 'system') setThemeModeState('light');
+    };
+    loadTheme().catch(() => {});
   }, []);
 
   const setThemeMode = (mode) => {

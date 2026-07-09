@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import ModernIcon from '../components/ModernIcon';
 import { useUser } from '../context/UserContext';
 import { ONBOARDING_STEPS } from '../lib/onboardingSteps';
+import { getSport } from '../lib/sportConfig';
 import OnboardingShell from '../components/onboarding/OnboardingShell';
 import OnboardingOptionCard from '../components/onboarding/OnboardingOptionCard';
 import { useOnboardingTheme } from '../components/onboarding/useOnboardingTheme';
@@ -19,8 +20,11 @@ import { useOnboardingTheme } from '../components/onboarding/useOnboardingTheme'
 export default function RatingSelectionScreen({ navigation, onComplete, onGoBack }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [ratingInput, setRatingInput] = useState('');
-  const { updateUserRating } = useUser();
+  const { updateUserRating, user } = useUser();
   const ot = useOnboardingTheme(ONBOARDING_STEPS.RATING);
+  const sport = getSport(user?.sportId);
+  const rs = sport.ratingSystem;
+  const ratingType = rs.type;
 
   const handleBack = () => {
     if (onGoBack) onGoBack();
@@ -30,10 +34,8 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
   const handleOptionSelect = (option) => {
     setSelectedOption(option);
     if (option === 'none') {
-      updateUserRating(2.0, 'none');
+      updateUserRating(rs.min, 'none');
       onComplete();
-    } else if (option === 'dupr') {
-      // DUPR input section appears below — user scrolls naturally
     }
   };
 
@@ -43,13 +45,16 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
       return;
     }
     const rating = parseFloat(ratingInput);
-    if (isNaN(rating) || rating < 2.0 || rating > 8.0) {
-      Alert.alert('Invalid Rating', 'Please enter a rating between 2.0 and 8.0');
+    if (isNaN(rating) || rating < rs.min || rating > rs.max) {
+      Alert.alert('Invalid Rating', rs.inputHint);
       return;
     }
-    updateUserRating(rating, 'dupr');
+    updateUserRating(rating, ratingType);
     onComplete();
   };
+
+  // Determine which option ID maps to the "has rating" flow
+  const ratingOptionId = sport.ratingOptions.find(o => o.id !== 'none')?.id ?? ratingType;
 
   return (
     <KeyboardAvoidingView
@@ -65,41 +70,36 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
         contentStyle={styles.content}
       >
         <View style={styles.options}>
-          <OnboardingOptionCard
-            step={ONBOARDING_STEPS.RATING}
-            title="Enter your official DUPR rating"
-            description="I have an official DUPR account"
-            iconName="star"
-            selected={selectedOption === 'dupr'}
-            onPress={() => handleOptionSelect('dupr')}
-          />
-          <OnboardingOptionCard
-            step={ONBOARDING_STEPS.RATING}
-            title="I don't have a rating"
-            description="I'm new to pickleball"
-            iconName="help"
-            selected={selectedOption === 'none'}
-            onPress={() => handleOptionSelect('none')}
-          />
+          {sport.ratingOptions.map((option) => (
+            <OnboardingOptionCard
+              key={option.id}
+              step={ONBOARDING_STEPS.RATING}
+              title={option.title}
+              description={option.description}
+              iconName={option.icon}
+              selected={selectedOption === option.id}
+              onPress={() => handleOptionSelect(option.id)}
+            />
+          ))}
         </View>
 
-        {selectedOption === 'dupr' && (
+        {selectedOption === ratingOptionId && (
           <View style={[styles.inputSection, { backgroundColor: ot.surface, borderColor: ot.borderColor }]}>
             <Text style={[styles.inputLabel, { color: ot.textPrimary, fontFamily: ot.t.fontBodySemibold }]}>
-              Enter your DUPR rating
+              Enter your {rs.label} rating
             </Text>
             <TextInput
               style={[styles.ratingInput, { color: ot.textPrimary, borderColor: ot.borderColor, backgroundColor: ot.isDark ? ot.t.surfaceRaised : ot.bg }]}
-              placeholder="e.g., 3.500"
+              placeholder={rs.placeholder}
               placeholderTextColor={ot.textMuted}
               value={ratingInput}
               onChangeText={setRatingInput}
               keyboardType="decimal-pad"
-              maxLength={5}
+              maxLength={6}
               autoFocus
             />
             <Text style={[styles.inputHint, { color: ot.textMuted, fontFamily: ot.t.fontBody }]}>
-              Rating should be between 2.0 and 8.0
+              {rs.inputHint}
             </Text>
             <TouchableOpacity
               style={[styles.submitButton, { backgroundColor: ot.accent, shadowColor: ot.accent }]}
@@ -114,7 +114,7 @@ export default function RatingSelectionScreen({ navigation, onComplete, onGoBack
           <View style={[styles.infoBox, { backgroundColor: ot.accentMuted, borderColor: ot.borderColor }]}>
             <ModernIcon name="help" size={20} color={ot.accent} />
             <Text style={[styles.infoText, { color: ot.textSecondary, fontFamily: ot.t.fontBody }]}>
-              We'll start you at rating 2.0. You can update this anytime in your profile.
+              We'll start you at rating {rs.min}. You can update this anytime in your profile.
             </Text>
           </View>
         )}

@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Hand, X } from 'lucide-react-native';
 
-const WELCOMED_KEY = '@pickleHero_myTrainingWelcomed';
+const WELCOMED_KEY = '@academypro_myTrainingWelcomed';
+const LEGACY_WELCOMED_KEY = '@pickleHero_myTrainingWelcomed';
 
 /**
  * One-time welcome card shown above the My Training empty state after onboarding.
@@ -17,9 +18,17 @@ export default function WelcomeCard({ force = false }) {
 
   useEffect(() => {
     if (force) { setVisible(true); return; }
-    AsyncStorage.getItem(WELCOMED_KEY).then(val => {
+    const checkWelcomed = async () => {
+      let val = await AsyncStorage.getItem(WELCOMED_KEY);
+      if (val === null) {
+        val = await AsyncStorage.getItem(LEGACY_WELCOMED_KEY);
+        if (val !== null) {
+          await AsyncStorage.setItem(WELCOMED_KEY, val);
+        }
+      }
       if (!val) setVisible(true);
-    });
+    };
+    checkWelcomed();
   }, [force]);
 
   const dismiss = async () => {

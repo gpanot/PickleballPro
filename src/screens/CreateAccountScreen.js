@@ -87,7 +87,7 @@ export default function CreateAccountScreen({
 
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: ot.textSecondary, fontFamily: ot.t.fontBody }]}>
-          By continuing you are agreeing to PicklePro's{' '}
+          By continuing you are agreeing to AcademyPro's{' '}
         </Text>
         <View style={styles.footerLinks}>
           <TouchableOpacity onPress={() => openLegalUrl(PRIVACY_POLICY_URL)}>

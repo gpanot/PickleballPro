@@ -190,7 +190,7 @@ export default function AddCoachModal({ visible, onClose, onSuccess, coach = nul
             <Text style={styles.formSectionTitle}>Professional Details</Text>
             
             <View style={styles.formField}>
-              <Text style={styles.formLabel}>DUPR Rating</Text>
+              <Text style={styles.formLabel}>Skill Rating</Text>
               <TextInput
                 style={styles.formInput}
                 placeholder="4.5"

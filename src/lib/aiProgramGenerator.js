@@ -1,32 +1,33 @@
-// AI Program Generator for Pickleball Hero
+// AI Program Generator for AcademyPro
 // Generates personalized programs using real exercises from the database
-// based on user DUPR rating and focus skills from onboarding
+// based on user skill rating and focus skills from onboarding
 
 import { supabase } from './supabase';
 import { transformExerciseData } from './exerciseHelpers';
+import { getSport } from './sportConfig';
 
 /**
- * Determines difficulty tier based on DUPR rating
- * @param {number} duprRating - DUPR rating
- * @returns {string} Difficulty tier
+ * Determines difficulty tier based on skill rating and sport config.
+ * Falls back to cutpoints derived from the tiers array.
  */
-function getDifficultyTier(duprRating) {
-  if (duprRating < 2.5) return 'Beginner';
-  if (duprRating < 3.5) return 'Intermediate';
-  if (duprRating < 4.5) return 'Advanced';
-  return 'Elite';
+function getDifficultyTier(rating, sportId) {
+  const tiers = getSport(sportId).ratingSystem.tiers;
+  for (const tier of tiers) {
+    if (rating >= tier.min && rating < tier.max) return tier.label;
+  }
+  return tiers[tiers.length - 1]?.label ?? 'Beginner';
 }
 
 /**
- * Gets maximum difficulty level based on DUPR rating
- * @param {number} duprRating - DUPR rating
- * @returns {number} Maximum difficulty (1-5)
+ * Gets maximum difficulty level (1-5) based on skill rating and sport tiers.
  */
-function getDifficultyFromDUPR(duprRating) {
-  if (duprRating < 2.5) return 2; // Beginner: max difficulty 2
-  if (duprRating < 3.5) return 3; // Intermediate: max difficulty 3
-  if (duprRating < 4.5) return 4; // Advanced: max difficulty 4
-  return 5; // Elite: all difficulties
+function getDifficultyFromRating(rating, sportId) {
+  const tiers = getSport(sportId).ratingSystem.tiers;
+  const idx = tiers.findIndex(t => rating >= t.min && rating < t.max);
+  // Map tier index to difficulty: first tier = 2, last tier = 5
+  if (idx < 0) return 5;
+  const maxDiff = Math.min(5, idx + 2);
+  return maxDiff;
 }
 
 /**
@@ -45,7 +46,7 @@ export async function generateAIProgram(user) {
   try {
     // Validate user data
     if (!user?.duprRating || !user?.focus_areas || user.focus_areas.length === 0) {
-      throw new Error('User must have DUPR rating and focus areas selected');
+      throw new Error('User must have a skill rating and focus areas selected');
     }
 
     // Filter and validate focus areas
@@ -70,7 +71,7 @@ export async function generateAIProgram(user) {
     const exercises = await fetchMatchingExercises(duprRating, focusAreas);
     
     if (exercises.length === 0) {
-      throw new Error('No exercises found in database matching your DUPR rating and focus areas. Please contact support or try adjusting your preferences.');
+      throw new Error('No exercises found in database matching your skill rating and focus areas. Please contact support or try adjusting your preferences.');
     }
 
     console.log(`🤖 Found ${exercises.length} matching exercises`);
@@ -205,10 +206,10 @@ async function fetchMatchingExercises(duprRating, focusAreas) {
  * @returns {Object} Complete program structure
  */
 async function createProgramStructure(user, exercises) {
-  const { duprRating, focus_areas: focusAreas, name, tier } = user;
+  const { duprRating, focus_areas: focusAreas, name, tier, sportId } = user;
 
   // Determine difficulty level for routine generation
-  const difficultyLevel = getDifficultyTier(duprRating);
+  const difficultyLevel = getDifficultyTier(duprRating, sportId);
   
   // Create 2 routines as requested with unique timestamps
   const baseTimestamp = Date.now();
@@ -283,7 +284,8 @@ async function distributeExercises(routines, exercises, focusAreas, duprRating) 
       targetCount,
       isFoundationRoutine,
       duprRating,
-      usedExerciseIds
+      usedExerciseIds,
+      user.sportId
     );
 
     // Add exercises to routine with proper order and preloaded data
@@ -368,9 +370,9 @@ function groupExercisesBySkill(exercises) {
  * @param {Set} usedExerciseIds - Set of already used exercise IDs
  * @returns {Array} Selected exercises for the routine
  */
-function selectExercisesForRoutine(exercisesBySkill, focusAreas, targetCount, isFoundationRoutine, duprRating, usedExerciseIds) {
+function selectExercisesForRoutine(exercisesBySkill, focusAreas, targetCount, isFoundationRoutine, duprRating, usedExerciseIds, sportId) {
   const selectedExercises = [];
-  const maxDifficulty = getDifficultyFromDUPR(duprRating);
+  const maxDifficulty = getDifficultyFromRating(duprRating, sportId);
   
   // Prioritize focus areas
   const prioritizedSkills = isFoundationRoutine 
@@ -625,9 +627,10 @@ export function validateUserForAIGeneration(user) {
   }
 
   if (!user.duprRating || user.duprRating < 2.0 || user.duprRating > 8.0) {
+    const rs = getSport(user.sportId).ratingSystem;
     return {
       isValid: false,
-      message: 'Valid DUPR rating required (2.0-8.0). Please update your profile.'
+      message: `Valid skill rating required (${rs.min}–${rs.max}). Please update your profile.`
     };
   }
 

@@ -153,7 +153,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
   const isCoachSession   = sessionRole === 'coach';
   const isManagerSession = sessionRole === 'manager';
-  const COACH_ALLOWED_TABS   = ['dashboard', 'content', 'assessments'];
+  const COACH_ALLOWED_TABS   = ['dashboard', 'content'];
   const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'academy', 'assessments'];
 
   useEffect(() => {
@@ -2035,7 +2035,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             <View style={styles.coachDetails}>
               <Text style={styles.coachName}>{coach.name}</Text>
               <Text style={styles.coachEmail}>{coach.email}</Text>
-              <Text style={styles.coachDupr}>⚡ DUPR: {coach.dupr_rating}</Text>
+              <Text style={styles.coachDupr}>Rating: {coach.dupr_rating}</Text>
             </View>
           </View>
         </View>
@@ -2192,8 +2192,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         </View>
         <View style={styles.userStatCard}>
           <Text style={styles.userStatNumber}>{users.filter(u => u.dupr_rating).length}</Text>
-          <Text style={styles.userStatLabel}>DUPR Users</Text>
-          <Text style={styles.userStatSubtext}>Users with DUPR rating</Text>
+          <Text style={styles.userStatLabel}>Rated Users</Text>
+          <Text style={styles.userStatSubtext}>Users with skill rating</Text>
         </View>
       </View>
 
@@ -2234,7 +2234,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>User</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Profile</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Tier</Text>
-              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>DUPR Rating</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Skill Rating</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Skills</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Activity</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Progress</Text>
@@ -2646,7 +2646,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           </View>
         ) : null}
         <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 8 }}>
-          The user must already have a Pickleball Hero account. Existing academy members will be rejected by the server.
+          The user must already have an AcademyPro account. Existing academy members will be rejected by the server.
         </Text>
       </View>
 
