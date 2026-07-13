@@ -14,10 +14,10 @@
         : { href: 'https://cal.id/guillaume-panot/piklepro-academy', label: 'Start Free Trial' };
 
     var bannerHtml = !isPlayers
-        ? '<div style="background:linear-gradient(90deg,#007AFF 0%,#0056cc 100%);color:#fff;text-align:center;padding:0.65rem 1rem;font-size:0.88rem;font-weight:700;letter-spacing:0.01em;">' +
-              '<span style="background:rgba(255,255,255,0.22);border-radius:100px;padding:0.15rem 0.6rem;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-right:0.6rem;">NEW</span>' +
+        ? '<div id="sport-banner" style="position:fixed;top:64px;left:0;width:100%;z-index:999;background:linear-gradient(90deg,#007AFF 0%,#0056cc 100%);color:#fff;text-align:center;padding:0.55rem 1rem;font-size:0.85rem;font-weight:700;letter-spacing:0.01em;box-sizing:border-box;">' +
+              '<span style="background:rgba(255,255,255,0.22);border-radius:100px;padding:0.12rem 0.55rem;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-right:0.55rem;">NEW</span>' +
               'Start your Academy for <span style="text-decoration:underline;text-underline-offset:3px;">Pickleball</span> or <span style="text-decoration:underline;text-underline-offset:3px;">Padel</span> \u2014 one platform, both sports.\u00a0' +
-              '<a href="https://cal.id/guillaume-panot/piklepro-academy" style="color:#fff;opacity:0.85;font-weight:600;white-space:nowrap;">Book a demo &rarr;</a>' +
+              '<a href="https://cal.id/guillaume-panot/piklepro-academy" style="color:#fff;opacity:0.85;font-weight:600;white-space:nowrap;">Book a demo \u2192</a>' +
           '</div>'
         : '';
 
@@ -33,4 +33,11 @@
         bannerHtml;
 
     document.body.classList.add('has-site-nav');
+
+    // If banner is present, push page content down so nothing hides behind it
+    if (!isPlayers) {
+        var style = document.createElement('style');
+        style.textContent = 'body.has-site-nav { padding-top: 106px !important; } @media(max-width:768px){ #sport-banner { top: 52px; } body.has-site-nav { padding-top: 92px !important; } }';
+        document.head.appendChild(style);
+    }
 })();
