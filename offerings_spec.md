@@ -874,3 +874,347 @@ The web create modal includes an Assigned coach selector. The mobile create flow
 
 **5. Waitlist payment timing.**
 Currently `payment_status = 'pending'` is set on insert for waitlisted enrollments. A payment reminder blast from the coach could accidentally target waitlisted students. Two options: (a) exclude waitlisted enrollments from payment reminders in the `send_payment_reminder` RPC, or (b) set `payment_status = 'not_required'` until a waitlisted student is promoted to confirmed. Decide before Phase 0 so the booking RPC sets the correct initial value.
+
+---
+
+## 16. Implementation record
+
+**Completed:** 2026-07-19
+**Phases shipped:** 0, 1, 2, 3, 4 (all)
+**Commit:** `3883b30b` on `main`
+
+---
+
+### What was built
+
+#### Database (Supabase migrations)
+
+| Migration file | Contents |
+|---|---|
+| `20260720000000_offerings_v1.sql` | All 6 tables, indexes, RLS policies, 14 RPCs |
+| `20260721000000_offerings_cron.sql` | `pg_cron` jobs: session reminders, attendance generation, push receipt check |
+| `20260722000000_offerings_fixes.sql` | Security + correctness fixes (see bugs section below) |
+
+#### Edge Functions
+
+| Function | Location | Status |
+|---|---|---|
+| `stripe-webhook` | `supabase/functions/stripe-webhook/index.ts` | Full — verifies Stripe signature, handles `payment_intent.succeeded` / `.payment_failed`, updates enrollment payment columns, inserts in-app notification |
+| `send-notification` | `supabase/functions/send-notification/index.ts` | Full — FCM HTTP v1 API (not Expo Push API), deactivates stale tokens on `UNREGISTERED` error |
+| `generate-attendance` | `supabase/functions/generate-attendance/index.ts` | Full — idempotent upsert of absent rows for confirmed enrollments on each session date |
+
+> **Architecture note:** Push notifications use FCM HTTP v1 directly (not the Expo Push API) for consistency with the existing `@react-native-firebase/messaging` setup. The `expo_ticket_id` column stores the FCM message ID instead of an Expo receipt ID.
+
+#### Mobile screens
+
+| Screen | Route | Profile |
+|---|---|---|
+| `OfferingsListScreen` | `OfferingsList` | Coach |
+| `CreateOfferingStep1Screen` | `CreateOfferingStep1` | Coach |
+| `CreateOfferingStep2Screen` | `CreateOfferingStep2` | Coach |
+| `CreateOfferingStep3Screen` | `CreateOfferingStep3` | Coach |
+| `OfferingDetailScreen` | `OfferingDetail` | Coach |
+| `ExploreScreen` | `ExploreRoot` | Student |
+| `OfferingPublicDetailScreen` | `OfferingPublicDetail` | Student |
+| `BookingConfirmScreen` | `BookingConfirm` | Student |
+| `BookingSuccessScreen` | `BookingSuccess` | Student |
+| `MyBookingsScreen` | `MyBookings` | Student (Profile → My Bookings) |
+| `NotificationsScreen` | `Notifications` | Student (Profile → Notifications) |
+
+#### Web admin components
+
+| Component | Purpose |
+|---|---|
+| `OfferingsTable` | Stats header, search, filter, sortable table, row click → detail panel |
+| `OfferingDetailPanel` | Right-side drawer: runs, roster preview, payment summary |
+| `CreateOfferingModal` | 3-step modal: program → details → run dates + prices |
+| `EditOfferingModal` | Edit offering fields + manage individual runs |
+| `OfferingRosterModal` | Full roster: payment actions, Mark as paid, Send link, Cancel enrollment |
+
+#### Navigation changes
+
+- `ExploreNavigator.js` created as a dedicated stack navigator for the student browse-to-book flow
+- `MainTabNavigator.js` updated: Explore added as a fifth bottom tab with a custom compass icon in `TabIcon.js`
+- `CoachNavigator.js` updated: offerings screens added
+- `App.js` updated: `MyBookings` and `Notifications` added to the root stack; push token registration now also calls `upsert_push_token` RPC to populate `push_tokens` table
+- `ProfileScreen.js` updated: links to My Bookings and Notifications
+
+---
+
+### Bugs found and fixed
+
+| # | Severity | Bug | Fix |
+|---|---|---|---|
+| 1 | Critical | `updateAttendanceStatus` tried to set `updated_at` — column does not exist on `attendance` → every attendance toggle crashed | Removed `updated_at` from the update object in `offeringsApi.js` |
+| 2 | Security | `get_offering_with_runs` (SECURITY DEFINER) had no access guard — any authenticated user could read private/draft offerings by UUID | Added `is_public OR is coach OR is_admin` WHERE clause in `20260722000000_offerings_fixes.sql` |
+| 3 | Bug | `getMyEnrollments` leaked coach-side enrollments — a user who is both coach and student saw all their students on "My Bookings" | Added explicit `.eq('student_id', user.id)` filter after `supabase.auth.getUser()` |
+| 4 | Bug | `BookingSuccessScreen` "Back to Explore" used `navigate('Explore')` which did not consistently reset the navigator stack | Changed to `navigation.popToTop()` |
+| 5 | Perf/Bug | `OfferingDetailScreen.load` had `selectedRunId` in `useCallback` deps — `useFocusEffect` re-triggered a full DB reload on every run selection | Used a `useRef` flag (`firstRunAutoSelectedRef`) so auto-select only fires once on initial mount |
+| 6 | UX | `ExploreScreen` silently showed an empty list on network error — no user feedback | Added `loadError` state, error message, and a Retry button |
+| 7 | Security | `update_offering` RPC blocked admin users from editing offerings via the admin panel | Added `OR EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND is_admin = true)` check |
+| 8 | Bug | No admin RLS policies on offerings tables — admins only saw public offerings in the admin panel | Added `admin_read_all_offerings`, `admin_read_all_runs`, `admin_read_all_enrollments` policies |
+| 9 | Bug | `get_run_roster`, `cancel_enrollment`, `record_payment` RPCs blocked admin users from roster operations | Added `is_admin` check to all three RPCs |
+| 10 | Bug | `push_tokens` had no UNIQUE constraint for `(user_id, platform)` when `device_id IS NULL` — duplicate rows accumulated on re-register | Added `idx_push_tokens_user_platform` partial unique index; updated `upsert_push_token` RPC |
+
+---
+
+## 17. User stories
+
+These are the canonical acceptance criteria. Each story maps to a specific flow and should be validated in order on a staging environment before any production release.
+
+---
+
+### Profile: Coach
+
+---
+
+#### CS-1 — Create and publish an offering
+
+**As a coach, I want to create a new offering from an existing program, add at least one priced run, and publish it so students can discover and book it.**
+
+Steps:
+1. Open the Coach tab → Offerings sub-tab.
+2. Tap **New** → pick a published program.
+3. Enter offering name, type (Cohort), location, capacity (10), skill range.
+4. Add one run: start date, end date, schedule, price $500, optional payment link.
+5. Tap **Publish offering**.
+
+Expected:
+- Offering appears in `OfferingsListScreen` with status "Open".
+- Offering is visible to students in `ExploreScreen` (`is_public = true`).
+- Run shows "0 / 10" fill in the Runs tab.
+- `offerings` row created with `status = 'open'`, `is_public = true`.
+- `offering_runs` row created with correct `price_amount = 50000`.
+
+---
+
+#### CS-2 — View run roster and payment status
+
+**As a coach, I want to see who has enrolled in a run and what their payment status is.**
+
+Steps:
+1. Open `OfferingDetailScreen` for an offering with at least one confirmed enrollment.
+2. Navigate to the **Roster** tab.
+3. Tap a student row.
+
+Expected:
+- Confirmed enrollments listed with name, DUPR, payment status badge.
+- Waitlisted students shown in a separate section with their position.
+- Payment action sheet appears: "Mark as paid", "Send payment link", "Waive payment".
+
+---
+
+#### CS-3 — Record a cash payment
+
+**As a coach, I want to manually record a cash payment so the enrollment payment status reflects reality.**
+
+Steps:
+1. Open the roster for a run with a student in `pending` payment status.
+2. Tap the student row → **Mark as paid** → select **Cash** → enter amount and optional reference → confirm.
+
+Expected:
+- Enrollment `payment_status` changes to `cash_collected`.
+- `payment_type = 'cash'`, `payment_amount_paid` set, `payment_paid_at` set.
+- Student's payment status badge updates immediately.
+
+---
+
+#### CS-4 — Cancel an enrollment and promote the waitlist
+
+**As a coach, I want to cancel a confirmed enrollment so the first waitlisted student gets promoted automatically.**
+
+Steps:
+1. Open the roster for a full run with at least one waitlisted student.
+2. Tap a confirmed enrollment → **Remove** → confirm.
+
+Expected:
+- Cancelled enrollment `status = 'cancelled'`.
+- Run `spots_filled` decrements by 1.
+- If run was `full`, status changes to `open`.
+- First waitlisted student: `status = 'confirmed'`, `waitlist_position = null`, `spots_filled` increments.
+- `waitlist_promoted` notification row inserted for the promoted student.
+
+---
+
+#### CS-5 — Take attendance on a session day
+
+**As a coach, I want to mark which students attended today's session without entering every row from scratch.**
+
+Steps:
+1. Open `OfferingDetailScreen` for a run that has a session scheduled for today.
+2. Tap the **Check-In** tab (visible only today).
+3. Tap a student row to toggle from Absent → Present.
+
+Expected:
+- `attendance` row for that student + today's date flips to `status = 'present'`, `checked_in_at` set.
+- Row is pre-seeded as `absent` by the `generate-attendance` Edge Function.
+- Toggling back sets `status = 'absent'`, `checked_in_at = null`.
+
+---
+
+#### CS-6 — Add a second run to an existing offering
+
+**As a coach, I want to add another run to an existing offering so returning students can re-enrol in a later cohort.**
+
+Steps:
+1. Open `OfferingDetailScreen` → Runs tab.
+2. Tap **Add run** → fill in dates, schedule, price → save.
+
+Expected:
+- New `offering_runs` row created linked to the offering.
+- Run appears in the Runs tab sorted by start date.
+- Run appears in `OfferingPublicDetailScreen` for students.
+
+---
+
+### Profile: Student
+
+---
+
+#### SS-1 — Discover and book a confirmed spot
+
+**As a student, I want to browse available offerings, pick a run that fits my schedule, and confirm my booking.**
+
+Steps:
+1. Open the **Explore** tab.
+2. Browse cards; optionally filter by type.
+3. Tap an offering card → `OfferingPublicDetailScreen`.
+4. Select an available run → tap **Book [date] run**.
+5. Review the confirmation sheet → tap **Confirm**.
+
+Expected:
+- `BookingSuccessScreen` shown with offering name, first session date.
+- If `price_amount > 0` and `payment_link_url` is set: "Pay now" button visible.
+- Enrollment row created: `status = 'confirmed'`, `payment_status = 'pending'` (or `'not_required'` if free).
+- `enrollment_confirmed` notification inserted.
+- Booking appears in **My Bookings** immediately.
+
+---
+
+#### SS-2 — Join a waitlist when a run is full
+
+**As a student, I want to join the waitlist for a full run so I get notified if a spot opens.**
+
+Steps:
+1. Open an offering where at least one run is full.
+2. Select the full run → the primary button reads **Join waitlist**.
+3. Tap **Join waitlist** → confirm.
+
+Expected:
+- `BookingSuccessScreen` shown with waitlist context copy.
+- Enrollment row: `status = 'waitlisted'`, `waitlist_position` assigned (1-based).
+- `enrollment_waitlisted` notification inserted.
+- Booking appears in **My Bookings** with "Waitlisted" badge and position text.
+
+---
+
+#### SS-3 — Pay via payment link from My Bookings
+
+**As a student, I want to open my coach's Stripe payment link directly from My Bookings so I can pay without searching for an email.**
+
+Steps:
+1. Open **Profile → My Bookings**.
+2. Find an enrollment with payment status "Pending payment" and an available payment link.
+3. Tap **Pay now**.
+
+Expected:
+- Device browser opens the `payment_link_url`.
+- After payment, Stripe fires `payment_intent.succeeded` webhook.
+- Enrollment `payment_status` updates to `paid` via `stripe-webhook` Edge Function.
+- In-app notification inserted confirming payment.
+
+---
+
+#### SS-4 — View and dismiss in-app notifications
+
+**As a student, I want to see all notifications about my bookings and mark them as read.**
+
+Steps:
+1. Open **Profile → Notifications**.
+2. Observe unread rows (grey background).
+3. Tap a notification row.
+
+Expected:
+- `read_at` timestamp set on tapped notification (`mark_notifications_read` RPC called).
+- Row background changes to white (read state).
+- Navigation goes to the relevant screen based on `data_json` (e.g. `OfferingPublicDetailScreen`).
+- Unread badge count on the profile or bell icon decrements.
+
+---
+
+#### SS-5 — Error recovery on Explore
+
+**As a student, I want to see a clear error message and be able to retry if the Explore screen fails to load.**
+
+Steps:
+1. Simulate a network failure or Supabase error.
+2. Open the **Explore** tab.
+
+Expected:
+- Error icon and message displayed (not a blank screen or empty list).
+- **Retry** button present; tapping it re-triggers `getPublicOfferings`.
+
+---
+
+### Profile: Admin
+
+---
+
+#### AS-1 — View all offerings across all coaches
+
+**As an admin, I want to see every offering on the platform regardless of which coach created it.**
+
+Steps:
+1. Log in to the web admin dashboard.
+2. Open the **Offerings** tab.
+
+Expected:
+- `OfferingsTable` shows offerings from all coaches (not filtered by `coach_id`).
+- Stats header shows correct totals: active offerings, total enrolled, spots remaining, payments pending.
+- Row click opens `OfferingDetailPanel`.
+
+---
+
+#### AS-2 — Edit an offering as admin
+
+**As an admin, I want to correct an offering's details (e.g. fix a typo in the title) even if I am not the creating coach.**
+
+Steps:
+1. Open the **Offerings** tab → click a row → **Edit offering** button.
+2. Change the title → save.
+
+Expected:
+- `update_offering` RPC called with admin's session (not coach's).
+- Change persists: `offerings.title` updated.
+- No "Access denied" error (admin bypass in RPC verified).
+
+---
+
+#### AS-3 — View roster and record payment as admin
+
+**As an admin, I want to open the roster for any run, see payment statuses, and record a payment on behalf of a coach.**
+
+Steps:
+1. Open `OfferingDetailPanel` → click **View roster** on a run.
+2. In `OfferingRosterModal`, tap a student with pending payment → **Mark as paid** → Cash → confirm.
+
+Expected:
+- Roster loads (not blocked by RLS or `get_run_roster` access check).
+- `record_payment` RPC executes successfully with admin's JWT.
+- Enrollment `payment_status` updates to `cash_collected`.
+
+---
+
+#### AS-4 — Cancel an enrollment as admin
+
+**As an admin, I want to remove a student from a run to handle a special-case refund or error.**
+
+Steps:
+1. In `OfferingRosterModal`, find a confirmed enrollment.
+2. Click **Remove** → confirm.
+
+Expected:
+- `cancel_enrollment` RPC executes with admin's JWT (no "Access denied" error).
+- Enrollment `status = 'cancelled'`, `spots_filled` decrements.
+- Waitlist promotion logic fires if applicable.
+- Roster modal refreshes and the cancelled row disappears.
