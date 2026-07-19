@@ -21,6 +21,7 @@ export default function ProgramsTable({
   programs,
   loading,
   searchQuery,
+  statusFilter = 'all',
   programSortField,
   programSortDirection,
   setProgramSortField,
@@ -32,6 +33,8 @@ export default function ProgramsTable({
   handleDeleteProgram,
   handlePublishProgram,
   publishingProgramId,
+  handleUnpublishProgram,
+  unpublishingProgramId,
   sessionRole,
   activeDropdown,
   setActiveDropdown,
@@ -42,13 +45,19 @@ export default function ProgramsTable({
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [hoveredRow, setHoveredRow] = useState(null);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
 
   let filteredPrograms = programs.filter(
     (program) =>
       program.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       program.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (statusFilter !== 'all') {
+    filteredPrograms = filteredPrograms.filter((program) =>
+      statusFilter === 'published' ? program.is_published : !program.is_published
+    );
+  }
 
   if (programSortField === 'coach_program') {
     filteredPrograms = [...filteredPrograms].sort((a, b) => {
@@ -258,6 +267,31 @@ export default function ProgramsTable({
                       }
                       <Text style={{ fontSize: 11, color: '#16A34A', fontWeight: '600' }}>
                         Publish
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {/* AO-3: Unpublish button — visible when published and manager-scoped */}
+                  {isManagerSession && program.is_published && program.academy_id && (
+                    <TouchableOpacity
+                      style={{
+                        marginTop: 4,
+                        backgroundColor: '#FEF9C3',
+                        borderRadius: 4,
+                        paddingHorizontal: 6,
+                        paddingVertical: 3,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 3,
+                      }}
+                      onPress={() => handleUnpublishProgram && handleUnpublishProgram(program)}
+                      disabled={unpublishingProgramId === program.id}
+                    >
+                      {unpublishingProgramId === program.id
+                        ? <ActivityIndicator size="small" color="#92400E" />
+                        : <Ionicons name="cloud-download-outline" size={11} color="#92400E" />
+                      }
+                      <Text style={{ fontSize: 11, color: '#92400E', fontWeight: '600' }}>
+                        Unpublish
                       </Text>
                     </TouchableOpacity>
                   )}

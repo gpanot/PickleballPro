@@ -5,6 +5,7 @@
  *  - ratingSystem   : label, type, range, tiers used across the app
  *  - onboardingGoals: goal options shown in TrainingGoalScreen
  *  - introSlides    : slide data for IntroScreen
+ *  - coachSlides    : slide data for CoachBenefitsScreen
  *  - assessmentConfig: question ID seeds for assessment templates
  *  - funGameEnabled : whether the 6-point doubles game is available
  *
@@ -84,21 +85,42 @@ export const SPORTS = {
     introSlides: [
       {
         key: '1',
-        image: require('../../assets/images/onboarding/slide_logbook.jpg'),
+        image: require('../../assets/images/onboarding/player_carousel/pickleball/player_s1_pickleball.jpg'),
         title: 'Your beautiful\ntraining journal',
         subtitle: 'Track mood, skills, and every session in one place',
       },
       {
         key: '2',
-        image: require('../../assets/images/intro.png'),
+        image: require('../../assets/images/onboarding/player_carousel/pickleball/player_s2_coach_certified.jpg'),
         title: 'Get trained by\ncertified Pros',
         subtitle: 'Follow programs from top coaches and level up faster',
       },
       {
         key: '3',
-        image: require('../../assets/images/onboarding/slide_program.png'),
+        image: require('../../assets/images/onboarding/player_carousel/pickleball/player_s3_free_DUPR_program.jpg'),
         title: 'Free DUPR\nProgram to 4.0+',
         subtitle: 'Structured path matched to your rating — start today',
+      },
+    ],
+
+    coachSlides: [
+      {
+        key: '1',
+        image: require('../../assets/images/onboarding/coach_carousel/pickleball/coach_s1_pickleball.jpg'),
+        title: 'Anyone can coach.\nWinners build systems',
+        subtitle: 'Turn your coaching into a real academy, not just a profile. One brand, one standard, every session',
+      },
+      {
+        key: '2',
+        image: require('../../assets/images/onboarding/coach_carousel/pickleball/coach_s2_pickleball.jpg'),
+        title: 'One curriculum.\nEvery coach. Every student',
+        subtitle: "Add coaches without losing what made you good. Every student gets the same progression, no matter who's teaching",
+      },
+      {
+        key: '3',
+        image: require('../../assets/images/onboarding/coach_carousel/pickleball/coach_s3_pickleball.jpg'),
+        title: 'Your academy.\nYour name. Your price',
+        subtitle: 'White-label from day one. You set the rate, you keep the students, you own the brand as you grow',
       },
     ],
 
@@ -130,18 +152,19 @@ export const SPORTS = {
     name: 'Padel',
 
     ratingSystem: {
-      type: 'padel_level',
-      label: 'Level',
-      min: 1.0,
-      max: 10.0,
-      placeholder: 'e.g., 4.5',
-      inputHint: 'Level should be between 1.0 and 10.0',
+      // Playtomic rating: 0.0 (beginner) → 7.0 (world-class)
+      type: 'playtomic',
+      label: 'Playtomic',
+      min: 0.0,
+      max: 7.0,
+      placeholder: 'e.g., 3.500',
+      inputHint: 'Rating should be between 0.0 and 7.0',
       dbColumn: 'skill_rating',
       tiers: [
-        { label: 'Beginner',     min: 1.0, max: 3.5 },
-        { label: 'Intermediate', min: 3.5, max: 5.5 },
-        { label: 'Advanced',     min: 5.5, max: 7.5 },
-        { label: 'Pro',          min: 7.5, max: 10.0 },
+        { label: 'Beginner',     min: 0.0, max: 2.0 },
+        { label: 'Intermediate', min: 2.0, max: 4.0 },
+        { label: 'Advanced',     min: 4.0, max: 6.0 },
+        { label: 'Pro',          min: 6.0, max: 7.0 },
       ],
     },
 
@@ -178,14 +201,14 @@ export const SPORTS = {
 
     ratingOptions: [
       {
-        id: 'padel_level',
-        title: 'Enter your padel level',
-        description: 'I know my current level (1–10)',
+        id: 'playtomic',
+        title: 'Enter your official Playtomic rating',
+        description: 'I have an official Playtomic account',
         icon: 'star',
       },
       {
         id: 'none',
-        title: "I don't have a level",
+        title: "I don't have a rating",
         description: "I'm new to padel",
         icon: 'help',
       },
@@ -194,21 +217,42 @@ export const SPORTS = {
     introSlides: [
       {
         key: '1',
-        image: require('../../assets/images/onboarding/slide_logbook.jpg'),
+        image: require('../../assets/images/onboarding/player_carousel/padel/player_s1_padel.jpg'),
         title: 'Your beautiful\ntraining journal',
         subtitle: 'Track mood, skills, and every padel session in one place',
       },
       {
         key: '2',
-        image: require('../../assets/images/intro.png'),
+        image: require('../../assets/images/onboarding/player_carousel/padel/player_s2_certified_coach.jpg'),
         title: 'Get trained by\ncertified Pros',
         subtitle: 'Follow programs from top padel coaches and level up faster',
       },
       {
         key: '3',
-        image: require('../../assets/images/onboarding/slide_program.jpeg'),
+        image: require('../../assets/images/onboarding/player_carousel/padel/player_s3_playtomic.jpg'),
         title: 'Your personalized\nPadel Program',
         subtitle: 'Structured path matched to your level — start today',
+      },
+    ],
+
+    coachSlides: [
+      {
+        key: '1',
+        image: require('../../assets/images/onboarding/coach_carousel/padel/coach_s1_padel.jpg'),
+        title: 'Anyone can coach.\nWinners build systems',
+        subtitle: 'Turn your coaching into a real academy, not just a profile. One brand, one standard, every session',
+      },
+      {
+        key: '2',
+        image: require('../../assets/images/onboarding/coach_carousel/padel/coach_s2_padel.jpg'),
+        title: 'One curriculum.\nEvery coach. Every student',
+        subtitle: "Add coaches without losing what made you good. Every student gets the same progression, no matter who's teaching",
+      },
+      {
+        key: '3',
+        image: require('../../assets/images/onboarding/coach_carousel/padel/coach_s3_padel.jpg'),
+        title: 'Your academy.\nYour name. Your price',
+        subtitle: 'White-label from day one. You set the rate, you keep the students, you own the brand as you grow',
       },
     ],
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  NativeModules,
+  Platform,
 } from 'react-native';
 import { Bell, Play, SlidersHorizontal, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
@@ -17,16 +19,105 @@ import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
 
+// FCM is only available in native builds (not Expo Go / web)
+let messaging = null;
+if (NativeModules.RNFBAppModule) {
+  try {
+    messaging = require('@react-native-firebase/messaging').default;
+  } catch (e) {
+    console.warn('[AppSettings] FCM unavailable:', e?.message);
+  }
+}
+
 export default function AppSettingsScreen({ navigation }) {
   const { themeMode, setThemeMode, isDark, logbookTheme: t } = useTheme();
   const { user: authUser, signOut } = useAuth();
   const { resetAllOnboarding } = useUser();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notifLoading, setNotifLoading] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
   const appVersion = '1.0.0';
+
+  // Initialise toggle from real FCM permission status
+  useEffect(() => {
+    if (!messaging) return;
+    (async () => {
+      try {
+        const status = await messaging().hasPermission();
+        const granted =
+          status === messaging.AuthorizationStatus.AUTHORIZED ||
+          status === messaging.AuthorizationStatus.PROVISIONAL;
+        setNotificationsEnabled(granted);
+      } catch (e) {
+        console.warn('[AppSettings] FCM hasPermission error:', e);
+      }
+    })();
+  }, []);
+
+  const handleNotificationsToggle = async (value) => {
+    if (!messaging) {
+      Alert.alert(
+        'Not Available',
+        'Push notifications require a native build. Expo Go does not support FCM.'
+      );
+      return;
+    }
+
+    setNotifLoading(true);
+    try {
+      if (value) {
+        // Request permission
+        const authStatus = await messaging().requestPermission();
+        const granted =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (!granted) {
+          Alert.alert(
+            'Permission Denied',
+            'Push notifications are blocked. Please enable them in your device Settings.'
+          );
+          setNotificationsEnabled(false);
+          return;
+        }
+
+        // Register FCM token
+        const token = await messaging().getToken();
+        if (token && authUser?.id) {
+          await supabase
+            .from('device_push_tokens')
+            .upsert(
+              {
+                user_id: authUser.id,
+                token,
+                platform: Platform.OS,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id,platform' }
+            );
+        }
+        setNotificationsEnabled(true);
+      } else {
+        // Remove token so no further notifications are delivered
+        if (authUser?.id) {
+          await supabase
+            .from('device_push_tokens')
+            .delete()
+            .eq('user_id', authUser.id)
+            .eq('platform', Platform.OS);
+        }
+        setNotificationsEnabled(false);
+      }
+    } catch (e) {
+      console.warn('[AppSettings] Notification toggle error:', e);
+      Alert.alert('Error', 'Failed to update notification setting. Please try again.');
+    } finally {
+      setNotifLoading(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     try {
@@ -102,10 +193,11 @@ export default function AppSettingsScreen({ navigation }) {
     </View>
   );
 
-  const renderSettingRow = (Icon, label, value, onValueChange, description = null, isLast = false) => (
+  const renderSettingRow = (Icon, label, value, onValueChange, description = null, isLast = false, disabled = false) => (
     <View style={[styles.settingRow, {
       borderBottomWidth: isLast ? 0 : 1,
       borderBottomColor: isDark ? t.border : '#F3F4F6',
+      opacity: disabled ? 0.6 : 1,
     }]}>
       <View style={styles.settingLeft}>
         <Icon size={20} color={t.textMuted} strokeWidth={2} />
@@ -122,7 +214,8 @@ export default function AppSettingsScreen({ navigation }) {
       </View>
       <Switch
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={disabled ? undefined : onValueChange}
+        disabled={disabled}
         trackColor={{ false: isDark ? '#333' : '#D1D5DB', true: t.accentPurple }}
         thumbColor={value ? (isDark ? t.fabTextColor : '#fff') : (isDark ? '#666' : '#F3F4F6')}
         ios_backgroundColor={isDark ? '#333' : '#D1D5DB'}
@@ -142,11 +235,12 @@ export default function AppSettingsScreen({ navigation }) {
         {renderSection('Notifications', (
           renderSettingRow(
             Bell,
-            'Enable Notifications',
+            'Enable Push Notifications',
             notificationsEnabled,
-            setNotificationsEnabled,
-            'Receive updates about your training',
+            handleNotificationsToggle,
+            'Receive coaching updates and alerts',
             true,
+            notifLoading,
           )
         ))}
 

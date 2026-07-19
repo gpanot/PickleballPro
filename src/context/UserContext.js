@@ -36,6 +36,7 @@ const DEFAULT_USER = {
   personalizedProgram: null,
   avatarUrl: null,
   sportId: 'pickleball',
+  role: null,  // 'player' | 'coach'
   badges: [
     { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
     { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -49,12 +50,18 @@ export const UserProvider = ({ children }) => {
 
   const [user, setUser] = useState(DEFAULT_USER);
 
+  // ── Player onboarding flags ────────────────────────────────────────────────
   const [hasCompletedIntro, setHasCompletedIntro] = useState(false);
   const [hasSelectedSport, setHasSelectedSport] = useState(false);
   const [hasSelectedGender, setHasSelectedGender] = useState(false);
   const [hasSetRating, setHasSetRating] = useState(false);
   const [hasSetName, setHasSetName] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+
+  // ── Shared / coach onboarding flags ───────────────────────────────────────
+  const [hasSelectedRole, setHasSelectedRole] = useState(false);
+  const [hasCompletedCoachBenefits, setHasCompletedCoachBenefits] = useState(false);
+  const [hasCompletedCoachProfile, setHasCompletedCoachProfile] = useState(false);
 
   // True once the initial AsyncStorage read is done — App waits on this to avoid routing flash
   const [isOnboardingHydrated, setIsOnboardingHydrated] = useState(false);
@@ -81,9 +88,10 @@ export const UserProvider = ({ children }) => {
       loadOnboardingFinishState(),
     ])
       .then(([raw, finishState]) => {
+        let saved = null;
         if (raw) {
           try {
-            const saved = JSON.parse(raw);
+            saved = JSON.parse(raw);
             if (saved.flags) {
               if (saved.flags.hasSelectedSport)   setHasSelectedSport(true);
               // Backward compat: users who completed intro before sport selection was added
@@ -93,17 +101,55 @@ export const UserProvider = ({ children }) => {
               if (saved.flags.hasSetRating)         setHasSetRating(true);
               if (saved.flags.hasSetName)           setHasSetName(true);
               if (saved.flags.hasCompletedOnboarding) setHasCompletedOnboarding(true);
+
+              // Role flags (v2)
+              if (saved.flags.hasSelectedRole)          setHasSelectedRole(true);
+              if (saved.flags.hasCompletedCoachBenefits) setHasCompletedCoachBenefits(true);
+              if (saved.flags.hasCompletedCoachProfile)  setHasCompletedCoachProfile(true);
+
+              // Migration: existing users who already passed sport/intro have implicitly
+              // chosen the player path — treat them as role=player, hasSelectedRole=true
+              // so they are not shown RoleSelectionScreen on upgrade.
+              if (!saved.flags.hasSelectedRole) {
+                const alreadyProgressed =
+                  saved.flags.hasSelectedSport ||
+                  saved.flags.hasCompletedIntro ||
+                  saved.flags.hasSelectedGender ||
+                  saved.flags.hasSetRating ||
+                  saved.flags.hasCompletedOnboarding;
+                if (alreadyProgressed) {
+                  setHasSelectedRole(true);
+                }
+              }
             }
             if (saved.user) {
-              setUser(prev => ({ ...prev, ...saved.user }));
+              setUser(prev => ({
+                ...prev,
+                ...saved.user,
+                // Migration: if no role saved but sport/intro flags existed, default to player
+                role: saved.user.role ?? (prev.role ?? null),
+              }));
             }
           } catch (e) {
             console.warn('UserContext: Failed to parse onboarding state', e);
           }
         }
 
+        // Only trust finish-state "completed" when the user is not mid pre-auth onboarding.
+        // Stale finish markers must not skip Goals → Sign-up after the Name step.
         if (finishState.completed) {
-          setHasCompletedOnboarding(true);
+          const inProgressPreAuth = saved?.flags && (
+            (saved.flags.hasSelectedRole ||
+             saved.flags.hasSelectedSport ||
+             saved.flags.hasCompletedIntro ||
+             saved.flags.hasSelectedGender ||
+             saved.flags.hasSetRating ||
+             saved.flags.hasSetName) &&
+            !saved.flags.hasCompletedOnboarding
+          );
+          if (!inProgressPreAuth) {
+            setHasCompletedOnboarding(true);
+          }
         }
       })
       .catch((e) => console.warn('UserContext: Failed to load onboarding state', e))
@@ -136,6 +182,7 @@ export const UserProvider = ({ children }) => {
           timeCommitment: userData.timeCommitment,
           intensity: userData.intensity,
           sportId: userData.sportId,
+          role: userData.role,
         },
       };
       AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(payload)).catch(
@@ -166,7 +213,7 @@ export const UserProvider = ({ children }) => {
         focus_areas: profile?.focus_areas || user?.focus_areas || [],
         coachPreference: profile?.coach_preference || user?.coachPreference || null,
         personalizedProgram: null,
-        avatarUrl: profile?.avatar_url || user?.avatarUrl || null,
+        avatarUrl: profile?.avatar_url ?? user?.avatarUrl ?? null,
         badges: [
           { id: 1, name: 'Level 1 Complete', emoji: '🎯', unlocked: true },
           { id: 2, name: 'Level 2 Complete', emoji: '🚀', unlocked: true },
@@ -202,7 +249,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, duprRating: rating, ratingType, tier };
       schedulePersist(
-        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating: true, hasSetName, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating: true, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -215,7 +262,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, sportId };
       schedulePersist(
-        { hasSelectedSport: true, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport: true, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -227,18 +274,85 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, sportId: 'pickleball' };
       schedulePersist(
-        { hasSelectedSport: false, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport: false, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
     });
   };
 
+  // ── Role selection (v2) ─────────────────────────────────────────────────────
+
+  const completeRoleSelection = (role) => {
+    setHasSelectedRole(true);
+    // Fresh funnel — clear any stale finish marker so Name doesn't jump to Main
+    setHasCompletedOnboarding(false);
+    resetOnboardingFinishState().catch(() => {});
+    setUser(prevUser => {
+      const next = { ...prevUser, role };
+      schedulePersist(
+        {
+          hasSelectedRole: true,
+          hasSelectedSport,
+          hasCompletedIntro,
+          hasSelectedGender,
+          hasSetRating,
+          hasSetName,
+          hasCompletedOnboarding: false,
+          hasCompletedCoachBenefits,
+          hasCompletedCoachProfile,
+        },
+        next,
+      );
+      return next;
+    });
+  };
+
+  const resetRoleSelection = () => {
+    setHasSelectedRole(false);
+    setHasSelectedSport(false);
+    setHasCompletedCoachBenefits(false);
+    setUser(prevUser => {
+      const next = { ...prevUser, role: null, sportId: 'pickleball' };
+      schedulePersist(
+        { hasSelectedRole: false, hasSelectedSport: false, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits: false, hasCompletedCoachProfile },
+        next,
+      );
+      return next;
+    });
+  };
+
+  // ── Coach onboarding flags (v2) ────────────────────────────────────────────
+
+  const completeCoachBenefits = () => {
+    setHasCompletedCoachBenefits(true);
+    schedulePersist(
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits: true, hasCompletedCoachProfile },
+      user,
+    );
+  };
+
+  const resetCoachBenefits = () => {
+    setHasCompletedCoachBenefits(false);
+    schedulePersist(
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits: false, hasCompletedCoachProfile },
+      user,
+    );
+  };
+
+  const completeCoachProfile = () => {
+    setHasCompletedCoachProfile(true);
+    schedulePersist(
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile: true },
+      user,
+    );
+  };
+
   const updateOnboardingData = async (data) => {
     setUser(prevUser => {
       const next = { ...prevUser, ...data };
       schedulePersist(
-        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -260,7 +374,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, name };
       schedulePersist(
-        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -271,7 +385,7 @@ export const UserProvider = ({ children }) => {
   const completeNameSelection = () => {
     setHasSetName(true);
     schedulePersist(
-      { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding },
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: true, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
       user,
     );
   };
@@ -285,7 +399,7 @@ export const UserProvider = ({ children }) => {
     console.log('UserContext: completeIntro called');
     setHasCompletedIntro(true);
     schedulePersist(
-      { hasSelectedSport, hasCompletedIntro: true, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro: true, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
       user,
     );
   };
@@ -293,7 +407,7 @@ export const UserProvider = ({ children }) => {
   const goBackToIntro = () => {
     setHasCompletedIntro(false);
     schedulePersist(
-      { hasSelectedSport, hasCompletedIntro: false, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding },
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro: false, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
       user,
     );
   };
@@ -301,7 +415,7 @@ export const UserProvider = ({ children }) => {
   const completeGenderSelection = () => {
     setHasSelectedGender(true);
     schedulePersist(
-      { hasSelectedSport, hasCompletedIntro, hasSelectedGender: true, hasSetRating, hasSetName, hasCompletedOnboarding },
+      { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender: true, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
       user,
     );
   };
@@ -312,7 +426,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, gender: null };
       schedulePersist(
-        { hasSelectedSport, hasCompletedIntro, hasSelectedGender: false, hasSetRating, hasSetName, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender: false, hasSetRating, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -325,7 +439,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, duprRating: null, ratingType: null, tier: null };
       schedulePersist(
-        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating: false, hasSetName, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating: false, hasSetName, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -338,7 +452,7 @@ export const UserProvider = ({ children }) => {
     setUser(prevUser => {
       const next = { ...prevUser, name: null };
       schedulePersist(
-        { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: false, hasCompletedOnboarding },
+        { hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName: false, hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile },
         next,
       );
       return next;
@@ -356,12 +470,16 @@ export const UserProvider = ({ children }) => {
 
   const resetAllOnboarding = () => {
     console.log('UserContext: Resetting all onboarding state');
+    setHasSelectedRole(false);
     setHasSelectedSport(false);
     setHasCompletedIntro(false);
     setHasSelectedGender(false);
     setHasSetRating(false);
     setHasSetName(false);
     setHasCompletedOnboarding(false);
+    setHasCompletedCoachBenefits(false);
+    setHasCompletedCoachProfile(false);
+    setUser(prev => ({ ...prev, role: null }));
     AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY).catch(() => {});
     resetOnboardingFinishState().catch(() => {});
   };
@@ -387,12 +505,18 @@ export const UserProvider = ({ children }) => {
   const value = {
     user,
     isOnboardingHydrated,
+    // Player flags
     hasSelectedSport,
     hasCompletedIntro,
     hasSelectedGender,
     hasSetRating,
     hasSetName,
     hasCompletedOnboarding,
+    // Shared / coach flags (v2)
+    hasSelectedRole,
+    hasCompletedCoachBenefits,
+    hasCompletedCoachProfile,
+    // Handlers
     updateUserRating,
     updateUserName,
     updateOnboardingData,
@@ -408,6 +532,12 @@ export const UserProvider = ({ children }) => {
     completeNameSelection,
     completeOnboarding,
     resetAllOnboarding,
+    // Role handlers (v2)
+    completeRoleSelection,
+    resetRoleSelection,
+    completeCoachBenefits,
+    resetCoachBenefits,
+    completeCoachProfile,
     setUser,
     getOnboardingData,
     getTierFromRating,

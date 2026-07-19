@@ -23,6 +23,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
   const { theme, isDark, logbookTheme } = useTheme();
   const [isCoach, setIsCoach] = useState(false);
   const [coachPublished, setCoachPublished] = useState(false);
+  const [isManager, setIsManager] = useState(false);
   const [checkingCoach, setCheckingCoach] = useState(true);
   const [programBadge, setProgramBadge] = useState(false);
 
@@ -59,7 +60,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
   
   useEffect(() => {
     checkIfCoach();
-  }, [authUser]);
+  }, [authUser?.id]);
 
   const checkIfCoach = async () => {
     if (!authUser?.id) {
@@ -70,7 +71,16 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
     try {
       const { isCoach: coachStatus, coachId } = await checkCoachAccess(authUser.id);
       setIsCoach(coachStatus);
-      
+
+      // Check academy manager role (C-4 fix: managers always see the Academy tab)
+      const { data: memberRow } = await supabase
+        .from('academy_members')
+        .select('role')
+        .eq('user_id', authUser.id)
+        .eq('role', 'manager')
+        .maybeSingle();
+      setIsManager(!!memberRow);
+
       // If they're a coach, check if their profile is published (accepting students)
       if (coachStatus && coachId) {
         const { data, error } = await supabase
@@ -202,7 +212,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         component={LeaderboardScreen}
         listeners={{ tabPress: hapticLight }}
       />
-      {isCoach && coachPublished && (
+      {((isCoach && coachPublished) || isManager) && (
         <Tab.Screen 
           name="Academy" 
           component={CoachNavigator}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,23 +7,25 @@ import {
   TouchableOpacity,
   Pressable,
   TextInput,
-  Image,
   ActivityIndicator,
   Alert,
   RefreshControl,
   Modal,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Users, Library, Search, Plus, X, ChevronRight, AlertCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useUser } from '../../context/UserContext';
 import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase, transformProgramData } from '../../lib/supabase';
 import SeededAvatar from '../../components/SeededAvatar';
 import { useTheme } from '../../context/ThemeContext';
-import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
+import ScreenAvatarHeader from '../../components/ScreenAvatarHeader';
 
 export default function CoachDashboardScreen({ navigation }) {
   const { user: authUser } = useAuth();
+  const { user: userProfile } = useUser();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { logbookTheme: t, isDark } = useTheme();
@@ -48,12 +50,23 @@ export default function CoachDashboardScreen({ navigation }) {
   const [coachPrograms, setCoachPrograms] = useState([]);
   const [programsLoading, setProgramsLoading] = useState(false);
   const [programsError, setProgramsError] = useState(null);
-  
+
+  // Academy context card state (C-2)
+  const [academyContext, setAcademyContext] = useState(null); // { academyId, academyName, slug, managerName, managerEmail }
+  const bootstrappedUserIdRef = useRef(null);
+
   // Removed stats state (Active programs / Avg skill / Upcoming assessments)
 
   useEffect(() => {
+    if (!authUser?.id) return;
+
+    // Bootstrap only once per authenticated user to avoid full-screen reloads
+    // when AuthContext emits non-ID user object updates.
+    if (bootstrappedUserIdRef.current === authUser.id) return;
+
+    bootstrappedUserIdRef.current = authUser.id;
     checkCoachAndLoadData();
-  }, [authUser]);
+  }, [authUser?.id]);
 
   // Reload when the tab/screen gains focus - but only reload students, not programs
   useEffect(() => {
@@ -83,7 +96,8 @@ export default function CoachDashboardScreen({ navigation }) {
       setCoachId(id);
       await Promise.all([
         loadStudents(id),
-        loadCoachPrograms()
+        loadCoachPrograms(),
+        loadAcademyContext(),
       ]);
     } catch (error) {
       console.error('Error checking coach access:', error);
@@ -157,6 +171,64 @@ export default function CoachDashboardScreen({ navigation }) {
     }
   };
 
+  // C-2: load academy context for the coach context card
+  const loadAcademyContext = async () => {
+    if (!authUser?.id) return;
+    try {
+      // Step 1: get academy membership (no join — use separate queries like the rest of the codebase)
+      const { data: memberRow } = await supabase
+        .from('academy_members')
+        .select('academy_id, role')
+        .eq('user_id', authUser.id)
+        .maybeSingle();
+
+      if (!memberRow?.academy_id) {
+        setAcademyContext(null);
+        return;
+      }
+
+      const academyId = memberRow.academy_id;
+
+      // Step 2: fetch academy info
+      const { data: academyRow } = await supabase
+        .from('academies')
+        .select('name, slug')
+        .eq('id', academyId)
+        .maybeSingle();
+
+      // Step 3: find the manager row to get their user_id
+      const { data: managerMemberRow } = await supabase
+        .from('academy_members')
+        .select('user_id')
+        .eq('academy_id', academyId)
+        .eq('role', 'manager')
+        .maybeSingle();
+
+      // Step 4: fetch manager's name/email from public.users
+      let managerName = null;
+      let managerEmail = null;
+      if (managerMemberRow?.user_id) {
+        const { data: managerUser } = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', managerMemberRow.user_id)
+          .maybeSingle();
+        managerName = managerUser?.name ?? null;
+        managerEmail = managerUser?.email ?? null;
+      }
+
+      setAcademyContext({
+        academyId,
+        academyName: academyRow?.name ?? null,
+        slug: academyRow?.slug ?? null,
+        managerName,
+        managerEmail,
+      });
+    } catch (err) {
+      console.error('[C-2] loadAcademyContext error:', err);
+    }
+  };
+
   // Removed loadStats function and related queries
 
   const loadCoachPrograms = async () => {
@@ -166,10 +238,20 @@ export default function CoachDashboardScreen({ navigation }) {
         setProgramsLoading(true);
       }
       setProgramsError(null);
-      
-      const { data, error } = await supabase
-        .from('programs')
-        .select(`
+
+      // Resolve academy membership (C-1: two-path loader)
+      let academyId = null;
+      if (authUser?.id) {
+        const { data: memberRow } = await supabase
+          .from('academy_members')
+          .select('academy_id')
+          .eq('user_id', authUser.id)
+          .eq('role', 'coach')
+          .maybeSingle();
+        academyId = memberRow?.academy_id ?? null;
+      }
+
+      const programFields = `
           id,
           name,
           description,
@@ -193,11 +275,19 @@ export default function CoachDashboardScreen({ navigation }) {
               exercises (*)
             )
           )
-        `)
-        .eq('is_published', true)
-        .eq('is_coach_program', true) // Only coach-only programs
-        .order('category', { ascending: true })
-        .order('order_index', { ascending: true });
+        `;
+
+      let query = supabase.from('programs').select(programFields).eq('is_published', true);
+      if (academyId) {
+        // Academy coach: show academy's published programs
+        query = query.eq('academy_id', academyId);
+      } else {
+        // Solo coach: show global coach programs only
+        query = query.eq('is_coach_program', true);
+      }
+      query = query.order('category', { ascending: true }).order('order_index', { ascending: true });
+
+      const { data, error } = await query;
       
       if (error) throw error;
       
@@ -250,6 +340,15 @@ export default function CoachDashboardScreen({ navigation }) {
       setStudentCodeInput('');
       setShowAddStudentModal(false);
       await loadStudents();
+
+      // Fire PNS to the student (fire-and-forget — don't block the UI)
+      if (authUser?.id && data.student?.id) {
+        supabase.functions
+          .invoke('notify-on-student-added', {
+            body: { coachUserId: authUser.id, studentUserId: data.student.id },
+          })
+          .catch((e) => console.warn('[CoachDashboard] notify-on-student-added failed:', e));
+      }
     } catch (error) {
       console.error('Error adding student:', error);
       Alert.alert('Error', 'Failed to add student.');
@@ -383,18 +482,17 @@ export default function CoachDashboardScreen({ navigation }) {
     return 'Just now';
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: t.bg }]}>
-        <ActivityIndicator size="large" color={t.accentPurple} />
-        <Text style={[styles.loadingText, { color: t.textMuted }]}>Loading dashboard...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
-      <ScreenHeaderShell tokens={t} isDark={isDark} background="surface" bordered title="Coach Dashboard">
+      <ScreenAvatarHeader
+        tokens={t}
+        isDark={isDark}
+        background="surface"
+        bordered
+        title="Academy"
+        user={userProfile}
+        onAvatarPress={() => navigation.getParent()?.navigate('Profile')}
+      >
         {/* Tabs */}
         <View style={styles.tabContainer}>
           {[
@@ -419,7 +517,7 @@ export default function CoachDashboardScreen({ navigation }) {
             );
           })}
         </View>
-        
+
         <View style={[styles.searchContainer, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderColor: isDark ? t.border : '#E5E7EB' }]}>
           <Search size={18} color={t.textMuted} strokeWidth={2} style={styles.searchIcon} />
           <TextInput
@@ -430,7 +528,7 @@ export default function CoachDashboardScreen({ navigation }) {
             onChangeText={setSearchQuery}
           />
         </View>
-      </ScreenHeaderShell>
+      </ScreenAvatarHeader>
 
       {/* Stats Summary removed per requirements */}
 
@@ -442,6 +540,35 @@ export default function CoachDashboardScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={t.accentPurple} />
         }
       >
+        {loading ? (
+          <View style={styles.inlineLoader}>
+            <ActivityIndicator size="large" color={t.accentPurple} />
+          </View>
+        ) : (
+        <>
+        {/* C-2: Academy context card — visible on both Students and Programs tabs */}
+        {academyContext && (
+          <View style={[styles.academyCard, { backgroundColor: isDark ? t.surfaceRaised : `${t.accentPurple}08`, borderColor: isDark ? t.border : `${t.accentPurple}25` }]}>
+            <View style={styles.academyCardRow}>
+              <View style={[styles.academyBadge, { backgroundColor: `${t.accentPurple}20` }]}>
+                <Text style={[styles.academyBadgeText, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>My Academy</Text>
+              </View>
+              {academyContext.slug && (
+                <Text style={[styles.academySlug, { color: t.textMuted, fontFamily: t.fontBody }]}>@{academyContext.slug}</Text>
+              )}
+            </View>
+            {academyContext.academyName && (
+              <Text style={[styles.academyName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{academyContext.academyName}</Text>
+            )}
+            {academyContext.managerName && (
+              <Text style={[styles.academyManager, { color: t.textSecondary, fontFamily: t.fontBody }]}>
+                Manager: {academyContext.managerName}
+                {academyContext.managerEmail ? ` · ${academyContext.managerEmail}` : ''}
+              </Text>
+            )}
+          </View>
+        )}
+
         {activeTab === 'students' ? (
           <>
             <Text style={[styles.sectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
@@ -466,56 +593,51 @@ export default function CoachDashboardScreen({ navigation }) {
             ) : (
               filteredStudents.map((student) => (
                 <View key={student.id} style={[styles.playerCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}>
-                  <Pressable
-                    style={styles.playerHeader}
-                    onPress={() => handleStudentPress(student)}
-                    onLongPress={() => handleRemoveStudent(student)}
-                    android_ripple={{ color: 'rgba(0, 0, 0, 0.05)' }}
-                  >
-                    <SeededAvatar uri={student.avatarUrl} name={student.name} size={44} />
-                    <View style={styles.playerInfo}>
-                      <Text style={[styles.playerName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{student.name}</Text>
-                      <View style={styles.playerMeta}>
-                        {student.duprRating && (
-                          <Text style={[styles.duprText, { color: t.textMuted, fontFamily: t.fontBody }]}>Rating: {student.duprRating}</Text>
-                        )}
-                        {student.tier && (
-                          <Text style={[styles.tierText, { color: t.textMuted, fontFamily: t.fontBody }]}>• {student.tier}</Text>
+                  <View style={styles.playerRow}>
+                    <Pressable
+                      style={styles.playerHeader}
+                      onPress={() => handleStudentPress(student)}
+                      onLongPress={() => handleRemoveStudent(student)}
+                      android_ripple={{ color: 'rgba(0, 0, 0, 0.05)' }}
+                    >
+                      <SeededAvatar uri={student.avatarUrl} name={student.name} size={44} />
+                      <View style={styles.playerInfo}>
+                        <Text style={[styles.playerName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{student.name}</Text>
+                        <View style={styles.playerMeta}>
+                          {student.duprRating && (
+                            <Text style={[styles.duprText, { color: t.textMuted, fontFamily: t.fontBody }]}>Rating: {student.duprRating}</Text>
+                          )}
+                          {student.tier && (
+                            <Text style={[styles.tierText, { color: t.textMuted, fontFamily: t.fontBody }]}>• {student.tier}</Text>
+                          )}
+                        </View>
+                        {student.lastAssessmentDate ? (
+                          <Text style={[styles.lastAssessmentText, { color: t.textCaption, fontFamily: t.fontBody }]} numberOfLines={1}>
+                            Assessment: {getRelativeTime(student.lastAssessmentDate)}
+                          </Text>
+                        ) : (
+                          <Text style={[styles.lastAssessmentText, { color: t.textCaption, fontFamily: t.fontBody }]} numberOfLines={1}>
+                            No assessment yet
+                          </Text>
                         )}
                       </View>
-                      {student.lastAssessmentDate ? (
-                        <Text style={[styles.lastAssessmentText, { color: t.textCaption, fontFamily: t.fontBody }]} numberOfLines={1}>
-                          Assessment: {getRelativeTime(student.lastAssessmentDate)}
-                        </Text>
-                      ) : (
-                        <Text style={[styles.lastAssessmentText, { color: t.textCaption, fontFamily: t.fontBody }]} numberOfLines={1}>
-                          No assessment yet
-                        </Text>
-                      )}
-                    </View>
-                    {student.lastAssessmentScore !== null && (
-                      <View style={styles.scoreContainer}>
-                        <Text style={[styles.scoreText, { color: t.accentPurple, fontFamily: t.fontDisplay }]} numberOfLines={1}>
-                          {String(student.lastAssessmentScore)}
-                        </Text>
-                      </View>
-                    )}
-                  </Pressable>
-                  <TouchableOpacity
-                    style={[styles.assignProgramBtn, { backgroundColor: `${t.accentPurple}15` }]}
-                    onPress={() => {
-                      if (coachPrograms.length === 0) {
-                        Alert.alert('No Programs', 'Create a coach program first before assigning.');
-                        return;
-                      }
-                      setAssignTarget(student);
-                      setAssigningProgramId(coachPrograms[0].id);
-                      setShowAssignModal(true);
-                    }}
-                  >
-                    <Plus size={14} color={t.accentPurple} strokeWidth={2.5} style={{ marginRight: 4 }} />
-                    <Text style={[styles.assignProgramBtnText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Assign Program</Text>
-                  </TouchableOpacity>
+                    </Pressable>
+                    <TouchableOpacity
+                      style={[styles.assignProgramBtn, { backgroundColor: `${t.accentPurple}15` }]}
+                      onPress={() => {
+                        if (coachPrograms.length === 0) {
+                          Alert.alert('No Programs', 'Create a coach program first before assigning.');
+                          return;
+                        }
+                        setAssignTarget(student);
+                        setAssigningProgramId(coachPrograms[0].id);
+                        setShowAssignModal(true);
+                      }}
+                    >
+                      <Plus size={13} color={t.accentPurple} strokeWidth={2.5} />
+                      <Text style={[styles.assignProgramBtnText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>Assign</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))
             )}
@@ -579,6 +701,8 @@ export default function CoachDashboardScreen({ navigation }) {
                 ))
             )}
           </>
+        )}
+        </>
         )}
       </ScrollView>
 
@@ -650,7 +774,8 @@ export default function CoachDashboardScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <Text style={[styles.modalDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
-              Enter the 4-digit student code to add a player to your roster.
+              1. Ask your student to download AcademyPro.{'\n'}
+              2. Enter the 4-digit student code to add a player to your roster.
             </Text>
             <TextInput
               style={[styles.modalInput, { borderColor: isDark ? t.border : '#E5E7EB', color: t.textPrimary, backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB' }]}
@@ -688,8 +813,7 @@ export default function CoachDashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 16, fontSize: 16 },
+  inlineLoader: { paddingVertical: 60, alignItems: 'center' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1 },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 14 },
@@ -707,18 +831,17 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
   sectionTitle: { fontSize: 17, marginBottom: 14 },
-  playerCard: { borderRadius: 16, padding: 11, marginBottom: 8 },
-  playerHeader: { flexDirection: 'row', alignItems: 'center' },
+  playerCard: { borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8 },
+  playerRow: { flexDirection: 'row', alignItems: 'center' },
+  playerHeader: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   playerInfo: { flex: 1, justifyContent: 'center', flexShrink: 1, marginLeft: 12 },
-  playerName: { fontSize: 17, marginBottom: 3 },
+  playerName: { fontSize: 15, marginBottom: 3 },
   playerMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   duprText: { fontSize: 13, marginRight: 6 },
   tierText: { fontSize: 13 },
   lastAssessmentText: { fontSize: 12 },
-  scoreContainer: { justifyContent: 'center', alignItems: 'flex-end', marginLeft: 12, width: 120, flexShrink: 0 },
-  scoreText: { fontSize: 34, lineHeight: 40, textAlign: 'right' },
-  assignProgramBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 7, marginTop: 6, marginHorizontal: 12, marginBottom: 6, borderRadius: 10, alignSelf: 'flex-start' },
-  assignProgramBtnText: { fontSize: 12 },
+  assignProgramBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8, marginLeft: 8, borderRadius: 10, alignSelf: 'center', flexShrink: 0 },
+  assignProgramBtnText: { fontSize: 11 },
   programPickerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, marginBottom: 8 },
   radioCircle: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, marginRight: 10 },
   programPickerText: { fontSize: 14, flex: 1 },
@@ -729,6 +852,14 @@ const styles = StyleSheet.create({
   addButton: { position: 'absolute', right: 16, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 16 },
   modalContent: { borderRadius: 20, padding: 24, width: '100%', maxWidth: 400 },
+  // C-2: academy context card styles
+  academyCard: { borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1 },
+  academyCardRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 8 },
+  academyBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  academyBadgeText: { fontSize: 11 },
+  academySlug: { fontSize: 12 },
+  academyName: { fontSize: 16, marginBottom: 4 },
+  academyManager: { fontSize: 13 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   modalTitle: { fontSize: 19 },
   modalDescription: { fontSize: 14, marginBottom: 20, lineHeight: 20 },

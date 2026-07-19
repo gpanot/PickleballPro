@@ -10,28 +10,49 @@ import {
 } from 'react-native';
 import { CheckCircle, ChevronRight, Library } from 'lucide-react-native';
 import { supabase, transformProgramData } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ScreenHeaderShell } from '../../components/logbook/ScreenHeader';
 
 export default function AssignProgramListScreen({ route, navigation }) {
   const { studentId, studentName, assignedProgramIds = [] } = route.params || {};
   const { logbookTheme: t, isDark } = useTheme();
+  const { user: authUser } = useAuth();
 
   const [coachPrograms, setCoachPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { loadCoachPrograms(); }, []);
+  useEffect(() => { loadCoachPrograms(); }, [authUser?.id]);
 
   const loadCoachPrograms = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('programs')
-        .select(`id, name, description, category, tier, thumbnail_url, rating, added_count, order_index, created_at, routines(id, name, description, order_index, time_estimate_minutes, routine_exercises(order_index, custom_target_value, is_optional, exercises(*)))`)
-        .eq('is_published', true)
-        .eq('is_coach_program', true)
-        .order('category', { ascending: true })
-        .order('order_index', { ascending: true });
+
+      const programFields = `id, name, description, category, tier, thumbnail_url, rating, added_count, order_index, created_at, routines(id, name, description, order_index, time_estimate_minutes, routine_exercises(order_index, custom_target_value, is_optional, exercises(*)))`;
+
+      // Resolve academy membership (C-1: two-path loader)
+      let academyId = null;
+      if (authUser?.id) {
+        const { data: memberRow } = await supabase
+          .from('academy_members')
+          .select('academy_id')
+          .eq('user_id', authUser.id)
+          .eq('role', 'coach')
+          .maybeSingle();
+        academyId = memberRow?.academy_id ?? null;
+      }
+
+      let query = supabase.from('programs').select(programFields).eq('is_published', true);
+      if (academyId) {
+        // Academy coach: show academy's published programs
+        query = query.eq('academy_id', academyId);
+      } else {
+        // Solo coach: show global coach programs only
+        query = query.eq('is_coach_program', true);
+      }
+      query = query.order('category', { ascending: true }).order('order_index', { ascending: true });
+
+      const { data, error } = await query;
       if (error) throw error;
       setCoachPrograms(data ? transformProgramData(data) : []);
     } catch (error) {

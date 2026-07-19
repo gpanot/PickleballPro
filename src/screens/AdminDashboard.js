@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   StyleSheet,
   Image,
   useWindowDimensions,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -171,6 +173,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showNewAssessmentPicker, setShowNewAssessmentPicker] = useState(false);
   const [showCreateProgramModal, setShowCreateProgramModal] = useState(false);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
   const [showEditRoutineModal, setShowEditRoutineModal] = useState(false);
@@ -217,11 +220,15 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [coachStatusFilter, setCoachStatusFilter] = useState('all');
   const [coachVerifiedFilter, setCoachVerifiedFilter] = useState('all');
   const [showCoachFilterDropdown, setShowCoachFilterDropdown] = useState(false);
+  const [contentStatusFilter, setContentStatusFilter] = useState('all');
+  const [showContentFilterDropdown, setShowContentFilterDropdown] = useState(false);
+  const contentSearchInputRef = useRef(null);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [userToResetPassword, setUserToResetPassword] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   // Academy manager state
   const [publishingProgramId, setPublishingProgramId] = useState(null);
+  const [unpublishingProgramId, setUnpublishingProgramId] = useState(null); // AO-3
   const [academyMembers, setAcademyMembers] = useState([]);
   const [academyInfo, setAcademyInfo] = useState(null);
   const [addCoachEmail, setAddCoachEmail] = useState('');
@@ -229,6 +236,21 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [addCoachLoading, setAddCoachLoading] = useState(false);
   const [addCoachError, setAddCoachError] = useState('');
   const [addCoachSuccess, setAddCoachSuccess] = useState('');
+  const [updatingMemberId, setUpdatingMemberId] = useState(null); // AO-2
+  const [removingMemberId, setRemovingMemberId] = useState(null); // AO-2
+  const [academyStudents, setAcademyStudents] = useState([]); // AO-1
+  const [studentsLoading, setStudentsLoading] = useState(false); // AO-1
+  const [academyEditName, setAcademyEditName] = useState(''); // AO-4
+  const [academySettingsSaving, setAcademySettingsSaving] = useState(false); // AO-4
+  const [academyLogoUploading, setAcademyLogoUploading] = useState(false); // AO-4
+  const [academySettingsError, setAcademySettingsError] = useState(''); // AO-4
+  const [inviteRole, setInviteRole] = useState('coach'); // AO-5
+  const [generatingInvite, setGeneratingInvite] = useState(false); // AO-5
+  const [generatedInviteLink, setGeneratedInviteLink] = useState(''); // AO-5
+  const [copyConfirmed, setCopyConfirmed] = useState(false); // AO-5
+  const [createAcademyName, setCreateAcademyName] = useState(''); // create-academy form
+  const [creatingAcademy, setCreatingAcademy] = useState(false); // create-academy loading
+  const [bannerMessage, setBannerMessage] = useState(''); // C-3: non-blocking notification banner
   
 
   // Responsive layout
@@ -242,7 +264,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
   const isCoachSession   = sessionRole === 'coach';
   const isManagerSession = sessionRole === 'manager';
-  const COACH_ALLOWED_TABS   = ['dashboard', 'content'];
+  const COACH_ALLOWED_TABS   = ['dashboard', 'content', 'academy', 'assessments'];
   const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'academy', 'assessments'];
 
   useEffect(() => {
@@ -276,6 +298,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       fetchFeedback();
     } else if (activeTab === 'academy') {
       fetchAcademyMembers();
+      fetchAcademyStudents(); // AO-1
     }
   }, [activeTab, contentTab, isCoachSession, isManagerSession]);
 
@@ -938,6 +961,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         .eq('id', academyId)
         .maybeSingle();
       setAcademyInfo(acad);
+      if (acad?.name) setAcademyEditName(acad.name); // AO-4: pre-fill settings
 
       // Fetch members with user profile
       const { data: members, error } = await supabase
@@ -984,11 +1008,242 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       if (error) throw error;
       // Refresh list
       await fetchPrograms();
+
+      // C-3: Fire-and-forget push notification to the program author.
+      // Non-blocking: publish already succeeded; a notification failure should not block the manager.
+      supabase.functions.invoke('notify-on-publish', {
+        body: {
+          programId: program.id,
+          programName: program.name,
+          authorUserId: program.created_by,
+        },
+      }).then(({ error: fnError }) => {
+        if (fnError) {
+          console.warn('[notify-on-publish] Notification may not have delivered:', fnError.message);
+          setBannerMessage('Program published. Notification to coach may not have delivered.');
+          setTimeout(() => setBannerMessage(''), 5000);
+        }
+      });
     } catch (err) {
       Alert.alert('Error', err.message || 'Failed to publish program');
     } finally {
       setPublishingProgramId(null);
     }
+  };
+
+  // AO-1: Academy-wide student roster (manager read-only)
+  const fetchAcademyStudents = async () => {
+    if (!academyId) return;
+    setStudentsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('coach_students')
+        .select(`
+          id,
+          created_at,
+          student_id,
+          coach_id,
+          users!student_id(name, email, avatar_url),
+          coaches!coach_id(name)
+        `)
+        .eq('academy_id', academyId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAcademyStudents(data || []);
+    } catch (err) {
+      console.error('fetchAcademyStudents error:', err);
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  // AO-4: Save academy name (and optionally logo_url) to DB
+  const handleSaveAcademySettings = async (logoUrl) => {
+    if (!academyEditName.trim()) {
+      setAcademySettingsError('Academy name cannot be empty.');
+      return;
+    }
+    setAcademySettingsError('');
+    setAcademySettingsSaving(true);
+    try {
+      const update = { name: academyEditName.trim() };
+      if (logoUrl !== undefined) update.logo_url = logoUrl;
+      const { error } = await supabase
+        .from('academies')
+        .update(update)
+        .eq('id', academyId);
+      if (error) throw error;
+      await fetchAcademyMembers(); // refreshes academyInfo which includes name
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to save academy settings');
+    } finally {
+      setAcademySettingsSaving(false);
+    }
+  };
+
+  // Create a brand-new academy for a coach who doesn't have one yet
+  const handleCreateAcademy = async () => {
+    const name = createAcademyName.trim();
+    if (!name) { Alert.alert('Validation', 'Please enter an academy name.'); return; }
+    setCreatingAcademy(true);
+    try {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+        + '-' + Math.random().toString(36).slice(2, 7);
+      const { data: acad, error: acadErr } = await supabase
+        .from('academies')
+        .insert({ name, slug, created_by: user?.id })
+        .select()
+        .single();
+      if (acadErr) throw acadErr;
+      // Add the coach as manager of the new academy
+      await supabase.from('academy_members').insert({
+        academy_id: acad.id,
+        user_id: user?.id,
+        role: 'manager',
+      });
+      // Persist academy_id on the coach's profile so navigation knows about it
+      if (coachId) {
+        await supabase.from('coaches').update({ academy_id: acad.id }).eq('id', coachId);
+      }
+      Alert.alert('Academy created!', `"${name}" is ready. Reload the app to see your full Academy dashboard.`);
+      setCreateAcademyName('');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to create academy.');
+    } finally {
+      setCreatingAcademy(false);
+    }
+  };
+
+  // AO-4: Upload academy logo to Supabase Storage
+  const handleAcademyLogoFile = async (file) => {
+    if (!file || !academyId) return;
+    setAcademyLogoUploading(true);
+    try {
+      const ext = file.name?.split('.').pop() || 'jpg';
+      const storagePath = `academy-logos/${academyId}/logo.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(storagePath);
+      await handleSaveAcademySettings(publicUrl);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to upload logo');
+    } finally {
+      setAcademyLogoUploading(false);
+    }
+  };
+
+  // AO-5: Generate an academy invite link
+  const handleGenerateInvite = async () => {
+    if (!academyId || generatingInvite) return;
+    setGeneratingInvite(true);
+    setGeneratedInviteLink('');
+    try {
+      const { data, error } = await supabase
+        .from('academy_invites')
+        .insert({ academy_id: academyId, role: inviteRole, created_by: user?.id })
+        .select('token')
+        .single();
+      if (error) throw error;
+      setGeneratedInviteLink(`academypro://invite/${data.token}`);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to generate invite link');
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
+  // AO-3: Unpublish a program back to draft
+  const handleUnpublishProgram = async (program) => {
+    if (!program || unpublishingProgramId) return;
+    setUnpublishingProgramId(program.id);
+    try {
+      const { error } = await supabase
+        .from('programs')
+        .update({ is_published: false })
+        .eq('id', program.id)
+        .eq('academy_id', academyId); // safety: only touch academy-scoped programs
+      if (error) throw error;
+      // Refresh list — PreloadContext in-memory cache clears on next app open (see AO-3 plan note)
+      await fetchPrograms();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to unpublish program');
+    } finally {
+      setUnpublishingProgramId(null);
+    }
+  };
+
+  // AO-2: Change member role
+  const handleChangeMemberRole = async (member, newRole) => {
+    if (!member || updatingMemberId) return;
+    setUpdatingMemberId(member.id);
+    try {
+      const { error } = await supabase
+        .from('academy_members')
+        .update({ role: newRole })
+        .eq('id', member.id);
+      if (error) throw error;
+      await fetchAcademyMembers();
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to update member role');
+    } finally {
+      setUpdatingMemberId(null);
+    }
+  };
+
+  // AO-2: Remove a member from the academy.
+  // SCHEMA NOTE: coach_students.coach_id references coaches.id (NOT users.id).
+  // Cleanup step must resolve coaches.id via coaches.user_id before querying coach_students.
+  const handleRemoveMember = (member) => {
+    Alert.alert(
+      'Remove Member',
+      `Remove ${member.user?.name || member.user?.email || 'this member'} from the academy?\n\nTheir programs and student history will be preserved.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingMemberId(member.id);
+            try {
+              // Step 1: remove from academy_members
+              const { error: memberError } = await supabase
+                .from('academy_members')
+                .delete()
+                .eq('id', member.id);
+              if (memberError) throw memberError;
+
+              // Step 2: null out academy_id on all coach_students rows for this coach
+              // so their students no longer appear in the academy roster (AC-AO2-7).
+              // coach_students.coach_id references coaches.id (not users.id), so we
+              // must look up the coaches row first.
+              const { data: coachRow } = await supabase
+                .from('coaches')
+                .select('id')
+                .eq('user_id', member.user_id)
+                .maybeSingle();
+              if (coachRow?.id) {
+                await supabase
+                  .from('coach_students')
+                  .update({ academy_id: null })
+                  .eq('coach_id', coachRow.id)
+                  .eq('academy_id', academyId);
+              }
+
+              await fetchAcademyMembers();
+            } catch (err) {
+              Alert.alert('Error', err.message || 'Failed to remove member');
+            } finally {
+              setRemovingMemberId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddCoachToAcademy = async () => {
@@ -1250,53 +1505,47 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const renderOverview = () => (
     <View style={styles.content}>
       {/* Quick Action Buttons */}
-      <View style={styles.dashboardQuickActions}>
+      <View style={[styles.dashboardQuickActions, isMobile && styles.dashboardQuickActionsCompact]}>
         <TouchableOpacity 
-          style={styles.dashboardRefreshAction}
-          onPress={handleRefresh}
-          disabled={loading}
+          style={[styles.dashboardPrimaryAction, isMobile && styles.dashboardActionCompact]}
+          onPress={() => setShowCreateProgramModal(true)}
         >
-          <Ionicons 
-            name="refresh" 
-            size={20} 
-            color={loading ? "#9CA3AF" : "#3B82F6"}
-          />
-          <Text style={[styles.dashboardRefreshActionText, loading && { color: "#9CA3AF" }]}>
-            {loading ? 'Refreshing...' : 'Refresh Data'}
+          <Ionicons name="add" size={isMobile ? 16 : 20} color="white" />
+          <Text style={[styles.dashboardPrimaryActionText, isMobile && styles.dashboardActionTextCompact]}>
+            {isMobile ? 'Program' : 'Add Program'}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.dashboardPrimaryAction}
-          onPress={() => setShowCreateProgramModal(true)}
-        >
-          <Ionicons name="add" size={20} color="white" />
-          <Text style={styles.dashboardPrimaryActionText}>Add Program</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.dashboardSecondaryAction}
+          style={[styles.dashboardSecondaryAction, isMobile && styles.dashboardActionCompact]}
           onPress={() => setShowCreateRoutineModal(true)}
         >
-          <Ionicons name="add" size={20} color="#6B7280" />
-          <Text style={styles.dashboardSecondaryActionText}>Add Routine</Text>
+          <Ionicons name="add" size={isMobile ? 16 : 20} color="#6B7280" />
+          <Text style={[styles.dashboardSecondaryActionText, isMobile && styles.dashboardActionTextCompact]}>
+            {isMobile ? 'Routine' : 'Add Routine'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.dashboardSecondaryAction}
+          style={[styles.dashboardSecondaryAction, isMobile && styles.dashboardActionCompact]}
           onPress={() => setShowCreateExerciseModal(true)}
         >
-          <Ionicons name="add" size={20} color="#6B7280" />
-          <Text style={styles.dashboardSecondaryActionText}>Add Exercise</Text>
+          <Ionicons name="add" size={isMobile ? 16 : 20} color="#6B7280" />
+          <Text style={[styles.dashboardSecondaryActionText, isMobile && styles.dashboardActionTextCompact]}>
+            {isMobile ? 'Exercise' : 'Add Exercise'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={styles.dashboardSecondaryAction}
+          style={[styles.dashboardSecondaryAction, isMobile && styles.dashboardActionCompact]}
           onPress={() => setShowAddCoachModal(true)}
         >
-          <Ionicons name="add" size={20} color="#6B7280" />
-          <Text style={styles.dashboardSecondaryActionText}>Add Coach</Text>
+          <Ionicons name="add" size={isMobile ? 16 : 20} color="#6B7280" />
+          <Text style={[styles.dashboardSecondaryActionText, isMobile && styles.dashboardActionTextCompact]}>
+            {isMobile ? 'Coach' : 'Add Coach'}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Main Stats Cards */}
-      <View style={[styles.dashboardStatsGrid, isManagerSession && isMobile && styles.dashboardStatsGridRow]}>
+      <View style={[styles.dashboardStatsGrid, isMobile && styles.dashboardStatsGridRow]}>
         {isManagerSession ? (
           <>
             <View style={[styles.dashboardStatCard, compactStatCardStyle]}>
@@ -1341,60 +1590,68 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           </>
         ) : (
           <>
-        <View style={styles.dashboardStatCard}>
-          <View style={styles.dashboardStatHeader}>
-            <Ionicons name="people-outline" size={24} color="#6B7280" />
+        <View style={[styles.dashboardStatCard, isMobile && styles.dashboardStatCardKpi]}>
+          <View style={[styles.dashboardStatHeader, isMobile && styles.dashboardStatHeaderKpi]}>
+            <Ionicons name="people-outline" size={isMobile ? 18 : 24} color="#6B7280" />
           </View>
-          <Text style={styles.dashboardStatNumber}>{loading ? '—' : stats.users?.toLocaleString() || '0'}</Text>
-          <Text style={styles.dashboardStatLabel}>Total Users</Text>
-          <View style={styles.dashboardStatTrend}>
-            <View style={styles.dashboardTrendBadge}>
-              <Text style={styles.dashboardTrendText}>—</Text>
+          <Text style={[styles.dashboardStatNumber, isMobile && styles.dashboardStatNumberKpi]}>{loading ? '—' : stats.users?.toLocaleString() || '0'}</Text>
+          <Text style={[styles.dashboardStatLabel, isMobile && styles.dashboardStatLabelKpi]}>{isMobile ? 'Users' : 'Total Users'}</Text>
+          {!isMobile && (
+            <View style={styles.dashboardStatTrend}>
+              <View style={styles.dashboardTrendBadge}>
+                <Text style={styles.dashboardTrendText}>—</Text>
+              </View>
+              <Text style={styles.dashboardStatSubtext}>Registered users</Text>
             </View>
-            <Text style={styles.dashboardStatSubtext}>Registered users</Text>
-          </View>
+          )}
         </View>
 
-        <View style={styles.dashboardStatCard}>
-          <View style={styles.dashboardStatHeader}>
-            <Ionicons name="library-outline" size={24} color="#6B7280" />
+        <View style={[styles.dashboardStatCard, isMobile && styles.dashboardStatCardKpi]}>
+          <View style={[styles.dashboardStatHeader, isMobile && styles.dashboardStatHeaderKpi]}>
+            <Ionicons name="library-outline" size={isMobile ? 18 : 24} color="#6B7280" />
           </View>
-          <Text style={styles.dashboardStatNumber}>{loading ? '—' : publishedStats.published_programs?.toLocaleString() || '0'}</Text>
-          <Text style={styles.dashboardStatLabel}>Published Programs</Text>
-          <View style={styles.dashboardStatTrend}>
-            <View style={[styles.dashboardTrendBadge, styles.dashboardTrendSuccess]}>
-              <Text style={[styles.dashboardTrendText, styles.dashboardTrendSuccessText]}>Live</Text>
+          <Text style={[styles.dashboardStatNumber, isMobile && styles.dashboardStatNumberKpi]}>{loading ? '—' : publishedStats.published_programs?.toLocaleString() || '0'}</Text>
+          <Text style={[styles.dashboardStatLabel, isMobile && styles.dashboardStatLabelKpi]}>{isMobile ? 'Programs' : 'Published Programs'}</Text>
+          {!isMobile && (
+            <View style={styles.dashboardStatTrend}>
+              <View style={[styles.dashboardTrendBadge, styles.dashboardTrendSuccess]}>
+                <Text style={[styles.dashboardTrendText, styles.dashboardTrendSuccessText]}>Live</Text>
+              </View>
+              <Text style={styles.dashboardStatSubtext}>Available training programs</Text>
             </View>
-            <Text style={styles.dashboardStatSubtext}>Available training programs</Text>
-          </View>
+          )}
         </View>
 
-        <View style={styles.dashboardStatCard}>
-          <View style={styles.dashboardStatHeader}>
-            <Ionicons name="fitness-outline" size={24} color="#6B7280" />
+        <View style={[styles.dashboardStatCard, isMobile && styles.dashboardStatCardKpi]}>
+          <View style={[styles.dashboardStatHeader, isMobile && styles.dashboardStatHeaderKpi]}>
+            <Ionicons name="fitness-outline" size={isMobile ? 18 : 24} color="#6B7280" />
           </View>
-          <Text style={styles.dashboardStatNumber}>{loading ? '—' : stats.exercises?.toLocaleString() || '0'}</Text>
-          <Text style={styles.dashboardStatLabel}>Exercise Library</Text>
-          <View style={styles.dashboardStatTrend}>
-            <View style={[styles.dashboardTrendBadge, styles.dashboardTrendWarning]}>
-              <Text style={[styles.dashboardTrendText, styles.dashboardTrendWarningText]}>Total</Text>
+          <Text style={[styles.dashboardStatNumber, isMobile && styles.dashboardStatNumberKpi]}>{loading ? '—' : stats.exercises?.toLocaleString() || '0'}</Text>
+          <Text style={[styles.dashboardStatLabel, isMobile && styles.dashboardStatLabelKpi]}>{isMobile ? 'Exercises' : 'Exercise Library'}</Text>
+          {!isMobile && (
+            <View style={styles.dashboardStatTrend}>
+              <View style={[styles.dashboardTrendBadge, styles.dashboardTrendWarning]}>
+                <Text style={[styles.dashboardTrendText, styles.dashboardTrendWarningText]}>Total</Text>
+              </View>
+              <Text style={styles.dashboardStatSubtext}>Total exercises available</Text>
             </View>
-            <Text style={styles.dashboardStatSubtext}>Total exercises available</Text>
-          </View>
+          )}
         </View>
 
-        <View style={styles.dashboardStatCard}>
-          <View style={styles.dashboardStatHeader}>
-            <Ionicons name="people-circle-outline" size={24} color="#6B7280" />
+        <View style={[styles.dashboardStatCard, isMobile && styles.dashboardStatCardKpi]}>
+          <View style={[styles.dashboardStatHeader, isMobile && styles.dashboardStatHeaderKpi]}>
+            <Ionicons name="people-circle-outline" size={isMobile ? 18 : 24} color="#6B7280" />
           </View>
-          <Text style={styles.dashboardStatNumber}>{loading ? '—' : stats.coaches?.toLocaleString() || '0'}</Text>
-          <Text style={styles.dashboardStatLabel}>Total Coaches</Text>
-          <View style={styles.dashboardStatTrend}>
-            <View style={[styles.dashboardTrendBadge, styles.dashboardTrendPrimary]}>
-              <Text style={[styles.dashboardTrendText, styles.dashboardTrendPrimaryText]}>All</Text>
+          <Text style={[styles.dashboardStatNumber, isMobile && styles.dashboardStatNumberKpi]}>{loading ? '—' : stats.coaches?.toLocaleString() || '0'}</Text>
+          <Text style={[styles.dashboardStatLabel, isMobile && styles.dashboardStatLabelKpi]}>{isMobile ? 'Coaches' : 'Total Coaches'}</Text>
+          {!isMobile && (
+            <View style={styles.dashboardStatTrend}>
+              <View style={[styles.dashboardTrendBadge, styles.dashboardTrendPrimary]}>
+                <Text style={[styles.dashboardTrendText, styles.dashboardTrendPrimaryText]}>All</Text>
+              </View>
+              <Text style={styles.dashboardStatSubtext}>Coach profiles</Text>
             </View>
-            <Text style={styles.dashboardStatSubtext}>Coach profiles</Text>
-          </View>
+          )}
         </View>
           </>
         )}
@@ -1508,6 +1765,32 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
   const renderContentManagement = () => (
     <View style={styles.content}>
+      {isMobile && (
+        <View style={[styles.dashboardQuickActions, styles.dashboardQuickActionsCompact]}>
+          <TouchableOpacity
+            style={[styles.dashboardPrimaryAction, styles.dashboardActionCompact]}
+            onPress={() => setShowCreateProgramModal(true)}
+          >
+            <Ionicons name="add" size={16} color="white" />
+            <Text style={[styles.dashboardPrimaryActionText, styles.dashboardActionTextCompact]}>Program</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dashboardSecondaryAction, styles.dashboardActionCompact]}
+            onPress={() => setShowCreateRoutineModal(true)}
+          >
+            <Ionicons name="add" size={16} color="#6B7280" />
+            <Text style={[styles.dashboardSecondaryActionText, styles.dashboardActionTextCompact]}>Routine</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.dashboardSecondaryAction, styles.dashboardActionCompact]}
+            onPress={() => setShowCreateExerciseModal(true)}
+          >
+            <Ionicons name="add" size={16} color="#6B7280" />
+            <Text style={[styles.dashboardSecondaryActionText, styles.dashboardActionTextCompact]}>Exercise</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Content Stats */}
       <View style={styles.contentStatsGrid}>
         <View style={styles.contentStatCard}>
@@ -1599,22 +1882,141 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       )}
 
       {/* Search and Filter Bar */}
-      <View style={[styles.searchFilterBar, isMobile && styles.searchFilterBarMobile]}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#6B7280" />
+      <View style={[
+        styles.searchFilterBar,
+        isMobile && styles.searchFilterBarMobile,
+        !isMobile && showContentFilterDropdown && styles.searchFilterBarActive,
+      ]}>
+        <View style={[styles.searchContainer, isMobile && styles.searchContainerMobile]}>
+          <Ionicons name="search" size={18} color="#6B7280" />
           <TextInput
+            ref={contentSearchInputRef}
             style={styles.searchInput}
             placeholder={`Search ${contentTab}...`}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholderTextColor="#9CA3AF"
+            returnKeyType="search"
+            autoCorrect={false}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
-        <TouchableOpacity style={styles.filterButton}>
-          <Ionicons name="funnel-outline" size={20} color="#6B7280" />
-          <Text style={styles.filterButtonText}>Filter</Text>
-        </TouchableOpacity>
+        {contentTab !== 'categories' && (
+          <View style={[styles.coachFilterButtonWrap, isMobile && styles.coachFilterButtonWrapMobile]}>
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                isMobile && styles.filterButtonMobile,
+                contentStatusFilter !== 'all' && styles.filterButtonActive,
+              ]}
+              onPress={() => setShowContentFilterDropdown((prev) => !prev)}
+            >
+              <Ionicons
+                name="funnel-outline"
+                size={18}
+                color={contentStatusFilter !== 'all' ? '#0369A1' : '#6B7280'}
+              />
+              {!isMobile && (
+                <Text style={[
+                  styles.filterButtonText,
+                  contentStatusFilter !== 'all' && styles.filterButtonTextActive,
+                ]}>
+                  {contentStatusFilter === 'published' ? 'Published' :
+                   contentStatusFilter === 'draft' ? 'Drafts' : 'Filter'}
+                </Text>
+              )}
+              {contentStatusFilter !== 'all' ? (
+                <View style={styles.filterActiveDot} />
+              ) : null}
+            </TouchableOpacity>
+
+            {!isMobile && showContentFilterDropdown ? (
+              <View style={styles.coachFilterDropdown}>
+                <Text style={styles.coachFilterSectionLabel}>Status</Text>
+                {[
+                  { label: 'All', value: 'all' },
+                  { label: 'Published', value: 'published' },
+                  { label: 'Drafts', value: 'draft' },
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.coachFilterOption,
+                      contentStatusFilter === option.value && styles.coachFilterOptionActive,
+                    ]}
+                    onPress={() => {
+                      setContentStatusFilter(option.value);
+                      setShowContentFilterDropdown(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.coachFilterOptionText,
+                      contentStatusFilter === option.value && styles.coachFilterOptionTextActive,
+                    ]}>
+                      {option.label}
+                    </Text>
+                    {contentStatusFilter === option.value ? (
+                      <Ionicons name="checkmark" size={16} color="#0369A1" />
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        )}
       </View>
+
+      {isMobile && contentTab !== 'categories' && (
+        <Modal
+          visible={showContentFilterDropdown}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowContentFilterDropdown(false)}
+        >
+          <Pressable
+            style={styles.filterModalOverlay}
+            onPress={() => setShowContentFilterDropdown(false)}
+          >
+            <Pressable style={styles.filterModalSheet} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.filterModalTitle}>Filter by status</Text>
+              {[
+                { label: 'All', value: 'all' },
+                { label: 'Published', value: 'published' },
+                { label: 'Drafts', value: 'draft' },
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.coachFilterOption,
+                    contentStatusFilter === option.value && styles.coachFilterOptionActive,
+                  ]}
+                  onPress={() => {
+                    setContentStatusFilter(option.value);
+                    setShowContentFilterDropdown(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.coachFilterOptionText,
+                    contentStatusFilter === option.value && styles.coachFilterOptionTextActive,
+                  ]}>
+                    {option.label}
+                  </Text>
+                  {contentStatusFilter === option.value ? (
+                    <Ionicons name="checkmark" size={16} color="#0369A1" />
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
 
       {/* Content */}
       {contentTab === 'programs' ? (
@@ -1622,6 +2024,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           programs={programs}
           loading={loading}
           searchQuery={searchQuery}
+          statusFilter={contentStatusFilter}
           programSortField={programSortField}
           programSortDirection={programSortDirection}
           setProgramSortField={setProgramSortField}
@@ -1633,6 +2036,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           handleDeleteProgram={handleDeleteProgram}
           handlePublishProgram={handlePublishProgram}
           publishingProgramId={publishingProgramId}
+          handleUnpublishProgram={handleUnpublishProgram}
+          unpublishingProgramId={unpublishingProgramId}
           sessionRole={sessionRole}
           activeDropdown={activeDropdown}
           setActiveDropdown={setActiveDropdown}
@@ -1644,6 +2049,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           exercises={exercises}
           loading={loading}
           searchQuery={searchQuery}
+          statusFilter={contentStatusFilter}
           exerciseSortField={exerciseSortField}
           exerciseSortDirection={exerciseSortDirection}
           setExerciseSortField={setExerciseSortField}
@@ -1671,6 +2077,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           routines={routines}
           loading={loading}
           searchQuery={searchQuery}
+          statusFilter={contentStatusFilter}
           routineFilterProgram={routineFilterProgram}
           setRoutineFilterProgram={setRoutineFilterProgram}
           routineProgramOptions={routineProgramOptions}
@@ -2584,7 +2991,64 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
   };
 
-  const renderAcademyTab = () => (
+  const renderAcademyTab = () => {
+    // Coach with no academy yet — show a create form
+    if (!academyId) {
+      return (
+        <View style={styles.content}>
+          <View style={[styles.sectionHeader, { marginBottom: 8 }]}>
+            <View>
+              <Text style={styles.sectionTitle}>My Academy</Text>
+              <Text style={styles.sectionSubtitle}>Set up your academy to manage students and programs</Text>
+            </View>
+          </View>
+          <View style={[styles.contentSection, { alignItems: 'center', paddingVertical: 40 }]}>
+            <Ionicons name="school-outline" size={56} color="#D1D5DB" style={{ marginBottom: 16 }} />
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' }}>
+              Create your Academy
+            </Text>
+            <Text style={{ fontSize: 14, color: '#6B7280', textAlign: 'center', maxWidth: 320, marginBottom: 28, lineHeight: 20 }}>
+              Give your academy a name and you can start adding coaches, students, and programs right away.
+            </Text>
+            <View style={{ width: '100%', maxWidth: 360 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>Academy Name</Text>
+              <TextInput
+                style={{
+                  borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
+                  paddingHorizontal: 14, paddingVertical: 12,
+                  fontSize: 15, color: '#111827', backgroundColor: '#FFFFFF',
+                  marginBottom: 16,
+                }}
+                placeholder="e.g. Challengers Academy"
+                placeholderTextColor="#9CA3AF"
+                value={createAcademyName}
+                onChangeText={setCreateAcademyName}
+                autoCapitalize="words"
+              />
+              <TouchableOpacity
+                style={{
+                  backgroundColor: creatingAcademy || !createAcademyName.trim() ? '#93C5FD' : '#3B82F6',
+                  borderRadius: 10, paddingVertical: 14,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
+                onPress={handleCreateAcademy}
+                disabled={creatingAcademy || !createAcademyName.trim()}
+              >
+                {creatingAcademy
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Ionicons name="add-circle-outline" size={20} color="#FFFFFF" />
+                }
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>
+                  {creatingAcademy ? 'Creating...' : 'Create Academy'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    }
+
+    return (
     <View style={styles.content}>
       {/* Academy header */}
       <View style={[styles.sectionHeader, { marginBottom: 8 }]}>
@@ -2595,6 +3059,83 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           <Text style={styles.sectionSubtitle}>
             {academyInfo ? `@${academyInfo.slug}` : 'Manage your academy members'}
           </Text>
+        </View>
+      </View>
+
+      {/* AO-4: Academy Settings card */}
+      <View style={[styles.contentSection, { marginBottom: 24 }]}>
+        <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>Academy Settings</Text>
+        <View style={{ flexDirection: 'row', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          {/* Logo */}
+          <View style={{ alignItems: 'center', gap: 8 }}>
+            {academyInfo?.logo_url ? (
+              <Image source={{ uri: academyInfo.logo_url }} style={{ width: 72, height: 72, borderRadius: 12, backgroundColor: '#F3F4F6' }} />
+            ) : (
+              <View style={{ width: 72, height: 72, borderRadius: 12, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="image-outline" size={28} color="#9CA3AF" />
+              </View>
+            )}
+            {Platform.OS === 'web' ? (
+              <label style={{ cursor: 'pointer' }}>
+                <View style={{
+                  paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+                  backgroundColor: academyLogoUploading ? '#E5E7EB' : '#F3F4F6',
+                  borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center',
+                }}>
+                  {academyLogoUploading
+                    ? <ActivityIndicator size="small" color="#6B7280" />
+                    : <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600' }}>Change Logo</Text>
+                  }
+                </View>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleAcademyLogoFile(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            ) : null}
+          </View>
+          {/* Name field + save */}
+          <View style={{ flex: 1, minWidth: 200, gap: 8 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151' }}>Academy Name</Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: academySettingsError ? '#EF4444' : '#E5E7EB',
+                borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
+                fontSize: 14, color: '#111827', backgroundColor: '#FFFFFF',
+              }}
+              value={academyEditName}
+              onChangeText={(v) => { setAcademyEditName(v); setAcademySettingsError(''); }}
+              placeholder="Academy name"
+              placeholderTextColor="#9CA3AF"
+            />
+            {academySettingsError ? (
+              <Text style={{ fontSize: 12, color: '#EF4444' }}>{academySettingsError}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={{
+                backgroundColor: academySettingsSaving ? '#93C5FD' : '#3B82F6',
+                borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10,
+                alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6,
+              }}
+              onPress={() => handleSaveAcademySettings(undefined)}
+              disabled={academySettingsSaving}
+            >
+              {academySettingsSaving
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Ionicons name="save-outline" size={16} color="#FFFFFF" />
+              }
+              <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
+                {academySettingsSaving ? 'Saving...' : 'Save'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -2697,16 +3238,16 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               )}
             </View>
           </View>
-          <View style={{ justifyContent: 'flex-end', paddingBottom: 0 }}>
-            <Text style={{ fontSize: 12, color: 'transparent', marginBottom: 6 }}>Add</Text>
+          <View style={{ width: '100%', marginTop: 4 }}>
             <TouchableOpacity
               style={{
                 backgroundColor: addCoachLoading ? '#93C5FD' : '#3B82F6',
                 borderRadius: 8,
                 paddingHorizontal: 20,
-                paddingVertical: 10,
+                paddingVertical: 12,
                 flexDirection: 'row',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: 6,
               }}
               onPress={handleAddCoachToAcademy}
@@ -2739,6 +3280,89 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         </Text>
       </View>
 
+      {/* AO-5: Generate invite link */}
+      <View style={[styles.contentSection, { marginBottom: 24 }]}>
+        <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>Invite via Link</Text>
+        <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
+          Generate a shareable invite link. The recipient can tap it to join your academy instantly.
+          Links expire after 7 days and are single-use.
+        </Text>
+        <View style={{ gap: 10 }}>
+          <View style={{ minWidth: 130 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Role</Text>
+            {Platform.OS === 'web' ? (
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                style={{
+                  border: '1px solid #D1D5DB', borderRadius: 8, padding: '8px 10px',
+                  fontSize: 14, color: '#111827', backgroundColor: '#FFFFFF', cursor: 'pointer',
+                }}
+              >
+                <option value="coach">Coach</option>
+                <option value="staff">Staff</option>
+                <option value="manager">Manager</option>
+              </select>
+            ) : (
+              <TouchableOpacity
+                style={{ borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 10, alignSelf: 'flex-start', minWidth: 130 }}
+                onPress={() => setInviteRole(r => r === 'coach' ? 'staff' : r === 'staff' ? 'manager' : 'coach')}
+              >
+                <Text style={{ fontSize: 14, textTransform: 'capitalize', color: '#111827' }}>{inviteRole}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={{
+              backgroundColor: generatingInvite ? '#93C5FD' : '#3B82F6', borderRadius: 8,
+              paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row',
+              alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+            onPress={handleGenerateInvite}
+            disabled={generatingInvite}
+          >
+            {generatingInvite
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <Ionicons name="link-outline" size={16} color="#FFFFFF" />
+            }
+            <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>
+              {generatingInvite ? 'Generating...' : 'Generate Link'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {generatedInviteLink ? (
+          <View style={{ marginTop: 14, padding: 12, backgroundColor: '#F0FDF4', borderRadius: 8, borderWidth: 1, borderColor: '#BBF7D0' }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#166534', marginBottom: 6 }}>
+              Invite Link ({inviteRole}):
+            </Text>
+            <Text style={{ fontSize: 13, color: '#15803D', fontFamily: 'monospace', marginBottom: 8 }} selectable>
+              {generatedInviteLink}
+            </Text>
+            {Platform.OS === 'web' ? (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: copyConfirmed ? '#16A34A' : '#FFFFFF',
+                  borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6,
+                  alignSelf: 'flex-start', borderWidth: 1, borderColor: copyConfirmed ? '#16A34A' : '#86EFAC',
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                }}
+                onPress={() => {
+                  navigator.clipboard?.writeText(generatedInviteLink).then(() => {
+                    setCopyConfirmed(true);
+                    setTimeout(() => setCopyConfirmed(false), 2000);
+                  });
+                }}
+              >
+                <Ionicons name={copyConfirmed ? 'checkmark-outline' : 'copy-outline'} size={14} color={copyConfirmed ? '#FFFFFF' : '#16A34A'} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: copyConfirmed ? '#FFFFFF' : '#16A34A' }}>
+                  {copyConfirmed ? 'Copied!' : 'Copy link'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+
       {/* Members list */}
       <View style={styles.contentSection}>
         <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>
@@ -2766,63 +3390,155 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Member</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Role</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Joined</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Actions</Text>
             </View>
-            {academyMembers.map(member => (
-              <View key={member.id} style={styles.modernTableRow}>
-                {/* Member info */}
-                <View style={[styles.modernTableCell, { flex: 2 }]}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    {member.user?.avatar_url ? (
-                      <Image
-                        source={{ uri: member.user.avatar_url }}
-                        style={{ width: 32, height: 32, borderRadius: 16 }}
-                      />
-                    ) : (
-                      <View style={{
-                        width: 32, height: 32, borderRadius: 16,
-                        backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#3B82F6' }}>
-                          {(member.user?.name || member.user?.email || '?').charAt(0).toUpperCase()}
+            {academyMembers.map(member => {
+              const isSelf = member.user_id === user?.id;
+              const isUpdating = updatingMemberId === member.id;
+              const isRemoving = removingMemberId === member.id;
+              return (
+                <View key={member.id} style={styles.modernTableRow}>
+                  {/* Member info */}
+                  <View style={[styles.modernTableCell, { flex: 2 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      {member.user?.avatar_url ? (
+                        <Image
+                          source={{ uri: member.user.avatar_url }}
+                          style={{ width: 32, height: 32, borderRadius: 16 }}
+                        />
+                      ) : (
+                        <View style={{
+                          width: 32, height: 32, borderRadius: 16,
+                          backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: '#3B82F6' }}>
+                            {(member.user?.name || member.user?.email || '?').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View>
+                        <Text style={styles.programTitle} numberOfLines={1}>
+                          {member.user?.name || '—'}
                         </Text>
+                        <Text style={styles.programMeta}>{member.user?.email || ''}</Text>
                       </View>
-                    )}
-                    <View>
-                      <Text style={styles.programTitle} numberOfLines={1}>
-                        {member.user?.name || '—'}
-                      </Text>
-                      <Text style={styles.programMeta}>{member.user?.email || ''}</Text>
                     </View>
                   </View>
-                </View>
-                {/* Role badge */}
-                <View style={[styles.modernTableCell, { flex: 1 }]}>
-                  <View style={[
-                    styles.modernStatusChip,
-                    member.role === 'manager'
-                      ? { backgroundColor: '#FEF3C7' }
-                      : member.role === 'staff'
-                      ? { backgroundColor: '#F3F4F6' }
-                      : { backgroundColor: '#EFF6FF' },
-                  ]}>
-                    <Text style={[
-                      styles.modernStatusText,
+                  {/* Role badge + change role */}
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <View style={[
+                      styles.modernStatusChip,
                       member.role === 'manager'
-                        ? { color: '#92400E' }
+                        ? { backgroundColor: '#FEF3C7' }
                         : member.role === 'staff'
-                        ? { color: '#4B5563' }
-                        : { color: '#1D4ED8' },
+                        ? { backgroundColor: '#F3F4F6' }
+                        : { backgroundColor: '#EFF6FF' },
                     ]}>
-                      {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                      <Text style={[
+                        styles.modernStatusText,
+                        member.role === 'manager'
+                          ? { color: '#92400E' }
+                          : member.role === 'staff'
+                          ? { color: '#4B5563' }
+                          : { color: '#1D4ED8' },
+                      ]}>
+                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  {/* Joined date */}
+                  <View style={[styles.modernTableCell, { flex: 1.5 }]}>
+                    <Text style={styles.programMeta}>
+                      {member.joined_at
+                        ? new Date(member.joined_at).toLocaleDateString()
+                        : '—'}
                     </Text>
                   </View>
+                  {/* Actions — AO-2 */}
+                  <View style={[styles.modernTableCell, { flex: 1.5, gap: 6 }]}>
+                    {/* Change role dropdown (web select) */}
+                    {!isSelf && (
+                      <select
+                        value={member.role}
+                        disabled={isUpdating}
+                        onChange={(e) => handleChangeMemberRole(member, e.target.value)}
+                        style={{
+                          fontSize: 12, padding: '4px 6px', borderRadius: 6,
+                          border: '1px solid #D1D5DB', backgroundColor: '#F9FAFB',
+                          color: '#374151', cursor: 'pointer',
+                        }}
+                      >
+                        <option value="coach">Coach</option>
+                        <option value="staff">Staff</option>
+                        <option value="manager">Manager</option>
+                      </select>
+                    )}
+                    {/* Remove button */}
+                    {isSelf ? (
+                      <Text style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>You</Text>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveMember(member)}
+                        disabled={isRemoving}
+                        style={{
+                          paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+                          backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+                          alignSelf: 'flex-start',
+                        }}
+                      >
+                        {isRemoving
+                          ? <ActivityIndicator size="small" color="#EF4444" />
+                          : <Text style={{ fontSize: 11, color: '#EF4444', fontWeight: '600' }}>Remove</Text>
+                        }
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                {/* Joined date */}
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* AO-1: Academy-wide student roster (read-only, manager only) */}
+      <View style={[styles.contentSection, { marginTop: 24 }]}>
+        <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>
+          Students ({academyStudents.length})
+        </Text>
+        {studentsLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+            <Text style={styles.loadingText}>Loading students...</Text>
+          </View>
+        ) : academyStudents.length === 0 ? (
+          <View style={[styles.comingSoon, { paddingVertical: 48 }]}>
+            <Ionicons name="people-outline" size={28} color="#9CA3AF" />
+            <Text style={[styles.comingSoonText, { fontWeight: '600', color: '#374151', marginTop: 12 }]}>
+              No students enrolled yet
+            </Text>
+            <Text style={[styles.comingSoonSubtext, { marginTop: 4 }]}>
+              Students are added when academy coaches use "Add Student" in their coach dashboard.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.modernTable}>
+            <View style={styles.modernTableHeader}>
+              <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Student</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1.5 }]}>Assigned Coach</Text>
+              <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Date Added</Text>
+            </View>
+            {academyStudents.map(row => (
+              <View key={row.id} style={styles.modernTableRow}>
+                <View style={[styles.modernTableCell, { flex: 2 }]}>
+                  <Text style={styles.programTitle} numberOfLines={1}>{row.users?.name || '—'}</Text>
+                  <Text style={styles.programMeta}>{row.users?.email || ''}</Text>
+                </View>
                 <View style={[styles.modernTableCell, { flex: 1.5 }]}>
+                  <Text style={styles.programMeta}>{row.coaches?.name || '—'}</Text>
+                </View>
+                <View style={[styles.modernTableCell, { flex: 1 }]}>
                   <Text style={styles.programMeta}>
-                    {member.joined_at
-                      ? new Date(member.joined_at).toLocaleDateString()
-                      : '—'}
+                    {row.created_at ? new Date(row.created_at).toLocaleDateString() : '—'}
                   </Text>
                 </View>
               </View>
@@ -2831,7 +3547,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         )}
       </View>
     </View>
-  );
+    );
+  };
 
   const renderContent = () => {
     // Render-time role guard — prevents a restricted tab from rendering even
@@ -2861,6 +3578,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           <AssessmentsPanel
             academyId={academyId || null}
             sessionRole={sessionRole}
+            showNewTypePicker={showNewAssessmentPicker}
+            setShowNewTypePicker={setShowNewAssessmentPicker}
           />
         );
       default:
@@ -3936,41 +4655,6 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     setEditingCategoryName('');
   };
 
-  const handleRefresh = () => {
-    // Refresh data based on current active tab
-    switch (activeTab) {
-      case 'dashboard':
-        fetchStats();
-        break;
-      case 'content':
-        if (contentTab === 'programs') {
-          fetchPrograms();
-        } else if (contentTab === 'routines') {
-          fetchRoutines();
-        } else if (contentTab === 'exercises') {
-          fetchExercises();
-        } else if (contentTab === 'categories') {
-          fetchCategories();
-        }
-        break;
-      case 'coaches':
-        fetchCoaches();
-        break;
-      case 'users':
-        fetchUsers();
-        break;
-      case 'feedback':
-        fetchFeedback();
-        break;
-      case 'academy':
-        fetchAcademyMembers();
-        break;
-      default:
-        fetchStats();
-        break;
-    }
-  };
-
   return (
     <View style={[styles.container, { paddingTop: isWeb ? 0 : insets.top }]}>
       <AdminSidebar
@@ -3988,16 +4672,24 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         styles={styles}
       />
       <View style={[styles.mainContent, !isMobile && { marginLeft: sidebarWidth }]}>
+        {/* C-3: Non-blocking notification banner */}
+        {bannerMessage ? (
+          <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 13, color: '#92400E', flex: 1 }}>{bannerMessage}</Text>
+            <TouchableOpacity onPress={() => setBannerMessage('')} style={{ marginLeft: 8 }}>
+              <Ionicons name="close" size={16} color="#92400E" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <AdminTopBar
           activeTab={activeTab}
           sidebarWidth={sidebarWidth}
-          loading={loading}
-          handleRefresh={handleRefresh}
           setShowCreateProgramModal={setShowCreateProgramModal}
           setShowCreateRoutineModal={setShowCreateRoutineModal}
           setShowCreateExerciseModal={setShowCreateExerciseModal}
           setShowAddCoachModal={setShowAddCoachModal}
           setShowAddUserModal={setShowAddUserModal}
+          setShowNewAssessmentPicker={setShowNewAssessmentPicker}
           onOpenMobileDrawer={() => setMobileDrawerOpen(true)}
           isMobile={isMobile}
           styles={styles}
@@ -4011,6 +4703,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             setShowProgramFilterDropdown(false);
             setShowRoutineFilterDropdown(false);
             setShowRoutineProgramFilterDropdown(false);
+            setShowContentFilterDropdown(false);
           }}
         >
           <TouchableOpacity 

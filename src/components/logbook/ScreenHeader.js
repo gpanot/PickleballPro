@@ -254,11 +254,10 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   backButton: {
     marginRight: 6,
-    marginTop: 4,
     marginLeft: -4,
   },
   backSpacer: {
@@ -304,9 +303,9 @@ const styles = StyleSheet.create({
     paddingLeft: 6,
   },
   rightAction: {
-    marginTop: 2,
     marginLeft: 8,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   childrenArea: {
     marginTop: 8,

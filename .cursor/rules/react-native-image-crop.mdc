@@ -1,0 +1,119 @@
+---
+description: React Native image crop must always use ViewShot viewport capture, never coordinate math
+globs: ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# React Native Image Crop — Always Use ViewShot Viewport Capture
+
+## Rule
+
+When implementing image cropping in a React Native / Expo app, always use
+`react-native-view-shot` to capture the visible crop zone. Never implement
+coordinate math to reverse-map display transforms back to native pixel space.
+
+## Why
+
+Coordinate math approaches (computing originX/originY from pan/scale transforms)
+consistently produce wrong crops because:
+
+- React Native transform order (scale vs translate) creates coordinate space
+  ambiguity that is hard to reason about
+- Device pixel ratio, image display size vs native size, and canvas centering
+  all compound the error
+- Different Android devices and Expo SDK versions behave differently
+
+The ViewShot approach is WYSIWYG by definition — it captures exactly what the
+user sees, with zero math.
+
+## Required implementation pattern
+
+### 1. Install the dependency
+
+```bash
+npx expo install react-native-view-shot
+```
+
+### 2. Render the image twice
+
+- Once in the main canvas (visible to user, handles gestures)
+- Once inside a `<ViewShot>` container positioned off-screen at `top: -9999, left: -9999`
+
+The ViewShot image uses the same `transform` state as the visible image,
+offset by the crop zone position so it renders the correct region.
+
+### 3. ViewShot container must be off-screen, not opacity 0
+
+```jsx
+// CORRECT — off-screen, invisible, still renderable and capturable
+
+  
+
+
+// WRONG — opacity 0 blocks the visible circle underneath on Android
+
+```
+
+### 4. On save: capture then resize only, no crop step
+
+```js
+// Capture the viewport
+const capturedUri = await viewShotRef.current.capture();
+
+// Resize to output size and compress — no crop action needed
+const result = await ImageManipulator.manipulateAsync(
+  capturedUri,
+  [{ resize: { width: OUTPUT_SIZE, height: OUTPUT_SIZE } }],
+  { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+);
+```
+
+### 5. Never use ImageManipulator crop with computed coordinates
+
+```js
+// NEVER DO THIS for WYSIWYG crop
+await ImageManipulator.manipulateAsync(imageUri, [
+  { crop: { originX, originY, width, height } }, // coordinate math always drifts
+]);
+
+// ALWAYS DO THIS instead
+const capturedUri = await viewShotRef.current.capture(); // what you see = what you get
+await ImageManipulator.manipulateAsync(capturedUri, [{ resize: ... }]);
+```
+
+## Overlay pattern for circular crop UI
+
+Use 4 black rectangles around the circle plus a thick border ring for corners.
+Do not use a single view with borderRadius as a mask over siblings — it does
+not clip sibling views on Android.
+
+```jsx
+{/* Top, Bottom, Left, Right black strips */}
+
+
+
+
+
+{/* Corner mask: thick black ring fills square corners the rectangles miss */}
+
+
+{/* White circle border visible to user */}
+
+```
+
+## File size constraint
+
+After capture and resize, compress iteratively until under the size budget:
+
+```js
+const qualities = [0.85, 0.7, 0.55, 0.4, 0.25, 0.1];
+for (const q of qualities) {
+  result = await ImageManipulator.manipulateAsync(
+    capturedUri,
+    [{ resize: { width: 500, height: 500 } }],
+    { compress: q, format: ImageManipulator.SaveFormat.JPEG }
+  );
+  const buf = await (await fetch(result.uri)).arrayBuffer();
+  if (buf.byteLength <= MAX_BYTES) break;
+}
+```

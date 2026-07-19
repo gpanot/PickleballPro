@@ -10,13 +10,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChevronLeft } from 'lucide-react-native';
 import { useUser } from '../context/UserContext';
 import { getSport } from '../lib/sportConfig';
 
 // Minimum space reserved for title, dots, and CTA buttons on compact iPhones
 const BOTTOM_PANEL_MIN = 300;
 
-export default function IntroScreen({ onComplete, navigation }) {
+export default function IntroScreen({ onComplete, onGoBack, navigation }) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
@@ -28,16 +29,38 @@ export default function IntroScreen({ onComplete, navigation }) {
   const imageHeight = Math.min(availableHeight * 0.55, availableHeight - BOTTOM_PANEL_MIN);
   const isCompact = availableHeight < 700;
 
+  const getItemLayout = (_, index) => ({
+    length: width,
+    offset: width * index,
+    index,
+  });
+
+  const goToSlide = (index) => {
+    const clamped = Math.max(0, Math.min(index, SLIDES.length - 1));
+    setActiveIndex(clamped);
+    flatListRef.current?.scrollToOffset({
+      offset: clamped * width,
+      animated: true,
+    });
+  };
+
   const handleMomentumScrollEnd = (event) => {
     const index = Math.round(event.nativeEvent.contentOffset.x / width);
-    setActiveIndex(index);
+    if (index >= 0 && index < SLIDES.length) {
+      setActiveIndex(index);
+    }
+  };
+
+  const handleScrollToIndexFailed = (info) => {
+    // scrollToIndex is unreliable on web — fall back to offset-based scroll.
+    requestAnimationFrame(() => goToSlide(info.index));
   };
 
   const handleNext = () => {
     if (activeIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+      goToSlide(activeIndex + 1);
     } else {
-      onComplete();
+      onComplete?.();
     }
   };
 
@@ -58,6 +81,17 @@ export default function IntroScreen({ onComplete, navigation }) {
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" backgroundColor="transparent" translucent />
 
+      {onGoBack ? (
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 8 }]}
+          onPress={onGoBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <ChevronLeft size={22} color="#1F2937" strokeWidth={2.25} />
+        </TouchableOpacity>
+      ) : null}
+
       {/* ── Fixed image strip — only this part scrolls horizontally ── */}
       <View style={[styles.imageStrip, { width, height: imageHeight }]}>
         <FlatList
@@ -69,6 +103,8 @@ export default function IntroScreen({ onComplete, navigation }) {
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
+          getItemLayout={getItemLayout}
           scrollEventThrottle={16}
           bounces={false}
           style={{ width, height: imageHeight }}
@@ -111,10 +147,9 @@ export default function IntroScreen({ onComplete, navigation }) {
 
           {/* Sign In is always rendered but only visible on last slide */}
           <TouchableOpacity
-            style={[styles.signInButton, !isLastSlide && styles.hidden]}
+            style={[styles.signInButton, !isLastSlide && styles.hidden, { pointerEvents: isLastSlide ? 'auto' : 'none' }]}
             onPress={() => navigation.navigate('Auth')}
             activeOpacity={0.7}
-            pointerEvents={isLastSlide ? 'auto' : 'none'}
           >
             <Text style={styles.signInText}>Sign In</Text>
           </TouchableOpacity>
@@ -128,6 +163,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
   },
 
   // Image strip — fixed height, clip overflow

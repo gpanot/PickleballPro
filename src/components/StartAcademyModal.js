@@ -21,29 +21,27 @@ const slugify = (str) =>
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .slice(0, 48);
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+
+// Auto-generate a unique slug — user never sees or edits this
+const buildAcademySlug = (name) => {
+  const base = slugify(name) || 'academy';
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `${base}-${suffix}`;
+};
 
 export default function StartAcademyModal({ visible, onClose, onSuccess }) {
   // Step 1 = form, Step 2 = confirmation
   const [step, setStep] = useState(1);
 
   const [academyName, setAcademyName] = useState('');
-  const [academySlug, setAcademySlug] = useState('');
-  const [slugEdited, setSlugEdited] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('');
 
   const [programCount, setProgramCount] = useState(null);
   const [loadingCount, setLoadingCount] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Auto-derive slug from name unless the user has manually edited it
-  useEffect(() => {
-    if (!slugEdited) {
-      setAcademySlug(slugify(academyName));
-    }
-  }, [academyName]);
 
   // Fetch the count of programs that will be bulk-claimed when reaching the confirm step
   useEffect(() => {
@@ -74,15 +72,8 @@ export default function StartAcademyModal({ visible, onClose, onSuccess }) {
     setError('');
   };
 
-  const handleSlugChange = (v) => {
-    setSlugEdited(true);
-    setAcademySlug(v.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-'));
-    setError('');
-  };
-
   const handleContinue = () => {
     if (!academyName.trim()) { setError('Please enter an academy name.'); return; }
-    if (!academySlug.trim()) { setError('Please enter a URL slug.'); return; }
     setError('');
     setStep(2);
   };
@@ -91,10 +82,11 @@ export default function StartAcademyModal({ visible, onClose, onSuccess }) {
     setLoading(true);
     setError('');
     try {
+      // Slug is auto-generated; logo upload (avatar-style) will live in Admin later
       const { data, error: rpcError } = await supabase.rpc('become_academy_manager', {
         academy_name: academyName.trim(),
-        academy_slug: academySlug.trim(),
-        academy_logo_url: logoUrl.trim() || null,
+        academy_slug: buildAcademySlug(academyName),
+        academy_logo_url: null,
       });
 
       if (rpcError) {
@@ -117,9 +109,6 @@ export default function StartAcademyModal({ visible, onClose, onSuccess }) {
   const resetForm = () => {
     setStep(1);
     setAcademyName('');
-    setAcademySlug('');
-    setSlugEdited(false);
-    setLogoUrl('');
     setError('');
     setProgramCount(null);
   };
@@ -174,38 +163,6 @@ export default function StartAcademyModal({ visible, onClose, onSuccess }) {
                   />
                 </View>
 
-                <View style={styles.field}>
-                  <Text style={styles.label}>URL Slug <Text style={styles.required}>*</Text></Text>
-                  <View style={styles.slugRow}>
-                    <Text style={styles.slugPrefix}>@</Text>
-                    <TextInput
-                      style={[styles.input, styles.slugInput]}
-                      value={academySlug}
-                      onChangeText={handleSlugChange}
-                      placeholder="tanner-pickleball-academy"
-                      placeholderTextColor="#9CA3AF"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      maxLength={48}
-                    />
-                  </View>
-                  <Text style={styles.hint}>Lowercase letters, numbers, and hyphens only. Cannot be changed later.</Text>
-                </View>
-
-                <View style={styles.field}>
-                  <Text style={styles.label}>Logo URL <Text style={styles.optional}>(optional)</Text></Text>
-                  <TextInput
-                    style={styles.input}
-                    value={logoUrl}
-                    onChangeText={setLogoUrl}
-                    placeholder="https://example.com/logo.png"
-                    placeholderTextColor="#9CA3AF"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                  <Text style={styles.hint}>Paste a public image URL. Logo upload will be available in a future update.</Text>
-                </View>
-
                 {error ? (
                   <View style={styles.errorRow}>
                     <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
@@ -214,9 +171,9 @@ export default function StartAcademyModal({ visible, onClose, onSuccess }) {
                 ) : null}
 
                 <TouchableOpacity
-                  style={[styles.primaryButton, (!academyName.trim() || !academySlug.trim()) && styles.primaryButtonDisabled]}
+                  style={[styles.primaryButton, !academyName.trim() && styles.primaryButtonDisabled]}
                   onPress={handleContinue}
-                  disabled={!academyName.trim() || !academySlug.trim()}
+                  disabled={!academyName.trim()}
                 >
                   <Text style={styles.primaryButtonText}>Continue</Text>
                   <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
@@ -231,16 +188,6 @@ export default function StartAcademyModal({ visible, onClose, onSuccess }) {
                     <Text style={styles.summaryLabel}>Name</Text>
                     <Text style={styles.summaryValue}>{academyName}</Text>
                   </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Slug</Text>
-                    <Text style={styles.summaryValue}>@{academySlug}</Text>
-                  </View>
-                  {logoUrl ? (
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Logo</Text>
-                      <Text style={styles.summaryValue} numberOfLines={1}>{logoUrl}</Text>
-                    </View>
-                  ) : null}
                 </View>
 
                 {/* Bulk-claim warning (GAP-10) */}
@@ -383,10 +330,6 @@ const styles = StyleSheet.create({
   required: {
     color: '#EF4444',
   },
-  optional: {
-    color: '#9CA3AF',
-    fontWeight: '400',
-  },
   input: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -396,24 +339,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
     backgroundColor: '#FFFFFF',
-  },
-  slugRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  slugPrefix: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  slugInput: {
-    flex: 1,
-  },
-  hint: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    lineHeight: 16,
   },
   errorRow: {
     flexDirection: 'row',

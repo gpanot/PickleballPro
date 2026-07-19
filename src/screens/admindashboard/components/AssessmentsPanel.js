@@ -26,7 +26,7 @@ import { supabase } from '../../../lib/supabase';
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 const TYPE_LABELS = {
-  experience: 'Experience',
+  experience: 'First time',
   player_evaluation: 'Player Evaluation',
 };
 
@@ -420,7 +420,7 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
             placeholder="e.g. Player Assessment"
             editable={!readOnly}
           />
-          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Description</Text>
+          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>About this assessment (Only you can see it)</Text>
           <TextInput
             style={[styles.textInput, styles.textInputMulti, readOnly && styles.inputDisabled]}
             value={description}
@@ -485,7 +485,7 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
 
 // ─── Template List Card ───────────────────────────────────────────────────────
 
-function TemplateListCard({ item, onEdit, onDelete, readOnly }) {
+function TemplateListCard({ item, onEdit, onDuplicate, onDelete, isDefault, canEditDefault }) {
   const typeColor = TYPE_COLORS[item.type] || TYPE_COLORS.experience;
   const updated = item.updated_at
     ? new Date(item.updated_at).toLocaleDateString()
@@ -493,6 +493,15 @@ function TemplateListCard({ item, onEdit, onDelete, readOnly }) {
 
   return (
     <View style={styles.listCard}>
+      {/* Icon */}
+      <View style={[styles.listCardIcon, isDefault ? styles.listCardIconDefault : styles.listCardIconMine]}>
+        <Ionicons
+          name={isDefault ? 'lock-closed' : 'clipboard-outline'}
+          size={18}
+          color={isDefault ? '#6B7280' : '#6366F1'}
+        />
+      </View>
+
       <View style={styles.listCardLeft}>
         <Text style={styles.listCardName}>{item.name}</Text>
         {item.description ? (
@@ -502,22 +511,38 @@ function TemplateListCard({ item, onEdit, onDelete, readOnly }) {
           <View style={[styles.typeBadge, { backgroundColor: typeColor.bg, borderColor: typeColor.border }]}>
             <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>{TYPE_LABELS[item.type]}</Text>
           </View>
-          {item.is_default && (
+          {isDefault && (
             <View style={styles.defaultBadge}>
-              <Text style={styles.defaultBadgeText}>Default</Text>
+              <Ionicons name="lock-closed" size={9} color="#D97706" style={{ marginRight: 3 }} />
+              <Text style={styles.defaultBadgeText}>System default</Text>
+            </View>
+          )}
+          {!isDefault && (
+            <View style={styles.mineBadge}>
+              <Ionicons name="person-outline" size={9} color="#7C3AED" style={{ marginRight: 3 }} />
+              <Text style={styles.mineBadgeText}>Mine</Text>
             </View>
           )}
           <Text style={styles.listCardDate}>Updated {updated}</Text>
         </View>
       </View>
+
+      {/* Action buttons */}
       <View style={styles.listCardActions}>
-        <TouchableOpacity style={styles.editBtn} onPress={() => onEdit(item)}>
-          <Ionicons name="pencil-outline" size={15} color="#6366F1" />
-          <Text style={styles.editBtnText}>{readOnly ? 'View' : 'Edit'}</Text>
+        {/* Duplicate — always available */}
+        <TouchableOpacity style={styles.actionIconBtn} onPress={() => onDuplicate(item)}>
+          <Ionicons name="copy-outline" size={17} color="#6B7280" />
         </TouchableOpacity>
-        {!readOnly && !item.is_default && (
-          <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item)}>
-            <Ionicons name="trash-outline" size={15} color="#EF4444" />
+        {/* Edit — for user templates, or superadmin on default templates */}
+        {(!isDefault || canEditDefault) && (
+          <TouchableOpacity style={styles.actionIconBtn} onPress={() => onEdit(item)}>
+            <Ionicons name="pencil-outline" size={17} color="#6366F1" />
+          </TouchableOpacity>
+        )}
+        {/* Delete — for user templates, or superadmin on default templates */}
+        {(!isDefault || canEditDefault) && (
+          <TouchableOpacity style={[styles.actionIconBtn, styles.actionIconBtnDanger]} onPress={() => onDelete(item)}>
+            <Ionicons name="trash-outline" size={17} color="#EF4444" />
           </TouchableOpacity>
         )}
       </View>
@@ -527,34 +552,17 @@ function TemplateListCard({ item, onEdit, onDelete, readOnly }) {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-export default function AssessmentsPanel({ academyId, sessionRole }) {
+export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePicker, setShowNewTypePicker }) {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [loadingEditor, setLoadingEditor] = useState(false);
-  const [showNewTypePicker, setShowNewTypePicker] = useState(false);
 
-  // Coaches must never reach this panel. The sidebar and route guard already
-  // block them; this is a defence-in-depth fallback.
-  if (sessionRole === 'coach') {
-    return (
-      <View style={styles.panelContainer}>
-        <View style={styles.emptyWrap}>
-          <Ionicons name="lock-closed-outline" size={40} color="#D1D5DB" />
-          <Text style={styles.emptyText}>Access restricted</Text>
-          <Text style={styles.emptySubText}>
-            Assessment templates can only be managed by academy managers and admins.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Managers need an academy to create/edit templates.
-  // Superadmin (no academy) can view and edit all global defaults.
+  // Superadmin (no academy, not manager/coach) can view and edit all global defaults.
+  // Coaches and managers use their academyId (or null when they have no academy yet).
   const isReadOnly = false;
-  const isSuperAdmin = !academyId && sessionRole !== 'manager';
+  const isSuperAdmin = !academyId && sessionRole !== 'manager' && sessionRole !== 'coach';
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
@@ -627,6 +635,29 @@ export default function AssessmentsPanel({ academyId, sessionRole }) {
     );
   };
 
+  const handleDuplicate = async (item) => {
+    try {
+      // Fetch full template data first
+      const { data, error } = await supabase
+        .from('assessment_templates')
+        .select('*')
+        .eq('id', item.id)
+        .single();
+      const source = (!error && data) ? data : item;
+      await saveAssessmentTemplate({
+        id: undefined, // create new
+        type: source.type,
+        name: `${source.name} (copy)`,
+        description: source.description || '',
+        template: source.template,
+        academyId: academyId || null,
+      });
+      loadTemplates();
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Failed to duplicate.');
+    }
+  };
+
   const handleNewTemplate = (type) => {
     setShowNewTypePicker(false);
     const defaults = type === 'experience'
@@ -665,7 +696,7 @@ export default function AssessmentsPanel({ academyId, sessionRole }) {
 
   return (
     <View style={styles.panelContainer}>
-      {/* Panel header */}
+      {/* Panel header — title only, CTA is in AdminTopBar */}
       <View style={styles.panelHeader}>
         <View>
           <Text style={styles.panelTitle}>Assessment Templates</Text>
@@ -673,31 +704,21 @@ export default function AssessmentsPanel({ academyId, sessionRole }) {
             Edit the templates used for student assessments
           </Text>
         </View>
-        {!isReadOnly && (
-          <View style={styles.newBtnWrap}>
-            <TouchableOpacity
-              style={styles.newBtn}
-              onPress={() => setShowNewTypePicker(v => !v)}
-            >
-              <Ionicons name="add" size={16} color="#fff" />
-              <Text style={styles.newBtnText}>New template</Text>
-            </TouchableOpacity>
-            {showNewTypePicker && (
-              <View style={styles.typePickerDropdown}>
-                <TouchableOpacity style={styles.typePickerItem} onPress={() => handleNewTemplate('experience')}>
-                  <View style={[styles.typeBadge, { backgroundColor: TYPE_COLORS.experience.bg, borderColor: TYPE_COLORS.experience.border }]}>
-                    <Text style={[styles.typeBadgeText, { color: TYPE_COLORS.experience.text }]}>Experience</Text>
-                  </View>
-                  <Text style={styles.typePickerItemText}>Branching questionnaire</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.typePickerItem} onPress={() => handleNewTemplate('player_evaluation')}>
-                  <View style={[styles.typeBadge, { backgroundColor: TYPE_COLORS.player_evaluation.bg, borderColor: TYPE_COLORS.player_evaluation.border }]}>
-                    <Text style={[styles.typeBadgeText, { color: TYPE_COLORS.player_evaluation.text }]}>Player Evaluation</Text>
-                  </View>
-                  <Text style={styles.typePickerItemText}>Scored skill assessment</Text>
-                </TouchableOpacity>
+        {/* Type-picker dropdown — anchored here, triggered from AdminTopBar */}
+        {showNewTypePicker && (
+          <View style={styles.typePickerDropdown}>
+            <TouchableOpacity style={styles.typePickerItem} onPress={() => handleNewTemplate('experience')}>
+              <View style={[styles.typeBadge, { backgroundColor: TYPE_COLORS.experience.bg, borderColor: TYPE_COLORS.experience.border }]}>
+                <Text style={[styles.typeBadgeText, { color: TYPE_COLORS.experience.text }]}>First time</Text>
               </View>
-            )}
+              <Text style={styles.typePickerItemText}>First time questionnaire</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.typePickerItem} onPress={() => handleNewTemplate('player_evaluation')}>
+              <View style={[styles.typeBadge, { backgroundColor: TYPE_COLORS.player_evaluation.bg, borderColor: TYPE_COLORS.player_evaluation.border }]}>
+                <Text style={[styles.typeBadgeText, { color: TYPE_COLORS.player_evaluation.text }]}>Player Evaluation</Text>
+              </View>
+              <Text style={styles.typePickerItemText}>Periodic Skill Assessment</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -710,7 +731,7 @@ export default function AssessmentsPanel({ academyId, sessionRole }) {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{templates.filter(t => t.type === 'experience').length}</Text>
-          <Text style={styles.statLabel}>Experience</Text>
+          <Text style={styles.statLabel}>First time</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{templates.filter(t => t.type === 'player_evaluation').length}</Text>
@@ -734,22 +755,62 @@ export default function AssessmentsPanel({ academyId, sessionRole }) {
               <Text style={styles.retryBtnText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : templates.length === 0 ? (
-          <View style={styles.emptyWrap}>
-            <Ionicons name="clipboard-outline" size={40} color="#D1D5DB" />
-            <Text style={styles.emptyText}>No templates found</Text>
-            <Text style={styles.emptySubText}>Create one with the "New template" button above.</Text>
-          </View>
         ) : (
-          templates.map(item => (
-            <TemplateListCard
-              key={item.id}
-              item={item}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              readOnly={isReadOnly}
-            />
-          ))
+          <>
+            {/* ── System Defaults ── */}
+            {(() => {
+              const defaults = templates.filter(t => t.is_default && !t.academy_id);
+              if (defaults.length === 0) return null;
+              return (
+                <>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="lock-closed-outline" size={13} color="#9CA3AF" />
+                    <Text style={styles.sectionHeaderText}>SYSTEM DEFAULTS</Text>
+                  </View>
+                  {defaults.map(item => (
+                    <TemplateListCard
+                      key={item.id}
+                      item={item}
+                      onEdit={handleEdit}
+                      onDuplicate={handleDuplicate}
+                      onDelete={handleDelete}
+                      isDefault={true}
+                      canEditDefault={isSuperAdmin}
+                    />
+                  ))}
+                </>
+              );
+            })()}
+
+            {/* ── Your Templates ── */}
+            {(() => {
+              const mine = templates.filter(t => !t.is_default || t.academy_id);
+              return (
+                <>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="person-outline" size={13} color="#9CA3AF" />
+                    <Text style={styles.sectionHeaderText}>YOUR TEMPLATES</Text>
+                  </View>
+                  {mine.length === 0 ? (
+                    <View style={styles.emptySection}>
+                      <Text style={styles.emptySectionText}>No custom templates yet. Create one with the "New template" button above.</Text>
+                    </View>
+                  ) : (
+                    mine.map(item => (
+                      <TemplateListCard
+                        key={item.id}
+                        item={item}
+                        onEdit={handleEdit}
+                        onDuplicate={handleDuplicate}
+                        onDelete={handleDelete}
+                        isDefault={false}
+                      />
+                    ))
+                  )}
+                </>
+              );
+            })()}
+          </>
         )}
       </ScrollView>
     </View>
@@ -763,16 +824,17 @@ const styles = StyleSheet.create({
   panelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: Platform.OS === 'web' ? 24 : 16,
+    paddingTop: 20,
     paddingBottom: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f4f4f5',
-    // Keep the "+ New template" dropdown above the stats strip below
     zIndex: 20,
-    ...(Platform.OS === 'web' && { position: 'relative' }),
+    position: 'relative',
   },
   panelTitle: { fontSize: 20, fontWeight: '700', color: '#18181b' },
   panelSubtitle: { fontSize: 13, color: '#71717a', marginTop: 2 },
@@ -780,9 +842,9 @@ const styles = StyleSheet.create({
   // Stats
   statsStrip: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    gap: 10,
+    paddingHorizontal: Platform.OS === 'web' ? 24 : 16,
+    paddingVertical: 14,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#f4f4f5',
@@ -792,37 +854,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f4f4f5',
     borderRadius: 10,
-    padding: 14,
+    padding: Platform.OS === 'web' ? 14 : 10,
     alignItems: 'center',
   },
-  statNumber: { fontSize: 22, fontWeight: '700', color: '#18181b' },
-  statLabel: { fontSize: 11, color: '#71717a', marginTop: 2 },
+  statNumber: { fontSize: Platform.OS === 'web' ? 22 : 18, fontWeight: '700', color: '#18181b' },
+  statLabel: { fontSize: 11, color: '#71717a', marginTop: 2, textAlign: 'center' },
 
-  // New button
-  newBtnWrap: {
-    position: 'relative',
-    zIndex: 30,
-  },
-  newBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#18181b',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 8,
-  },
-  newBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   typePickerDropdown: {
     position: 'absolute',
-    top: 40,
+    top: '100%',
     right: 0,
     backgroundColor: '#fff',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e4e4e7',
     zIndex: 50,
-    minWidth: 220,
+    minWidth: 240,
     ...(Platform.OS === 'web' && {
       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
     }),
@@ -841,40 +888,66 @@ const styles = StyleSheet.create({
 
   // List
   listScroll: { flex: 1 },
-  listScrollContent: { padding: 24, gap: 12 },
+  listScrollContent: { padding: Platform.OS === 'web' ? 24 : 16, gap: 10 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  sectionHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.8,
+  },
+  emptySection: {
+    backgroundColor: '#f4f4f5',
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  emptySectionText: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
   listCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e4e4e7',
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  listCardLeft: { flex: 1 },
-  listCardName: { fontSize: 15, fontWeight: '600', color: '#18181b', marginBottom: 4 },
-  listCardDesc: { fontSize: 13, color: '#6B7280', marginBottom: 8 },
-  listCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  listCardDate: { fontSize: 11, color: '#9CA3AF' },
-  listCardActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  editBtn: {
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
+    gap: 12,
   },
-  editBtnText: { fontSize: 13, fontWeight: '500', color: '#6366F1' },
-  deleteBtn: {
-    backgroundColor: '#FEF2F2',
-    padding: 8,
-    borderRadius: 7,
+  listCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  listCardIconDefault: { backgroundColor: '#F3F4F6' },
+  listCardIconMine: { backgroundColor: '#EEF2FF' },
+  listCardLeft: { flex: 1, minWidth: 0 },
+  listCardName: { fontSize: 15, fontWeight: '600', color: '#18181b', marginBottom: 4 },
+  listCardDesc: { fontSize: 13, color: '#6B7280', marginBottom: 8 },
+  listCardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  listCardDate: { fontSize: 11, color: '#9CA3AF' },
+  listCardActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  actionIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
+    borderColor: '#E4E4E7',
+  },
+  actionIconBtnDanger: {
+    backgroundColor: '#FEF2F2',
     borderColor: '#FECACA',
   },
 
@@ -887,6 +960,8 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: { fontSize: 11, fontWeight: '600' },
   defaultBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -895,6 +970,17 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   defaultBadgeText: { fontSize: 11, fontWeight: '600', color: '#D97706' },
+  mineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  mineBadgeText: { fontSize: 11, fontWeight: '600', color: '#7C3AED' },
 
   // Loading / Empty
   loadingWrap: { alignItems: 'center', paddingVertical: 60, gap: 12 },

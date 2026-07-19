@@ -1,9 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { getCurrentMonthLabel } from '../../lib/logbookHelpers';
 
 export default function LogbookHeader({ tokens, user, onAvatarPress }) {
-  const monthLabel = getCurrentMonthLabel();
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U';
@@ -13,13 +11,6 @@ export default function LogbookHeader({ tokens, user, onAvatarPress }) {
   return (
     <View style={styles.container}>
       <View style={styles.titleBlock}>
-        <Text style={[styles.monthLabel, {
-          color: isLight ? '#C4A8D0' : tokens.textMuted,
-          fontFamily: tokens.fontBodySemibold,
-          letterSpacing: tokens.sectionLabelTracking,
-        }]}>
-          {monthLabel.toUpperCase()}
-        </Text>
         <Text style={[
           styles.screenTitle,
           {
@@ -68,11 +59,6 @@ const styles = StyleSheet.create({
   },
   titleBlock: {
     flex: 1,
-  },
-  monthLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    marginBottom: 2,
   },
   screenTitle: {},
   avatarButton: {

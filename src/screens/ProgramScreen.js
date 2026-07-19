@@ -60,6 +60,7 @@ import PrimaryGoalCard from '../components/training/PrimaryGoalCard';
 import SkillFocusCard from '../components/training/SkillFocusCard';
 import EnrollmentConfirmSheet from '../components/training/EnrollmentConfirmSheet';
 import WelcomeCard from '../components/training/WelcomeCard';
+import FindCoachCard from '../components/training/FindCoachCard';
 import SwipeableRow from '../components/SwipeableRow';
 import EmptyState from '../components/EmptyState';
 import { SkillIconBadge } from '../components/SkillIcon';
@@ -141,8 +142,8 @@ export default function ProgramScreen({ navigation, route }) {
   const { logbookTheme: t, isDark, setThemeMode } = useTheme();
   const styles = React.useMemo(() => createStyles(t), [t]);
   const [currentView, setCurrentView] = React.useState(
-    route.params?.initialView || 'myTraining'
-  ); // 'myTraining', 'coach', 'programs', 'library' or 'fun'
+    route.params?.initialView || 'coach'
+  ); // 'coach', 'myTraining', 'programs', 'library' or 'fun'
   const [programs, setPrograms] = React.useState([]);
   const [showCreateProgramModal, setShowCreateProgramModal] = React.useState(false);
   const [newProgramName, setNewProgramName] = React.useState('');
@@ -683,6 +684,13 @@ export default function ProgramScreen({ navigation, route }) {
             <Ionicons name="chevron-forward" size={16} color="#6B7280" />
           </TouchableOpacity>
 
+          <View style={styles.findCoachBottomBlock}>
+            <Text style={styles.findCoachPromoText}>Prefer to be trained by experts?</Text>
+            <View style={styles.findCoachSection}>
+              <FindCoachCard onPress={() => navigation.navigate('CoachDetail')} />
+            </View>
+          </View>
+
           <View style={styles.bottomSpacing} />
         </ScrollView>
       );
@@ -743,6 +751,13 @@ export default function ProgramScreen({ navigation, route }) {
             </SwipeableRow>
           </View>
         ))}
+
+        <View style={styles.findCoachBottomBlock}>
+          <Text style={styles.findCoachPromoText}>Prefer to be trained by experts?</Text>
+          <View style={styles.findCoachSection}>
+            <FindCoachCard onPress={() => navigation.navigate('CoachDetail')} />
+          </View>
+        </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -2220,23 +2235,9 @@ export default function ProgramScreen({ navigation, route }) {
 
   // Render Coach Program tab content
   const renderCoachProgramsContent = () => {
-    // "Find your coach" section that appears in all states
     const renderFindYourCoach = () => (
       <View style={styles.findCoachSection}>
-        <TouchableOpacity
-          style={styles.findCoachCard}
-          onPress={() => navigation.navigate('CoachDetail')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="search" size={24} color="#3B82F6" style={styles.findCoachIconDirect} />
-          <View style={styles.findCoachContent}>
-            <Text style={styles.findCoachTitle}>Find Your Coach</Text>
-            <Text style={styles.findCoachDescription}>
-              Browse certified coaches near you
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
-        </TouchableOpacity>
+        <FindCoachCard onPress={() => navigation.navigate('CoachDetail')} />
       </View>
     );
 
@@ -3053,14 +3054,7 @@ export default function ProgramScreen({ navigation, route }) {
         isDark={isDark}
         background="surface"
         bordered
-        title={currentView === 'myTraining' ? 'My Training' : 'Training Programs'}
-        subtitle={
-          currentView === 'myTraining'
-            ? 'Self-guided programs'
-            : currentView === 'library'
-            ? 'Browse catalog'
-            : 'Coach-assigned training'
-        }
+        title={currentView === 'myTraining' ? 'Train Solo' : 'Training Programs'}
         rightAction={
           <TouchableOpacity
             onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
@@ -3085,11 +3079,17 @@ export default function ProgramScreen({ navigation, route }) {
           </TouchableOpacity>
         }
       >
-        {/* Tab Navigation */}
+        {/* Tab Navigation — Coach Program first, then Train Solo, then Library */}
         <View style={styles.tabContainer}>
+          <TouchableOpacity style={styles.tab} onPress={() => setCurrentView('coach')}>
+            <Text style={[styles.tabText, { color: t.textMuted }, currentView === 'coach' && { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
+              Coach Program
+            </Text>
+            {currentView === 'coach' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
+          </TouchableOpacity>
           <TouchableOpacity style={styles.tab} onPress={() => setCurrentView('myTraining')}>
             <Text style={[styles.tabText, { color: t.textMuted }, currentView === 'myTraining' && { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
-              My Training
+              Train Solo
             </Text>
             {currentView === 'myTraining' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
           </TouchableOpacity>
@@ -3098,12 +3098,6 @@ export default function ProgramScreen({ navigation, route }) {
               Library
             </Text>
             {currentView === 'library' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab} onPress={() => setCurrentView('coach')}>
-            <Text style={[styles.tabText, { color: t.textMuted }, currentView === 'coach' && { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
-              Coach Program
-            </Text>
-            {currentView === 'coach' && <View style={[styles.activeTabIndicator, { backgroundColor: t.accentPurple }]} />}
           </TouchableOpacity>
         </View>
       </ScreenHeaderShell>
@@ -4396,43 +4390,24 @@ function createStyles(t) {
   coachProgramsContainer: {
     flex: 1,
   },
+  findCoachBottomBlock: {
+    marginTop: 'auto',
+  },
+  findCoachPromoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: c.sectionSubtitle,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 4,
+  },
   findCoachSection: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 8,
   },
-  findCoachCard: {
-    backgroundColor: c.cardBg,
-    borderRadius: 12,
-    padding: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: c.cardBorder,
-  },
-  findCoachIconDirect: {
-    marginRight: 14,
-  },
-  findCoachContent: {
-    flex: 1,
-  },
-  findCoachTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: c.sectionTitle,
-    marginBottom: 4,
-  },
-  findCoachDescription: {
-    fontSize: 14,
-    color: c.sectionSubtitle,
-    lineHeight: 20,
-  },
-
   // ─── My Training styles ───────────────────────────────────────────────────
   myTrainingEmptyHeader: {
     paddingHorizontal: 20,

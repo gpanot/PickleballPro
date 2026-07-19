@@ -16,13 +16,23 @@ import {
 import { ChevronDown, ArrowLeft, Check, MapPin, Phone } from 'lucide-react-native';
 import { PlatformMap, PlatformMarker } from '../components/PlatformMap';
 import { useAuth } from '../context/AuthContext';
+import { useUser } from '../context/UserContext';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
+import { getSport } from '../lib/sportConfig';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 
-export default function CreateCoachProfileScreen({ navigation }) {
+/**
+ * fromOnboarding — true when reached from the coach onboarding path (post sign-up).
+ *   On save OK or back, onSaved() is called so App.js can exit the gate and land on Profile.
+ * onSaved — callback invoked after save OK or back from onboarding.
+ */
+export default function CreateCoachProfileScreen({ navigation, fromOnboarding, onSaved }) {
   const { user: authUser, profile: userProfile } = useAuth();
+  const { user: contextUser } = useUser();
   const { logbookTheme: t, isDark } = useTheme();
+  // Sport-aware rating system: use contextUser.sportId if available, else fall back to pickleball
+  const ratingSystem = getSport(contextUser?.sportId || 'pickleball').ratingSystem;
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: authUser?.user_metadata?.full_name || userProfile?.name || '',
@@ -537,19 +547,41 @@ export default function CreateCoachProfileScreen({ navigation }) {
     setFormData(prev => ({...prev, phone: phoneValue}));
   }, [selectedCountry]);
 
-  // Update form data when user profile loads (only for new profiles)
+  // Update form data when user profile loads (only for new profiles).
+  // Supports both DUPR (pickleball) and skill_rating (padel / Playtomic).
   useEffect(() => {
-    if (!isEditMode && userProfile && userProfile.dupr_rating && !formData.duprRating && !duprManuallyEdited.current) {
-      console.log('Auto-populating DUPR rating from user profile:', userProfile.dupr_rating);
+    const profileRating = userProfile?.dupr_rating ?? userProfile?.skill_rating;
+    if (!isEditMode && userProfile && profileRating && !formData.duprRating && !duprManuallyEdited.current) {
+      console.log(`Auto-populating ${ratingSystem.label} rating from user profile:`, profileRating);
       setFormData(prevData => ({
         ...prevData,
         name: prevData.name || userProfile.name || '',
-        duprRating: userProfile.dupr_rating.toFixed(3)
+        duprRating: parseFloat(profileRating).toFixed(3),
       }));
     }
   }, [userProfile, formData.duprRating, isEditMode]);
 
+  const finishOnboardingAndGoToProfile = useCallback((source) => {
+    console.log('[CreateCoachProfile] finishOnboardingAndGoToProfile', {
+      source,
+      fromOnboarding,
+      hasOnSaved: typeof onSaved === 'function',
+    });
+    if (fromOnboarding && typeof onSaved === 'function') {
+      onSaved(source);
+    } else {
+      console.log('[CreateCoachProfile] finishOnboardingAndGoToProfile → navigation.goBack()');
+      navigation.goBack();
+    }
+  }, [fromOnboarding, onSaved, navigation]);
+
+  const handleBack = useCallback(() => {
+    console.log('[CreateCoachProfile] Back tapped', { fromOnboarding, isEditMode });
+    finishOnboardingAndGoToProfile('back');
+  }, [fromOnboarding, isEditMode, finishOnboardingAndGoToProfile]);
+
   const handleSaveCoach = async () => {
+    console.log('[CreateCoachProfile] Save tapped', { fromOnboarding, isEditMode, loading });
     if (!formData.name || !formData.email) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
@@ -581,9 +613,9 @@ export default function CreateCoachProfileScreen({ navigation }) {
         specialties: formData.specialties || [],
         coaching_radius: formData.coachingRadius, // Coaching radius in kilometers
         messaging_preferences: formData.messagingPreferences,
-        is_verified: false, // New coach profiles start as unverified
-        is_active: Boolean(formData.isActive), // Convert to boolean explicitly
-        is_accepting_students: formData.isAcceptingStudents, // User's choice to publish
+        is_verified: false,            // Manual review gates verification (not dashboard access)
+        is_active: Boolean(formData.isActive), // Defaults to true → immediate dashboard access
+        is_accepting_students: formData.isAcceptingStudents, // User opts in to directory listing
         rating_avg: 0,
         rating_count: 0
       };
@@ -624,6 +656,12 @@ export default function CreateCoachProfileScreen({ navigation }) {
 
       if (error) throw error;
 
+      console.log('[CreateCoachProfile] Save succeeded', {
+        fromOnboarding,
+        isEditMode,
+        coachId: data?.[0]?.id,
+      });
+
       const successMessage = isEditMode 
         ? (formData.isAcceptingStudents 
             ? 'Your coach profile has been updated successfully! Changes will be reviewed by our team.'
@@ -631,17 +669,14 @@ export default function CreateCoachProfileScreen({ navigation }) {
         : (formData.isAcceptingStudents 
             ? 'Your coach profile has been created successfully! It will be reviewed by our team before being published in the coach directory.'
             : 'Your coach profile has been created successfully! You can publish it in the coach directory anytime by updating your profile.');
-        
-      Alert.alert(
-        'Success', 
-        successMessage,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack()
-          }
-        ]
-      );
+
+      Alert.alert('Success', successMessage, [{
+        text: 'OK',
+        onPress: () => {
+          console.log('[CreateCoachProfile] Success OK tapped', { fromOnboarding, isEditMode });
+          finishOnboardingAndGoToProfile('save');
+        },
+      }]);
       
     } catch (error) {
       console.error('Error saving coach profile:', error);
@@ -987,7 +1022,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
         background="bg"
         bordered
         title={isEditMode ? 'Edit Coach Profile' : 'Create Coach Profile'}
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
         rightAction={
           <TouchableOpacity
             style={[styles.saveButton, { backgroundColor: t.accentPurple }]}
@@ -1120,7 +1155,7 @@ export default function CreateCoachProfileScreen({ navigation }) {
                       style={[
                         styles.messagingOption,
                         { backgroundColor: t.surface, borderColor: isDark ? t.border : '#E5E7EB' },
-                        isSelected && { backgroundColor: `${t.accentPurple}15`, borderColor: t.accentPurple },
+                        isSelected && { backgroundColor: '#F0FDF4', borderColor: '#16A34A', borderWidth: 2 },
                       ]}
                       onPress={() => handleMessagingPreferenceChange(option.id, !isSelected)}
                     >
@@ -1131,14 +1166,14 @@ export default function CreateCoachProfileScreen({ navigation }) {
                           ) : (
                             <Text style={styles.messagingOptionIcon}>{option.icon}</Text>
                           )}
-                          <Text style={[styles.messagingOptionName, { color: isSelected ? t.accentPurple : t.textPrimary, fontFamily: t.fontBodySemibold }]}>
+                          <Text style={[styles.messagingOptionName, { color: isSelected ? '#16A34A' : t.textPrimary, fontFamily: t.fontBodySemibold }]}>
                             {option.name}
                           </Text>
-                          <View style={[styles.messagingCheckbox, isSelected && { backgroundColor: t.accentPurple, borderColor: t.accentPurple }]}>
+                          <View style={[styles.messagingCheckbox, isSelected && { backgroundColor: '#16A34A', borderColor: '#16A34A' }]}>
                             {isSelected && <Check size={12} color="#fff" strokeWidth={3} />}
                           </View>
                         </View>
-                        <Text style={[styles.messagingOptionDescription, { color: isSelected ? t.accentPurple : t.textMuted, fontFamily: t.fontBody }]}>
+                        <Text style={[styles.messagingOptionDescription, { color: isSelected ? '#15803D' : t.textMuted, fontFamily: t.fontBody }]}>
                           {option.description}
                         </Text>
                       </View>
@@ -1182,53 +1217,37 @@ export default function CreateCoachProfileScreen({ navigation }) {
             <Text style={[styles.formSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Professional Details</Text>
             
             <View style={styles.formField}>
-              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>Skill Rating</Text>
+              <Text style={[styles.formLabel, { color: t.textSecondary, fontFamily: t.fontBodySemibold }]}>
+                {ratingSystem.label} Rating
+              </Text>
               <Text style={[styles.formDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
-                {userProfile?.dupr_rating 
+                {userProfile?.dupr_rating || userProfile?.skill_rating
                   ? 'Auto-populated from your profile. You can edit if needed (x.xxx format)'
-                  : 'Enter your rating in x.xxx format (e.g., 4.125, 3.750)'
+                  : `Enter your ${ratingSystem.label} rating (${ratingSystem.placeholder})`
                 }
               </Text>
               <TextInput
                 style={[styles.formInput, { backgroundColor: t.surface, borderColor: isDark ? t.border : '#D1D5DB', color: t.textPrimary }]}
-                placeholder="4.125"
+                placeholder={ratingSystem.placeholder}
                 value={formData.duprRating}
                 onChangeText={(text) => {
-                  // Mark as manually edited to prevent auto-repopulation
                   duprManuallyEdited.current = true;
-                  
-                  // Allow only numbers and decimal point
                   const cleanedText = text.replace(/[^0-9.]/g, '');
-                  
-                  // Allow empty string (user is clearing the field)
                   if (cleanedText === '') {
                     setFormData({...formData, duprRating: ''});
                     return;
                   }
-                  
-                  // Ensure only one decimal point
                   const parts = cleanedText.split('.');
-                  if (parts.length > 2) {
-                    return; // Don't update if more than one decimal point
-                  }
-                  
-                  // Limit to x.xxx format (one digit before decimal, up to 3 after)
+                  if (parts.length > 2) return;
                   if (parts[0] && parts[0].length > 1) {
-                    parts[0] = parts[0].slice(0, 1); // Keep only first digit before decimal
+                    parts[0] = parts[0].slice(0, 1);
                   }
                   if (parts[1] && parts[1].length > 3) {
-                    parts[1] = parts[1].slice(0, 3); // Keep only 3 digits after decimal
+                    parts[1] = parts[1].slice(0, 3);
                   }
-                  
                   const formattedText = parts.join('.');
-                  
-                  // Allow partial inputs during editing (like "0", "0.", ".", etc.)
-                  // Only validate complete numbers
                   const numValue = parseFloat(formattedText);
-                  if (!isNaN(numValue) && numValue > 8) {
-                    return; // Don't allow values greater than 8
-                  }
-                  
+                  if (!isNaN(numValue) && numValue > ratingSystem.max) return;
                   setFormData({...formData, duprRating: formattedText});
                 }}
                 keyboardType="decimal-pad"
@@ -1240,8 +1259,10 @@ export default function CreateCoachProfileScreen({ navigation }) {
                   {(() => {
                     const rating = parseFloat(formData.duprRating);
                     if (isNaN(rating)) return '❌ Invalid format';
-                    if (rating < 1 || rating > 8) return '❌ Rating must be between 1.000 and 8.000';
-                    return `✅ Valid skill rating: ${rating.toFixed(3)}`;
+                    if (rating < ratingSystem.min || rating > ratingSystem.max) {
+                      return `❌ ${ratingSystem.inputHint}`;
+                    }
+                    return `✅ Valid ${ratingSystem.label} rating: ${rating.toFixed(3)}`;
                   })()}
                 </Text>
               )}
@@ -1397,7 +1418,12 @@ export default function CreateCoachProfileScreen({ navigation }) {
                 >
                   {formData.isActive && <Check size={14} color={isDark ? t.fabTextColor : '#fff'} strokeWidth={3} />}
                 </TouchableOpacity>
-                <Text style={[styles.checkboxLabel, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Available for new students</Text>
+                <View style={styles.checkboxTextContainer}>
+                  <Text style={[styles.checkboxLabel, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Activate my coach account</Text>
+                  <Text style={[styles.checkboxDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
+                    Enables access to the coach dashboard. Uncheck only if you want to deactivate your account.
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -2111,20 +2137,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
     padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 1,
-        },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
   },
   messagingOptionSelected: {
     backgroundColor: '#F0FDF4',

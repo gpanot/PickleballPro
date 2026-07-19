@@ -84,7 +84,11 @@ export default function SignUpScreen({ onSignUp, navigation, onSignIn, route }) 
     if (!validateForm()) return;
     setIsLoading(true);
     try {
-      const onboardingData = getOnboardingData();
+      const isCoachMode = route?.params?.mode === 'coach';
+      const onboardingData = isCoachMode
+        // Coach path: only persist role + sportId; skip player-specific data
+        ? { role: 'coach', sport_id: user?.sportId }
+        : getOnboardingData();
       const userData = { name: name.trim(), ...onboardingData };
       const { data, error } = await signUp(email, password, userData);
       if (error) {

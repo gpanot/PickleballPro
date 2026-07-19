@@ -23,20 +23,19 @@ const ALL_NAV_ITEMS = [
   { id: 'settings',    label: 'Settings',            icon: 'settings-outline' },
 ];
 
-const COACH_NAV_IDS   = ['dashboard', 'content'];
+const COACH_NAV_IDS   = ['dashboard', 'content', 'academy', 'assessments'];
 const MANAGER_NAV_IDS = ['dashboard', 'content', 'academy', 'assessments'];
 
 function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole, insets }) {
   const managerNavItem = { id: 'academy', label: 'My Academy', icon: 'school-outline' };
 
   let navItems;
-  if (sessionRole === 'manager') {
-    const base = ALL_NAV_ITEMS.filter(item => MANAGER_NAV_IDS.includes(item.id));
+  if (sessionRole === 'manager' || sessionRole === 'coach') {
+    const allowedIds = sessionRole === 'manager' ? MANAGER_NAV_IDS : COACH_NAV_IDS;
+    const base = ALL_NAV_ITEMS.filter(item => allowedIds.includes(item.id));
     // Insert Academy tab after Content
     const contentIdx = base.findIndex(i => i.id === 'content');
     navItems = [...base.slice(0, contentIdx + 1), managerNavItem, ...base.slice(contentIdx + 1)];
-  } else if (sessionRole === 'coach') {
-    navItems = ALL_NAV_ITEMS.filter(item => COACH_NAV_IDS.includes(item.id));
   } else {
     navItems = ALL_NAV_ITEMS;
   }

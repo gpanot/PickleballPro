@@ -8,7 +8,6 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Plus } from 'lucide-react-native';
 import SwipeableRow from '../components/SwipeableRow';
@@ -18,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLogbook } from '../context/LogbookContext';
 import { useTheme } from '../context/ThemeContext';
 
-import LogbookHeader from '../components/logbook/LogbookHeader';
+import ScreenAvatarHeader from '../components/ScreenAvatarHeader';
 import LogbookSummaryCard from '../components/logbook/LogbookSummaryCard';
 import SkillPatternsCard from '../components/logbook/SkillPatternsCard';
 import MoodTimelineCard from '../components/logbook/MoodTimelineCard';
@@ -33,8 +32,6 @@ export default function LogbookScreen({ navigation }) {
   const { user: authUser } = useAuth();
   const { logbookEntries, isLoading, deleteLogbookEntry, getLogbookSummary, getMonthlyBreakdown, refreshLogbook } = useLogbook();
   const { logbookTheme: tokens, isDark } = useTheme();
-  const insets = useSafeAreaInsets();
-
   const [refreshing, setRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(ENTRIES_PAGE_SIZE);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
@@ -75,14 +72,14 @@ export default function LogbookScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      {/* Safe-area header */}
-      <View style={[styles.headerSafeArea, { paddingTop: insets.top, backgroundColor: tokens.bg, paddingHorizontal: isDark ? 20 : 24 }]}>
-        <LogbookHeader
-          tokens={tokens}
-          user={user}
-          onAvatarPress={() => navigation.navigate('Profile')}
-        />
-      </View>
+      <ScreenAvatarHeader
+        tokens={tokens}
+        isDark={isDark}
+        background="bg"
+        title={isDark ? 'LOGBOOK' : 'Your Logbook'}
+        user={user}
+        onAvatarPress={() => navigation.navigate('Profile')}
+      />
 
       <ScrollView
         style={styles.scrollView}
@@ -246,9 +243,6 @@ export default function LogbookScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  headerSafeArea: {
-    zIndex: 10,
   },
   scrollView: {
     flex: 1,

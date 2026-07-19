@@ -27,7 +27,7 @@ import { useLogbook } from '../context/LogbookContext';
 import { useTheme } from '../context/ThemeContext';
 import { checkAdminAccess, checkCoachAccess, supabase, getStudentCode } from '../lib/supabase';
 import { getSport } from '../lib/sportConfig';
-import StartAcademyModal from '../components/StartAcademyModal';
+import AcademyOnboardingFlow from './coach/AcademyOnboardingFlow';
 import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import { PRIVACY_POLICY_URL } from '../lib/legalUrls';
 
@@ -35,11 +35,18 @@ import { tiers, levels } from '../data/mockData';
 
 const { width } = Dimensions.get('window');
 
+// CropAvatar callback registry to avoid passing functions in navigation params
+// (React Navigation non-serializable state warning).
+let _cropCompleteCallback = null;
+export const setCropCompleteCallback = (fn) => {
+  _cropCompleteCallback = fn;
+};
+export const getCropCompleteCallback = () => _cropCompleteCallback;
 
 
 export default function ProfileScreen({ onLogout, navigation }) {
   const { user, resetAllOnboarding, setUser } = useUser();
-  const { user: authUser, isAuthenticated, signOut } = useAuth();
+  const { user: authUser, isAuthenticated, signOut, updateProfile } = useAuth();
   const { getLogbookSummary } = useLogbook();
   const { logbookTheme: t, isDark } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -68,6 +75,12 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const loadUserAvatar = async () => {
     try {
       if (!authUser?.id) return;
+
+      console.log('[AvatarDebug] loadUserAvatar start', {
+        authUserId: authUser.id,
+        localAvatarImage: avatarImage,
+        contextAvatarUrl: user?.avatarUrl,
+      });
       
       const { data, error } = await supabase
         .from('users')
@@ -85,16 +98,28 @@ export default function ProfileScreen({ onLogout, navigation }) {
         return;
       }
 
+      console.log('[AvatarDebug] loadUserAvatar DB result', {
+        dbAvatarUrl: data?.avatar_url,
+        willOverwriteLocal: !!(data?.avatar_url && data.avatar_url !== avatarImage),
+      });
+
       if (data?.avatar_url) {
         setAvatarImage(data.avatar_url);
       }
       
       // Update user context with avatar and city
-      setUser(prevUser => ({
-        ...prevUser,
-        avatarUrl: data.avatar_url || prevUser.avatarUrl,
-        city: data.city || prevUser.city,
-      }));
+      setUser(prevUser => {
+        const next = {
+          ...prevUser,
+          avatarUrl: data.avatar_url || prevUser.avatarUrl,
+          city: data.city || prevUser.city,
+        };
+        console.log('[AvatarDebug] loadUserAvatar setUser', {
+          prev: prevUser.avatarUrl,
+          next: next.avatarUrl,
+        });
+        return next;
+      });
     } catch (error) {
       console.error('Error loading user avatar:', error);
     }
@@ -347,19 +372,19 @@ export default function ProfileScreen({ onLogout, navigation }) {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         
-        // Navigate to custom crop screen
-        navigation.navigate('CropAvatar', {
-          imageUri: asset.uri,
-          onCropComplete: async (croppedUri) => {
-            try {
-              // Upload the cropped image to Supabase
-              await uploadAvatarToSupabase(croppedUri);
-            } catch (error) {
-              console.error('Error uploading cropped image:', error);
-              Alert.alert('Error', 'Failed to upload the cropped image.');
-            }
+        // Register callback out-of-band to avoid non-serializable navigation params
+        setCropCompleteCallback(async (croppedUri) => {
+          try {
+            // Upload the cropped image to Supabase
+            await uploadAvatarToSupabase(croppedUri);
+          } catch (error) {
+            console.error('Error uploading cropped image:', error);
+            Alert.alert('Error', 'Failed to upload the cropped image.');
           }
         });
+
+        // Navigate to custom crop screen with serializable params only
+        navigation.navigate('CropAvatar', { imageUri: asset.uri });
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -386,18 +411,19 @@ export default function ProfileScreen({ onLogout, navigation }) {
       const fileExtension = 'jpg';
       const fileName = `${authUser.id}/avatar_${Date.now()}.${fileExtension}`;
       
-      console.log('Upload details:', {
+      console.log('[AvatarDebug] Upload start', {
         userId: authUser.id,
         fileName,
-        bucketName: 'avatars',
-        folderName: authUser.id
+        croppedUriPrefix: String(imageUri).slice(0, 80),
+        prevContextAvatar: user?.avatarUrl,
+        prevLocalAvatar: avatarImage,
       });
       
       // Read file as array buffer (works for both web and React Native)
       const response = await fetch(imageUri);
       const arrayBuffer = await response.arrayBuffer();
       
-      console.log('File size:', arrayBuffer.byteLength, 'bytes');
+      console.log('[AvatarDebug] Cropped file size:', arrayBuffer.byteLength, 'bytes');
       
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
@@ -408,7 +434,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
         });
 
       if (error) {
-        console.error('Storage upload error:', error);
+        console.error('[AvatarDebug] Storage upload error:', error);
         
         // Provide specific error messages for common issues
         if (error.message.includes('row-level security policy')) {
@@ -430,10 +456,14 @@ export default function ProfileScreen({ onLogout, navigation }) {
         throw error;
       }
 
+      console.log('[AvatarDebug] Storage upload OK', { path: data?.path });
+
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
+
+      console.log('[AvatarDebug] Public URL', publicUrl);
 
       // Safety check: Ensure the returned URL is not a blob URL
       if (publicUrl.startsWith('blob:')) {
@@ -442,13 +472,14 @@ export default function ProfileScreen({ onLogout, navigation }) {
         return;
       }
 
-      // Update user profile with avatar URL
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', authUser.id);
+      // Update users.avatar_url AND AuthContext.profile so UserContext sync
+      // (which prefers profile.avatar_url) does not overwrite with the old URL.
+      const { data: updatedProfile, error: updateError } = await updateProfile({
+        avatar_url: publicUrl,
+      });
 
       if (updateError) {
+        console.error('[AvatarDebug] updateProfile failed:', updateError);
         // Check if error is due to missing column
         if (updateError.code === '42703' && updateError.message.includes('avatar_url')) {
           Alert.alert(
@@ -460,15 +491,19 @@ export default function ProfileScreen({ onLogout, navigation }) {
         throw updateError;
       }
 
-      // Update local state
+      console.log('[AvatarDebug] updateProfile OK', {
+        returnedAvatarUrl: updatedProfile?.avatar_url,
+      });
+
+      // Update local image immediately. UserContext will sync from
+      // AuthContext.profile via updateProfile above.
       setAvatarImage(publicUrl);
-      setUser(prevUser => ({
-        ...prevUser,
-        avatarUrl: publicUrl
-      }));
+      console.log('[AvatarDebug] setAvatarImage after upload', {
+        next: publicUrl,
+      });
       
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+      console.error('[AvatarDebug] Error uploading avatar:', error);
       Alert.alert('Error', 'Failed to upload profile picture. Please try again.');
     }
   };
@@ -488,7 +523,17 @@ export default function ProfileScreen({ onLogout, navigation }) {
     return Math.max(0, daysDiff);
   };
 
-  const renderProfileSection = () => (
+  const renderProfileSection = () => {
+    // Prefer local state after upload — UserContext may briefly still hold the old URL
+    // until AuthContext.profile syncs (profile.avatar_url takes priority in UserContext).
+    const displayAvatarUri = avatarImage || user.avatarUrl || null;
+    console.log('[AvatarDebug] renderProfileSection', {
+      displayAvatarUri,
+      avatarImage,
+      userAvatarUrl: user.avatarUrl,
+    });
+
+    return (
     <View style={[styles.section, { paddingHorizontal: t.headerPaddingH }]}>
       <View style={[styles.profileCard, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]}>
         <View style={styles.profileRow}>
@@ -498,9 +543,14 @@ export default function ProfileScreen({ onLogout, navigation }) {
             disabled={isUploadingAvatar}
             activeOpacity={0.8}
           >
-            {(user.avatarUrl || avatarImage) ? (
+            {displayAvatarUri ? (
               <>
-                <Image source={{ uri: user.avatarUrl || avatarImage }} style={styles.avatarImage} resizeMode="cover" />
+                <Image
+                  key={displayAvatarUri}
+                  source={{ uri: displayAvatarUri }}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
                 {isUploadingAvatar && (
                   <View style={styles.avatarOverlay}>
                     <Text style={styles.uploadingText}>Uploading...</Text>
@@ -564,7 +614,8 @@ export default function ProfileScreen({ onLogout, navigation }) {
         </View>
       </View>
     </View>
-  );
+    );
+  };
 
 
 
@@ -637,7 +688,7 @@ export default function ProfileScreen({ onLogout, navigation }) {
         >
           <View style={styles.settingsItemLeft}>
             <Ionicons name="school-outline" size={20} color="#16A34A" />
-            <Text style={[styles.settingsItemText, { color: '#16A34A', fontFamily: t.fontBodySemibold }]}>Start Your Academy</Text>
+            <Text style={[styles.settingsItemText, { color: '#16A34A', fontFamily: t.fontBodySemibold }]}>Create Academy</Text>
           </View>
           <ModernIcon name="action" size={8} color="#16A34A" />
         </TouchableOpacity>
@@ -1012,14 +1063,36 @@ export default function ProfileScreen({ onLogout, navigation }) {
       {renderDeleteAccountModal()}
       {renderDeleteConfirmationModal()}
 
-      {/* Start Academy bootstrap modal (GAP-01 / GAP-10) */}
-      <StartAcademyModal
+      {/* Start Academy — full-screen onboarding flow (GAP-01 / GAP-10) */}
+      <AcademyOnboardingFlow
         visible={showStartAcademyModal}
-        onClose={() => setShowStartAcademyModal(false)}
-        onSuccess={() => {
+        onDismiss={() => setShowStartAcademyModal(false)}
+        onComplete={async (academyName) => {
           setShowStartAcademyModal(false);
-          // Re-run role check so the button immediately switches to "Academy Dashboard"
-          checkAdmin();
+          try {
+            const slugify = (str) =>
+              str.toLowerCase().trim()
+                .replace(/[^a-z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '')
+                .slice(0, 40);
+            const base = slugify(academyName) || 'academy';
+            const suffix = Math.random().toString(36).slice(2, 8);
+            const { error: rpcError } = await supabase.rpc('become_academy_manager', {
+              academy_name: academyName.trim(),
+              academy_slug: `${base}-${suffix}`,
+              academy_logo_url: null,
+            });
+            if (rpcError) {
+              Alert.alert('Error', rpcError.message || 'Failed to create academy.');
+              return;
+            }
+            // Re-run role check so the button immediately switches to "Academy Dashboard"
+            checkAdmin();
+          } catch (err) {
+            Alert.alert('Error', err.message || 'An unexpected error occurred.');
+          }
         }}
       />
     </View>

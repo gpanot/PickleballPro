@@ -9,6 +9,8 @@ buildscript {
     classpath('com.android.tools.build:gradle')
     classpath('com.facebook.react:react-native-gradle-plugin')
     classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')
+    classpath('com.google.gms:google-services:4.4.2') // C-3: Firebase / FCM
+    classpath('com.google.firebase:firebase-crashlytics-gradle:3.0.3') // Crashlytics
   }
 }
 

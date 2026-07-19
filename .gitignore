@@ -114,3 +114,7 @@ Supabase_backup_files/
 # Apple Sign in with Apple keys (.p8 files — never commit)
 *.p8
 AuthKey_*.p8
+
+# Firebase config files (contain API keys)
+android/app/google-services.json
+ios/PicklePro/GoogleService-Info.plist

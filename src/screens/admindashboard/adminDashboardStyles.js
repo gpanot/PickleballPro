@@ -253,21 +253,27 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fafafa', // muted background
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingVertical: 0,
+    height: 40,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e4e4e7', // zinc-300
+    borderColor: '#D1D5DB',
     minWidth: screenWidth < 768 ? 0 : 300,
     flex: screenWidth < 768 ? 1 : undefined,
+  },
+  searchContainerMobile: {
+    flex: 1,
+    minWidth: 0,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
     fontSize: 14,
-    color: '#18181b', // zinc-900
+    color: '#18181b',
     backgroundColor: 'transparent',
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     ...(Platform.OS === 'web' && {
       outlineStyle: 'none',
     }),
@@ -491,8 +497,10 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 0,
+    height: 40,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#D1D5DB',
@@ -500,6 +508,11 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' && {
       cursor: 'pointer',
     }),
+  },
+  filterButtonMobile: {
+    width: 40,
+    paddingHorizontal: 0,
+    flexShrink: 0,
   },
   filterButtonText: {
     fontSize: 14,
@@ -528,6 +541,31 @@ const styles = StyleSheet.create({
   coachFilterButtonWrap: {
     position: 'relative',
     zIndex: 510,
+  },
+  coachFilterButtonWrapMobile: {
+    flexShrink: 0,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  filterModalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  filterModalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#18181b',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    marginBottom: 4,
   },
   coachFilterDropdown: {
     position: 'absolute',
@@ -1030,8 +1068,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   searchFilterBarMobile: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
   },
 
   // Secondary Button
@@ -2050,6 +2090,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
+  dashboardQuickActionsCompact: {
+    flexWrap: 'nowrap',
+    gap: 8,
+  },
+  dashboardActionCompact: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+  },
+  dashboardActionTextCompact: {
+    fontSize: 12,
+    marginLeft: 3,
+  },
   dashboardRefreshAction: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2093,6 +2147,23 @@ const styles = StyleSheet.create({
   dashboardStatCardCompact: {
     minWidth: 0,
     padding: screenWidth < 768 ? 10 : 16,
+  },
+  dashboardStatCardKpi: {
+    minWidth: 0,
+    padding: 8,
+    alignItems: 'center',
+  },
+  dashboardStatHeaderKpi: {
+    marginBottom: 4,
+  },
+  dashboardStatNumberKpi: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  dashboardStatLabelKpi: {
+    fontSize: 10,
+    marginBottom: 0,
+    textAlign: 'center',
   },
   dashboardStatHeader: {
     marginBottom: screenWidth < 768 ? 8 : 16,

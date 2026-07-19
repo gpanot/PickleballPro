@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
-  Image,
 } from 'react-native';
 import SeededAvatar from '../components/SeededAvatar';
 import EmptyState from '../components/EmptyState';
@@ -18,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
-import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
+import ScreenAvatarHeader from '../components/ScreenAvatarHeader';
 import * as Location from 'expo-location';
 
 export default function LeaderboardScreen({ navigation }) {
@@ -250,55 +249,20 @@ export default function LeaderboardScreen({ navigation }) {
     );
   };
 
-  const filterSubtitle = selectedFilter === 'nearby'
-    ? 'Players within 50km'
-    : selectedFilter === 'global'
-    ? 'Global rankings'
-    : `${selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1)} players`;
-
   const accent = t.accentPurple;
   const nudgeBg = isDark ? t.surfaceRaised : '#EEF2FF';
   const nudgeBorder = isDark ? t.border : '#C7D2FE';
 
-  const avatarInitials = userProfile?.name
-    ? userProfile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : 'U';
-
-  const avatarRightAction = (
-    <TouchableOpacity
-      onPress={() => navigation.navigate('Profile')}
-      activeOpacity={0.7}
-      style={styles.avatarButton}
-    >
-      <View style={[
-        styles.avatarContainer,
-        {
-          backgroundColor: isDark ? t.surfaceRaised : t.accentPurpleMuted || '#EDE9FE',
-          borderWidth: 1,
-          borderColor: isDark ? t.border : t.borderSubtle || '#DDD6FE',
-        },
-      ]}>
-        {userProfile?.avatarUrl ? (
-          <Image source={{ uri: userProfile.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
-        ) : (
-          <Text style={[styles.avatarText, { color: t.accentPurple, fontFamily: t.fontBodyBold }]}>
-            {avatarInitials}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
-      <ScreenHeaderShell
+      <ScreenAvatarHeader
         tokens={t}
         isDark={isDark}
         background="bg"
         bordered
         title="Leaderboard"
-        subtitle={`${filterSubtitle} · based on latest coach assessment`}
-        rightAction={avatarRightAction}
+        user={userProfile}
+        onAvatarPress={() => navigation.navigate('Profile')}
       />
 
       {/* Current User Card */}
@@ -533,25 +497,5 @@ const styles = StyleSheet.create({
   playerScore: { alignItems: 'flex-end' },
   scoreValue: { fontSize: 24, marginBottom: 2 },
   scoreLabel: { fontSize: 12 },
-  avatarButton: {
-    marginTop: 4,
-    padding: 2,
-  },
-  avatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
 });
 

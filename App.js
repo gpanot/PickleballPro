@@ -4,7 +4,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Platform, View, ActivityIndicator } from 'react-native';
+import { Platform, View, ActivityIndicator, NativeModules } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreenExpo from 'expo-splash-screen';
 import {
@@ -43,12 +43,14 @@ if (__DEV__) {
 
 import OnboardingFinishScreen from './src/screens/OnboardingFinishScreen';
 import IntroScreen from './src/screens/IntroScreen';
+import RoleSelectionScreen from './src/screens/RoleSelectionScreen';
 import SportSelectionScreen from './src/screens/SportSelectionScreen';
 import GenderSelectionScreen from './src/screens/GenderSelectionScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import RatingSelectionScreen from './src/screens/RatingSelectionScreen';
 import PersonalProgramScreen from './src/screens/PersonalProgramScreen';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
+import CoachOnboardingNavigator from './src/navigation/CoachOnboardingNavigator';
 import { onboardingStackScreenOptions } from './src/navigation/onboardingStackOptions';
 import { getOnboardingRootBackground } from './src/lib/onboardingThemeRamp';
 import { warmFriendly } from './src/theme/logbookThemes';
@@ -64,7 +66,6 @@ import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CreateCoachProfileScreen from './src/screens/CreateCoachProfileScreen';
 import CropAvatar from './src/components/CropAvatar';
-import SplashScreen from './src/screens/SplashScreen';
 import AdminRoute from './src/components/AdminRoute';
 import AppSettingsScreen from './src/screens/AppSettingsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
@@ -80,33 +81,104 @@ import UITestGameScreen from './src/screens/fungame/UITestGameScreen';
 import CoachScreen from './src/screens/CoachScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import AcceptInviteScreen from './src/screens/AcceptInviteScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { LogbookProvider } from './src/context/LogbookContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { PreloadProvider } from './src/context/PreloadContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { getThemeModeForGender } from './src/lib/applyGenderTheme';
-import { initializeDeepLinkHandling } from './src/lib/deepLinkHandler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initializeDeepLinkHandling, PENDING_INVITE_TOKEN_KEY } from './src/lib/deepLinkHandler';
 import { initializeAuthDeepLinkHandling } from './src/lib/authDeepLink';
 import { getActiveTrainingTracks } from './src/lib/trainingTracksApi';
 import {
   loadOnboardingFinishState,
   MAX_ONBOARDING_FINISH_VIEWS,
 } from './src/lib/onboardingFinishState';
+import { checkCoachAccess, supabase } from './src/lib/supabase';
 
 const Stack = createStackNavigator();
+
+// Crashlytics — guard same as FCM (requires native build, not Expo Go)
+let crashlytics = null;
+if (NativeModules.RNFBAppModule) {
+  try {
+    // eslint-disable-next-line global-require
+    crashlytics = require('@react-native-firebase/crashlytics').default;
+  } catch (e) {
+    console.warn('[Crashlytics] Failed to load module:', e?.message || e);
+  }
+}
+
+// C-3: FCM — only available in a custom native build (release APK / dev client).
+// Expo Go and web do not ship RNFBAppModule; guard so those runtimes don't RedBox.
+let messaging = null;
+if (NativeModules.RNFBAppModule) {
+  try {
+    // eslint-disable-next-line global-require
+    messaging = require('@react-native-firebase/messaging').default;
+  } catch (e) {
+    console.warn('[FCM] Failed to load messaging module:', e?.message || e);
+  }
+} else if (Platform.OS !== 'web') {
+  console.warn('[FCM] RNFBAppModule missing — use a release/dev-client build, not Expo Go');
+}
+
+if (messaging) {
+  // Background handler must be registered at module level, before any component mounts.
+  messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+    const ts = new Date().toISOString().substring(11, 23);
+    const log = `[${ts}] BACKGROUND: title="${remoteMessage.notification?.title}" data=${JSON.stringify(remoteMessage.data)}`;
+    try {
+      const existing = await AsyncStorage.getItem('@academypro_pns_debug_logs');
+      const logs = existing ? JSON.parse(existing) : [];
+      logs.push(log);
+      await AsyncStorage.setItem('@academypro_pns_debug_logs', JSON.stringify(logs.slice(-100)));
+    } catch { /* ignore storage errors in background */ }
+  });
+}
 
 function AppContent() {
   const [initialTabRoute, setInitialTabRoute] = useState('Explore');
   const [onboardingInitialView, setOnboardingInitialView] = useState(null);
-  const [showSplash, setShowSplash] = useState(true);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [onboardingFinishGateReady, setOnboardingFinishGateReady] = useState(false);
-  const { hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName, hasCompletedOnboarding, isOnboardingHydrated, user, updateOnboardingData, completeSportSelection, completeIntro, goBackToIntro, completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection, completeNameSelection, completeOnboarding, updateUserRating } = useUser();
-  const { isAuthenticated, loading: authLoading, pendingPasswordRecovery } = useAuth();
+  // Signals that Profile should be pushed on top of Main once it mounts
+  // (used after coach onboarding save and after returning-coach sign-in)
+  const pendingNavigateToProfile = React.useRef(false);
+  const {
+    hasSelectedRole, hasSelectedSport, hasCompletedIntro, hasSelectedGender, hasSetRating, hasSetName,
+    hasCompletedOnboarding, hasCompletedCoachBenefits, hasCompletedCoachProfile,
+    isOnboardingHydrated, user, updateOnboardingData,
+    completeSportSelection, completeIntro, goBackToIntro, resetSportSelection,
+    completeGenderSelection, resetGenderSelection, resetRatingSelection, resetNameSelection,
+    completeNameSelection, completeOnboarding, updateUserRating,
+    completeRoleSelection, resetRoleSelection, completeCoachBenefits, resetCoachBenefits, completeCoachProfile,
+  } = useUser();
+  const { isAuthenticated, loading: authLoading, pendingPasswordRecovery, user: authUser } = useAuth();
   const { setThemeMode, logbookTheme, isDark } = useTheme();
   const navigationRef = React.useRef(null);
   const onboardingFinishGateChecked = React.useRef(false);
+
+  // Hide the native splash screen immediately on mount
+  useEffect(() => {
+    SplashScreenExpo.hideAsync().catch(() => {});
+  }, []);
+
+  // Tag Crashlytics with the authenticated user so crash reports are attributable
+  useEffect(() => {
+    if (!crashlytics) return;
+    const instance = crashlytics();
+    if (authUser?.id) {
+      instance.setUserId(authUser.id).catch(() => {});
+      if (authUser.email) {
+        instance.setAttribute('email', authUser.email).catch(() => {});
+      }
+    } else {
+      instance.setUserId('').catch(() => {});
+    }
+  }, [authUser?.id, authUser?.email]);
 
   // Restore gender-based theme when resuming mid-onboarding
   useEffect(() => {
@@ -182,7 +254,7 @@ function AppContent() {
 
   // Add a timeout fallback for auth loading
   useEffect(() => {
-    if (!showSplash && authLoading) {
+    if (authLoading) {
       console.log('⏰ Starting auth timeout fallback (6 seconds)');
       const timer = setTimeout(() => {
         console.log('⏰ Auth loading timeout reached - proceeding without auth');
@@ -191,7 +263,7 @@ function AppContent() {
       
       return () => clearTimeout(timer);
     }
-  }, [showSplash, authLoading]);
+  }, [authLoading]);
 
   // Navigate to the password-reset form when a recovery deep-link is opened
   useEffect(() => {
@@ -200,9 +272,23 @@ function AppContent() {
     }
   }, [pendingPasswordRecovery]);
 
+  const handleRoleSelected = (role) => {
+    console.log('Role selected:', role);
+    completeRoleSelection(role);
+  };
+
+  const handleRoleGoBack = () => {
+    // No back from role screen (first screen in funnel)
+  };
+
   const handleIntroComplete = () => {
     console.log('Intro completed!');
     completeIntro();
+  };
+
+  const handleIntroGoBack = () => {
+    console.log('Going back to sport selection from intro');
+    resetSportSelection();
   };
 
   const handleSportSelected = (sportId) => {
@@ -210,16 +296,147 @@ function AppContent() {
     completeSportSelection(sportId);
   };
 
-  const handleAuthenticate = () => {
+  const handleSportGoBack = () => {
+    console.log('Going back to role selection from sport');
+    resetRoleSelection();
+  };
+
+  const handleCoachBenefitsComplete = () => {
+    console.log('Coach benefits completed!');
+    completeCoachBenefits();
+  };
+
+  const handleCoachBenefitsGoBack = () => {
+    console.log('Going back to sport selection from coach benefits');
+    // Reset sport selection so gate shows SportSelectionScreen again (back label is "Sport")
+    resetCoachBenefits();
+    resetSportSelection();
+  };
+
+  const handleCoachProfileComplete = (source = 'unknown') => {
+    console.log('[App] handleCoachProfileComplete', { source });
+    // Flag to push Profile screen once Main mounts
+    pendingNavigateToProfile.current = true;
+    completeCoachProfile();
+  };
+
+  // AO-5: After authentication, check for a pending academy invite token and navigate.
+  // This handles the case where the user tapped an invite link before signing in.
+  useEffect(() => {
+    if (!isAuthenticated || !navigationRef.current) return;
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+        if (!token) return;
+        await AsyncStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
+        console.log('[App] Resuming pending invite token after auth:', token);
+        // Wait for the Main navigator to mount before pushing AcceptInvite on top
+        setTimeout(() => {
+          if (navigationRef.current) {
+            navigationRef.current.navigate('AcceptInvite', { token });
+          }
+        }, 300);
+      } catch (e) {
+        console.warn('[App] Failed to read pending invite token:', e);
+      }
+    })();
+  }, [isAuthenticated]);
+
+  // C-3: Register FCM device token after the user authenticates (native builds only)
+  useEffect(() => {
+    if (!messaging || !isAuthenticated || !authUser?.id) return;
+    (async () => {
+      try {
+        const authStatus = await messaging().requestPermission();
+        const granted =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+        if (!granted) return;
+        const token = await messaging().getToken();
+        if (!token) return;
+        await supabase
+          .from('device_push_tokens')
+          .upsert(
+            { user_id: authUser.id, token, platform: Platform.OS, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id,platform' }
+          );
+      } catch (e) {
+        console.warn('[FCM] Token registration failed:', e);
+      }
+    })();
+  }, [isAuthenticated, authUser?.id]);
+
+  // C-3: Handle FCM foreground messages — display via in-app banner or schedule local notification
+  useEffect(() => {
+    if (!messaging || !isAuthenticated) return;
+    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
+      const ts = new Date().toISOString().substring(11, 23);
+      const log = `[${ts}] FOREGROUND: title="${remoteMessage.notification?.title}"`;
+      try {
+        const existing = await AsyncStorage.getItem('@academypro_pns_debug_logs');
+        const logs = existing ? JSON.parse(existing) : [];
+        logs.push(log);
+        await AsyncStorage.setItem('@academypro_pns_debug_logs', JSON.stringify(logs.slice(-100)));
+      } catch { /* ignore */ }
+      // Foreground display: for now we log only — upgrade to scheduleNotificationAsync
+      // when expo-notifications is added (Phase 2 of C-3).
+      console.log('[FCM] Foreground message:', remoteMessage.notification?.title, remoteMessage.data);
+    });
+    return unsubscribe;
+  }, [isAuthenticated]);
+
+  // Navigate to Profile after coach onboarding gate clears (save OK or back).
+  useEffect(() => {
+    if (!hasCompletedCoachProfile || !pendingNavigateToProfile.current) return;
+
+    pendingNavigateToProfile.current = false;
+    const timer = setTimeout(() => {
+      const nav = navigationRef.current;
+      if (!nav) {
+        console.warn('[App] handleCoachProfileComplete: navigationRef not ready');
+        pendingNavigateToProfile.current = true;
+        return;
+      }
+      console.log('[App] Navigating to Profile after coach profile complete');
+      nav.reset({
+        index: 1,
+        routes: [{ name: 'Main' }, { name: 'Profile' }],
+      });
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [hasCompletedCoachProfile]);
+
+  const handleAuthenticate = async () => {
     console.log('Authentication triggered!');
-    // Mark all onboarding steps complete synchronously so App never briefly
-    // shows OnboardingFinish for a returning sign-in user.
-    completeSportSelection('pickleball');
+    // Mark all pre-auth onboarding steps complete so the gate never briefly
+    // shows an onboarding screen for a returning sign-in user.
+    // Do NOT overwrite sportId or role if they are already persisted.
+    if (!hasSelectedRole)  completeRoleSelection(user?.role || 'player');
+    if (!hasSelectedSport) completeSportSelection(user?.sportId || 'pickleball');
     completeIntro();
     completeGenderSelection();
     updateUserRating(2.5, 'self');
     completeNameSelection();
+    completeCoachBenefits();
     completeOnboarding();
+
+    // C9a: check if the signed-in user has a coaches row.
+    // authUser is available from AuthContext at this point (auth event already fired).
+    // If a coaches row exists, mark coach profile done and route to Profile.
+    try {
+      const uid = authUser?.id || user?.id;
+      if (uid) {
+        const coachAccess = await checkCoachAccess(uid);
+        if (coachAccess?.isCoach) {
+          completeCoachProfile();
+          pendingNavigateToProfile.current = true;
+        }
+      }
+    } catch (e) {
+      console.warn('handleAuthenticate: could not check coach access', e);
+    }
+
     console.log('✅ Onboarding flags set for authenticated user');
   };
 
@@ -285,21 +502,10 @@ function AppContent() {
     }
   };
 
-  const handleSplashComplete = () => {
-    console.log('Splash screen completed!');
-    setShowSplash(false);
-  };
-
-  console.log('App render - hasSelectedSport:', hasSelectedSport, 'hasCompletedIntro:', hasCompletedIntro, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasSetName:', hasSetName, 'hasCompletedOnboarding:', hasCompletedOnboarding);
+  console.log('App render - role:', user?.role, 'hasSelectedRole:', hasSelectedRole, 'hasSelectedSport:', hasSelectedSport, 'hasCompletedIntro:', hasCompletedIntro, 'hasCompletedCoachBenefits:', hasCompletedCoachBenefits, 'hasSelectedGender:', hasSelectedGender, 'hasSetRating:', hasSetRating, 'hasSetName:', hasSetName, 'hasCompletedOnboarding:', hasCompletedOnboarding, 'hasCompletedCoachProfile:', hasCompletedCoachProfile);
   
   // Debug navigation logic
   console.log('🔐 Authentication status - isAuthenticated:', isAuthenticated, 'authLoading:', authLoading);
-  
-  // Show splash screen first
-  if (showSplash) {
-    console.log('🎬 Showing splash screen');
-    return <SplashScreen onComplete={handleSplashComplete} />;
-  }
 
   // Wait for AsyncStorage hydration so we never flash back to Intro mid-flow
   if (!isOnboardingHydrated) {
@@ -313,7 +519,7 @@ function AppContent() {
 
   // Don't render anything while auth is loading, but add a timeout fallback
   if (authLoading && !authTimeout && !isAuthenticated) {
-    console.log('⏳ Initial auth loading after splash - showing loading state');
+    console.log('⏳ Initial auth loading - showing loading state');
     return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
   }
 
@@ -341,17 +547,26 @@ function AppContent() {
     ? onboardingStackScreenOptions
     : { headerShown: false, cardStyle: { flex: 1, backgroundColor: appBg } };
 
-  // ── 3-way routing ──────────────────────────────────────────────────────────
-  // Branch 1: Authenticated + onboarding done → Main
-  // Branch 2: Authenticated + onboarding NOT done → OnboardingFinish (new users)
-  // Branch 3: Not authenticated → pre-auth onboarding flow
-  if (isAuthenticated && hasCompletedOnboarding) {
+  // ── 4-way routing ──────────────────────────────────────────────────────────
+  // Branch 1: Authenticated + onboarding done + not new coach → Main
+  // Branch 2: Authenticated + new coach (!hasCompletedCoachProfile) → CreateCoachProfileScreen
+  // Branch 3: Authenticated + player onboarding NOT done → OnboardingFinish (new player)
+  // Branch 4: Not authenticated → pre-auth onboarding flow (role-aware)
+  const isNewCoach = isAuthenticated && hasCompletedOnboarding && !hasCompletedCoachProfile && user?.role === 'coach';
+
+  if (isNewCoach) {
+    console.log('🏫 Decision: CreateCoachProfile (new coach, post-signup)');
+  } else if (isAuthenticated && hasCompletedOnboarding) {
     console.log('🚀 Decision: Main (authenticated, onboarding complete)');
   } else if (isAuthenticated && !hasCompletedOnboarding) {
-    console.log('🎉 Decision: OnboardingFinish (authenticated, new user)');
+    console.log('🎉 Decision: OnboardingFinish (authenticated, new player)');
+  } else if (!hasSelectedRole) {
+    console.log('🎭 Decision: RoleSelection screen');
   } else if (!hasSelectedSport) {
     console.log('🏅 Decision: SportSelection screen');
-  } else if (!hasCompletedIntro) {
+  } else if (user?.role === 'coach' && !hasCompletedCoachBenefits) {
+    console.log('🎓 Decision: CoachOnboarding (benefits → signup)');
+  } else if (user?.role !== 'coach' && !hasCompletedIntro) {
     console.log('👋 Decision: Intro screen');
   } else if (!hasSelectedGender) {
     console.log('👤 Decision: GenderSelection screen');
@@ -382,8 +597,21 @@ function AppContent() {
     >
       <StatusBar style="auto" backgroundColor="transparent" translucent />
       <Stack.Navigator screenOptions={rootStackScreenOptions}>
-        {isAuthenticated && !hasCompletedOnboarding ? (
-          // BRANCH 2: New authenticated user — show OnboardingFinish before Main
+        {isAuthenticated && hasCompletedOnboarding && isNewCoach ? (
+          // BRANCH 2b: New coach — show CreateCoachProfileScreen before landing on Profile
+          <>
+            <Stack.Screen name="CreateCoachProfile" options={{ headerShown: false }}>
+              {(props) => (
+                <CreateCoachProfileScreen
+                  {...props}
+                  fromOnboarding
+                  onSaved={handleCoachProfileComplete}
+                />
+              )}
+            </Stack.Screen>
+          </>
+        ) : isAuthenticated && !hasCompletedOnboarding ? (
+          // BRANCH 3: New player — show OnboardingFinish before Main
           <Stack.Screen name="OnboardingFinish">
             {(props) => (
               <OnboardingFinishScreen
@@ -496,14 +724,21 @@ function AppContent() {
             <Stack.Screen name="ResetPassword">
               {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
             </Stack.Screen>
+            <Stack.Screen
+              name="AcceptInvite"
+              component={AcceptInviteScreen}
+              options={{ headerShown: false }}
+            />
           </>
         ) : (
-          // ONBOARDING FLOW - Only for non-authenticated users
+          // BRANCH 4: Pre-auth onboarding flow — role-aware
           <>
-            {!hasSelectedSport ? (
+            {/* Shared auth screens always accessible from anywhere in pre-auth flow */}
+            {!hasSelectedRole ? (
+              // Step 0: Role selection (new in v2)
               <>
-                <Stack.Screen name="SportSelection">
-                  {(props) => <SportSelectionScreen {...props} onComplete={handleSportSelected} />}
+                <Stack.Screen name="RoleSelection">
+                  {(props) => <RoleSelectionScreen {...props} onComplete={handleRoleSelected} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -513,10 +748,45 @@ function AppContent() {
                   {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
                 </Stack.Screen>
               </>
-            ) : !hasCompletedIntro ? (
+            ) : !hasSelectedSport ? (
+              // Step 1: Sport selection (both player and coach)
+              <>
+                <Stack.Screen name="SportSelection">
+                  {(props) => <SportSelectionScreen {...props} onComplete={handleSportSelected} onGoBack={handleSportGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+                </Stack.Screen>
+              </>
+            ) : user?.role === 'coach' && !hasCompletedCoachBenefits ? (
+              // COACH PATH: Benefits carousel → SignUp
+              <>
+                <Stack.Screen name="CoachOnboarding">
+                  {(props) => (
+                    <CoachOnboardingNavigator
+                      {...props}
+                      onComplete={handleCoachBenefitsComplete}
+                      onGoBackFromStart={handleCoachBenefitsGoBack}
+                    />
+                  )}
+                </Stack.Screen>
+                <Stack.Screen name="Auth">
+                  {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
+                </Stack.Screen>
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+                <Stack.Screen name="ResetPassword">
+                  {(props) => <ResetPasswordScreen {...props} onAuthenticate={handleAuthenticate} />}
+                </Stack.Screen>
+              </>
+            ) : user?.role !== 'coach' && !hasCompletedIntro ? (
+              // PLAYER PATH: Intro carousel
               <>
                 <Stack.Screen name="Intro">
-                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} />}
+                  {(props) => <IntroScreen {...props} onComplete={handleIntroComplete} onGoBack={handleIntroGoBack} />}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
                   {(props) => <AuthScreen {...props} onAuthenticate={handleAuthenticate} onGoBack={handleAuthGoBack} />}
@@ -527,6 +797,7 @@ function AppContent() {
                 </Stack.Screen>
               </>
             ) : !hasSelectedGender ? (
+              // PLAYER PATH: Gender selection
               <>
                 <Stack.Screen name="GenderSelection">
                   {(props) => <GenderSelectionScreen {...props} onComplete={handleGenderComplete} onGoBack={handleGenderGoBack} />}
@@ -540,6 +811,7 @@ function AppContent() {
                 </Stack.Screen>
               </>
             ) : !hasSetRating ? (
+              // PLAYER PATH: Rating
               <>
                 <Stack.Screen name="RatingSelection">
                   {(props) => <RatingSelectionScreen {...props} onComplete={handleRatingComplete} onGoBack={handleRatingGoBack} />}
@@ -553,6 +825,7 @@ function AppContent() {
                 </Stack.Screen>
               </>
             ) : !hasSetName ? (
+              // PLAYER PATH: Name / personal program
               <>
                 <Stack.Screen name="PersonalProgram">
                   {(props) => <PersonalProgramScreen {...props} onComplete={handleNameComplete} onGoBack={handleNameGoBack} />}
@@ -566,6 +839,7 @@ function AppContent() {
                 </Stack.Screen>
               </>
             ) : !hasCompletedOnboarding ? (
+              // PLAYER PATH: Training goals + account creation
               <>
                 <Stack.Screen name="Onboarding">
                   {(props) => (
@@ -689,8 +963,7 @@ export default function App() {
     DMSans_600SemiBold,
   });
 
-  // Fonts don't block the splash — the splash screen handles initial display.
-  // We render as soon as possible to avoid a blank white flash.
+  // Fonts don't block the native splash — we render as soon as possible to avoid a blank flash.
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

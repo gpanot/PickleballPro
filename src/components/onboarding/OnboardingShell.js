@@ -4,13 +4,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
   ScrollView,
   StatusBar,
   Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronLeft } from 'lucide-react-native';
 import { getOnboardingProgressPercent } from '../../lib/onboardingSteps';
 import { ONBOARDING_BG_RAMP } from '../../lib/onboardingThemeRamp';
 import { warmFriendly } from '../../theme/logbookThemes';
@@ -168,17 +167,13 @@ export default function OnboardingShell({
           <View style={styles.progressRow}>
             {onBack ? (
               <TouchableOpacity
-                style={styles.backButton}
+                style={[styles.backButton, { backgroundColor: ot.surface }]}
                 onPress={onBack}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 activeOpacity={0.7}
                 disabled={themeBlend?.lockBack}
               >
-                <Ionicons
-                  name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'}
-                  size={24}
-                  color={backIconColor}
-                />
+                <ChevronLeft size={22} color={backIconColor} strokeWidth={2.25} />
               </TouchableOpacity>
             ) : (
               <View style={styles.backPlaceholder} />
@@ -199,16 +194,12 @@ export default function OnboardingShell({
       ) : onBack ? (
         <View style={styles.backOnlyRow}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: ot.surface }]}
             onPress={onBack}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
           >
-            <Ionicons
-              name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'}
-              size={24}
-              color={backIconColor}
-            />
+            <ChevronLeft size={22} color={backIconColor} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -239,10 +230,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   backPlaceholder: {
-    width: 32,
+    width: 36,
   },
   progressBar: {
     flex: 1,

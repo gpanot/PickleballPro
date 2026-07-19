@@ -18,6 +18,7 @@ import SkillIcon from './SkillIcon';
 
 export default function AddUserModal({ visible, onClose, onSuccess, user = null }) {
   const [loading, setLoading] = useState(false);
+  const [coachProfile, setCoachProfile] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -29,6 +30,7 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
     isActive: true,
     focusAreas: [],
     profile: 'player',
+    isCoachVerified: false,
   });
 
   // Initialize form data when user prop changes
@@ -45,9 +47,23 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
         isActive: user.is_active !== false,
         focusAreas: user.focus_areas || [],
         profile: user.is_admin ? 'admin' : user.is_manager ? 'manager' : 'player',
+        isCoachVerified: false,
       });
+      // Fetch linked coach profile
+      supabase
+        .from('coaches')
+        .select('id, is_verified, is_active, name')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          setCoachProfile(data || null);
+          if (data) {
+            setFormData(prev => ({ ...prev, isCoachVerified: data.is_verified || false }));
+          }
+        });
     } else {
       resetForm();
+      setCoachProfile(null);
     }
   }, [user]);
 
@@ -63,11 +79,13 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
       isActive: true,
       focusAreas: [],
       profile: 'player',
+      isCoachVerified: false,
     });
   };
 
   const handleClose = () => {
     resetForm();
+    setCoachProfile(null);
     onClose();
   };
 
@@ -150,6 +168,14 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
       if (error) {
         console.error(`${user ? 'Update' : 'Creation'} error:`, error);
         throw error;
+      }
+
+      // If the user has a linked coach profile, sync the verified flag
+      if (coachProfile) {
+        await supabase
+          .from('coaches')
+          .update({ is_verified: formData.isCoachVerified })
+          .eq('id', coachProfile.id);
       }
 
       // Close modal and refresh data immediately
@@ -469,6 +495,31 @@ export default function AddUserModal({ visible, onClose, onSuccess, user = null 
               </TouchableOpacity>
             </View>
 
+            {/* Coach Approval — only shown when user has a linked coach profile */}
+            {coachProfile && (
+              <View style={styles.section}>
+                <View style={styles.coachApprovalHeader}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#8B5CF6" />
+                  <Text style={[styles.sectionTitle, { marginBottom: 0, marginLeft: 8, color: '#8B5CF6' }]}>Coach Approval</Text>
+                </View>
+                <Text style={styles.sectionDescription}>
+                  This user has registered as a coach ({coachProfile.name || 'unnamed'}). Toggle below to approve their public listing.
+                </Text>
+                <TouchableOpacity
+                  style={styles.toggleRow}
+                  onPress={() => setFormData({ ...formData, isCoachVerified: !formData.isCoachVerified })}
+                >
+                  <View style={styles.toggleInfo}>
+                    <Text style={styles.toggleLabel}>Verified (admin approved)</Text>
+                    <Text style={styles.toggleDescription}>Coach appears in the Certified Coaches list</Text>
+                  </View>
+                  <View style={[styles.toggle, formData.isCoachVerified && styles.toggleVerified]}>
+                    <View style={[styles.toggleThumb, formData.isCoachVerified && styles.toggleThumbActive]} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Info Box - only show for new users */}
             {!user && (
               <View style={styles.infoBox}>
@@ -627,6 +678,14 @@ const styles = StyleSheet.create({
   },
   toggleActive: {
     backgroundColor: '#10B981',
+  },
+  toggleVerified: {
+    backgroundColor: '#8B5CF6',
+  },
+  coachApprovalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   toggleThumb: {
     width: 20,

@@ -19,6 +19,7 @@ export default function ExercisesTable({
   exercises,
   loading,
   searchQuery,
+  statusFilter = 'all',
   exerciseSortField,
   exerciseSortDirection,
   setExerciseSortField,
@@ -44,7 +45,7 @@ export default function ExercisesTable({
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [hoveredRow, setHoveredRow] = useState(null);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, exerciseFilterProgram, exerciseFilterRoutine]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, exerciseFilterProgram, exerciseFilterRoutine, statusFilter]);
 
   let filteredExercises = exercises.filter(
     (exercise) =>
@@ -55,6 +56,12 @@ export default function ExercisesTable({
       (exercise.dupr_range_min && exercise.dupr_range_max &&
         `${exercise.dupr_range_min}–${exercise.dupr_range_max}`.includes(searchQuery))
   );
+
+  if (statusFilter !== 'all') {
+    filteredExercises = filteredExercises.filter((exercise) =>
+      statusFilter === 'published' ? exercise.is_published : !exercise.is_published
+    );
+  }
 
   if (exerciseFilterProgram) {
     filteredExercises = filteredExercises.filter((exercise) =>

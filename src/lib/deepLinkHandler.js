@@ -1,10 +1,13 @@
 // =====================================================
-// DEEP LINK HANDLER FOR PROGRAM SHARING
-// Handles incoming deep links for shared programs
+// DEEP LINK HANDLER FOR PROGRAM SHARING + ACADEMY INVITES
 // =====================================================
 
 import { Linking, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+
+// AsyncStorage key used to persist invite token across auth flows (AO-5)
+export const PENDING_INVITE_TOKEN_KEY = '@academypro_pending_invite_token';
 
 /**
  * Initialize deep link handling
@@ -36,10 +39,60 @@ export const initializeDeepLinkHandling = (navigation) => {
 };
 
 /**
+ * Route a deep link to the correct handler.
+ * Checks for invite links first, then falls through to program share links.
+ */
+const handleProgramShareLink = async (url, navigation) => {
+  // AO-5: academy invite deep link — academypro://invite/<token>
+  if (url.startsWith('academypro://invite/') || url.includes('//invite/')) {
+    await handleAcademyInviteLink(url, navigation);
+    return;
+  }
+  await handleProgramShareLinkInternal(url, navigation);
+};
+
+/**
+ * Handle academy invite deep links.
+ * Format: academypro://invite/<token>
+ *
+ * If the user is authenticated, navigate directly to AcceptInviteScreen.
+ * If not authenticated, persist the token to AsyncStorage so App.js can
+ * pick it up after sign-in/sign-up and navigate automatically (AC-AO5-9).
+ */
+const handleAcademyInviteLink = async (url, navigation) => {
+  try {
+    // Extract token — path looks like: //invite/<token>
+    const parts = url.split('/invite/');
+    const token = parts[1]?.split('?')[0]?.trim();
+    if (!token) {
+      Alert.alert('Invalid Link', 'This invite link is not valid.');
+      return;
+    }
+
+    console.log('🔗 [DeepLink] Academy invite token:', token);
+
+    // Check authentication state
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      // Authenticated: navigate directly
+      navigation.navigate('AcceptInvite', { token });
+    } else {
+      // Not authenticated: persist token so App.js handles after auth
+      await AsyncStorage.setItem(PENDING_INVITE_TOKEN_KEY, token);
+      console.log('🔗 [DeepLink] Saved pending invite token, waiting for auth');
+      // The user sees the normal sign-in/sign-up flow; after auth,
+      // AppContent's useEffect will read the token and navigate (AC-AO5-9).
+    }
+  } catch (err) {
+    console.error('💥 [DeepLink] Error handling invite link:', err);
+  }
+};
+
+/**
  * Handle program share deep links
  * Format: academypro://program/share/{program_id}?token={share_token}
  */
-const handleProgramShareLink = async (url, navigation) => {
+const handleProgramShareLinkInternal = async (url, navigation) => {
   try {
     console.log('🔗 [DeepLink] Processing program share link:', url);
 

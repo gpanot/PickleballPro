@@ -18,6 +18,7 @@ export default function RoutinesTable({
   routines,
   loading,
   searchQuery,
+  statusFilter = 'all',
   routineFilterProgram,
   setRoutineFilterProgram,
   routineProgramOptions,
@@ -34,7 +35,7 @@ export default function RoutinesTable({
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [hoveredRow, setHoveredRow] = useState(null);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, routineFilterProgram]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, routineFilterProgram, statusFilter]);
 
   let filteredRoutines = routines.filter(
     (routine) =>
@@ -42,6 +43,12 @@ export default function RoutinesTable({
       routine.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       routine.programs?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (statusFilter !== 'all') {
+    filteredRoutines = filteredRoutines.filter((routine) =>
+      statusFilter === 'published' ? routine.is_published : !routine.is_published
+    );
+  }
 
   if (routineFilterProgram) {
     filteredRoutines = filteredRoutines.filter(

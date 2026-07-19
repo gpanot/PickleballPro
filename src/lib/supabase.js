@@ -115,13 +115,22 @@ export const signUp = async (email, password, userData = {}) => {
     }
 
     if (data.user) {
-      console.log('Creating user profile with data:', userData);
+      // Strip fields that don't exist in the `users` table (e.g. role, sport_id
+      // which are stored in auth.user_metadata / coaches table instead).
+      const USERS_TABLE_FIELDS = [
+        'name', 'dupr_rating', 'skill_rating', 'gender', 'training_goal',
+        'time_commitment', 'intensity', 'focus_areas', 'tier',
+      ];
+      const safeUserData = Object.fromEntries(
+        Object.entries(userData).filter(([k]) => USERS_TABLE_FIELDS.includes(k))
+      );
+      console.log('Creating user profile with data:', safeUserData);
 
       const profileData = {
         id: data.user.id,
         email: data.user.email,
         name: userData.name || normalizedEmail.split('@')[0],
-        ...userData,
+        ...safeUserData,
       };
 
       const { error: profileError } = await supabase
@@ -468,7 +477,8 @@ export const getCoaches = async (filters = {}) => {
           avatar_url
         )
       `)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .eq('is_verified', true);
     
     if (filters.location) {
       query = query.ilike('location', `%${filters.location}%`);
@@ -907,6 +917,10 @@ export const getStudentCode = async (userId) => {
   }
 };
 
+// SCHEMA NOTE: coach_students.coach_id references coaches.id (NOT auth.users.id / public.users.id).
+// To reach academy_members from a coach_students row, you must first look up coaches.user_id,
+// then join to academy_members.user_id. Do not compare coach_students.coach_id directly with
+// auth.uid() or any user_id — it will silently match nothing.
 export const addStudentByCode = async (coachId, studentCode) => {
   const normalizedCode = String(studentCode ?? '').trim();
   console.log('[addStudentByCode] start', { coachId, studentCode: normalizedCode });
@@ -990,12 +1004,29 @@ export const addStudentByCode = async (coachId, studentCode) => {
       };
     }
 
+    // Resolve academy_id for the coach (D3: academy-first if coach belongs to academy)
+    // Done before the reactivation branch so the same value is used in both paths.
+    let coachAcademyId = null;
+    const { data: coachRow } = await supabase
+      .from('coaches')
+      .select('user_id')
+      .eq('id', coachId)
+      .single();
+    if (coachRow?.user_id) {
+      const { data: memberRow } = await supabase
+        .from('academy_members')
+        .select('academy_id')
+        .eq('user_id', coachRow.user_id)
+        .maybeSingle();
+      coachAcademyId = memberRow?.academy_id ?? null;
+    }
+
     if (existingRelation) {
-      // If relationship exists and is inactive, reactivate it
+      // If relationship exists and is inactive, reactivate it (also refresh academy_id)
       if (!existingRelation.is_active) {
         const { data, error: reactivateError } = await supabase
           .from('coach_students')
-          .update({ is_active: true })
+          .update({ is_active: true, academy_id: coachAcademyId })
           .eq('id', existingRelation.id)
           .select()
           .single();
@@ -1015,7 +1046,8 @@ export const addStudentByCode = async (coachId, studentCode) => {
       .insert({
         coach_id: coachId,
         student_id: studentData.id,
-        is_active: true
+        is_active: true,
+        academy_id: coachAcademyId, // NULL for solo coaches, academy uuid for academy coaches
       })
       .select()
       .single();
