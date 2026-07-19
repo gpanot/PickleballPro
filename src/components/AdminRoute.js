@@ -70,6 +70,17 @@ export default function AdminRoute({ navigation }) {
       if (isCoach) {
         setSessionRole('coach');
         setCoachId(id);
+        // Also check if this coach belongs to an academy (as a coach member)
+        const { data: coachMemberRow } = await supabase
+          .from('academy_members')
+          .select('academy_id')
+          .eq('user_id', user.id)
+          .eq('role', 'coach')
+          .maybeSingle();
+        if (coachMemberRow?.academy_id) {
+          setAcademyId(coachMemberRow.academy_id);
+          console.log(`[AdminRoute] Coach also has academy membership → academyId=${coachMemberRow.academy_id}`);
+        }
         console.log(`[AdminRoute] 🏁 Total checkAccess time: ${Date.now() - t0}ms`);
         return;
       }

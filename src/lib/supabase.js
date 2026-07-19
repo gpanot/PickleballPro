@@ -475,6 +475,9 @@ export const getCoaches = async (filters = {}) => {
         *,
         users:user_id (
           avatar_url
+        ),
+        academy:academy_id (
+          id, name, slug, logo_url
         )
       `)
       .eq('is_active', true)
@@ -860,7 +863,8 @@ export const transformCoachData = (coaches) => {
         whatsapp: false,
         imessage: false,
         zalo: false
-      }
+      },
+      academy: coach.academy || null,
     };
   });
 };

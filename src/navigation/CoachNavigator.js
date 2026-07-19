@@ -9,6 +9,12 @@ import EvaluationSummaryScreen from '../screens/coach/EvaluationSummaryScreen';
 import FirstTimeAssessmentScreen from '../screens/coach/FirstTimeAssessmentScreen';
 import FirstTimeAssessmentSummaryScreen from '../screens/coach/FirstTimeAssessmentSummaryScreen';
 import StudentLogbookScreen from '../screens/coach/StudentLogbookScreen';
+// Offerings screens (Phase 1)
+import OfferingsListScreen from '../screens/coach/offerings/OfferingsListScreen';
+import CreateOfferingStep1Screen from '../screens/coach/offerings/CreateOfferingStep1Screen';
+import CreateOfferingStep2Screen from '../screens/coach/offerings/CreateOfferingStep2Screen';
+import CreateOfferingStep3Screen from '../screens/coach/offerings/CreateOfferingStep3Screen';
+import OfferingDetailScreen from '../screens/coach/offerings/OfferingDetailScreen';
 
 const Stack = createStackNavigator();
 
@@ -28,6 +34,12 @@ export default function CoachNavigator() {
       <Stack.Screen name="FirstTimeAssessment" component={FirstTimeAssessmentScreen} />
       <Stack.Screen name="FirstTimeAssessmentSummary" component={FirstTimeAssessmentSummaryScreen} />
       <Stack.Screen name="StudentLogbook" component={StudentLogbookScreen} />
+      {/* Offerings */}
+      <Stack.Screen name="OfferingsList"         component={OfferingsListScreen}         options={{ title: 'Offerings' }} />
+      <Stack.Screen name="CreateOfferingStep1"   component={CreateOfferingStep1Screen}   options={{ title: 'New Offering' }} />
+      <Stack.Screen name="CreateOfferingStep2"   component={CreateOfferingStep2Screen}   options={{ title: 'Location & Capacity' }} />
+      <Stack.Screen name="CreateOfferingStep3"   component={CreateOfferingStep3Screen}   options={{ title: 'First Run' }} />
+      <Stack.Screen name="OfferingDetail"        component={OfferingDetailScreen}        options={{ title: 'Offering Detail' }} />
     </Stack.Navigator>
   );
 }

@@ -288,7 +288,7 @@ function SkillCard({ skill, index, onChange, onRemove, onMoveUp, onMoveDown, rea
 
 // ─── Template Editor ──────────────────────────────────────────────────────────
 
-function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
+function TemplateEditor({ template, onClose, onSaved, readOnly, academyId, isSuperAdmin }) {
   const isExperience = template.type === 'experience';
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(template.name || '');
@@ -304,6 +304,13 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
       : [...DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills]
   );
   const [saving, setSaving] = useState(false);
+
+  // For a coach/manager viewing a system default: they see the content read-only
+  // and can only "Save as my copy" (creates a new academy-scoped template).
+  const isGlobalDefault = template.is_default && !template.academy_id;
+  const memberViewingDefault = isGlobalDefault && !isSuperAdmin && !!academyId;
+  // Effective read-only: true only if explicitly passed AND not a superadmin override
+  const effectiveReadOnly = readOnly || memberViewingDefault;
 
   const moveItem = (list, setList, i, dir) => {
     const next = [...list];
@@ -348,20 +355,20 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
     }
     setSaving(true);
     try {
-      // If a manager is editing the global default, create a new academy-scoped
-      // copy rather than overwriting the shared default (which would break other
-      // academies).
-      const isGlobalDefault = template.is_default && !template.academy_id;
-      const creatingAcademyOverride = isGlobalDefault && !!academyId;
-
+      // Superadmin updating an existing system default keeps is_default=true.
+      // All other saves (new templates, coach/manager saves, "Save as my copy") are is_default=false.
+      const keepAsDefault = isSuperAdmin && template.is_default && !template.academy_id && !memberViewingDefault;
       const payload = {
-        id: creatingAcademyOverride ? undefined : template.id,
+        // memberViewingDefault always creates a new copy scoped to their academy
+        id: memberViewingDefault ? undefined : template.id,
         type: template.type,
         name: name.trim(),
         description: description.trim(),
         template: isExperience ? { questions } : { skills },
-        academyId: academyId || null,
+        academyId: keepAsDefault ? null : (academyId || null),
+        isDefault: keepAsDefault,
       };
+      console.log('[TemplateEditor] handleSave payload:', JSON.stringify({ id: payload.id, academyId: payload.academyId, isDefault: payload.isDefault, keepAsDefault }));
       await saveAssessmentTemplate(payload);
       onSaved();
     } catch (err) {
@@ -372,8 +379,6 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
   };
 
   const typeColor = TYPE_COLORS[template.type] || TYPE_COLORS.experience;
-  const isGlobalDefault = template.is_default && !template.academy_id;
-  const showOverrideBanner = isGlobalDefault && !!academyId && !readOnly;
 
   return (
     <View style={styles.editorContainer}>
@@ -386,25 +391,27 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
         <View style={[styles.typeBadge, { backgroundColor: typeColor.bg, borderColor: typeColor.border }]}>
           <Text style={[styles.typeBadgeText, { color: typeColor.text }]}>{TYPE_LABELS[template.type]}</Text>
         </View>
+        {/* Save button — always shown unless fully readOnly; label changes for member viewing a default */}
         {!readOnly && (
           <TouchableOpacity
-            style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+            style={[styles.saveBtn, memberViewingDefault && styles.saveBtnCopy, saving && styles.saveBtnDisabled]}
             onPress={handleSave}
             disabled={saving}
           >
             {saving
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.saveBtnText}>Save</Text>
+              : <Text style={styles.saveBtnText}>{memberViewingDefault ? 'Save as my copy' : 'Save'}</Text>
             }
           </TouchableOpacity>
         )}
       </View>
 
-      {showOverrideBanner && (
+      {/* Banner: coach/manager sees system default → changes saved as a personal copy */}
+      {memberViewingDefault && (
         <View style={styles.overrideBanner}>
           <Ionicons name="information-circle-outline" size={15} color="#92400E" />
           <Text style={styles.overrideBannerText}>
-            Saving will create an academy-specific copy — the global default will not be modified.
+            This is a system default. Use "Save as my copy" to create your own editable version.
           </Text>
         </View>
       )}
@@ -414,19 +421,19 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
         <View style={styles.metaSection}>
           <Text style={styles.fieldLabel}>Template name</Text>
           <TextInput
-            style={[styles.textInput, readOnly && styles.inputDisabled]}
+            style={[styles.textInput, effectiveReadOnly && styles.inputDisabled]}
             value={name}
             onChangeText={setName}
             placeholder="e.g. Player Assessment"
-            editable={!readOnly}
+            editable={!effectiveReadOnly}
           />
           <Text style={[styles.fieldLabel, { marginTop: 12 }]}>About this assessment (Only you can see it)</Text>
           <TextInput
-            style={[styles.textInput, styles.textInputMulti, readOnly && styles.inputDisabled]}
+            style={[styles.textInput, styles.textInputMulti, effectiveReadOnly && styles.inputDisabled]}
             value={description}
             onChangeText={setDescription}
             placeholder="Optional description"
-            editable={!readOnly}
+            editable={!effectiveReadOnly}
             multiline
             numberOfLines={2}
           />
@@ -437,7 +444,7 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
           <Text style={styles.sectionTitle}>
             {isExperience ? `Questions (${questions.length})` : `Skills (${skills.length})`}
           </Text>
-          {!readOnly && (
+          {!effectiveReadOnly && (
             <TouchableOpacity
               style={styles.addItemBtn}
               onPress={isExperience ? addQuestion : addSkill}
@@ -458,7 +465,7 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
                 onRemove={() => setQuestions(prev => prev.filter((_, idx) => idx !== i))}
                 onMoveUp={() => moveItem(questions, setQuestions, i, -1)}
                 onMoveDown={() => moveItem(questions, setQuestions, i, 1)}
-                readOnly={readOnly}
+                readOnly={effectiveReadOnly}
                 isFirst={i === 0}
                 isLast={i === questions.length - 1}
               />
@@ -472,7 +479,7 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId }) {
                 onRemove={() => setSkills(prev => prev.filter((_, idx) => idx !== i))}
                 onMoveUp={() => moveItem(skills, setSkills, i, -1)}
                 onMoveDown={() => moveItem(skills, setSkills, i, 1)}
-                readOnly={readOnly}
+                readOnly={effectiveReadOnly}
                 isFirst={i === 0}
                 isLast={i === skills.length - 1}
               />
@@ -541,7 +548,13 @@ function TemplateListCard({ item, onEdit, onDuplicate, onDelete, isDefault, canE
         )}
         {/* Delete — for user templates, or superadmin on default templates */}
         {(!isDefault || canEditDefault) && (
-          <TouchableOpacity style={[styles.actionIconBtn, styles.actionIconBtnDanger]} onPress={() => onDelete(item)}>
+          <TouchableOpacity
+            style={[styles.actionIconBtn, styles.actionIconBtnDanger]}
+            onPress={() => {
+              console.log('[TemplateListCard] 🗑 trash pressed → id:', item.id, 'isDefault:', isDefault, 'canEditDefault:', canEditDefault);
+              onDelete(item);
+            }}
+          >
             <Ionicons name="trash-outline" size={17} color="#EF4444" />
           </TouchableOpacity>
         )}
@@ -563,6 +576,7 @@ export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePi
   // Coaches and managers use their academyId (or null when they have no academy yet).
   const isReadOnly = false;
   const isSuperAdmin = !academyId && sessionRole !== 'manager' && sessionRole !== 'coach';
+  console.log('[AssessmentsPanel] render → sessionRole:', sessionRole, 'academyId:', academyId, 'isSuperAdmin:', isSuperAdmin);
 
   const loadTemplates = useCallback(async () => {
     setLoading(true);
@@ -614,23 +628,35 @@ export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePi
   };
 
   const handleDelete = (item) => {
+    console.log('[AssessmentsPanel] handleDelete called → id:', item.id, 'name:', item.name, 'isSuperAdmin:', isSuperAdmin, 'academyId:', academyId, 'sessionRole:', sessionRole);
+
+    const doDelete = async () => {
+      console.log('[AssessmentsPanel] Delete confirmed → calling deleteAssessmentTemplate for id:', item.id);
+      try {
+        await deleteAssessmentTemplate(item.id);
+        console.log('[AssessmentsPanel] ✅ deleteAssessmentTemplate resolved, reloading list');
+        loadTemplates();
+      } catch (err) {
+        console.error('[AssessmentsPanel] ❌ deleteAssessmentTemplate threw:', err?.message, err);
+        Alert.alert('Error', err?.message || 'Failed to delete.');
+      }
+    };
+
+    // On web, Alert.alert buttons don't fire callbacks reliably — use window.confirm instead.
+    if (Platform.OS === 'web') {
+      // eslint-disable-next-line no-alert
+      const ok = window.confirm(`Delete "${item.name}"? This cannot be undone.`);
+      console.log('[AssessmentsPanel] web confirm result:', ok);
+      if (ok) doDelete();
+      return;
+    }
+
     Alert.alert(
       'Delete template',
       `Delete "${item.name}"? This cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAssessmentTemplate(item.id);
-              loadTemplates();
-            } catch (err) {
-              Alert.alert('Error', err?.message || 'Failed to delete.');
-            }
-          },
-        },
+        { text: 'Delete', style: 'destructive', onPress: doDelete },
       ]
     );
   };
@@ -645,12 +671,13 @@ export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePi
         .single();
       const source = (!error && data) ? data : item;
       await saveAssessmentTemplate({
-        id: undefined, // create new
+        id: undefined, // always a new row
         type: source.type,
         name: `${source.name} (copy)`,
         description: source.description || '',
         template: source.template,
         academyId: academyId || null,
+        isDefault: false, // duplicates are always user-owned, never system defaults
       });
       loadTemplates();
     } catch (err) {
@@ -660,6 +687,7 @@ export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePi
 
   const handleNewTemplate = (type) => {
     setShowNewTypePicker(false);
+    console.log('[AssessmentsPanel] handleNewTemplate → type:', type, 'isSuperAdmin:', isSuperAdmin, 'academyId:', academyId, 'sessionRole:', sessionRole);
     const defaults = type === 'experience'
       ? DEFAULT_EXPERIENCE_TEMPLATE
       : DEFAULT_PLAYER_EVALUATION_TEMPLATE;
@@ -669,7 +697,8 @@ export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePi
       name: type === 'experience' ? 'Experience Assessment' : 'Player Assessment',
       description: '',
       template: defaults,
-      is_default: false,
+      is_default: false,  // always false for new templates; only superadmin system saves set this to true
+      academy_id: academyId || null,
     });
   };
 
@@ -690,6 +719,7 @@ export default function AssessmentsPanel({ academyId, sessionRole, showNewTypePi
         onSaved={() => { setEditingTemplate(null); loadTemplates(); }}
         readOnly={isReadOnly}
         academyId={academyId}
+        isSuperAdmin={isSuperAdmin}
       />
     );
   }
@@ -1018,6 +1048,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnDisabled: { opacity: 0.6 },
+  saveBtnCopy: { backgroundColor: '#7C3AED' },
   saveBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   editorScroll: { flex: 1 },
   editorScrollContent: { padding: 20, paddingBottom: 60 },

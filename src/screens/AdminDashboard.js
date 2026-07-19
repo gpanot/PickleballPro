@@ -36,6 +36,12 @@ import SkillIcon from '../components/SkillIcon';
 import AdminTopBar from './admindashboard/components/AdminTopBar';
 import AssessmentsPanel from './admindashboard/components/AssessmentsPanel';
 import SportsPanel from './admindashboard/components/SportsPanel';
+// Offerings components (Phase 1)
+import OfferingsTable from './admindashboard/components/OfferingsTable';
+import OfferingDetailPanel from './admindashboard/components/OfferingDetailPanel';
+import CreateOfferingModal from './admindashboard/components/CreateOfferingModal';
+import EditOfferingModal from './admindashboard/components/EditOfferingModal';
+import OfferingRosterModal from './admindashboard/components/OfferingRosterModal';
 import styles from './admindashboard/adminDashboardStyles';
 
 const getSkillNamesFromFocusAreas = (focusAreas) => {
@@ -174,6 +180,13 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [showAddCoachModal, setShowAddCoachModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showNewAssessmentPicker, setShowNewAssessmentPicker] = useState(false);
+  // Offerings state (Phase 1)
+  const [selectedOffering,       setSelectedOffering]       = useState(null);
+  const [showCreateOfferingModal, setShowCreateOfferingModal] = useState(false);
+  const [showEditOfferingModal,   setShowEditOfferingModal]   = useState(false);
+  const [rosterRunId,             setRosterRunId]             = useState(null);
+  const [rosterRunLabel,          setRosterRunLabel]          = useState('');
+  const [offeringsTableKey,       setOfferingsTableKey]       = useState(0);
   const [showCreateProgramModal, setShowCreateProgramModal] = useState(false);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
   const [showEditRoutineModal, setShowEditRoutineModal] = useState(false);
@@ -251,7 +264,18 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [createAcademyName, setCreateAcademyName] = useState(''); // create-academy form
   const [creatingAcademy, setCreatingAcademy] = useState(false); // create-academy loading
   const [bannerMessage, setBannerMessage] = useState(''); // C-3: non-blocking notification banner
-  
+
+  // AO-7: Health signals (coaches with no active students, student engagement trend)
+  const [inactiveCoaches, setInactiveCoaches] = useState([]); // coaches with 0 active students
+  const [engagementTrend, setEngagementTrend] = useState([]); // 8-week weekly count
+
+  // P-1: Superadmin Academies tab
+  const [allAcademies, setAllAcademies] = useState([]);
+  const [adminAcademySelected, setAdminAcademySelected] = useState(null); // null = list view, id = detail view
+  const [adminAcademyDetail, setAdminAcademyDetail] = useState(null);
+  const [adminAcademyDetailLoading, setAdminAcademyDetailLoading] = useState(false);
+
+
 
   // Responsive layout
   const isWeb = Platform.OS === 'web';
@@ -264,8 +288,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
 
   const isCoachSession   = sessionRole === 'coach';
   const isManagerSession = sessionRole === 'manager';
-  const COACH_ALLOWED_TABS   = ['dashboard', 'content', 'academy', 'assessments'];
-  const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'academy', 'assessments'];
+  const COACH_ALLOWED_TABS   = ['dashboard', 'content', 'offerings', 'academy', 'assessments'];
+  const MANAGER_ALLOWED_TABS = ['dashboard', 'content', 'offerings', 'academy', 'assessments'];
 
   useEffect(() => {
     // Redirect restricted roles away from tabs they should not access
@@ -299,6 +323,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     } else if (activeTab === 'academy') {
       fetchAcademyMembers();
       fetchAcademyStudents(); // AO-1
+    } else if (activeTab === 'academies') {
+      fetchAllAcademies(); // P-1: superadmin only
     }
   }, [activeTab, contentTab, isCoachSession, isManagerSession]);
 
@@ -779,6 +805,10 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     if (activeTab !== 'coaches') {
       setShowCoachFilterDropdown(false);
     }
+    if (activeTab !== 'academies') {
+      setAdminAcademySelected(null);
+      setAdminAcademyDetail(null);
+    }
   }, [activeTab]);
 
   const fetchCoaches = async () => {
@@ -950,6 +980,96 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
   };
 
+  // P-1: fetch all academies for superadmin
+  const fetchAllAcademies = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('academies')
+        .select(`
+          id, name, slug, logo_url, created_at,
+          academy_members(id, role),
+          coach_students(id, is_active)
+        `)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAllAcademies(data || []);
+    } catch (err) {
+      console.error('Error fetching all academies:', err);
+      Alert.alert('Error', 'Failed to load academies');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // P-1: fetch detail for a single academy
+  const fetchAdminAcademyDetail = async (id) => {
+    setAdminAcademyDetailLoading(true);
+    try {
+      const [{ data: acad }, { data: membersRaw }] = await Promise.all([
+        supabase.from('academies').select('id, name, slug, logo_url, created_at').eq('id', id).maybeSingle(),
+        supabase
+          .from('academy_members')
+          .select('id, user_id, role, joined_at')
+          .eq('academy_id', id)
+          .order('role', { ascending: true }),
+      ]);
+
+      // Enrich members with user profiles
+      const memberIds = (membersRaw || []).map(m => m.user_id).filter(Boolean);
+      let profileMap = {};
+      if (memberIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('users')
+          .select('id, name, email, avatar_url')
+          .in('id', memberIds);
+        profileMap = (profiles || []).reduce((acc, u) => { acc[u.id] = u; return acc; }, {});
+      }
+
+      // For coaches, fetch their active student counts
+      const coachMembers = (membersRaw || []).filter(m => m.role === 'coach');
+      const coachUserIds = coachMembers.map(m => m.user_id).filter(Boolean);
+      let studentCountMap = {};
+      if (coachUserIds.length > 0) {
+        const { data: coachRows } = await supabase
+          .from('coaches')
+          .select('id, user_id')
+          .in('user_id', coachUserIds);
+        const coachIdMap = (coachRows || []).reduce((acc, c) => { acc[c.user_id] = c.id; return acc; }, {});
+
+        const allCoachIds = Object.values(coachIdMap);
+        if (allCoachIds.length > 0) {
+          const { data: studentRows } = await supabase
+            .from('coach_students')
+            .select('coach_id')
+            .in('coach_id', allCoachIds)
+            .eq('is_active', true);
+          (studentRows || []).forEach(s => {
+            studentCountMap[s.coach_id] = (studentCountMap[s.coach_id] || 0) + 1;
+          });
+          // Map back to user_id
+          Object.entries(coachIdMap).forEach(([userId, cId]) => {
+            studentCountMap[userId] = studentCountMap[cId] || 0;
+          });
+        }
+      }
+
+      setAdminAcademyDetail({
+        ...acad,
+        members: (membersRaw || []).map(m => ({
+          ...m,
+          user: profileMap[m.user_id] || { name: 'Unknown', email: '' },
+          activeStudents: m.role === 'coach' ? (studentCountMap[m.user_id] || 0) : null,
+        })),
+      });
+    } catch (err) {
+      console.error('Error fetching academy detail:', err);
+      Alert.alert('Error', 'Failed to load academy details');
+    } finally {
+      setAdminAcademyDetailLoading(false);
+    }
+  };
+
   const fetchAcademyMembers = async () => {
     if (!academyId) return;
     setLoading(true);
@@ -989,6 +1109,71 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           user: profileMap[m.user_id] || { name: 'Unknown', email: '' },
         }))
       );
+
+      // AO-7: Health signals — coaches with no active students
+      const coachMembers = (members || []).filter(m => m.role === 'coach');
+      const coachUserIds = coachMembers.map(m => m.user_id).filter(Boolean);
+      if (coachUserIds.length > 0) {
+        const { data: coachRows } = await supabase
+          .from('coaches')
+          .select('id, user_id, name')
+          .in('user_id', coachUserIds);
+        const coachIdMap = (coachRows || []).reduce((acc, c) => { acc[c.id] = c; return acc; }, {});
+        const allCoachDbIds = Object.keys(coachIdMap);
+        let activeSet = new Set();
+        if (allCoachDbIds.length > 0) {
+          const { data: activeSt } = await supabase
+            .from('coach_students')
+            .select('coach_id')
+            .in('coach_id', allCoachDbIds)
+            .eq('is_active', true);
+          (activeSt || []).forEach(s => activeSet.add(s.coach_id));
+        }
+        const inactive = (coachRows || []).filter(c => !activeSet.has(c.id));
+        // Enrich with user display name
+        const inactiveWithName = inactive.map(c => ({
+          ...c,
+          displayName: profileMap[c.user_id]?.name || c.name || 'Unknown',
+        }));
+        setInactiveCoaches(inactiveWithName);
+      } else {
+        setInactiveCoaches([]);
+      }
+
+      // AO-7: Student engagement trend — last 8 weeks
+      const now = new Date();
+      // 8*7=56 days gives a safe window so the Monday of the oldest bucket
+      // is always captured, even if the center point falls mid-week.
+      // The `if (key in weekCounts)` guard below ensures only matched-bucket rows are counted.
+      const eightWeeksAgo = new Date(now.getTime() - 8 * 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: trendRows } = await supabase
+        .from('coach_students')
+        .select('joined_at')
+        .eq('academy_id', academyId)
+        .eq('is_active', true)
+        .gte('joined_at', eightWeeksAgo);
+
+      // Bucket by ISO week (Monday of that week)
+      const weekCounts = {};
+      for (let i = 0; i < 8; i++) {
+        const weekStart = new Date(now.getTime() - (7 - i) * 7 * 24 * 60 * 60 * 1000);
+        weekStart.setHours(0, 0, 0, 0);
+        const day = weekStart.getDay();
+        const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
+        weekStart.setDate(diff);
+        weekCounts[weekStart.toISOString().slice(0, 10)] = 0;
+      }
+      (trendRows || []).forEach(row => {
+        const d = new Date(row.joined_at);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+        const key = d.toISOString().slice(0, 10);
+        if (key in weekCounts) weekCounts[key]++;
+      });
+      setEngagementTrend(Object.entries(weekCounts).map(([week, count]) => ({ week, count })));
+
     } catch (error) {
       console.error('Error fetching academy members:', error);
     } finally {
@@ -3546,7 +3731,289 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           </View>
         )}
       </View>
+
+      {/* AO-7: Health Signals */}
+      <View style={[styles.contentSection, { marginTop: 24, marginBottom: 8 }]}>
+        <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 4 }]}>Health Signals</Text>
+        <Text style={[styles.sectionSubtitle, { marginBottom: 16 }]}>Coach activity and student growth at a glance</Text>
+
+        {/* Coaches with no active students */}
+        <View style={{
+          backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1,
+          borderColor: '#E5E7EB', padding: 16, marginBottom: 14,
+          ...(Platform.OS === 'web' && { boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }),
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>Coaches with no active students</Text>
+            <View style={{
+              paddingHorizontal: 10, paddingVertical: 3, borderRadius: 12,
+              backgroundColor: inactiveCoaches.length > 0 ? '#FEF2F2' : '#F0FDF4',
+            }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: inactiveCoaches.length > 0 ? '#EF4444' : '#16A34A' }}>
+                {inactiveCoaches.length}
+              </Text>
+            </View>
+          </View>
+          {inactiveCoaches.length === 0 ? (
+            <Text style={{ fontSize: 13, color: '#6B7280' }}>All coaches have at least one active student.</Text>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {inactiveCoaches.map(c => (
+                <View key={c.id} style={{
+                  paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
+                  backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+                }}>
+                  <Text style={{ fontSize: 13, color: '#991B1B' }}>{c.displayName}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Student engagement trend — 8 weeks */}
+        <View style={{
+          backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1,
+          borderColor: '#E5E7EB', padding: 16,
+          ...(Platform.OS === 'web' && { boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }),
+        }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 12 }}>
+            Student growth — last 8 weeks
+          </Text>
+          {engagementTrend.length === 0 ? (
+            <Text style={{ fontSize: 13, color: '#9CA3AF' }}>No student data yet.</Text>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, flexWrap: 'nowrap' }}>
+              {engagementTrend.map(({ week, count }, i) => {
+                const maxCount = Math.max(...engagementTrend.map(e => e.count), 1);
+                const barHeight = Math.max((count / maxCount) * 60, 4);
+                const isLast = i === engagementTrend.length - 1;
+                const shortDate = week.slice(5); // MM-DD
+                return (
+                  <View key={week} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: isLast ? '#3B82F6' : '#6B7280' }}>
+                      {count > 0 ? count : ''}
+                    </Text>
+                    <View style={{
+                      width: '100%', height: barHeight, borderRadius: 3,
+                      backgroundColor: isLast ? '#3B82F6' : '#E5E7EB',
+                      minHeight: 4,
+                    }} />
+                    <Text style={{ fontSize: 9, color: '#9CA3AF' }}>{shortDate}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      </View>
     </View>
+    );
+  };
+
+  // P-1: Superadmin Academies tab — list view + drilldown detail
+  const renderAcademiesTab = () => {
+    // — Detail view —
+    if (adminAcademySelected) {
+      const detail = adminAcademyDetail;
+      return (
+        <View style={styles.content}>
+          {/* Breadcrumb */}
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 6 }}
+            onPress={() => { setAdminAcademySelected(null); setAdminAcademyDetail(null); }}
+          >
+            <Ionicons name="chevron-back" size={18} color="#3B82F6" />
+            <Text style={{ fontSize: 14, color: '#3B82F6', fontWeight: '600' }}>All Academies</Text>
+          </TouchableOpacity>
+
+          {adminAcademyDetailLoading || !detail ? (
+            <ActivityIndicator size="large" color="#3B82F6" style={{ marginTop: 60 }} />
+          ) : (
+            <>
+              {/* Academy header card */}
+              <View style={[styles.contentSection, { marginBottom: 20, padding: 20 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 4 }}>
+                  {detail.logo_url ? (
+                    <Image source={{ uri: detail.logo_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: '#F3F4F6' }} />
+                  ) : (
+                    <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="school-outline" size={28} color="#9CA3AF" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>{detail.name}</Text>
+                    <Text style={{ fontSize: 13, color: '#6B7280' }}>@{detail.slug}</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 24, marginTop: 12, flexWrap: 'wrap' }}>
+                  <View>
+                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>Members</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>{detail.members?.length ?? 0}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>Coaches</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>{detail.members?.filter(m => m.role === 'coach').length ?? 0}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>Managers</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>{detail.members?.filter(m => m.role === 'manager').length ?? 0}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Members list */}
+              <Text style={[styles.sectionTitle, { fontSize: 15, marginBottom: 12 }]}>Members</Text>
+              <View style={[styles.modernTable, { marginBottom: 24 }]}>
+                <View style={styles.modernTableHeader}>
+                  <View style={[styles.modernTableHeaderCell, { flex: 2 }]}>
+                    <Text style={styles.modernTableHeaderText}>Member</Text>
+                  </View>
+                  <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                    <Text style={styles.modernTableHeaderText}>Role</Text>
+                  </View>
+                  <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                    <Text style={styles.modernTableHeaderText}>Active Students</Text>
+                  </View>
+                  <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                    <Text style={styles.modernTableHeaderText}>Joined</Text>
+                  </View>
+                </View>
+                {(detail.members || []).map(member => (
+                  <View key={member.id} style={styles.modernTableRow}>
+                    <View style={[styles.modernTableCell, { flex: 2 }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
+                            {(member.user?.name || 'U').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{member.user?.name || 'Unknown'}</Text>
+                          <Text style={{ fontSize: 12, color: '#6B7280' }}>{member.user?.email || ''}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={[styles.modernTableCell, { flex: 1 }]}>
+                      <View style={{
+                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12,
+                        backgroundColor: member.role === 'manager' ? '#DBEAFE' : '#D1FAE5',
+                        alignSelf: 'flex-start',
+                      }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: member.role === 'manager' ? '#1D4ED8' : '#059669', textTransform: 'capitalize' }}>
+                          {member.role}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.modernTableCell, { flex: 1 }]}>
+                      {member.role === 'coach' ? (
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{member.activeStudents ?? 0}</Text>
+                      ) : (
+                        <Text style={{ fontSize: 13, color: '#9CA3AF' }}>—</Text>
+                      )}
+                    </View>
+                    <View style={[styles.modernTableCell, { flex: 1 }]}>
+                      <Text style={{ fontSize: 13, color: '#6B7280' }}>
+                        {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '—'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+                {(detail.members || []).length === 0 && (
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 14, color: '#9CA3AF' }}>No members yet</Text>
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+        </View>
+      );
+    }
+
+    // — List view —
+    return (
+      <View style={styles.content}>
+        <View style={[styles.sectionHeader, { marginBottom: 16 }]}>
+          <View>
+            <Text style={styles.sectionTitle}>Academies</Text>
+            <Text style={styles.sectionSubtitle}>All registered academies on the platform</Text>
+          </View>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#3B82F6" style={{ marginTop: 60 }} />
+        ) : allAcademies.length === 0 ? (
+          <View style={{ alignItems: 'center', paddingVertical: 60 }}>
+            <Ionicons name="school-outline" size={48} color="#D1D5DB" />
+            <Text style={{ fontSize: 16, color: '#9CA3AF', marginTop: 12 }}>No academies yet</Text>
+          </View>
+        ) : (
+          <View style={styles.modernTable}>
+            <View style={styles.modernTableHeader}>
+              <View style={[styles.modernTableHeaderCell, { flex: 2 }]}>
+                <Text style={styles.modernTableHeaderText}>Academy</Text>
+              </View>
+              <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                <Text style={styles.modernTableHeaderText}>Coaches</Text>
+              </View>
+              <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                <Text style={styles.modernTableHeaderText}>Active Students</Text>
+              </View>
+              <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                <Text style={styles.modernTableHeaderText}>Created</Text>
+              </View>
+              <View style={[styles.modernTableHeaderCell, { flex: 0.5 }]}>
+                <Text style={styles.modernTableHeaderText}></Text>
+              </View>
+            </View>
+            {allAcademies.map(acad => {
+              const coachCount = (acad.academy_members || []).filter(m => m.role === 'coach').length;
+              const studentCount = (acad.coach_students || []).filter(s => s.is_active).length;
+              return (
+                <TouchableOpacity
+                  key={acad.id}
+                  style={styles.modernTableRow}
+                  onPress={() => {
+                    setAdminAcademySelected(acad.id);
+                    fetchAdminAcademyDetail(acad.id);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.modernTableCell, { flex: 2 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      {acad.logo_url ? (
+                        <Image source={{ uri: acad.logo_url }} style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#F3F4F6' }} />
+                      ) : (
+                        <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="school-outline" size={18} color="#9CA3AF" />
+                        </View>
+                      )}
+                      <View>
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{acad.name}</Text>
+                        <Text style={{ fontSize: 12, color: '#6B7280' }}>@{acad.slug}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{coachCount}</Text>
+                  </View>
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{studentCount}</Text>
+                  </View>
+                  <View style={[styles.modernTableCell, { flex: 1 }]}>
+                    <Text style={{ fontSize: 13, color: '#6B7280' }}>
+                      {acad.created_at ? new Date(acad.created_at).toLocaleDateString() : '—'}
+                    </Text>
+                  </View>
+                  <View style={[styles.modernTableCell, { flex: 0.5, alignItems: 'flex-end' }]}>
+                    <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </View>
     );
   };
 
@@ -3573,6 +4040,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         return renderSettings();
       case 'academy':
         return renderAcademyTab();
+      case 'academies':
+        return renderAcademiesTab();
       case 'assessments':
         return (
           <AssessmentsPanel
@@ -3582,10 +4051,59 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             setShowNewTypePicker={setShowNewAssessmentPicker}
           />
         );
+      case 'offerings':
+        return renderOfferingsTab();
       default:
         return renderOverview();
     }
   };
+
+  const renderOfferingsTab = () => (
+    <View style={{ flex: 1, flexDirection: 'row' }}>
+      {/* Left: offerings list */}
+      <View style={{ flex: selectedOffering ? 0.55 : 1, borderRightWidth: selectedOffering ? 1 : 0, borderRightColor: '#E5E7EB' }}>
+        <OfferingsTable
+          key={offeringsTableKey}
+          sessionRole={sessionRole}
+          onSelectOffering={(o) => setSelectedOffering(o)}
+          onCreateOffering={() => setShowCreateOfferingModal(true)}
+        />
+      </View>
+
+      {/* Right: detail panel */}
+      {selectedOffering && (
+        <View style={{ flex: 0.45 }}>
+          <OfferingDetailPanel
+            key={selectedOffering.id}
+            offeringId={selectedOffering.id}
+            onEdit={() => setShowEditOfferingModal(true)}
+            onViewRoster={(runId, runLabel) => { setRosterRunId(runId); setRosterRunLabel(runLabel); }}
+            onDeleted={() => { setSelectedOffering(null); setOfferingsTableKey(k => k + 1); }}
+            onClose={() => setSelectedOffering(null)}
+          />
+        </View>
+      )}
+
+      {/* Modals */}
+      <CreateOfferingModal
+        visible={showCreateOfferingModal}
+        onClose={() => setShowCreateOfferingModal(false)}
+        onCreated={() => setOfferingsTableKey(k => k + 1)}
+      />
+      <EditOfferingModal
+        visible={showEditOfferingModal}
+        offering={selectedOffering}
+        onClose={() => setShowEditOfferingModal(false)}
+        onSaved={() => { setOfferingsTableKey(k => k + 1); setSelectedOffering(null); }}
+      />
+      <OfferingRosterModal
+        visible={!!rosterRunId}
+        offeringRunId={rosterRunId}
+        runLabel={rosterRunLabel}
+        onClose={() => { setRosterRunId(null); setRosterRunLabel(''); }}
+      />
+    </View>
+  );
 
   const renderFeedback = () => (
     <View style={styles.content}>

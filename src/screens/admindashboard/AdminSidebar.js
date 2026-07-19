@@ -15,16 +15,18 @@ import { Ionicons } from '@expo/vector-icons';
 const ALL_NAV_ITEMS = [
   { id: 'dashboard',   label: 'Dashboard',          icon: 'grid-outline' },
   { id: 'content',     label: 'Content Management', icon: 'library-outline' },
+  { id: 'offerings',   label: 'Offerings',          icon: 'storefront-outline' },
   { id: 'users',       label: 'User Management',    icon: 'people-outline' },
   { id: 'coaches',     label: 'Coach Management',   icon: 'person-outline' },
+  { id: 'academies',   label: 'Academies',          icon: 'school-outline' },
   { id: 'assessments', label: 'Assessments',        icon: 'clipboard-outline' },
   { id: 'feedback',    label: 'Feedback',            icon: 'heart-outline' },
   { id: 'analytics',   label: 'Analytics',          icon: 'analytics-outline' },
   { id: 'settings',    label: 'Settings',            icon: 'settings-outline' },
 ];
 
-const COACH_NAV_IDS   = ['dashboard', 'content', 'academy', 'assessments'];
-const MANAGER_NAV_IDS = ['dashboard', 'content', 'academy', 'assessments'];
+const COACH_NAV_IDS   = ['dashboard', 'content', 'offerings', 'academy', 'assessments'];
+const MANAGER_NAV_IDS = ['dashboard', 'content', 'offerings', 'academy', 'assessments'];
 
 function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole, insets }) {
   const managerNavItem = { id: 'academy', label: 'My Academy', icon: 'school-outline' };

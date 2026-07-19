@@ -173,6 +173,32 @@ export default function TabIcon({ name, focused, size = 24, color = '#000' }) {
           </View>
         );
         
+      case 'explore':
+        return (
+          <View style={[styles.iconContainer, { width: size, height: size }]}>
+            {/* Outer circle — compass frame */}
+            <View style={[
+              styles.exploreOuter,
+              {
+                borderColor: color,
+                backgroundColor: focused ? color : 'transparent',
+                width: size * 0.82,
+                height: size * 0.82,
+              }
+            ]}>
+              {/* Inner compass dot */}
+              <View style={[
+                styles.exploreDot,
+                {
+                  backgroundColor: focused ? (color === '#fff' ? '#000' : 'white') : color,
+                  width: size * 0.22,
+                  height: size * 0.22,
+                }
+              ]} />
+            </View>
+          </View>
+        );
+
       case 'search':
         return (
           <View style={[styles.iconContainer, { width: size, height: size }]}>
@@ -381,6 +407,16 @@ const styles = StyleSheet.create({
   feedbackHeart: {
     borderRadius: 50,
     transform: [{ rotate: '-45deg' }],
+  },
+  // Explore icon (compass circle)
+  exploreOuter: {
+    borderRadius: 50,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exploreDot: {
+    borderRadius: 50,
   },
   // Search icon (magnifying glass)
   searchIcon: {

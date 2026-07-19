@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { Users, Library, Search, Plus, X, ChevronRight, AlertCircle } from 'lucide-react-native';
+import { Users, Library, Search, Plus, X, ChevronRight, AlertCircle, BookOpen } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/UserContext';
 import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase, transformProgramData } from '../../lib/supabase';
@@ -445,6 +445,9 @@ export default function CoachDashboardScreen({ navigation }) {
         }
       } else if (activeTab === 'programs') {
         await loadCoachPrograms();
+      } else if (activeTab === 'offerings') {
+        // Offerings are rendered in a separate screen — CoachDashboard's offerings tab
+        // just navigates; nothing to reload here
       }
     } catch (error) {
       console.error('Error refreshing:', error);
@@ -496,8 +499,9 @@ export default function CoachDashboardScreen({ navigation }) {
         {/* Tabs */}
         <View style={styles.tabContainer}>
           {[
-            { id: 'students', label: 'Students', Icon: Users },
-            { id: 'programs', label: 'Programs', Icon: Library },
+            { id: 'students',  label: 'Students',  Icon: Users },
+            { id: 'programs',  label: 'Programs',  Icon: Library },
+            { id: 'offerings', label: 'Offerings', Icon: BookOpen },
           ].map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
@@ -522,7 +526,7 @@ export default function CoachDashboardScreen({ navigation }) {
           <Search size={18} color={t.textMuted} strokeWidth={2} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: t.textPrimary, fontFamily: t.fontBody }]}
-            placeholder={activeTab === 'students' ? 'Search player by name or ID' : 'Search programs'}
+            placeholder={activeTab === 'students' ? 'Search player by name or ID' : activeTab === 'programs' ? 'Search programs' : 'Search offerings'}
             placeholderTextColor={t.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -702,6 +706,24 @@ export default function CoachDashboardScreen({ navigation }) {
             )}
           </>
         )}
+
+        {/* Offerings tab: navigates to OfferingsList — rendered as a deep-link entry point */}
+        {activeTab === 'offerings' && (
+          <View style={styles.offeringsPlaceholder}>
+            <BookOpen size={40} color={t.textMuted} strokeWidth={1.5} />
+            <Text style={[styles.offeringsPlaceholderText, { color: t.textMuted, fontFamily: t.fontBody }]}>
+              Manage your cohorts and events
+            </Text>
+            <TouchableOpacity
+              style={[styles.offeringsBtn, { backgroundColor: t.accentPurple }]}
+              onPress={() => navigation.navigate('OfferingsList')}
+            >
+              <BookOpen size={16} color="#fff" strokeWidth={2} />
+              <Text style={[styles.offeringsBtnText, { fontFamily: t.fontBodySemibold }]}>Open Offerings</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         </>
         )}
       </ScrollView>
@@ -870,5 +892,10 @@ const styles = StyleSheet.create({
   modalAddButton: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   modalAddButtonDisabled: { opacity: 0.5 },
   modalAddText: { fontSize: 15 },
+  // Offerings tab
+  offeringsPlaceholder: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 },
+  offeringsPlaceholderText: { fontSize: 15, textAlign: 'center' },
+  offeringsBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
+  offeringsBtnText: { color: '#fff', fontSize: 15 },
 });
 

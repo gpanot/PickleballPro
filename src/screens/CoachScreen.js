@@ -29,6 +29,7 @@ import {
   Users,
   Check,
 } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { usePreload } from '../context/PreloadContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -102,6 +103,12 @@ export default function CoachScreen({ navigation }) {
   // Coach profile sheet
   const [profileCoach, setProfileCoach] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+
+  // P-3: Academy detail sheet
+  const [selectedAcademy, setSelectedAcademy] = useState(null);
+  const [showAcademyModal, setShowAcademyModal] = useState(false);
+  const [academyDetailData, setAcademyDetailData] = useState(null);
+  const [academyDetailLoading, setAcademyDetailLoading] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   
   const specialtyFilters = ['Verified', 'Beginners', 'Technique', 'Strategy', 'Mental Game', 'Tournament Prep', 'Fitness'];
@@ -605,6 +612,46 @@ export default function CoachScreen({ navigation }) {
     setShowProfileModal(true);
   };
 
+  // P-3: fetch academy detail for the Academy detail sheet
+  // Two-step: academy_members → user_ids → coaches (no direct FK between these tables)
+  const fetchAcademyDetail = async (academyId) => {
+    setAcademyDetailLoading(true);
+    setAcademyDetailData(null);
+    try {
+      // Step 1: get user_ids of coach members
+      const { data: memberRows, error: memberErr } = await supabase
+        .from('academy_members')
+        .select('user_id')
+        .eq('academy_id', academyId)
+        .eq('role', 'coach');
+      if (memberErr) throw memberErr;
+
+      const coachUserIds = (memberRows || []).map(m => m.user_id).filter(Boolean);
+      let coaches = [];
+      if (coachUserIds.length > 0) {
+        // Step 2: get coach profiles by user_id
+        const { data: coachRows, error: coachErr } = await supabase
+          .from('coaches')
+          .select('id, name, rating_avg, is_verified, avatar_url')
+          .in('user_id', coachUserIds)
+          .eq('is_active', true);
+        if (coachErr) throw coachErr;
+        coaches = coachRows || [];
+      }
+
+      const coachCount = coaches.length;
+      const ratingsWithValue = coaches.filter(c => c.rating_avg && c.rating_avg > 0);
+      const avgRating = ratingsWithValue.length > 0
+        ? (ratingsWithValue.reduce((sum, c) => sum + c.rating_avg, 0) / ratingsWithValue.length).toFixed(1)
+        : null;
+      setAcademyDetailData({ coaches, coachCount, avgRating });
+    } catch (err) {
+      console.error('fetchAcademyDetail error:', err);
+    } finally {
+      setAcademyDetailLoading(false);
+    }
+  };
+
   const getCoachDistanceMiles = (coach) => {
     if (!userLocation || !locationPermissionGranted) return null;
     const coachCoords = getCoachCoordinates(coach);
@@ -992,6 +1039,15 @@ export default function CoachScreen({ navigation }) {
           {getCoachLocationLine(coach)}
         </Text>
       </View>
+
+      {coach.academy ? (
+        <View style={[styles.academyBadge, { backgroundColor: isDark ? t.accentPurpleMuted : '#EFF6FF', borderColor: isDark ? t.accentPurple : '#BFDBFE' }]}>
+          <Users size={12} color={isDark ? t.accentPurple : '#2563EB'} strokeWidth={2} />
+          <Text style={[styles.academyBadgeText, { color: isDark ? t.accentPurple : '#1D4ED8', fontFamily: t.fontBody }]} numberOfLines={1}>
+            {coach.academy.name}
+          </Text>
+        </View>
+      ) : null}
       
       <TouchableOpacity 
         style={[styles.contactButton, { backgroundColor: t.accentPurple }]}
@@ -1112,6 +1168,39 @@ export default function CoachScreen({ navigation }) {
                 </View>
               </View>
 
+              {profileCoach.academy ? (
+                <View style={[styles.profileSection, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                  <Text style={[styles.profileSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Academy</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <View style={{ width: 38, height: 38, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {profileCoach.academy.logo_url ? (
+                          <Image source={{ uri: profileCoach.academy.logo_url }} style={{ width: 38, height: 38 }} resizeMode="cover" />
+                        ) : (
+                          <Users size={18} color="#6B7280" strokeWidth={2} />
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.profileStatValue, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]} numberOfLines={1}>
+                          {profileCoach.academy.name}
+                        </Text>
+                        <Text style={[{ fontSize: 12, color: t.textSecondary, fontFamily: t.fontBody }]}>@{profileCoach.academy.slug}</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: isDark ? t.accentPurpleMuted : '#EFF6FF', borderWidth: 1, borderColor: isDark ? t.accentPurple : '#BFDBFE' }}
+                      onPress={() => {
+                        setSelectedAcademy(profileCoach.academy);
+                        setShowAcademyModal(true);
+                        fetchAcademyDetail(profileCoach.academy.id);
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: isDark ? t.accentPurple : '#1D4ED8', fontFamily: t.fontBodySemibold }}>View Academy</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
+
               <TouchableOpacity
                 style={[styles.contactButton, styles.profileContactButton, { backgroundColor: t.accentPurple }]}
                 onPress={() => {
@@ -1123,6 +1212,116 @@ export default function CoachScreen({ navigation }) {
                   Contact Coach
                 </Text>
               </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  // P-3: Academy detail sheet
+  const renderAcademyDetailModal = () => {
+    if (!showAcademyModal || !selectedAcademy) return null;
+    return (
+      <Modal
+        visible={showAcademyModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        transparent
+        onRequestClose={() => setShowAcademyModal(false)}
+      >
+        <View style={[styles.profileModalOverlay, { backgroundColor: isDark ? t.bg : '#F9FAFB' }]}>
+          <View style={[styles.profileModalContainer, { backgroundColor: isDark ? t.bg : '#F9FAFB' }]}>
+            {/* Header */}
+            <View style={[styles.profileModalHeader, { borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 }}
+                onPress={() => setShowAcademyModal(false)}
+              >
+                <Ionicons name="chevron-back" size={18} color="#3B82F6" />
+                <Text style={{ fontSize: 14, color: '#3B82F6', fontWeight: '600', fontFamily: t.fontBodySemibold }}>Back</Text>
+              </TouchableOpacity>
+              <Text style={[styles.profileModalTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>Academy</Text>
+              <TouchableOpacity
+                style={[styles.profileModalCloseButton, { backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6' }]}
+                onPress={() => setShowAcademyModal(false)}
+              >
+                <X size={22} color={t.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.profileModalScroll}
+              contentContainerStyle={styles.profileModalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Academy hero */}
+              <View style={styles.profileHero}>
+                <View style={{ width: 80, height: 80, borderRadius: 16, backgroundColor: isDark ? t.surfaceRaised : '#F3F4F6', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: 12 }}>
+                  {selectedAcademy.logo_url ? (
+                    <Image source={{ uri: selectedAcademy.logo_url }} style={{ width: 80, height: 80 }} resizeMode="cover" />
+                  ) : (
+                    <Users size={36} color={isDark ? t.accentPurple : '#6B7280'} strokeWidth={1.5} />
+                  )}
+                </View>
+                <Text style={[styles.profileName, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{selectedAcademy.name}</Text>
+                <Text style={{ fontSize: 14, color: t.textSecondary, fontFamily: t.fontBody }}>@{selectedAcademy.slug}</Text>
+              </View>
+
+              {/* Stats row */}
+              {academyDetailLoading ? (
+                <ActivityIndicator size="small" color={t.accentPurple} style={{ marginVertical: 24 }} />
+              ) : academyDetailData ? (
+                <>
+                  <View style={[styles.profileStatsRow, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                    <View style={styles.profileStat}>
+                      <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>Coaches</Text>
+                      <Text style={[styles.profileStatValue, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{academyDetailData.coachCount}</Text>
+                    </View>
+                    <View style={styles.profileStat}>
+                      <Text style={[styles.profileStatLabel, { color: t.textSecondary, fontFamily: t.fontBody }]}>Avg Rating</Text>
+                      {academyDetailData.avgRating ? (
+                        <View style={styles.profileRatingValue}>
+                          <Star size={14} color="#F59E0B" fill="#F59E0B" strokeWidth={2} />
+                          <Text style={[styles.profileStatValue, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>{academyDetailData.avgRating}</Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.profileStatValue, { color: t.textSecondary, fontFamily: t.fontBody }]}>—</Text>
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Coach roster */}
+                  {academyDetailData.coaches.length > 0 ? (
+                    <View style={[styles.profileSection, { backgroundColor: t.surface, borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]}>
+                      <Text style={[styles.profileSectionTitle, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Coaches</Text>
+                      {academyDetailData.coaches.map((c, i) => (
+                        <View key={c.id || i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: isDark ? t.border : '#F3F4F6' }}>
+                          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: isDark ? t.surfaceRaised : '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 14, fontWeight: '600', color: isDark ? t.textPrimary : '#374151' }}>
+                              {(c.name || 'C').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 14, fontWeight: '600', color: t.textPrimary, fontFamily: t.fontBodySemibold }}>{c.name}</Text>
+                            {c.rating_avg ? (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                                <Star size={11} color="#F59E0B" fill="#F59E0B" strokeWidth={2} />
+                                <Text style={{ fontSize: 12, color: t.textSecondary, fontFamily: t.fontBody }}>{c.rating_avg}</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          {c.is_verified ? (
+                            <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: '#ECFDF5' }}>
+                              <Text style={{ fontSize: 11, fontWeight: '600', color: '#059669' }}>Verified</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
             </ScrollView>
           </View>
         </View>
@@ -1292,6 +1491,7 @@ export default function CoachScreen({ navigation }) {
       {renderAvatarModal()}
       {renderMessagingModal()}
       {renderCoachProfileModal()}
+      {renderAcademyDetailModal()}
       {renderFilterModal()}
       <ScreenHeaderShell
         tokens={t}
@@ -1746,6 +1946,21 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 4,
     flex: 1,
+  },
+  academyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 10,
+    alignSelf: 'flex-start',
+  },
+  academyBadgeText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   contactButton: {
     backgroundColor: '#6366F1',

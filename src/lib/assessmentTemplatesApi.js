@@ -271,14 +271,19 @@ export async function listAssessmentTemplates(academyId = null, { showAll = fals
 
 /**
  * Saves (upsert) a template. Creates a new row if no id is given.
+ *
+ * is_default must be passed explicitly as true only when a superadmin wants to
+ * create/update a global system default. For all coach/manager saves it is false,
+ * even when academyId is null (solo coach with no academy).
  */
-export async function saveAssessmentTemplate({ id, type, name, description, template, academyId }) {
+export async function saveAssessmentTemplate({ id, type, name, description, template, academyId, isDefault = false }) {
+  console.log('[assessmentTemplatesApi] saveAssessmentTemplate → id:', id, 'academyId:', academyId, 'isDefault:', isDefault);
   const payload = {
     type,
     name,
     description: description || null,
     template,
-    is_default: !academyId,
+    is_default: isDefault,
     academy_id: academyId || null,
   };
 
@@ -306,11 +311,19 @@ export async function saveAssessmentTemplate({ id, type, name, description, temp
  * Deletes a template by id.
  */
 export async function deleteAssessmentTemplate(id) {
-  const { error } = await supabase
+  console.log('[assessmentTemplatesApi] deleteAssessmentTemplate → id:', id);
+  const { data, error } = await supabase
     .from('assessment_templates')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
+  console.log('[assessmentTemplatesApi] delete response → data:', JSON.stringify(data), 'error:', error);
   if (error) throw error;
+  if (!data || data.length === 0) {
+    console.warn('[assessmentTemplatesApi] ❌ delete returned 0 rows — RLS blocking?');
+    throw new Error('Delete was blocked by the database. You may not have permission to delete this template.');
+  }
+  console.log('[assessmentTemplatesApi] ✅ deleted', data.length, 'row(s)');
 }
 
 /**

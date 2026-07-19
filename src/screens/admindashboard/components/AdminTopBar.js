@@ -8,6 +8,7 @@ const getPageTitle = (activeTab) => {
     case 'dashboard':   return 'Dashboard';
     case 'users':       return 'User Management';
     case 'coaches':     return 'Coach Management';
+    case 'academies':   return 'Academies';
     case 'feedback':    return 'User Feedback';
     case 'assessments': return 'Assessments';
     default:            return activeTab.charAt(0).toUpperCase() + activeTab.slice(1);

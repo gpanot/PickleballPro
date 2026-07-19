@@ -79,6 +79,8 @@ import DoublesSetupScreen from './src/screens/fungame/DoublesSetupScreen';
 import SixPointSummaryScreen from './src/screens/fungame/6PointSummaryScreen';
 import UITestGameScreen from './src/screens/fungame/UITestGameScreen';
 import CoachScreen from './src/screens/CoachScreen';
+import MyBookingsScreen from './src/screens/MyBookingsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import AcceptInviteScreen from './src/screens/AcceptInviteScreen';
@@ -97,6 +99,7 @@ import {
   MAX_ONBOARDING_FINISH_VIEWS,
 } from './src/lib/onboardingFinishState';
 import { checkCoachAccess, supabase } from './src/lib/supabase';
+import { upsertPushToken } from './src/lib/offeringsApi';
 
 const Stack = createStackNavigator();
 
@@ -354,12 +357,15 @@ function AppContent() {
         if (!granted) return;
         const token = await messaging().getToken();
         if (!token) return;
+        // Legacy push token table (backward-compat)
         await supabase
           .from('device_push_tokens')
           .upsert(
             { user_id: authUser.id, token, platform: Platform.OS, updated_at: new Date().toISOString() },
             { onConflict: 'user_id,platform' }
           );
+        // New push_tokens table for the Offerings notification system
+        await upsertPushToken({ token, platform: Platform.OS });
       } catch (e) {
         console.warn('[FCM] Token registration failed:', e);
       }
@@ -673,6 +679,16 @@ function AppContent() {
             <Stack.Screen 
               name="Profile" 
               component={ProfileScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="MyBookings"
+              component={MyBookingsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="Notifications"
+              component={NotificationsScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen 

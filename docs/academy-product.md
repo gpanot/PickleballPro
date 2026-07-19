@@ -1,6 +1,6 @@
 # AcademyPro — Academy Product Spec
 
-*Product management reference. Last updated: 2026-07-18 (Slice A + B implementation complete).*
+*Product management reference. Last updated: 2026-07-19 (Assessment Templates + RLS hardening; P-1, AO-7 partial, P-3 shipped).*
 
 **Related docs:** [`role-ux-analysis.md`](./role-ux-analysis.md) (engineering gap detail), [`onboarding-user-flows-v2.md`](./onboarding-user-flows-v2.md) (coach/player funnel).
 
@@ -48,9 +48,12 @@ Checked in priority order — first match wins (`AdminRoute`):
 | Priority | Condition | Dashboard label | `academyId` |
 |---|---|---|---|
 | 1 | Active row in `admin_users` | Admin Dashboard | No |
-| 2 | `academy_members.role = 'manager'` | Academy Dashboard | Yes |
-| 3 | Active row in `coaches` | Coach Dashboard | No* |
+| 2 | `academy_members.role = 'manager'` | Academy Dashboard | Yes (from `academy_members`) |
+| 3 | Active row in `coaches` + `academy_members.role = 'coach'` | Coach Dashboard | Yes (from `academy_members`) |
+| 4 | Active row in `coaches`, no academy membership | Coach Dashboard (solo) | **null** |
 | — | None | Access denied | — |
+
+**2026-07-19 fix:** `AdminRoute` now also resolves `academyId` for coaches (not only managers). After the coach check passes, a follow-up query on `academy_members` fetches the coach's `academy_id` if one exists. Solo coaches (no `academy_members` row) keep `academyId = null`.
 
 \*Academy coaches still resolve as `sessionRole = 'coach'` unless they are also manager. Manager-who-coaches keeps `sessionRole = 'manager'` and still gets `coachId` for personal student ops.
 
@@ -94,7 +97,7 @@ Legend: ✅ shipped · ⚠️ partial · ❌ missing · — N/A
 | Unpublish | ❌ | ❌ | ✅ **shipped (AO-3)** | ⚠️ elsewhere |
 | Assign academy library to students | ⚠️ own/`is_coach_program` only | ✅ **shipped (C-1)** | ⚠️ | — |
 | Notify coach on publish | — | ✅ **FCM push (C-3)** | — triggers notify | — |
-| Academy assessment templates | — | ⚠️ | ✅ Assessments tab | ✅ |
+| Academy assessment templates | ✅ create/edit/delete own; duplicate system defaults | ✅ create/edit/delete own; duplicate system defaults | ✅ full CRUD incl. system defaults | ✅ full CRUD incl. system defaults |
 
 ### 3.4 Students & coaching ops
 
@@ -156,7 +159,7 @@ Gaps are framed by **persona impact**, not ticket numbers. Engineering detail fo
 | **AO-4** | No academy settings (name, logo) — brand set once at create; cannot evolve identity. | ✅ **Shipped** | High |
 | **AO-5** | No invite flow — coaches must already be registered and have their email known to the manager. | ✅ **Shipped** (invite link + deep link + RPC) | High |
 | **AO-6** | Almost no mobile academy management — owners who live on phone cannot run the org without web. | ❌ Open (rank 11+) | Medium |
-| **AO-7** | Thin analytics / ops signals — no publish queue, inactive coaches, student engagement KPIs. | ❌ Open (rank 13+) | Medium |
+| **AO-7** | Thin analytics / ops signals — no publish queue, inactive coaches, student engagement KPIs. | ✅ **Partial (2026-07-19)** — coaches with no active students + 8-week student growth chart added to academy tab. Publish queue deferred. | Medium |
 | **AO-8** | Staff role has no distinct permissions or UX — assignable only, does nothing different. | ❌ Open (rank 16+) | Low |
 | **AO-9** | No billing / packages / white-label — monetization deferred intentionally. | ❌ Open (Slice D) | Low (later) |
 
@@ -171,14 +174,15 @@ Gaps are framed by **persona impact**, not ticket numbers. Engineering detail fo
 | **C-5** | Pending review vs dashboard access ambiguous — `is_active` label misleading. | ✅ **Shipped** (label + sub-text fix) | Medium |
 | **C-6** | No self-publish for solo coaches — depends on admin or must create academy. | ❌ Open (Slice D, paywall later) | Medium |
 | **C-7** | Multi-sport / multi-academy blocked — coaches teaching two sports or at two clubs have no path. | ❌ Open (Slice D) | Low (later) |
+| **C-8** | Solo coach could not save new assessment templates — RLS blocked INSERT because `is_default` was incorrectly inferred from `!academyId`. | ✅ **Fixed 2026-07-19** (see §12) | Critical |
 
 ### 5.3 Cross-cutting / platform
 
 | ID | Gap | Status | Severity |
 |---|---|---|---|
-| **P-1** | Admin has no Academies tab — support requires Supabase Studio. | ❌ Open (rank 12+) | Medium |
+| **P-1** | Admin has no Academies tab — support requires Supabase Studio. | ✅ **Shipped (2026-07-19)** — superadmin-only Academies sidebar tab; list view with coach/student counts; drilldown detail with member list and per-coach active student count. | Medium |
 | **P-2** | Manager publish RLS has no column `WITH CHECK` — latent authorship integrity risk. | ❌ Open (rank 17+) | Low (latent) |
-| **P-3** | Players never see academy affiliation — marketplace is still “find a coach,” not “join an academy.” | ❌ Open (rank 15+) | Low–Medium |
+| **P-3** | Players never see academy affiliation — marketplace is still “find a coach,” not “join an academy.” | ✅ **Shipped (2026-07-19)** — academy badge on coach cards; “View Academy” button in coach profile sheet; Academy detail modal (logo, name, coach count, avg rating, coach roster). | Low–Medium |
 | **P-4** | Payments / paywall for solo vs academy tiers — deferred until core ops stable. | ❌ Open (Slice D) | Later |
 
 ---
@@ -494,3 +498,176 @@ If the `notify-on-publish` Edge Function fails, `handlePublishProgram` catches t
 | Run backfill migration on production DB | AO-1 roster will be empty for pre-fix data | Apply `20260718000003_backfill_coach_students_academy_id.sql` |
 | Set `FIREBASE_SERVICE_ACCOUNT_JSON` on Supabase Edge Function env | C-3 push will fail silently | Paste service account JSON in Supabase dashboard → Edge Functions → notify-on-publish |
 | Test FCM on physical Android device | Simulator does not receive FCM | Use a physical device for C-3 acceptance testing |
+
+---
+
+## 12. Implementation notes (2026-07-19 — Assessment Templates)
+
+### Assessment template permission model
+
+Assessment templates have three distinct permission tiers, enforced in both RLS and the UI:
+
+| Actor | Can do |
+|---|---|
+| **Platform admin** (`users.is_admin = true`) | Full CRUD on ALL templates, including system defaults (`is_default = true, academy_id = null`) |
+| **Academy coach / manager** (row in `academy_members`) | Full CRUD on templates scoped to their `academy_id` (`is_default = false`). Can **duplicate** system defaults (creates a new academy-scoped copy). Cannot edit/delete system defaults directly. |
+| **Solo coach** (row in `coaches`, no `academy_members`) | Full CRUD on templates with `academy_id = null, is_default = false`. Can **duplicate** system defaults (creates a new solo-scoped copy). Cannot edit/delete system defaults. |
+
+### RLS policies on `assessment_templates` (current, 4 total)
+
+| Policy | Command | Rule |
+|---|---|---|
+| `assessment_templates_read` | SELECT | `true` — all authenticated users can read all templates |
+| `assessment_templates_superadmin_write` | ALL | `users.is_admin = true` for `auth.uid()` |
+| `assessment_templates_member_write` | ALL | `academy_id IN (SELECT academy_id FROM academy_members WHERE user_id = auth.uid() AND role IN ('manager','coach'))` |
+| `assessment_templates_solo_coach_write` | ALL | `is_default = false AND academy_id IS NULL AND EXISTS (coaches WHERE user_id = auth.uid()) AND NOT is_admin` |
+
+The fourth policy (`solo_coach_write`) was added on 2026-07-19 to cover coaches who have completed their profile but have not joined an academy. Without it, their INSERT was blocked because no `academy_members` row existed to satisfy `member_write`.
+
+Migration: `supabase/migrations/20260719000002_assessment_templates_solo_coach.sql`
+
+### `is_default` must always be set explicitly
+
+**Do not infer `is_default` from `!academyId`.**
+
+The old code computed `is_default: !academyId`, which made solo coach INSERTs (`academyId = null`) set `is_default = true` — triggering the superadmin-only policy and blocking the save.
+
+The corrected signature:
+
+```js
+// src/lib/assessmentTemplatesApi.js
+saveAssessmentTemplate({ id, type, name, description, template, academyId, isDefault = false })
+//                                                                         ^^^^^^^^^^^^^^^^
+// isDefault defaults to false. Callers must pass isDefault: true explicitly
+// only when a superadmin is creating or updating a system-wide default.
+```
+
+Callers and what they pass:
+
+| Caller | `isDefault` | Why |
+|---|---|---|
+| `TemplateEditor.handleSave` — superadmin updating existing system default | `true` | Preserves the default's status |
+| `TemplateEditor.handleSave` — any other save (coach, manager, "Save as my copy") | `false` (default) | Creates a user-owned copy |
+| `AssessmentsPanel.handleDuplicate` | `false` (explicit) | Duplicates are always user-owned |
+| `seedDefaultTemplates` | Sets `is_default: true` directly in the insert payload | Seed function bypasses `saveAssessmentTemplate` |
+
+### UI permission derivations (pure JS — no Supabase call)
+
+These three booleans are derived once at `AssessmentsPanel` render and passed down:
+
+```js
+// isSuperAdmin: no academy AND not a manager or coach role
+const isSuperAdmin = !academyId && sessionRole !== 'manager' && sessionRole !== 'coach';
+
+// In TemplateEditor: is this user a non-superadmin viewing a global system default?
+const isGlobalDefault = template.is_default && !template.academy_id;
+const memberViewingDefault = isGlobalDefault && !isSuperAdmin && !!academyId;
+
+// effectiveReadOnly: UI fields locked if explicitly readOnly OR memberViewingDefault
+const effectiveReadOnly = readOnly || memberViewingDefault;
+```
+
+**`memberViewingDefault`** controls:
+- Fields are rendered read-only (cannot type).
+- Save button shows "Save as my copy" instead of "Save" — creates a new academy-scoped row.
+- An info banner explains the copy behaviour.
+
+**`canEditDefault`** (on `TemplateListCard`):
+- `true` when `!isDefault || isSuperAdmin` — shows edit + delete buttons.
+- Solo coaches and academy members see **only** the duplicate button on system default cards.
+
+### `AdminRoute` — `academyId` resolution (updated)
+
+`AdminRoute` now resolves `academyId` for both managers **and** coaches:
+
+```
+1. isAdmin → sessionRole='admin', academyId=null (unchanged)
+2. academy_members.role='manager' → sessionRole='manager', academyId=managerRow.academy_id (unchanged)
+3. coaches row exists →
+   a. sessionRole='coach', coachId=coaches.id
+   b. [NEW] query academy_members WHERE user_id = auth.uid() AND role = 'coach'
+      → if found: academyId = coachMemberRow.academy_id
+      → if not found (solo coach): academyId = null
+```
+
+This ensures `AssessmentsPanel` receives the correct `academyId` for academy-attached coaches, so their template saves are scoped to `academy_id` (covered by `member_write`). Solo coaches keep `academyId = null` and are covered by `solo_coach_write`.
+
+### UI labels and terminology (Assessments tab)
+
+| Old label | New label | Where |
+|---|---|---|
+| "Branching questionnaire" | "First time questionnaire" | Type picker dropdown |
+| "Experience" | "First time" | Type badge / stat label |
+| "Scored skill assessment" | "Periodic Skill Assessment" | Type picker dropdown |
+| "Description" field | "About this assessment (Only you can see it)" | Template editor field label |
+
+### Two-section layout (Assessments list)
+
+The list is split into two sections:
+- **SYSTEM DEFAULTS** — `is_default = true AND academy_id IS NULL`. Action buttons: duplicate (all), edit + delete (superadmin only).
+- **YOUR TEMPLATES** — all other rows. Action buttons: duplicate, edit, delete (owner only, not visible for others' templates if visible at all).
+
+The "New template" CTA was moved from inside `AssessmentsPanel` to `AdminTopBar`, matching the pattern used by the Coach Management page. State is lifted to `AdminDashboard` as `showNewAssessmentPicker` and passed down via props.
+
+### `Alert.alert` on web
+
+React Native Web's `Alert.alert` with custom button arrays does not fire `onPress` callbacks reliably in the browser. The delete confirmation in `AssessmentsPanel.handleDelete` now uses `Platform.OS === 'web' ? window.confirm(...) : Alert.alert(...)` to ensure the confirmation dialog works in both environments.
+
+### Test suite (`__tests__/`)
+
+Unit tests added on 2026-07-19 cover:
+
+| Test file | What it tests |
+|---|---|
+| `assessmentTemplatesApi.test.js` | `buildSavePayload` (INSERT/UPDATE, solo coach, superadmin, "Save as my copy"); `validateDeleteResponse` (RLS guard logic) |
+| `assessmentPermissions.test.js` | `isSuperAdmin`, `memberViewingDefault`, `effectiveReadOnly`, `canEditDefault` derivations; full 8-scenario permission matrix |
+
+Run with `npm test`. No native dependencies — tests use plain Node/Jest with `babel-jest` and `@babel/preset-env`. React Native packages are not imported.
+
+---
+
+## §13. Implementation notes (2026-07-19 — P-1, AO-7 partial, P-3)
+
+### P-1 — Admin Academies Tab
+
+**Files changed:**
+- `src/screens/admindashboard/AdminSidebar.js` — added `{ id: 'academies', label: 'Academies', icon: 'school-outline' }` to `ALL_NAV_ITEMS`. Not added to `COACH_NAV_IDS` or `MANAGER_NAV_IDS`, so it only appears for superadmins.
+- `src/screens/admindashboard/components/AdminTopBar.js` — added `case 'academies': return 'Academies'` to `getPageTitle`.
+- `src/screens/AdminDashboard.js`:
+  - Added state: `allAcademies`, `adminAcademySelected`, `adminAcademyDetail`, `adminAcademyDetailLoading`.
+  - Added `fetchAllAcademies()` — queries `academies` with nested `academy_members` and `coach_students` for aggregate counts.
+  - Added `fetchAdminAcademyDetail(id)` — fetches academy info, members enriched with user profiles, and per-coach active student counts via a three-step query (coaches table → coach_students count).
+  - Added `renderAcademiesTab()` — two views:
+    - **List view**: table of all academies (logo, name, slug, coach count, active student count, created date). Tapping a row drills into detail.
+    - **Detail view**: breadcrumb back button, academy header card (logo, name, slug, member/coach/manager stat boxes), members table (name, email, role badge, active student count, joined date).
+  - Added `case 'academies': return renderAcademiesTab()` to `renderContent` switch.
+  - Tab reset: `adminAcademySelected` and `adminAcademyDetail` are cleared when leaving the academies tab.
+
+### AO-7 (partial) — Health Signals in Academy Tab
+
+**Deferred:** publish queue (programs waiting for review) — not relevant since programs are managed by managers, not coaches.
+
+**Implemented:** two widgets appended to `renderAcademyTab()` under a "Health Signals" section:
+
+1. **Coaches with no active students** — after fetching academy members, the `fetchAcademyMembers` function fires two additional queries: resolves coach DB IDs from `user_id`s, then counts active `coach_students`. Coaches with count = 0 are stored in `inactiveCoaches` state and rendered as red tags. Green "all clear" if empty.
+
+2. **Student growth — last 8 weeks** — queries `coach_students` with `joined_at >= 8 weeks ago` and `is_active = true`. Bucketed by ISO week (Monday). Rendered as a proportional bar chart (8 columns, last column highlighted in blue).
+
+### P-3 — Academy Affiliation on Player Coach Discovery
+
+**Files changed:**
+
+`src/lib/supabase.js`:
+- `getCoaches()` — added `academy:academy_id(id, name, slug, logo_url)` to the Supabase select. The coaches table has an `academy_id` foreign key to the `academies` table.
+- `transformCoachData()` — added `academy: coach.academy || null` to the returned object.
+
+`src/screens/CoachScreen.js`:
+- Added state: `selectedAcademy`, `showAcademyModal`, `academyDetailData`, `academyDetailLoading`.
+- Added `fetchAcademyDetail(academyId)` — queries `academy_members` with `coaches!inner` join to get coach list with `rating_avg`. Computes `coachCount` and `avgRating`.
+- `renderCoachCard()` — academy badge (Users icon + academy name) inserted between the location line and the contact button. Only renders when `coach.academy` is set.
+- `renderCoachProfileModal()` — added "Academy" section block (logo + name + slug + "View Academy" button) between the location section and the contact button. Tapping "View Academy" sets `selectedAcademy` state, opens `showAcademyModal`, and calls `fetchAcademyDetail`.
+- Added `renderAcademyDetailModal()` — bottom-sheet-style `Modal` showing:
+  - Academy logo, name, slug.
+  - Stats row: coach count, average coach rating.
+  - Coach roster with name, star rating, and verified badge.
+- `renderAcademyDetailModal()` is called in the component's main return alongside the other modals.

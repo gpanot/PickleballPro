@@ -709,6 +709,28 @@ export default function ProfileScreen({ onLogout, navigation }) {
         </TouchableOpacity>
       )}
       
+      <TouchableOpacity
+        style={[styles.settingsItem, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]}
+        onPress={() => navigation?.navigate('MyBookings')}
+      >
+        <View style={styles.settingsItemLeft}>
+          <Ionicons name="calendar-outline" size={20} color={t.textMuted} />
+          <Text style={[styles.settingsItemText, { color: t.textSecondary, fontFamily: t.fontBody }]}>My Bookings</Text>
+        </View>
+        <ModernIcon name="action" size={8} color={t.textMuted} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.settingsItem, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]}
+        onPress={() => navigation?.navigate('Notifications')}
+      >
+        <View style={styles.settingsItemLeft}>
+          <Ionicons name="notifications-outline" size={20} color={t.textMuted} />
+          <Text style={[styles.settingsItemText, { color: t.textSecondary, fontFamily: t.fontBody }]}>Notifications</Text>
+        </View>
+        <ModernIcon name="action" size={8} color={t.textMuted} />
+      </TouchableOpacity>
+
       <TouchableOpacity style={[styles.settingsItem, { backgroundColor: t.surface, borderColor: t.border, borderWidth: isDark ? 1 : 0 }]} onPress={handleSettings}>
         <View style={styles.settingsItemLeft}>
           <ModernIcon name="settings" size={20} color={t.textMuted} />

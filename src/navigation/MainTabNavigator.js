@@ -13,6 +13,7 @@ import ProgramScreen from '../screens/ProgramScreen';
 import LogbookScreen from '../screens/LogbookScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import CoachNavigator from './CoachNavigator';
+import ExploreNavigator from './ExploreNavigator';
 // import FeedbackScreen from '../screens/FeedbackScreen'; // Hidden for now
 
 const Tab = createBottomTabNavigator();
@@ -129,6 +130,8 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
             iconName = 'leaderboard';
           } else if (route.name === 'Logbook') {
             iconName = 'logbook';
+          } else if (route.name === 'Explore') {
+            iconName = 'explore';
           }
           // Feedback screen hidden for now
           // else if (route.name === 'Feedback') {
@@ -210,6 +213,12 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
       <Tab.Screen 
         name="Leaderboard" 
         component={LeaderboardScreen}
+        listeners={{ tabPress: hapticLight }}
+      />
+      <Tab.Screen
+        name="Explore"
+        component={ExploreNavigator}
+        options={{ title: 'Explore' }}
         listeners={{ tabPress: hapticLight }}
       />
       {((isCoach && coachPublished) || isManager) && (
