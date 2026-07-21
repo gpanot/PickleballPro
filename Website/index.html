@@ -2051,6 +2051,9 @@
             padding: 2.5rem;
             position: relative;
             transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .pricing-card:hover {
@@ -2121,6 +2124,7 @@
             margin-bottom: 2rem;
             font-size: 0.9rem;
             color: #475569;
+            flex: 1;
         }
 
         .pricing-features li {
@@ -2139,6 +2143,10 @@
 
         .pricing-card .cta-button {
             width: 100%;
+        }
+
+        .pricing-card-actions {
+            margin-top: auto;
         }
 
         .pricing-note {
@@ -3520,7 +3528,7 @@
             
             <button class="cta-button" onclick="openReadinessQuiz()">Check My Readiness Score</button>
             <p class="hero-subtext">Free 90-second assessment. No signup required.</p>
-            <p class="hero-skip-link">Already sure you need this? <a href="https://cal.id/guillaume-panot/piklepro-academy">Book a call directly &rarr;</a></p>
+            <p class="hero-skip-link">Already sure you need this? <a href="#" onclick="openDownloadModal(); return false;">Start Now &rarr;</a></p>
 
             <div class="dashboard-mock">
                 <div class="dashboard-header">
@@ -4348,8 +4356,10 @@
                         <li>Student progress tracking</li>
                         <li>Listing in coach marketplace</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $99/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
+                        <p class="button-note">30 days. Then $99/mo or cancel.</p>
+                    </div>
                 </div>
 
                 <div class="pricing-card featured">
@@ -4368,8 +4378,10 @@
                         <li>Dedicated onboarding</li>
                         <li>Email support</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
+                        <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                    </div>
                 </div>
 
                 <div class="pricing-card">
@@ -4385,8 +4397,10 @@
                         <li>Dedicated onboarding</li>
                         <li>Priority support (email & chat)</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
+                        <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                    </div>
                 </div>
 
                 <div class="pricing-card">
@@ -4402,8 +4416,10 @@
                         <li>Dedicated account manager</li>
                         <li>Priority phone & chat support</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
+                        <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                    </div>
                 </div>
             </div>
 
@@ -4515,7 +4531,7 @@
             <div class="cta-final" id="contact">
                 <h2>Ready to Scale?</h2>
                 <p>Top coaches trust AcademyPro to standardize their curriculum and scale their business.</p>
-                <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Book Your Demo</button>
+                <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
                 <p style="font-size: 0.9rem; margin-top: 1.5rem; opacity: 0.8;">Limited partnerships available. Early access bonus: 3 months free.</p>
             </div>
         </div>
