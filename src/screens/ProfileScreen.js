@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
-  Modal,
+    Modal,
   TextInput,
   Image,
   Dimensions,
@@ -15,6 +15,7 @@ import {
   Clipboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,7 +45,7 @@ export const setCropCompleteCallback = (fn) => {
 export const getCropCompleteCallback = () => _cropCompleteCallback;
 
 
-export default function ProfileScreen({ onLogout, navigation }) {
+export default function ProfileScreen({ onLogout, navigation, onCoachStatusRefresh }) {
   const { user, resetAllOnboarding, setUser } = useUser();
   const { user: authUser, isAuthenticated, signOut, updateProfile } = useAuth();
   const { getLogbookSummary } = useLogbook();
@@ -63,14 +64,24 @@ export default function ProfileScreen({ onLogout, navigation }) {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false);
   const [studentCode, setStudentCode] = useState(null);
+  const [coachProfileStatus, setCoachProfileStatus] = useState(null); // { isVerified, isAcceptingStudents }
 
   useEffect(() => {
     if (isAuthenticated && authUser) {
       checkAdmin();
       loadUserAvatar();
-      loadStudentCode(); // Load student code
+      loadStudentCode();
     }
   }, [isAuthenticated, authUser]);
+
+  // Re-check coach/admin status whenever this screen regains focus (e.g. returning from CreateCoachProfile)
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && authUser) {
+        checkAdmin();
+      }
+    }, [isAuthenticated, authUser])
+  );
 
   const loadUserAvatar = async () => {
     try {
@@ -139,17 +150,44 @@ export default function ProfileScreen({ onLogout, navigation }) {
           .maybeSingle();
         if (managerRow) {
           setIsManager(true);
-          // Manager may also be a coach — fetch both
-          const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
+          const { isCoach: coachStatus, coachId } = await checkCoachAccess(authUser.id);
           setIsCoach(coachStatus);
+          if (coachStatus && coachId) {
+            fetchCoachProfileStatus(coachId);
+          }
         } else {
-          const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
+          const { isCoach: coachStatus, coachId } = await checkCoachAccess(authUser.id);
           setIsCoach(coachStatus);
+          if (coachStatus && coachId) {
+            fetchCoachProfileStatus(coachId);
+          }
         }
+      }
+      // Signal MainTabNavigator to re-check tab visibility (Academy tab)
+      if (typeof onCoachStatusRefresh === 'function') {
+        onCoachStatusRefresh();
       }
     } catch (error) {
       console.error('Error checking admin access:', error);
       setIsAdmin(false);
+    }
+  };
+
+  const fetchCoachProfileStatus = async (coachId) => {
+    try {
+      const { data, error } = await supabase
+        .from('coaches')
+        .select('is_verified, is_accepting_students')
+        .eq('id', coachId)
+        .single();
+      if (!error && data) {
+        setCoachProfileStatus({
+          isVerified: data.is_verified,
+          isAcceptingStudents: data.is_accepting_students,
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching coach profile status:', err);
     }
   };
 
@@ -695,18 +733,31 @@ export default function ProfileScreen({ onLogout, navigation }) {
       )}
 
       {!isAdmin && (
-        <TouchableOpacity 
-          style={[styles.settingsItem, { backgroundColor: isDark ? t.accentPurpleMuted : '#EEF2FF', borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]} 
-          onPress={() => navigation?.navigate('CreateCoachProfile')}
-        >
-          <View style={styles.settingsItemLeft}>
-            <ModernIcon name="coach" size={20} color={t.accentPurple} />
-            <Text style={[styles.settingsItemText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
-              {isCoach ? 'Edit Coach Profile' : 'Become a Coach'}
-            </Text>
-          </View>
-          <ModernIcon name="action" size={8} color={t.accentPurple} />
-        </TouchableOpacity>
+        <>
+          {isCoach && coachProfileStatus && !coachProfileStatus.isVerified && (
+            <View style={[styles.pendingApprovalBanner, { backgroundColor: isDark ? '#78350F22' : '#FFFBEB', borderColor: isDark ? '#D9770644' : '#FCD34D' }]}>
+              <Ionicons name="time-outline" size={16} color="#D97706" style={{ marginRight: 8, flexShrink: 0 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.pendingApprovalTitle, { fontFamily: t.fontBodyBold }]}>Profile review pending</Text>
+                <Text style={[styles.pendingApprovalText, { fontFamily: t.fontBody }]}>
+                  Your coach profile is being reviewed by our team (up to 48h). You can still edit your details while you wait.
+                </Text>
+              </View>
+            </View>
+          )}
+          <TouchableOpacity 
+            style={[styles.settingsItem, { backgroundColor: isDark ? t.accentPurpleMuted : '#EEF2FF', borderColor: isDark ? t.border : 'transparent', borderWidth: isDark ? 1 : 0 }]} 
+            onPress={() => navigation?.navigate('CreateCoachProfile')}
+          >
+            <View style={styles.settingsItemLeft}>
+              <ModernIcon name="coach" size={20} color={t.accentPurple} />
+              <Text style={[styles.settingsItemText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
+                {isCoach ? 'Edit Coach Profile' : 'Become a Coach'}
+              </Text>
+            </View>
+            <ModernIcon name="action" size={8} color={t.accentPurple} />
+          </TouchableOpacity>
+        </>
       )}
       
       <TouchableOpacity
@@ -1088,33 +1139,44 @@ export default function ProfileScreen({ onLogout, navigation }) {
       {/* Start Academy — full-screen onboarding flow (GAP-01 / GAP-10) */}
       <AcademyOnboardingFlow
         visible={showStartAcademyModal}
-        onDismiss={() => setShowStartAcademyModal(false)}
-        onComplete={async (academyName) => {
+        onDismiss={() => {
           setShowStartAcademyModal(false);
-          try {
-            const slugify = (str) =>
-              str.toLowerCase().trim()
-                .replace(/[^a-z0-9\s-]/g, '')
-                .replace(/\s+/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '')
-                .slice(0, 40);
-            const base = slugify(academyName) || 'academy';
-            const suffix = Math.random().toString(36).slice(2, 8);
-            const { error: rpcError } = await supabase.rpc('become_academy_manager', {
-              academy_name: academyName.trim(),
-              academy_slug: `${base}-${suffix}`,
-              academy_logo_url: null,
-            });
-            if (rpcError) {
-              Alert.alert('Error', rpcError.message || 'Failed to create academy.');
-              return;
-            }
-            // Re-run role check so the button immediately switches to "Academy Dashboard"
-            checkAdmin();
-          } catch (err) {
-            Alert.alert('Error', err.message || 'An unexpected error occurred.');
+          // Refresh role in case they completed the flow before dismissing
+          checkAdmin();
+        }}
+        onCreate={async ({ name: academyName, royaltyRate }) => {
+          const slugify = (str) =>
+            str.toLowerCase().trim()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '')
+              .slice(0, 40);
+          const base = slugify(academyName) || 'academy';
+          const suffix = Math.random().toString(36).slice(2, 8);
+          const slug = `${base}-${suffix}`;
+          const { error: rpcError } = await supabase.rpc('become_academy_manager', {
+            academy_name: academyName.trim(),
+            academy_slug: slug,
+            academy_logo_url: null,
+          });
+          if (rpcError) throw rpcError;
+          // Fetch the new academy id so the flow can generate an invite link
+          const { data: academyData } = await supabase
+            .from('academies')
+            .select('id')
+            .eq('slug', slug)
+            .maybeSingle();
+          // Persist royalty rate chosen in the onboarding flow
+          if (academyData?.id && royaltyRate != null) {
+            await supabase
+              .from('academies')
+              .update({ royalty_rate: royaltyRate })
+              .eq('id', academyData.id);
           }
+          // Re-run role check so the button switches to "Academy Dashboard" on close
+          checkAdmin();
+          return { academyId: academyData?.id ?? null };
         }}
       />
     </View>
@@ -1427,6 +1489,26 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: '#EF4444',
+  },
+  pendingApprovalBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  pendingApprovalTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  pendingApprovalText: {
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
   },
   bottomSpacing: {
     height: 24,

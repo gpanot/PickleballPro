@@ -15,13 +15,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
-import { Users, Library, Search, Plus, X, ChevronRight, AlertCircle, BookOpen } from 'lucide-react-native';
+import { Users, Library, Search, Plus, X, ChevronRight, AlertCircle, BookOpen, Calendar, PlusCircle } from 'lucide-react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useUser } from '../../context/UserContext';
 import { checkCoachAccess, getCoachStudents, addStudentByCode, supabase, transformProgramData } from '../../lib/supabase';
 import SeededAvatar from '../../components/SeededAvatar';
 import { useTheme } from '../../context/ThemeContext';
 import ScreenAvatarHeader from '../../components/ScreenAvatarHeader';
+import { getCoachOfferings, getNextOpenRun, getPriceRangeLabel } from '../../lib/offeringsApi';
 
 export default function CoachDashboardScreen({ navigation }) {
   const { user: authUser } = useAuth();
@@ -50,6 +51,11 @@ export default function CoachDashboardScreen({ navigation }) {
   const [coachPrograms, setCoachPrograms] = useState([]);
   const [programsLoading, setProgramsLoading] = useState(false);
   const [programsError, setProgramsError] = useState(null);
+
+  // Offerings state
+  const [offerings,        setOfferings]        = useState([]);
+  const [offeringsLoading, setOfferingsLoading] = useState(false);
+  const [offeringsError,   setOfferingsError]   = useState(null);
 
   // Academy context card state (C-2)
   const [academyContext, setAcademyContext] = useState(null); // { academyId, academyName, slug, managerName, managerEmail }
@@ -81,6 +87,13 @@ export default function CoachDashboardScreen({ navigation }) {
       loadCoachPrograms();
     }
   }, [activeTab, coachId]);
+
+  // Load offerings when switching to Offerings tab
+  useEffect(() => {
+    if (activeTab === 'offerings') {
+      loadOfferings();
+    }
+  }, [activeTab]);
 
   const checkCoachAndLoadData = async () => {
     if (!authUser?.id) return;
@@ -308,6 +321,21 @@ export default function CoachDashboardScreen({ navigation }) {
     }
   };
 
+  const loadOfferings = async () => {
+    setOfferingsLoading(true);
+    setOfferingsError(null);
+    try {
+      const { data, error } = await getCoachOfferings();
+      if (error) throw error;
+      setOfferings(data ?? []);
+    } catch (err) {
+      console.error('Error loading offerings:', err);
+      setOfferingsError(err.message || 'Failed to load offerings');
+    } finally {
+      setOfferingsLoading(false);
+    }
+  };
+
   const handleAddStudent = async () => {
     const code = studentCodeInput.trim();
 
@@ -446,8 +474,7 @@ export default function CoachDashboardScreen({ navigation }) {
       } else if (activeTab === 'programs') {
         await loadCoachPrograms();
       } else if (activeTab === 'offerings') {
-        // Offerings are rendered in a separate screen — CoachDashboard's offerings tab
-        // just navigates; nothing to reload here
+        await loadOfferings();
       }
     } catch (error) {
       console.error('Error refreshing:', error);
@@ -522,16 +549,18 @@ export default function CoachDashboardScreen({ navigation }) {
           })}
         </View>
 
-        <View style={[styles.searchContainer, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderColor: isDark ? t.border : '#E5E7EB' }]}>
-          <Search size={18} color={t.textMuted} strokeWidth={2} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: t.textPrimary, fontFamily: t.fontBody }]}
-            placeholder={activeTab === 'students' ? 'Search player by name or ID' : activeTab === 'programs' ? 'Search programs' : 'Search offerings'}
-            placeholderTextColor={t.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        {activeTab !== 'offerings' && (
+          <View style={[styles.searchContainer, { backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', borderColor: isDark ? t.border : '#E5E7EB' }]}>
+            <Search size={18} color={t.textMuted} strokeWidth={2} style={styles.searchIcon} />
+            <TextInput
+              style={[styles.searchInput, { color: t.textPrimary, fontFamily: t.fontBody }]}
+              placeholder={activeTab === 'students' ? 'Search player by name or ID' : 'Search programs'}
+              placeholderTextColor={t.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+        )}
       </ScreenAvatarHeader>
 
       {/* Stats Summary removed per requirements */}
@@ -646,7 +675,7 @@ export default function CoachDashboardScreen({ navigation }) {
               ))
             )}
           </>
-        ) : (
+        ) : activeTab === 'programs' ? (
           <>
             <Text style={[styles.sectionTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]}>
               Coach Programs ({coachPrograms.filter(p => 
@@ -705,23 +734,78 @@ export default function CoachDashboardScreen({ navigation }) {
                 ))
             )}
           </>
-        )}
-
-        {/* Offerings tab: navigates to OfferingsList — rendered as a deep-link entry point */}
-        {activeTab === 'offerings' && (
-          <View style={styles.offeringsPlaceholder}>
-            <BookOpen size={40} color={t.textMuted} strokeWidth={1.5} />
-            <Text style={[styles.offeringsPlaceholderText, { color: t.textMuted, fontFamily: t.fontBody }]}>
-              Manage your cohorts and events
-            </Text>
+        ) : (
+          /* ── Offerings tab ─────────────────────────────────────────────── */
+          <>
+            {/* CTA: Create new offering */}
             <TouchableOpacity
-              style={[styles.offeringsBtn, { backgroundColor: t.accentPurple }]}
-              onPress={() => navigation.navigate('OfferingsList')}
+              style={[styles.createOfferingBtn, { backgroundColor: t.accentPurple }]}
+              onPress={() => navigation.navigate('CreateOfferingStep1')}
             >
-              <BookOpen size={16} color="#fff" strokeWidth={2} />
-              <Text style={[styles.offeringsBtnText, { fontFamily: t.fontBodySemibold }]}>Open Offerings</Text>
+              <PlusCircle size={18} color="#fff" strokeWidth={2} />
+              <Text style={[styles.createOfferingBtnText, { fontFamily: t.fontBodySemibold }]}>Create a new offering</Text>
             </TouchableOpacity>
-          </View>
+
+            {offeringsLoading ? (
+              <View style={styles.emptyContainer}>
+                <ActivityIndicator size="large" color={t.accentPurple} />
+              </View>
+            ) : offeringsError ? (
+              <View style={styles.emptyContainer}>
+                <AlertCircle size={48} color="#EF4444" strokeWidth={1.5} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>{offeringsError}</Text>
+              </View>
+            ) : offerings.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <BookOpen size={48} color={t.textMuted} strokeWidth={1.5} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>
+                  No offerings yet.{'\n'}Tap the button above to create your first one.
+                </Text>
+              </View>
+            ) : (
+              offerings.map((offering) => {
+                const nextRun = getNextOpenRun(offering.runs ?? []);
+                const priceLabel = getPriceRangeLabel(offering.runs ?? []);
+                const STATUS_COLOR = {
+                  open: '#22C55E', draft: t.textMuted, completed: t.textMuted, cancelled: '#EF4444',
+                };
+                return (
+                  <TouchableOpacity
+                    key={offering.id}
+                    style={[styles.offeringCard, { backgroundColor: t.surface, borderWidth: isDark ? 1 : 0, borderColor: t.border }]}
+                    onPress={() => navigation.navigate('OfferingDetail', { offeringId: offering.id })}
+                  >
+                    <View style={styles.offeringCardHeader}>
+                      <View style={styles.offeringTitleRow}>
+                        <Text style={[styles.offeringTitle, { color: t.textPrimary, fontFamily: t.fontBodyBold }]} numberOfLines={1}>
+                          {offering.title}
+                        </Text>
+                        <View style={[styles.offeringBadge, { backgroundColor: `${STATUS_COLOR[offering.status] ?? t.textMuted}18` }]}>
+                          <Text style={[styles.offeringBadgeText, { color: STATUS_COLOR[offering.status] ?? t.textMuted, fontFamily: t.fontBodySemibold }]}>
+                            {offering.status}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.offeringMeta}>
+                        {nextRun && (
+                          <View style={styles.offeringMetaItem}>
+                            <Calendar size={12} color={t.textMuted} strokeWidth={2} />
+                            <Text style={[styles.offeringMetaText, { color: t.textMuted, fontFamily: t.fontBody }]}>
+                              {new Date(nextRun.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </Text>
+                          </View>
+                        )}
+                        {priceLabel && (
+                          <Text style={[styles.offeringPrice, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>{priceLabel}</Text>
+                        )}
+                      </View>
+                    </View>
+                    <ChevronRight size={18} color={t.textMuted} strokeWidth={2} style={styles.offeringChevron} />
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </>
         )}
 
         </>
@@ -892,10 +976,19 @@ const styles = StyleSheet.create({
   modalAddButton: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   modalAddButtonDisabled: { opacity: 0.5 },
   modalAddText: { fontSize: 15 },
-  // Offerings tab
-  offeringsPlaceholder: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 },
-  offeringsPlaceholderText: { fontSize: 15, textAlign: 'center' },
-  offeringsBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 4 },
-  offeringsBtnText: { color: '#fff', fontSize: 15 },
+  // Offerings tab — inline list
+  createOfferingBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 14, marginBottom: 16 },
+  createOfferingBtnText: { color: '#fff', fontSize: 15 },
+  offeringCard:          { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14, marginBottom: 10 },
+  offeringCardHeader:    { flex: 1 },
+  offeringTitleRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  offeringTitle:         { flex: 1, fontSize: 15 },
+  offeringBadge:         { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  offeringBadgeText:     { fontSize: 11, textTransform: 'capitalize' },
+  offeringMeta:          { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  offeringMetaItem:      { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  offeringMetaText:      { fontSize: 12 },
+  offeringPrice:         { fontSize: 13 },
+  offeringChevron:       { marginLeft: 4 },
 });
 

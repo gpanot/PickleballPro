@@ -12,8 +12,9 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { MapPin, Users, ChevronRight, ChevronLeft } from 'lucide-react-native';
+import { MapPin, Users, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../../components/logbook/ScreenHeader';
 
 export default function CreateOfferingStep2Screen({ navigation, route }) {
   const { logbookTheme: t, isDark } = useTheme();
@@ -41,7 +42,8 @@ export default function CreateOfferingStep2Screen({ navigation, route }) {
       return;
     }
 
-    navigation.navigate('CreateOfferingStep3', {
+    navigation.navigate('RunForm', {
+      mode: 'create',
       step1,
       step2: {
         location:     location.trim(),
@@ -56,14 +58,21 @@ export default function CreateOfferingStep2Screen({ navigation, route }) {
   const inp = [styles.input, { color: t.textPrimary, borderColor: isDark ? t.border : '#E5E7EB', backgroundColor: isDark ? t.surfaceRaised : '#F9FAFB', fontFamily: t.fontBody }];
 
   return (
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title="Location & Capacity"
+        eyebrow="Step 2 of 3"
+        onBack={() => navigation.goBack()}
+      />
     <ScrollView
-      style={{ flex: 1, backgroundColor: t.bg }}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={[styles.sectionLabel, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>
-        STEP 2 OF 3 — LOCATION & CAPACITY
-      </Text>
 
       {/* Location */}
       <View style={styles.iconLabel}>
@@ -126,41 +135,27 @@ export default function CreateOfferingStep2Screen({ navigation, route }) {
         />
       </View>
 
-      <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={[styles.backBtn, { borderColor: isDark ? t.border : '#E5E7EB' }]}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.75}
-        >
-          <ChevronLeft size={18} color={t.textMuted} strokeWidth={2.5} />
-          <Text style={[styles.backBtnText, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Back</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.nextBtn, { backgroundColor: t.accentPurple }]}
-          onPress={onNext}
-          activeOpacity={0.85}
-        >
-          <Text style={[styles.nextBtnText, { fontFamily: t.fontBodySemibold }]}>Next: First Run</Text>
-          <ChevronRight size={18} color="#fff" strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={[styles.nextBtn, { backgroundColor: t.accentPurple }]}
+        onPress={onNext}
+        activeOpacity={0.85}
+      >
+        <Text style={[styles.nextBtnText, { fontFamily: t.fontBodySemibold }]}>Next: First Run</Text>
+        <ChevronRight size={18} color="#fff" strokeWidth={2.5} />
+      </TouchableOpacity>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content:     { padding: 20, paddingBottom: 48 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.8, marginBottom: 20, textTransform: 'uppercase' },
-  iconLabel:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  label:       { fontSize: 14, marginBottom: 6 },
-  input:       { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 4 },
-  rangeRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  halfInput:   { flex: 1, marginBottom: 4 },
-  rangeSep:    { fontSize: 18, lineHeight: 46, marginTop: -4 },
-  btnRow:      { flexDirection: 'row', gap: 12, marginTop: 32 },
-  backBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderRadius: 14, padding: 16 },
-  backBtnText: { fontSize: 15 },
-  nextBtn:     { flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, borderRadius: 14 },
+  content:    { padding: 20, paddingBottom: 48 },
+  iconLabel:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  label:      { fontSize: 14, marginBottom: 6 },
+  input:      { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15, marginBottom: 4 },
+  rangeRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  halfInput:  { flex: 1, marginBottom: 4 },
+  rangeSep:   { fontSize: 18, lineHeight: 46, marginTop: -4 },
+  nextBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 32, padding: 16, borderRadius: 14 },
   nextBtnText: { color: '#fff', fontSize: 16 },
 });

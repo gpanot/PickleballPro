@@ -35,38 +35,63 @@ export default function LogConfirmationScreen({ navigation }) {
     });
   };
 
-  const gradientColors = isDark ? ['#C5F22A', '#A8D422'] : ['#B48ACA', '#CF8FAD'];
+  const gradientColors = isDark ? ['#C5F22A', '#A8D422'] : t.gradientPrimary;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: t.bg }]}>
-      <LinearGradient colors={gradientColors} style={styles.backgroundGradient} />
-
-      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-        {/* Success icon */}
-        <View style={styles.successIconContainer}>
-          <View style={[styles.ripple2, { backgroundColor: isDark ? 'rgba(197,242,42,0.06)' : 'rgba(180,138,202,0.08)' }]} />
-          <View style={[styles.ripple1, { backgroundColor: isDark ? 'rgba(197,242,42,0.12)' : 'rgba(180,138,202,0.15)' }]} />
-          <View style={[styles.successIcon, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)' }]}>
-            <CheckCircle size={48} color="#fff" strokeWidth={2} />
+      <Animated.View style={[styles.hero, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <LinearGradient colors={gradientColors} style={styles.heroGradient}>
+          <View style={styles.successIconContainer}>
+            <View style={[styles.ripple2, { backgroundColor: isDark ? 'rgba(197,242,42,0.06)' : 'rgba(180,138,202,0.08)' }]} />
+            <View style={[styles.ripple1, { backgroundColor: isDark ? 'rgba(197,242,42,0.12)' : 'rgba(180,138,202,0.15)' }]} />
+            <View style={[styles.successIcon, { backgroundColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)' }]}>
+              <CheckCircle size={48} color="#fff" strokeWidth={2} />
+            </View>
           </View>
-        </View>
 
-        <Text style={[styles.successTitle, { color: '#fff', fontFamily: t.fontDisplay }]}>
-          {isDark ? 'SESSION SAVED!' : 'Session Saved!'}
-        </Text>
-        <Text style={[styles.successMessage, { color: 'rgba(255,255,255,0.88)', fontFamily: t.fontBody }]}>
+          <Text style={[styles.successTitle, { color: '#fff', fontFamily: t.fontDisplay }]}>
+            {isDark ? 'SESSION SAVED!' : 'Session Saved!'}
+          </Text>
+        </LinearGradient>
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.footer,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+            paddingBottom: insets.bottom + 24,
+            backgroundColor: t.bg,
+          },
+        ]}
+      >
+        <Text style={[styles.successMessage, { color: t.textSecondary, fontFamily: t.fontBody }]}>
           Great work! Your session has been logged. Keep it up!
         </Text>
 
-        <TouchableOpacity
-          style={[styles.ctaButton, { backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.3)' }]}
-          onPress={goToLogbook}
-          activeOpacity={0.85}
+        <LinearGradient
+          colors={t.gradientPrimary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.ctaButton, { borderRadius: isDark ? 12 : 100 }]}
         >
-          <Text style={[styles.ctaButtonText, { fontFamily: t.fontBodySemibold }]}>
-            View My Logbook
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={goToLogbook} style={styles.ctaButtonInner} activeOpacity={0.85}>
+            <Text
+              style={[
+                styles.ctaButtonText,
+                {
+                  fontFamily: isDark ? t.fontDisplay : t.fontBodySemibold,
+                  color: isDark ? t.bg : '#FFFFFF',
+                  letterSpacing: isDark ? 1 : 0,
+                  textTransform: isDark ? 'uppercase' : 'none',
+                },
+              ]}
+            >
+              View My Logbook
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
       </Animated.View>
     </View>
   );
@@ -74,18 +99,20 @@ export default function LogConfirmationScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: height * 0.6,
+  hero: {
+    flex: 1,
+    minHeight: height * 0.52,
   },
-  content: {
+  heroGradient: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 8,
   },
   successIconContainer: {
     position: 'relative',
@@ -114,14 +141,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  successTitle: { fontSize: 28, marginBottom: 10, textAlign: 'center' },
-  successMessage: { fontSize: 15, textAlign: 'center', marginBottom: 48, lineHeight: 22 },
+  successTitle: { fontSize: 28, textAlign: 'center' },
+  successMessage: { fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22, maxWidth: 300 },
   ctaButton: {
+    width: '100%',
+    maxWidth: 320,
+  },
+  ctaButtonInner: {
     paddingVertical: 16,
     paddingHorizontal: 40,
-    borderRadius: 100,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.5)',
+    alignItems: 'center',
   },
-  ctaButtonText: { fontSize: 16, color: '#fff' },
+  ctaButtonText: { fontSize: 16 },
 });

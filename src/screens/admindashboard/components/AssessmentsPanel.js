@@ -21,6 +21,7 @@ import {
   DEFAULT_PLAYER_EVALUATION_TEMPLATE,
 } from '../../../lib/assessmentTemplatesApi';
 import { supabase } from '../../../lib/supabase';
+import VisualFlowChart from './VisualFlowChart';
 
 // ─── tiny helpers ────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -64,7 +65,282 @@ function OptionRow({ option, onChange, onRemove, readOnly }) {
   );
 }
 
-function QuestionCard({ question, index, onChange, onRemove, onMoveUp, onMoveDown, readOnly, isFirst, isLast }) {
+/** Human-readable one-liner for a condition (header + summary). */
+function formatConditionSummary(condition, previousQuestions = []) {
+  if (!condition) return 'Always shown';
+  const source = previousQuestions.find(q => q.id === condition.key);
+  const sourceLabel = source?.question?.trim()
+    ? truncateLabel(source.question, 42)
+    : condition.key || 'previous answer';
+  const opts = source?.options || [];
+  if (condition.mustExist) {
+    const opt = opts.find(o => o.value === condition.notValue);
+    const valLabel = opt?.label || condition.notValue || '?';
+    return `When “${sourceLabel}” is not “${valLabel}”`;
+  }
+  const opt = opts.find(o => o.value === condition.value);
+  const valLabel = opt?.label || condition.value || '?';
+  return `When “${sourceLabel}” = “${valLabel}”`;
+}
+
+function truncateLabel(text, max) {
+  const t = (text || '').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+/**
+ * Editable branching rule for First-time questions.
+ * Shapes match evaluateCondition():
+ *   null                         → always
+ *   { key, value }               → equals
+ *   { key, notValue, mustExist } → exists and is not
+ */
+function ConditionEditor({ condition, previousQuestions, onChange, readOnly }) {
+  const canBranch = previousQuestions.length > 0;
+  const isConditional = !!condition;
+  const matchMode = condition?.mustExist ? 'not' : 'equals';
+
+  const selectedKey = condition?.key || previousQuestions[0]?.id || null;
+  const sourceQuestion = previousQuestions.find(q => q.id === selectedKey) || null;
+  const keyMissing = isConditional && condition?.key && !sourceQuestion;
+  const sourceOptions = sourceQuestion?.options || [];
+  const selectedValue = condition?.mustExist ? condition.notValue : condition?.value;
+
+  const setAlways = () => onChange(null);
+
+  const startConditional = () => {
+    const first = previousQuestions[0];
+    if (!first) return;
+    const firstOpt = first.options?.[0]?.value ?? '';
+    onChange({ key: first.id, value: firstOpt });
+  };
+
+  const setSourceKey = (key) => {
+    const src = previousQuestions.find(q => q.id === key);
+    const firstOpt = src?.options?.[0]?.value ?? '';
+    if (matchMode === 'not') {
+      onChange({ key, notValue: firstOpt, mustExist: true });
+    } else {
+      onChange({ key, value: firstOpt });
+    }
+  };
+
+  const setMatchMode = (mode) => {
+    const key = sourceQuestion?.id || previousQuestions[0]?.id;
+    if (!key) return;
+    const opts = previousQuestions.find(q => q.id === key)?.options || [];
+    const current = selectedValue ?? opts[0]?.value ?? '';
+    if (mode === 'not') {
+      onChange({ key, notValue: current, mustExist: true });
+    } else {
+      onChange({ key, value: current });
+    }
+  };
+
+  const setAnswerValue = (value) => {
+    const key = sourceQuestion?.id || previousQuestions[0]?.id;
+    if (!key) return;
+    if (matchMode === 'not') {
+      onChange({ key, notValue: value, mustExist: true });
+    } else {
+      onChange({ key, value });
+    }
+  };
+
+  // Read-only: compact summary only
+  if (readOnly) {
+    return (
+      <View style={styles.conditionPanel}>
+        <View style={styles.conditionSummaryRow}>
+          <Ionicons name="git-branch-outline" size={14} color="#6B7280" />
+          <Text style={styles.conditionSummaryText}>
+            {formatConditionSummary(condition, previousQuestions)}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.conditionPanel}>
+      <Text style={styles.conditionPanelTitle}>When is this question shown?</Text>
+      <Text style={styles.conditionPanelHint}>
+        Branching controls the path students take. Later questions can depend on earlier answers.
+      </Text>
+
+      {/* Mode: Always vs Conditional */}
+      <View style={styles.conditionModeRow}>
+        <TouchableOpacity
+          style={[styles.conditionModeChip, !isConditional && styles.conditionModeChipActive]}
+          onPress={setAlways}
+          activeOpacity={0.75}
+        >
+          <Ionicons
+            name="eye-outline"
+            size={15}
+            color={!isConditional ? '#1D4ED8' : '#6B7280'}
+          />
+          <Text style={[styles.conditionModeChipText, !isConditional && styles.conditionModeChipTextActive]}>
+            Always
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.conditionModeChip,
+            isConditional && styles.conditionModeChipActive,
+            !canBranch && styles.conditionModeChipDisabled,
+          ]}
+          onPress={() => {
+            if (!canBranch) return;
+            if (!isConditional) startConditional();
+          }}
+          disabled={!canBranch}
+          activeOpacity={0.75}
+        >
+          <Ionicons
+            name="git-branch-outline"
+            size={15}
+            color={!canBranch ? '#D1D5DB' : isConditional ? '#1D4ED8' : '#6B7280'}
+          />
+          <Text
+            style={[
+              styles.conditionModeChipText,
+              isConditional && styles.conditionModeChipTextActive,
+              !canBranch && styles.conditionModeChipTextDisabled,
+            ]}
+          >
+            Only when…
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {!canBranch && (
+        <Text style={styles.conditionFirstNote}>
+          The first question is always shown. Add another question below to create a branch.
+        </Text>
+      )}
+
+      {isConditional && canBranch && (
+        <View style={styles.conditionBuilder}>
+          {keyMissing && (
+            <View style={styles.conditionWarn}>
+              <Ionicons name="warning-outline" size={15} color="#B45309" />
+              <Text style={styles.conditionWarnText}>
+                This rule points at a question that is no longer above this one (often after reordering).
+                Pick an earlier question below.
+              </Text>
+            </View>
+          )}
+
+          {/* Step 1 — which previous question */}
+          <Text style={styles.conditionStepLabel}>1. Depends on this earlier answer</Text>
+          <View style={styles.conditionChoiceWrap}>
+            {previousQuestions.map((q, i) => {
+              const selected = q.id === selectedKey;
+              const label = q.question?.trim() || `Question ${i + 1}`;
+              return (
+                <TouchableOpacity
+                  key={q.id || i}
+                  style={[styles.conditionChoiceChip, selected && styles.conditionChoiceChipActive]}
+                  onPress={() => setSourceKey(q.id)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.conditionChoiceIndex}>{i + 1}</Text>
+                  <Text
+                    style={[styles.conditionChoiceText, selected && styles.conditionChoiceTextActive]}
+                    numberOfLines={2}
+                  >
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Step 2 — equals / is not */}
+          <Text style={[styles.conditionStepLabel, { marginTop: 14 }]}>2. Match rule</Text>
+          <View style={styles.conditionModeRow}>
+            <TouchableOpacity
+              style={[styles.conditionMatchChip, matchMode === 'equals' && styles.conditionMatchChipActive]}
+              onPress={() => setMatchMode('equals')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.conditionMatchChipText, matchMode === 'equals' && styles.conditionMatchChipTextActive]}>
+                Equals
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.conditionMatchChip, matchMode === 'not' && styles.conditionMatchChipActive]}
+              onPress={() => setMatchMode('not')}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.conditionMatchChipText, matchMode === 'not' && styles.conditionMatchChipTextActive]}>
+                Is not
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.conditionMatchHint}>
+            {matchMode === 'equals'
+              ? 'Show only if the student picked this exact answer.'
+              : 'Show if they answered, and the answer is anything except this value.'}
+          </Text>
+
+          {/* Step 3 — which answer value */}
+          <Text style={[styles.conditionStepLabel, { marginTop: 14 }]}>3. Answer value</Text>
+          {sourceOptions.length === 0 ? (
+            <Text style={styles.conditionEmptyOpts}>
+              {keyMissing
+                ? 'Select an earlier question first to choose an answer value.'
+                : 'That question has no options yet. Add options above, then pick a value here.'}
+            </Text>
+          ) : (
+            <View style={styles.conditionChoiceWrap}>
+              {sourceOptions.map((opt, i) => {
+                const selected = opt.value === selectedValue;
+                return (
+                  <TouchableOpacity
+                    key={`${opt.value}-${i}`}
+                    style={[styles.conditionValueChip, selected && styles.conditionValueChipActive]}
+                    onPress={() => setAnswerValue(opt.value)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.conditionValueChipText, selected && styles.conditionValueChipTextActive]}>
+                      {opt.label?.trim() || opt.value || `Option ${i + 1}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Live preview sentence */}
+          {!keyMissing && (
+            <View style={styles.conditionPreview}>
+              <Ionicons name="checkmark-circle" size={16} color="#15803D" />
+              <Text style={styles.conditionPreviewText}>
+                {formatConditionSummary(condition, previousQuestions)}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function QuestionCard({
+  question,
+  index,
+  previousQuestions = [],
+  onChange,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  readOnly,
+  isFirst,
+  isLast,
+}) {
   const [expanded, setExpanded] = useState(true);
 
   const updateOption = (i, opt) => {
@@ -81,11 +357,7 @@ function QuestionCard({ question, index, onChange, onRemove, onMoveUp, onMoveDow
     onChange({ ...question, options: question.options.filter((_, idx) => idx !== i) });
   };
 
-  const conditionStr = question.condition
-    ? question.condition.mustExist
-      ? `Show when "${question.condition.key}" exists and is not "${question.condition.notValue}"`
-      : `Show when "${question.condition.key}" = "${question.condition.value}"`
-    : 'Always shown';
+  const conditionSummary = formatConditionSummary(question.condition, previousQuestions);
 
   return (
     <View style={styles.card}>
@@ -93,7 +365,10 @@ function QuestionCard({ question, index, onChange, onRemove, onMoveUp, onMoveDow
       <TouchableOpacity style={styles.cardHeader} onPress={() => setExpanded(e => !e)} activeOpacity={0.7}>
         <View style={styles.cardHeaderLeft}>
           <Text style={styles.cardIndex}>{index + 1}</Text>
-          <Text style={styles.cardTitle} numberOfLines={1}>{question.question || 'Untitled question'}</Text>
+          <View style={styles.cardTitleCol}>
+            <Text style={styles.cardTitle} numberOfLines={1}>{question.question || 'Untitled question'}</Text>
+            <Text style={styles.cardConditionHint} numberOfLines={1}>{conditionSummary}</Text>
+          </View>
         </View>
         <View style={styles.cardHeaderRight}>
           {!readOnly && (
@@ -131,15 +406,17 @@ function QuestionCard({ question, index, onChange, onRemove, onMoveUp, onMoveDow
             multiline
           />
 
-          {/* Condition (read-only display) */}
-          <Text style={styles.fieldLabel}>Condition</Text>
-          <View style={styles.conditionBadge}>
-            <Ionicons name="git-branch-outline" size={13} color="#6B7280" />
-            <Text style={styles.conditionText}>{conditionStr}</Text>
-          </View>
+          {/* Condition editor */}
+          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Condition</Text>
+          <ConditionEditor
+            condition={question.condition}
+            previousQuestions={previousQuestions}
+            onChange={next => onChange({ ...question, condition: next })}
+            readOnly={readOnly}
+          />
 
           {/* Options */}
-          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Options</Text>
+          <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Options</Text>
           {question.options.map((opt, i) => (
             <OptionRow
               key={i}
@@ -160,6 +437,7 @@ function QuestionCard({ question, index, onChange, onRemove, onMoveUp, onMoveDow
     </View>
   );
 }
+
 
 function CriterionRow({ criterion, onChange, onRemove, readOnly }) {
   return (
@@ -304,6 +582,9 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId, isSup
       : [...DEFAULT_PLAYER_EVALUATION_TEMPLATE.skills]
   );
   const [saving, setSaving] = useState(false);
+  // First-time only: Linear (list editor) vs Visual (flowchart)
+  const [builderMode, setBuilderMode] = useState('linear'); // 'linear' | 'visual'
+  const [selectedQuestionId, setSelectedQuestionId] = useState(null);
 
   // For a coach/manager viewing a system default: they see the content read-only
   // and can only "Save as my copy" (creates a new academy-scoped template).
@@ -321,10 +602,11 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId, isSup
   };
 
   const addQuestion = () => {
+    const id = uid();
     setQuestions(prev => [
       ...prev,
       {
-        id: uid(),
+        id,
         question: '',
         type: 'button',
         condition: null,
@@ -334,6 +616,31 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId, isSup
         ],
       },
     ]);
+    if (builderMode === 'visual') setSelectedQuestionId(id);
+  };
+
+  const duplicateQuestion = (questionId) => {
+    setQuestions((prev) => {
+      const idx = prev.findIndex((q) => q.id === questionId);
+      if (idx < 0) return prev;
+      const source = prev[idx];
+      const copy = {
+        ...source,
+        id: uid(),
+        question: source.question ? `${source.question} (copy)` : '',
+        options: (source.options || []).map((o) => ({ ...o })),
+        condition: source.condition ? { ...source.condition } : null,
+      };
+      const next = [...prev];
+      next.splice(idx + 1, 0, copy);
+      setSelectedQuestionId(copy.id);
+      return next;
+    });
+  };
+
+  const deleteQuestionById = (questionId) => {
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    setSelectedQuestionId((cur) => (cur === questionId ? null : cur));
   };
 
   const addSkill = () => {
@@ -427,6 +734,44 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId, isSup
             placeholder="e.g. Player Assessment"
             editable={!effectiveReadOnly}
           />
+
+          {/* First-time only: Linear / Visual builder toggle */}
+          {isExperience && (
+            <View style={styles.builderToggleWrap}>
+              <Text style={styles.fieldLabel}>Builder</Text>
+              <View style={styles.builderToggle}>
+                <TouchableOpacity
+                  style={[styles.builderToggleBtn, builderMode === 'linear' && styles.builderToggleBtnActive]}
+                  onPress={() => setBuilderMode('linear')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="list-outline"
+                    size={15}
+                    color={builderMode === 'linear' ? '#18181b' : '#71717a'}
+                  />
+                  <Text style={[styles.builderToggleText, builderMode === 'linear' && styles.builderToggleTextActive]}>
+                    Linear
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.builderToggleBtn, builderMode === 'visual' && styles.builderToggleBtnActive]}
+                  onPress={() => setBuilderMode('visual')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="git-network-outline"
+                    size={15}
+                    color={builderMode === 'visual' ? '#18181b' : '#71717a'}
+                  />
+                  <Text style={[styles.builderToggleText, builderMode === 'visual' && styles.builderToggleTextActive]}>
+                    Visual
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           <Text style={[styles.fieldLabel, { marginTop: 12 }]}>About this assessment (Only you can see it)</Text>
           <TextInput
             style={[styles.textInput, styles.textInputMulti, effectiveReadOnly && styles.inputDisabled]}
@@ -455,36 +800,80 @@ function TemplateEditor({ template, onClose, onSaved, readOnly, academyId, isSup
           )}
         </View>
 
-        {isExperience
-          ? questions.map((q, i) => (
-              <QuestionCard
-                key={q.id || i}
-                question={q}
-                index={i}
-                onChange={updated => setQuestions(prev => prev.map((x, idx) => idx === i ? updated : x))}
-                onRemove={() => setQuestions(prev => prev.filter((_, idx) => idx !== i))}
-                onMoveUp={() => moveItem(questions, setQuestions, i, -1)}
-                onMoveDown={() => moveItem(questions, setQuestions, i, 1)}
-                readOnly={effectiveReadOnly}
-                isFirst={i === 0}
-                isLast={i === questions.length - 1}
-              />
-            ))
-          : skills.map((s, i) => (
-              <SkillCard
-                key={s.id || i}
-                skill={s}
-                index={i}
-                onChange={updated => setSkills(prev => prev.map((x, idx) => idx === i ? updated : x))}
-                onRemove={() => setSkills(prev => prev.filter((_, idx) => idx !== i))}
-                onMoveUp={() => moveItem(skills, setSkills, i, -1)}
-                onMoveDown={() => moveItem(skills, setSkills, i, 1)}
-                readOnly={effectiveReadOnly}
-                isFirst={i === 0}
-                isLast={i === skills.length - 1}
-              />
-            ))
-        }
+        {isExperience && builderMode === 'visual' ? (
+          <>
+            <VisualFlowChart
+              questions={questions}
+              selectedId={selectedQuestionId}
+              onSelect={setSelectedQuestionId}
+              onDuplicate={duplicateQuestion}
+              onDelete={deleteQuestionById}
+              readOnly={effectiveReadOnly}
+            />
+            {selectedQuestionId ? (
+              (() => {
+                const i = questions.findIndex((q) => q.id === selectedQuestionId);
+                if (i < 0) return null;
+                const q = questions[i];
+                return (
+                  <View style={styles.flowEditPanel}>
+                    <View style={styles.flowEditPanelHeader}>
+                      <Text style={styles.flowEditPanelTitle}>Edit selected question</Text>
+                      <TouchableOpacity onPress={() => setSelectedQuestionId(null)} hitSlop={8}>
+                        <Ionicons name="close" size={18} color="#6B7280" />
+                      </TouchableOpacity>
+                    </View>
+                    <QuestionCard
+                      question={q}
+                      index={i}
+                      previousQuestions={questions.slice(0, i)}
+                      onChange={(updated) => setQuestions((prev) => prev.map((x, idx) => (idx === i ? updated : x)))}
+                      onRemove={() => deleteQuestionById(q.id)}
+                      onMoveUp={() => moveItem(questions, setQuestions, i, -1)}
+                      onMoveDown={() => moveItem(questions, setQuestions, i, 1)}
+                      readOnly={effectiveReadOnly}
+                      isFirst={i === 0}
+                      isLast={i === questions.length - 1}
+                    />
+                  </View>
+                );
+              })()
+            ) : (
+              <Text style={styles.flowSelectHint}>Tap a question node above to edit it.</Text>
+            )}
+          </>
+        ) : isExperience ? (
+          questions.map((q, i) => (
+            <QuestionCard
+              key={q.id || i}
+              question={q}
+              index={i}
+              previousQuestions={questions.slice(0, i)}
+              onChange={updated => setQuestions(prev => prev.map((x, idx) => idx === i ? updated : x))}
+              onRemove={() => setQuestions(prev => prev.filter((_, idx) => idx !== i))}
+              onMoveUp={() => moveItem(questions, setQuestions, i, -1)}
+              onMoveDown={() => moveItem(questions, setQuestions, i, 1)}
+              readOnly={effectiveReadOnly}
+              isFirst={i === 0}
+              isLast={i === questions.length - 1}
+            />
+          ))
+        ) : (
+          skills.map((s, i) => (
+            <SkillCard
+              key={s.id || i}
+              skill={s}
+              index={i}
+              onChange={updated => setSkills(prev => prev.map((x, idx) => idx === i ? updated : x))}
+              onRemove={() => setSkills(prev => prev.filter((_, idx) => idx !== i))}
+              onMoveUp={() => moveItem(skills, setSkills, i, -1)}
+              onMoveDown={() => moveItem(skills, setSkills, i, 1)}
+              readOnly={effectiveReadOnly}
+              isFirst={i === 0}
+              isLast={i === skills.length - 1}
+            />
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -1130,17 +1519,297 @@ const styles = StyleSheet.create({
   textInputMulti: { minHeight: 60, textAlignVertical: 'top' },
   inputDisabled: { backgroundColor: '#F9FAFB', color: '#9CA3AF' },
 
-  // Condition badge
-  conditionBadge: {
+  // Condition editor
+  conditionPanel: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+  },
+  conditionPanelTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  conditionPanelHint: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  conditionModeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  conditionModeChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#fff',
   },
-  conditionText: { fontSize: 12, color: '#6B7280', flex: 1 },
+  conditionModeChipActive: {
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+  },
+  conditionModeChipDisabled: {
+    opacity: 0.55,
+  },
+  conditionModeChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  conditionModeChipTextActive: {
+    color: '#1D4ED8',
+    fontWeight: '600',
+  },
+  conditionModeChipTextDisabled: {
+    color: '#9CA3AF',
+  },
+  conditionFirstNote: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
+  },
+  conditionBuilder: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  conditionStepLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  conditionChoiceWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  conditionChoiceChip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    maxWidth: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#fff',
+    ...(Platform.OS === 'web' ? { maxWidth: 320 } : { flexGrow: 1, flexBasis: '100%' }),
+  },
+  conditionChoiceChipActive: {
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+  },
+  conditionChoiceIndex: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  conditionChoiceText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 18,
+  },
+  conditionChoiceTextActive: {
+    color: '#1E3A8A',
+    fontWeight: '600',
+  },
+  conditionMatchChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#fff',
+  },
+  conditionMatchChipActive: {
+    borderColor: '#86EFAC',
+    backgroundColor: '#F0FDF4',
+  },
+  conditionMatchChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  conditionMatchChipTextActive: {
+    color: '#15803D',
+    fontWeight: '600',
+  },
+  conditionMatchHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 17,
+  },
+  conditionEmptyOpts: {
+    fontSize: 12,
+    color: '#B45309',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    overflow: 'hidden',
+  },
+  conditionWarn: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  conditionWarnText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 17,
+  },
+  conditionValueChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#fff',
+  },
+  conditionValueChipActive: {
+    borderColor: '#6366F1',
+    backgroundColor: '#EEF2FF',
+  },
+  conditionValueChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  conditionValueChipTextActive: {
+    color: '#4338CA',
+    fontWeight: '600',
+  },
+  conditionPreview: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 14,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  conditionPreviewText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
+    lineHeight: 18,
+  },
+  conditionSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  conditionSummaryText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  cardTitleCol: { flex: 1, minWidth: 0 },
+  cardConditionHint: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+
+  // Builder mode toggle (First-time only)
+  builderToggleWrap: { marginTop: 14 },
+  builderToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F4F4F5',
+    borderRadius: 10,
+    padding: 3,
+    gap: 2,
+  },
+  builderToggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  builderToggleBtnActive: {
+    backgroundColor: '#fff',
+    ...(Platform.OS === 'web'
+      ? { boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }
+      : {
+          shadowColor: '#000',
+          shadowOpacity: 0.06,
+          shadowRadius: 2,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 1,
+        }),
+  },
+  builderToggleText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#71717a',
+  },
+  builderToggleTextActive: {
+    color: '#18181b',
+    fontWeight: '700',
+  },
+
+  // Visual flowchart
+  flowEditPanel: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  flowEditPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  flowEditPanelTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  flowSelectHint: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
 
   // Options
   optionRow: {

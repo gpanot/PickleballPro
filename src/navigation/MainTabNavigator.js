@@ -18,7 +18,7 @@ import ExploreNavigator from './ExploreNavigator';
 
 const Tab = createBottomTabNavigator();
 
-export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2', trainingInitialView = null }) {
+export default function MainTabNavigator({ route, onLogout, initialRouteName = 'Training2', trainingInitialView = null, coachStatusRefreshKey = 0 }) {
   const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { theme, isDark, logbookTheme } = useTheme();
@@ -61,7 +61,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
   
   useEffect(() => {
     checkIfCoach();
-  }, [authUser?.id]);
+  }, [authUser?.id, coachStatusRefreshKey]);
 
   const checkIfCoach = async () => {
     if (!authUser?.id) {

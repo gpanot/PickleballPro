@@ -10,6 +10,7 @@ import {
   Switch,
   Alert,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../lib/supabase';
@@ -18,30 +19,33 @@ import { createOffering, createOfferingRun } from '../../../lib/offeringsApi';
 const TODAY = new Date().toISOString().split('T')[0];
 
 export default function CreateOfferingModal({ visible, onClose, onCreated }) {
-  const [step,         setStep]         = useState(1);
-  const [programs,     setPrograms]     = useState([]);
-  const [loadingProgs, setLoadingProgs] = useState(false);
-  const [submitting,   setSubmitting]   = useState(false);
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isMobile = Platform.OS !== 'web' || screenWidth < 600;
+
+  const [step,          setStep]          = useState(1);
+  const [programs,      setPrograms]      = useState([]);
+  const [loadingProgs,  setLoadingProgs]  = useState(false);
+  const [submitting,    setSubmitting]    = useState(false);
 
   // Step 1
-  const [title,        setTitle]        = useState('');
-  const [type,         setType]         = useState('cohort');
-  const [description,  setDescription]  = useState('');
-  const [programId,    setProgramId]    = useState(null);
-  const [isPublic,     setIsPublic]     = useState(false);
+  const [title,         setTitle]         = useState('');
+  const [type,          setType]          = useState('cohort');
+  const [description,   setDescription]   = useState('');
+  const [programId,     setProgramId]     = useState(null);
+  const [isPublic,      setIsPublic]      = useState(false);
   // Step 2
-  const [location,     setLocation]     = useState('');
-  const [facilityName, setFacilityName] = useState('');
-  const [capacityStr,  setCapacityStr]  = useState('');
-  const [skillMinStr,  setSkillMinStr]  = useState('');
-  const [skillMaxStr,  setSkillMaxStr]  = useState('');
+  const [location,      setLocation]      = useState('');
+  const [facilityName,  setFacilityName]  = useState('');
+  const [capacityStr,   setCapacityStr]   = useState('');
+  const [skillMinStr,   setSkillMinStr]   = useState('');
+  const [skillMaxStr,   setSkillMaxStr]   = useState('');
   // Step 3 (first run)
-  const [startDate,    setStartDate]    = useState('');
-  const [endDate,      setEndDate]      = useState('');
-  const [schedule,     setSchedule]     = useState('');
-  const [priceStr,     setPriceStr]     = useState('0');
+  const [startDate,     setStartDate]     = useState('');
+  const [endDate,       setEndDate]       = useState('');
+  const [schedule,      setSchedule]      = useState('');
+  const [priceStr,      setPriceStr]      = useState('0');
   const [priceCurrency, setPriceCurrency] = useState('USD');
-  const [paymentLink,  setPaymentLink]  = useState('');
+  const [paymentLink,   setPaymentLink]   = useState('');
 
   useEffect(() => {
     if (visible && programs.length === 0) {
@@ -113,43 +117,83 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
     });
 
     setSubmitting(false);
-    if (runErr) {
-      Alert.alert('Warning', `Offering created but first run failed: ${runErr.message}`);
-    }
+    if (runErr) Alert.alert('Warning', `Offering created but first run failed: ${runErr.message}`);
     reset();
     onCreated?.(offeringId);
     onClose();
   };
 
-  const inp = { borderWidth: 1, borderRadius: 8, padding: 10, fontSize: 14, color: '#111827', borderColor: '#E5E7EB', backgroundColor: '#F9FAFB', marginBottom: 10, outlineStyle: Platform.OS === 'web' ? 'none' : undefined };
+  const inp = {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: '#111827',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 10,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+  };
+
+  // Sheet dimensions: full screen on mobile, centered card on desktop
+  const sheetStyle = isMobile
+    ? { flex: 1, borderRadius: 0 }
+    : { width: '100%', maxWidth: 520, borderRadius: 16, maxHeight: Math.min(screenHeight * 0.88, 700) };
+
+  const overlayStyle = isMobile
+    ? { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }
+    : { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 20 };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={m.overlay}>
-        <View style={m.sheet}>
+    <Modal visible={visible} transparent animationType={isMobile ? 'slide' : 'fade'} onRequestClose={handleClose}>
+      <View style={overlayStyle}>
+        <View style={[m.sheet, sheetStyle]}>
           {/* Header */}
           <View style={m.header}>
-            <Text style={m.headerTitle}>New Offering — Step {step}/3</Text>
-            <TouchableOpacity onPress={handleClose}>
-              <Ionicons name="close-outline" size={22} color="#6B7280" />
+            <View style={{ flex: 1 }}>
+              <Text style={m.headerTitle}>New Offering</Text>
+              <View style={m.stepDots}>
+                {[1, 2, 3].map(n => (
+                  <View
+                    key={n}
+                    style={[m.dot, step === n && m.dotActive, step > n && m.dotDone]}
+                  />
+                ))}
+              </View>
+            </View>
+            <TouchableOpacity onPress={handleClose} hitSlop={10}>
+              <Ionicons name="close-outline" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={m.body} keyboardShouldPersistTaps="handled">
-            {/* STEP 1 */}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={m.body} keyboardShouldPersistTaps="handled">
+            {/* ── STEP 1 ── */}
             {step === 1 && (
               <>
+                <Text style={m.stepHeading}>Basic details</Text>
+
                 <Text style={m.label}>Title *</Text>
-                <TextInput style={inp} value={title} onChangeText={setTitle} placeholder="e.g. Beginner Cohort July 2026" placeholderTextColor="#9CA3AF" />
+                <TextInput
+                  style={inp}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="e.g. Beginner Cohort July 2026"
+                  placeholderTextColor="#9CA3AF"
+                />
 
                 <Text style={m.label}>Type</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                  {(['cohort', 'event']).map(opt => (
+                  {['cohort', 'event'].map(opt => (
                     <TouchableOpacity
                       key={opt}
                       style={[m.typeBtn, type === opt && m.typeBtnActive]}
                       onPress={() => setType(opt)}
                     >
+                      <Ionicons
+                        name={opt === 'cohort' ? 'people-outline' : 'calendar-outline'}
+                        size={15}
+                        color={type === opt ? '#7C3AED' : '#6B7280'}
+                      />
                       <Text style={[m.typeBtnText, type === opt && m.typeBtnTextActive]}>
                         {opt.charAt(0).toUpperCase() + opt.slice(1)}
                       </Text>
@@ -160,30 +204,52 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
                 <Text style={m.label}>Program *</Text>
                 {loadingProgs
                   ? <ActivityIndicator color="#7C3AED" style={{ marginBottom: 10 }} />
-                  : programs.map(p => (
+                  : programs.map(prog => (
                     <TouchableOpacity
-                      key={p.id}
-                      style={[m.programRow, programId === p.id && m.programRowActive]}
-                      onPress={() => setProgramId(p.id)}
+                      key={prog.id}
+                      style={[m.programRow, programId === prog.id && m.programRowActive]}
+                      onPress={() => setProgramId(prog.id)}
                     >
-                      <Text style={[m.programText, programId === p.id && { color: '#7C3AED' }]}>{p.name}</Text>
+                      {programId === prog.id && (
+                        <Ionicons name="checkmark-circle" size={16} color="#7C3AED" style={{ marginRight: 6 }} />
+                      )}
+                      <Text style={[m.programText, programId === prog.id && { color: '#7C3AED', fontWeight: '600' }]}>
+                        {prog.name}
+                      </Text>
                     </TouchableOpacity>
                   ))
                 }
 
                 <Text style={m.label}>Description</Text>
-                <TextInput style={[inp, { height: 80, textAlignVertical: 'top' }]} value={description} onChangeText={setDescription} placeholder="What will students learn?" placeholderTextColor="#9CA3AF" multiline />
+                <TextInput
+                  style={[inp, { minHeight: 80, textAlignVertical: 'top' }]}
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="What will students learn?"
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                />
 
                 <View style={m.switchRow}>
-                  <Text style={m.label}>Make publicly visible</Text>
-                  <Switch value={isPublic} onValueChange={setIsPublic} trackColor={{ false: '#D1D5DB', true: '#7C3AED' }} thumbColor="#fff" />
+                  <View>
+                    <Text style={m.label}>Publicly visible</Text>
+                    <Text style={m.hint}>Visible on your public booking page</Text>
+                  </View>
+                  <Switch
+                    value={isPublic}
+                    onValueChange={setIsPublic}
+                    trackColor={{ false: '#D1D5DB', true: '#7C3AED' }}
+                    thumbColor="#fff"
+                  />
                 </View>
               </>
             )}
 
-            {/* STEP 2 */}
+            {/* ── STEP 2 ── */}
             {step === 2 && (
               <>
+                <Text style={m.stepHeading}>Location & capacity</Text>
+
                 <Text style={m.label}>Location</Text>
                 <TextInput style={inp} value={location} onChangeText={setLocation} placeholder="e.g. 123 Court St" placeholderTextColor="#9CA3AF" />
 
@@ -201,9 +267,11 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
               </>
             )}
 
-            {/* STEP 3 */}
+            {/* ── STEP 3 ── */}
             {step === 3 && (
               <>
+                <Text style={m.stepHeading}>First run</Text>
+
                 <Text style={m.label}>Start date * (YYYY-MM-DD)</Text>
                 <TextInput style={inp} value={startDate} onChangeText={setStartDate} placeholder={TODAY} placeholderTextColor="#9CA3AF" />
 
@@ -214,9 +282,16 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
                 <TextInput style={inp} value={schedule} onChangeText={setSchedule} placeholder="e.g. Every Tue & Thu 7–9PM" placeholderTextColor="#9CA3AF" />
 
                 <Text style={m.label}>Price (0 = free)</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput style={[inp, { flex: 1 }]} value={priceStr} onChangeText={setPriceStr} placeholder="0" placeholderTextColor="#9CA3AF" keyboardType="number-pad" />
-                  {(['USD', 'VND']).map(cur => (
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  <TextInput
+                    style={[inp, { flex: 1, minWidth: 80 }]}
+                    value={priceStr}
+                    onChangeText={setPriceStr}
+                    placeholder="0"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="number-pad"
+                  />
+                  {['USD', 'VND'].map(cur => (
                     <TouchableOpacity
                       key={cur}
                       style={[m.typeBtn, priceCurrency === cur && m.typeBtnActive, { marginBottom: 10 }]}
@@ -228,7 +303,15 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
                 </View>
 
                 <Text style={m.label}>Payment link (optional)</Text>
-                <TextInput style={inp} value={paymentLink} onChangeText={setPaymentLink} placeholder="https://buy.stripe.com/..." placeholderTextColor="#9CA3AF" autoCapitalize="none" keyboardType="url" />
+                <TextInput
+                  style={inp}
+                  value={paymentLink}
+                  onChangeText={setPaymentLink}
+                  placeholder="https://buy.stripe.com/..."
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
               </>
             )}
           </ScrollView>
@@ -241,19 +324,24 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
                 <Text style={m.backBtnText}>Back</Text>
               </TouchableOpacity>
             )}
-            {step < 3
-              ? (
-                <TouchableOpacity style={m.nextBtn} onPress={goNext}>
-                  <Text style={m.nextBtnText}>Next</Text>
-                  <Ionicons name="chevron-forward-outline" size={16} color="#fff" />
-                </TouchableOpacity>
-              )
-              : (
-                <TouchableOpacity style={[m.nextBtn, { opacity: submitting ? 0.7 : 1 }]} onPress={handleSubmit} disabled={submitting}>
-                  {submitting ? <ActivityIndicator color="#fff" size="small" /> : <Text style={m.nextBtnText}>Create Offering</Text>}
-                </TouchableOpacity>
-              )
-            }
+            <View style={{ flex: 1 }} />
+            {step < 3 ? (
+              <TouchableOpacity style={m.nextBtn} onPress={goNext}>
+                <Text style={m.nextBtnText}>Next</Text>
+                <Ionicons name="chevron-forward-outline" size={16} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[m.nextBtn, { opacity: submitting ? 0.7 : 1 }]}
+                onPress={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={m.nextBtnText}>Create Offering</Text>
+                }
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -262,23 +350,42 @@ export default function CreateOfferingModal({ visible, onClose, onCreated }) {
 }
 
 const m = {
-  overlay:         { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  sheet:           { backgroundColor: '#fff', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '90%', overflow: 'hidden' },
-  header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  headerTitle:     { fontSize: 16, fontWeight: '700', color: '#111827' },
-  body:            { padding: 16, flexGrow: 0, maxHeight: 480 },
+  sheet:           { backgroundColor: '#fff', overflow: 'hidden' },
+  header:          {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerTitle:     { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  stepDots:        { flexDirection: 'row', gap: 6 },
+  dot:             { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E5E7EB' },
+  dotActive:       { backgroundColor: '#7C3AED' },
+  dotDone:         { backgroundColor: '#C4B5FD' },
+  body:            { padding: 16, paddingBottom: 24 },
+  stepHeading:     { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 14 },
   label:           { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 4, marginTop: 4 },
-  switchRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  typeBtn:         { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: '#E5E7EB' },
+  hint:            { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
+  switchRow:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4, gap: 12 },
+  typeBtn:         { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: '#E5E7EB' },
   typeBtnActive:   { borderColor: '#7C3AED', backgroundColor: '#EDE9FE' },
   typeBtnText:     { fontSize: 14, color: '#6B7280', fontWeight: '500' },
   typeBtnTextActive: { color: '#7C3AED' },
-  programRow:      { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 10, marginBottom: 6 },
+  programRow:      { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 10, marginBottom: 6 },
   programRowActive: { borderColor: '#7C3AED', backgroundColor: '#EDE9FE' },
   programText:     { fontSize: 14, color: '#374151' },
-  footer:          { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', justifyContent: 'flex-end' },
+  footer:          {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
   backBtn:         { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
   backBtnText:     { fontSize: 14, color: '#6B7280' },
-  nextBtn:         { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#7C3AED', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 8 },
+  nextBtn:         { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#7C3AED', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   nextBtnText:     { fontSize: 14, fontWeight: '600', color: '#fff' },
 };

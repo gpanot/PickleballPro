@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "buildNumber": "16",
+      "googleServicesFile": "./ios/GoogleService-Info.plist",
       "bundleIdentifier": "com.picklepro.mobile",
       "icon": "./assets/images/icon.png",
       "associatedDomains": [

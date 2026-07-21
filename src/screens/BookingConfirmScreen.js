@@ -12,8 +12,10 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+
 import { Calendar, MapPin, DollarSign, Users, AlertCircle } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
+import { ScreenHeaderShell } from '../components/logbook/ScreenHeader';
 import { bookOfferingRun, formatPrice, effectiveCapacity } from '../lib/offeringsApi';
 
 export default function BookingConfirmScreen({ navigation, route }) {
@@ -61,10 +63,16 @@ export default function BookingConfirmScreen({ navigation, route }) {
   );
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={styles.content}>
-      <Text style={[styles.title, { color: t.textPrimary, fontFamily: t.fontHeading }]}>
-        Confirm your booking
-      </Text>
+    <View style={{ flex: 1, backgroundColor: t.bg }}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title="Confirm Booking"
+        onBack={() => navigation.goBack()}
+      />
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
       <Text style={[styles.offeringTitle, { color: t.textMuted, fontFamily: t.fontBody }]}>
         {offering.title}
       </Text>
@@ -113,13 +121,13 @@ export default function BookingConfirmScreen({ navigation, route }) {
         <Text style={[styles.cancelLinkText, { color: t.textMuted, fontFamily: t.fontBody }]}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   content:       { padding: 20, paddingBottom: 48 },
-  title:         { fontSize: 22, marginBottom: 4 },
-  offeringTitle: { fontSize: 14, marginBottom: 24 },
+  offeringTitle: { fontSize: 14, marginBottom: 24, color: undefined },
   card:          { borderRadius: 14, borderWidth: 1, padding: 4, marginBottom: 16 },
   row:           { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12 },
   rowLabel:      { fontSize: 12, marginBottom: 2 },

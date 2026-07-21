@@ -167,6 +167,47 @@ export const deleteOffering = async (offeringId) => {
   return { data, error };
 };
 
+/**
+ * Cancel a run: status → 'cancelled', cancels all enrollments, sends PNS.
+ */
+export const cancelOfferingRun = async (offeringRunId) => {
+  const { data, error } = await supabase.rpc('cancel_offering_run', {
+    p_offering_run_id: offeringRunId,
+  });
+  return { data, error };
+};
+
+/**
+ * Hard-delete a run from the DB (sends PNS to enrolled students first).
+ */
+export const deleteOfferingRun = async (offeringRunId) => {
+  const { data, error } = await supabase.rpc('delete_offering_run', {
+    p_offering_run_id: offeringRunId,
+  });
+  return { data, error };
+};
+
+/**
+ * Hard-delete an offering and all its runs (sends PNS to enrolled students first).
+ */
+export const hardDeleteOffering = async (offeringId) => {
+  const { data, error } = await supabase.rpc('hard_delete_offering', {
+    p_offering_id: offeringId,
+  });
+  return { data, error };
+};
+
+/**
+ * Cancel an offering (soft): status → 'cancelled', closes all runs, sends PNS.
+ * Reuses the existing delete_offering RPC which marks offering as cancelled.
+ */
+export const cancelOffering = async (offeringId) => {
+  const { data, error } = await supabase.rpc('delete_offering', {
+    p_offering_id: offeringId,
+  });
+  return { data, error };
+};
+
 // ─── Coach: roster & payments ────────────────────────────────────────────────
 
 /**

@@ -475,9 +475,6 @@ export const getCoaches = async (filters = {}) => {
         *,
         users:user_id (
           avatar_url
-        ),
-        academy:academy_id (
-          id, name, slug, logo_url
         )
       `)
       .eq('is_active', true)
@@ -494,6 +491,28 @@ export const getCoaches = async (filters = {}) => {
     const { data, error } = await query.order('rating_avg', { ascending: false });
     
     if (error) throw error;
+
+    // Enrich with academy data via a second query (coaches → users ← academy_members → academies)
+    // PostgREST cannot follow this indirect path automatically.
+    if (data && data.length > 0) {
+      const userIds = data.map(c => c.user_id).filter(Boolean);
+      if (userIds.length > 0) {
+        const { data: memberships } = await supabase
+          .from('academy_members')
+          .select('user_id, academy:academy_id ( id, name, slug, logo_url )')
+          .in('user_id', userIds);
+
+        if (memberships && memberships.length > 0) {
+          const academyByUserId = {};
+          memberships.forEach(m => {
+            if (m.academy) academyByUserId[m.user_id] = m.academy;
+          });
+          data.forEach(coach => {
+            coach._academy = coach.user_id ? (academyByUserId[coach.user_id] || null) : null;
+          });
+        }
+      }
+    }
     
     return { data, error: null };
   } catch (error) {
@@ -864,7 +883,7 @@ export const transformCoachData = (coaches) => {
         imessage: false,
         zalo: false
       },
-      academy: coach.academy || null,
+      academy: coach._academy || null,
     };
   });
 };

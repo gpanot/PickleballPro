@@ -11,6 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { PlusCircle, BookOpen, Calendar, Users, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '../../../context/ThemeContext';
+import { ScreenHeaderShell } from '../../../components/logbook/ScreenHeader';
 import { getCoachOfferings, getNextOpenRun, getPriceRangeLabel } from '../../../lib/offeringsApi';
 
 const STATUS_COLOR = {
@@ -97,16 +98,27 @@ export default function OfferingsListScreen({ navigation }) {
     );
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: t.bg }]}>
-        <ActivityIndicator color={t.accentPurple} />
-      </View>
-    );
-  }
+  const createBtn = (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('CreateOfferingStep1')}
+      style={styles.headerCreateBtn}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <PlusCircle size={22} color={t.accentPurple} strokeWidth={2} />
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <ScreenHeaderShell
+        tokens={t}
+        isDark={isDark}
+        background="bg"
+        bordered
+        title="Offerings"
+        onBack={() => navigation.goBack()}
+        rightAction={createBtn}
+      />
       <FlatList
         data={offerings}
         keyExtractor={i => i.id}
@@ -115,22 +127,18 @@ export default function OfferingsListScreen({ navigation }) {
         onRefresh={() => { setRefreshing(true); load(); }}
         refreshing={refreshing}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <BookOpen size={40} color={t.textMuted} strokeWidth={1.5} />
-            <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>
-              No offerings yet.{'\n'}Tap + to create your first one.
-            </Text>
-          </View>
+          loading
+            ? <View style={styles.center}><ActivityIndicator color={t.accentPurple} /></View>
+            : (
+              <View style={styles.empty}>
+                <BookOpen size={40} color={t.textMuted} strokeWidth={1.5} />
+                <Text style={[styles.emptyText, { color: t.textMuted, fontFamily: t.fontBody }]}>
+                  No offerings yet.{'\n'}Tap + to create your first one.
+                </Text>
+              </View>
+            )
         }
       />
-
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: t.accentPurple }]}
-        onPress={() => navigation.navigate('CreateOfferingStep1')}
-        activeOpacity={0.85}
-      >
-        <PlusCircle size={24} color="#fff" strokeWidth={2} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -155,21 +163,7 @@ const styles = StyleSheet.create({
   metaText:    { fontSize: 13 },
   price:       { marginLeft: 'auto', fontSize: 13 },
   chevron:     { position: 'absolute', right: 14, top: 14 },
-  empty:       { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
-  emptyText:   { fontSize: 15, textAlign: 'center', lineHeight: 22 },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 28,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
-  },
+  empty:            { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 12 },
+  emptyText:        { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  headerCreateBtn:  { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 });

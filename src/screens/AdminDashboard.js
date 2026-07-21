@@ -254,6 +254,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [academyStudents, setAcademyStudents] = useState([]); // AO-1
   const [studentsLoading, setStudentsLoading] = useState(false); // AO-1
   const [academyEditName, setAcademyEditName] = useState(''); // AO-4
+  const [academyEditRoyaltyRate, setAcademyEditRoyaltyRate] = useState(10); // royalty rate editor
   const [academySettingsSaving, setAcademySettingsSaving] = useState(false); // AO-4
   const [academyLogoUploading, setAcademyLogoUploading] = useState(false); // AO-4
   const [academySettingsError, setAcademySettingsError] = useState(''); // AO-4
@@ -274,6 +275,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   const [adminAcademySelected, setAdminAcademySelected] = useState(null); // null = list view, id = detail view
   const [adminAcademyDetail, setAdminAcademyDetail] = useState(null);
   const [adminAcademyDetailLoading, setAdminAcademyDetailLoading] = useState(false);
+  const [adminDetailEditName, setAdminDetailEditName] = useState('');
+  const [adminDetailEditRoyaltyRate, setAdminDetailEditRoyaltyRate] = useState(10);
+  const [adminDetailSaving, setAdminDetailSaving] = useState(false);
 
 
 
@@ -321,8 +325,11 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     } else if (activeTab === 'feedback') {
       fetchFeedback();
     } else if (activeTab === 'academy') {
-      fetchAcademyMembers();
-      fetchAcademyStudents(); // AO-1
+      // coaches, managers, AND super admins who have their own academy
+      if (academyId) {
+        fetchAcademyMembers();
+        fetchAcademyStudents(); // AO-1
+      }
     } else if (activeTab === 'academies') {
       fetchAllAcademies(); // P-1: superadmin only
     }
@@ -987,7 +994,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       const { data, error } = await supabase
         .from('academies')
         .select(`
-          id, name, slug, logo_url, created_at,
+          id, name, slug, logo_url, royalty_rate, created_at,
           academy_members(id, role),
           coach_students(id, is_active)
         `)
@@ -1007,7 +1014,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     setAdminAcademyDetailLoading(true);
     try {
       const [{ data: acad }, { data: membersRaw }] = await Promise.all([
-        supabase.from('academies').select('id, name, slug, logo_url, created_at').eq('id', id).maybeSingle(),
+        supabase.from('academies').select('id, name, slug, logo_url, royalty_rate, created_at').eq('id', id).maybeSingle(),
         supabase
           .from('academy_members')
           .select('id, user_id, role, joined_at')
@@ -1062,6 +1069,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           activeStudents: m.role === 'coach' ? (studentCountMap[m.user_id] || 0) : null,
         })),
       });
+      // Pre-fill edit form
+      if (acad?.name) setAdminDetailEditName(acad.name);
+      if (acad?.royalty_rate != null) setAdminDetailEditRoyaltyRate(acad.royalty_rate);
     } catch (err) {
       console.error('Error fetching academy detail:', err);
       Alert.alert('Error', 'Failed to load academy details');
@@ -1070,18 +1080,41 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     }
   };
 
+  // P-1: Superadmin save academy name + royalty rate
+  const handleAdminSaveAcademy = async (id) => {
+    if (!adminDetailEditName.trim()) {
+      Alert.alert('Validation', 'Academy name cannot be empty.');
+      return;
+    }
+    setAdminDetailSaving(true);
+    try {
+      const { error } = await supabase
+        .from('academies')
+        .update({ name: adminDetailEditName.trim(), royalty_rate: adminDetailEditRoyaltyRate })
+        .eq('id', id);
+      if (error) throw error;
+      // Refresh both detail and list so everything is consistent
+      await Promise.all([fetchAdminAcademyDetail(id), fetchAllAcademies()]);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Failed to save academy details.');
+    } finally {
+      setAdminDetailSaving(false);
+    }
+  };
+
   const fetchAcademyMembers = async () => {
-    if (!academyId) return;
+    if (!academyId) return; // no academy — nothing to fetch
     setLoading(true);
     try {
       // Fetch academy info
       const { data: acad } = await supabase
         .from('academies')
-        .select('id, name, slug, logo_url')
+        .select('id, name, slug, logo_url, royalty_rate')
         .eq('id', academyId)
         .maybeSingle();
       setAcademyInfo(acad);
       if (acad?.name) setAcademyEditName(acad.name); // AO-4: pre-fill settings
+      if (acad?.royalty_rate != null) setAcademyEditRoyaltyRate(acad.royalty_rate);
 
       // Fetch members with user profile
       const { data: members, error } = await supabase
@@ -1252,7 +1285,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
     setAcademySettingsError('');
     setAcademySettingsSaving(true);
     try {
-      const update = { name: academyEditName.trim() };
+      const update = { name: academyEditName.trim(), royalty_rate: academyEditRoyaltyRate };
       if (logoUrl !== undefined) update.logo_url = logoUrl;
       const { error } = await supabase
         .from('academies')
@@ -3177,7 +3210,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   };
 
   const renderAcademyTab = () => {
-    // Coach with no academy yet — show a create form
+    // Only show "create" form when there is genuinely no academy yet.
+    // Super admins may have academyId set even though sessionRole is not coach/manager.
     if (!academyId) {
       return (
         <View style={styles.content}>
@@ -3250,7 +3284,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
       {/* AO-4: Academy Settings card */}
       <View style={[styles.contentSection, { marginBottom: 24 }]}>
         <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>Academy Settings</Text>
-        <View style={{ flexDirection: 'row', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 20, flexWrap: 'wrap', alignItems: isMobile ? 'stretch' : 'flex-start' }}>
           {/* Logo */}
           <View style={{ alignItems: 'center', gap: 8 }}>
             {academyInfo?.logo_url ? (
@@ -3285,7 +3319,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               </label>
             ) : null}
           </View>
-          {/* Name field + save */}
+          {/* Name field */}
           <View style={{ flex: 1, minWidth: 200, gap: 8 }}>
             <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151' }}>Academy Name</Text>
             <TextInput
@@ -3303,11 +3337,47 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             {academySettingsError ? (
               <Text style={{ fontSize: 12, color: '#EF4444' }}>{academySettingsError}</Text>
             ) : null}
+          </View>
+
+          {/* Royalty Rate */}
+          <View style={{ minWidth: 200, gap: 8 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151' }}>Royalty Rate</Text>
+            <Text style={{ fontSize: 12, color: '#6B7280', lineHeight: 16 }}>
+              {'% coaches pay you from gross revenue.'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {[7, 10, 15].map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={{
+                    paddingHorizontal: 18, paddingVertical: 9, borderRadius: 8,
+                    backgroundColor: academyEditRoyaltyRate === r ? '#3B82F6' : '#F9FAFB',
+                    borderWidth: 1,
+                    borderColor: academyEditRoyaltyRate === r ? '#3B82F6' : '#E5E7EB',
+                  }}
+                  onPress={() => setAcademyEditRoyaltyRate(r)}
+                >
+                  <Text style={{
+                    fontSize: 14, fontWeight: '700',
+                    color: academyEditRoyaltyRate === r ? '#FFFFFF' : '#374151',
+                  }}>
+                    {r}%
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+              Coaches keep {100 - academyEditRoyaltyRate}% of what they earn.
+            </Text>
+          </View>
+
+          {/* Save button — applies name + royalty rate */}
+          <View style={{ justifyContent: 'flex-end' }}>
             <TouchableOpacity
               style={{
                 backgroundColor: academySettingsSaving ? '#93C5FD' : '#3B82F6',
                 borderRadius: 8, paddingHorizontal: 16, paddingVertical: 10,
-                alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6,
+                flexDirection: 'row', alignItems: 'center', gap: 6,
               }}
               onPress={() => handleSaveAcademySettings(undefined)}
               disabled={academySettingsSaving}
@@ -3356,6 +3426,14 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           <Text style={styles.contentStatLabel}>Staff</Text>
           <Text style={styles.contentStatSubtext}>Support staff</Text>
         </View>
+        <View style={styles.contentStatCard}>
+          <View style={styles.contentStatIcon}>
+            <Ionicons name="trending-up-outline" size={18} color="#8B5CF6" />
+          </View>
+          <Text style={styles.contentStatNumber}>{academyInfo?.royalty_rate ?? academyEditRoyaltyRate}%</Text>
+          <Text style={styles.contentStatLabel}>Royalty Rate</Text>
+          <Text style={styles.contentStatSubtext}>Coach payout share</Text>
+        </View>
       </View>
 
       {/* Add member form */}
@@ -3363,8 +3441,8 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 16 }]}>
           Add Member
         </Text>
-        <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <View style={{ flex: 1, minWidth: 200 }}>
+        <View style={{ flexDirection: isMobile ? 'column' : 'row', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <View style={{ flex: isMobile ? undefined : 1, minWidth: isMobile ? undefined : 200 }}>
             <Text style={{ fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
               Email address
             </Text>
@@ -3568,9 +3646,65 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               Add coaches and staff above to get started
             </Text>
           </View>
+        ) : isMobile ? (
+          /* ── Mobile: member cards ── */
+          <View style={{ gap: 8 }}>
+            {academyMembers.map(member => {
+              const isSelf = member.user_id === user?.id;
+              const isUpdating = updatingMemberId === member.id;
+              const isRemoving = removingMemberId === member.id;
+              const roleBg = member.role === 'manager' ? '#FEF3C7' : member.role === 'staff' ? '#F3F4F6' : '#EFF6FF';
+              const roleColor = member.role === 'manager' ? '#92400E' : member.role === 'staff' ? '#4B5563' : '#1D4ED8';
+              return (
+                <View key={member.id} style={{
+                  backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12,
+                  borderWidth: 1, borderColor: '#E5E7EB',
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#3B82F6' }}>
+                        {(member.user?.name || member.user?.email || '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.programTitle} numberOfLines={1}>{member.user?.name || '—'}</Text>
+                      <Text style={styles.programMeta} numberOfLines={1}>{member.user?.email || ''}</Text>
+                    </View>
+                    <View style={[styles.modernStatusChip, { backgroundColor: roleBg }]}>
+                      <Text style={[styles.modernStatusText, { color: roleColor }]}>
+                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={[styles.programMeta, { fontSize: 12 }]}>
+                      Joined {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '—'}
+                    </Text>
+                    {isSelf ? (
+                      <Text style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>You</Text>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveMember(member)}
+                        disabled={isRemoving}
+                        style={{
+                          paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
+                          backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+                        }}
+                      >
+                        {isRemoving
+                          ? <ActivityIndicator size="small" color="#EF4444" />
+                          : <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: '600' }}>Remove</Text>
+                        }
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         ) : (
+          /* ── Desktop: table ── */
           <View style={styles.modernTable}>
-            {/* Header */}
             <View style={styles.modernTableHeader}>
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Member</Text>
               <Text style={[styles.modernTableHeaderText, { flex: 1 }]}>Role</Text>
@@ -3583,65 +3717,46 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               const isRemoving = removingMemberId === member.id;
               return (
                 <View key={member.id} style={styles.modernTableRow}>
-                  {/* Member info */}
                   <View style={[styles.modernTableCell, { flex: 2 }]}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       {member.user?.avatar_url ? (
-                        <Image
-                          source={{ uri: member.user.avatar_url }}
-                          style={{ width: 32, height: 32, borderRadius: 16 }}
-                        />
+                        <Image source={{ uri: member.user.avatar_url }} style={{ width: 32, height: 32, borderRadius: 16 }} />
                       ) : (
-                        <View style={{
-                          width: 32, height: 32, borderRadius: 16,
-                          backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center',
-                        }}>
+                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' }}>
                           <Text style={{ fontSize: 13, fontWeight: '700', color: '#3B82F6' }}>
                             {(member.user?.name || member.user?.email || '?').charAt(0).toUpperCase()}
                           </Text>
                         </View>
                       )}
                       <View>
-                        <Text style={styles.programTitle} numberOfLines={1}>
-                          {member.user?.name || '—'}
-                        </Text>
+                        <Text style={styles.programTitle} numberOfLines={1}>{member.user?.name || '—'}</Text>
                         <Text style={styles.programMeta}>{member.user?.email || ''}</Text>
                       </View>
                     </View>
                   </View>
-                  {/* Role badge + change role */}
                   <View style={[styles.modernTableCell, { flex: 1 }]}>
                     <View style={[
                       styles.modernStatusChip,
-                      member.role === 'manager'
-                        ? { backgroundColor: '#FEF3C7' }
-                        : member.role === 'staff'
-                        ? { backgroundColor: '#F3F4F6' }
+                      member.role === 'manager' ? { backgroundColor: '#FEF3C7' }
+                        : member.role === 'staff' ? { backgroundColor: '#F3F4F6' }
                         : { backgroundColor: '#EFF6FF' },
                     ]}>
                       <Text style={[
                         styles.modernStatusText,
-                        member.role === 'manager'
-                          ? { color: '#92400E' }
-                          : member.role === 'staff'
-                          ? { color: '#4B5563' }
+                        member.role === 'manager' ? { color: '#92400E' }
+                          : member.role === 'staff' ? { color: '#4B5563' }
                           : { color: '#1D4ED8' },
                       ]}>
                         {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
                       </Text>
                     </View>
                   </View>
-                  {/* Joined date */}
                   <View style={[styles.modernTableCell, { flex: 1.5 }]}>
                     <Text style={styles.programMeta}>
-                      {member.joined_at
-                        ? new Date(member.joined_at).toLocaleDateString()
-                        : '—'}
+                      {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '—'}
                     </Text>
                   </View>
-                  {/* Actions — AO-2 */}
                   <View style={[styles.modernTableCell, { flex: 1.5, gap: 6 }]}>
-                    {/* Change role dropdown (web select) */}
                     {!isSelf && (
                       <select
                         value={member.role}
@@ -3658,7 +3773,6 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
                         <option value="manager">Manager</option>
                       </select>
                     )}
-                    {/* Remove button */}
                     {isSelf ? (
                       <Text style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>You</Text>
                     ) : (
@@ -3705,7 +3819,31 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               Students are added when academy coaches use "Add Student" in their coach dashboard.
             </Text>
           </View>
+        ) : isMobile ? (
+          /* ── Mobile: student cards ── */
+          <View style={{ gap: 8 }}>
+            {academyStudents.map(row => (
+              <View key={row.id} style={{
+                backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12,
+                borderWidth: 1, borderColor: '#E5E7EB',
+              }}>
+                <Text style={[styles.programTitle, { marginBottom: 2 }]} numberOfLines={1}>
+                  {row.users?.name || '—'}
+                </Text>
+                <Text style={styles.programMeta} numberOfLines={1}>{row.users?.email || ''}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+                  <Text style={[styles.programMeta, { fontSize: 12 }]}>
+                    Coach: {row.coaches?.name || '—'}
+                  </Text>
+                  <Text style={[styles.programMeta, { fontSize: 12 }]}>
+                    {row.created_at ? new Date(row.created_at).toLocaleDateString() : '—'}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
         ) : (
+          /* ── Desktop: table ── */
           <View style={styles.modernTable}>
             <View style={styles.modernTableHeader}>
               <Text style={[styles.modernTableHeaderText, { flex: 2 }]}>Student</Text>
@@ -3820,7 +3958,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           {/* Breadcrumb */}
           <TouchableOpacity
             style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 6 }}
-            onPress={() => { setAdminAcademySelected(null); setAdminAcademyDetail(null); }}
+            onPress={() => { setAdminAcademySelected(null); setAdminAcademyDetail(null); setAdminDetailEditName(''); setAdminDetailEditRoyaltyRate(10); }}
           >
             <Ionicons name="chevron-back" size={18} color="#3B82F6" />
             <Text style={{ fontSize: 14, color: '#3B82F6', fontWeight: '600' }}>All Academies</Text>
@@ -3831,99 +3969,203 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
           ) : (
             <>
               {/* Academy header card */}
-              <View style={[styles.contentSection, { marginBottom: 20, padding: 20 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 4 }}>
+              <View style={[styles.contentSection, { marginBottom: 20, padding: isMobile ? 14 : 20 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
                   {detail.logo_url ? (
-                    <Image source={{ uri: detail.logo_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: '#F3F4F6' }} />
+                    <Image source={{ uri: detail.logo_url }} style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: '#F3F4F6', flexShrink: 0 }} />
                   ) : (
-                    <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="school-outline" size={28} color="#9CA3AF" />
+                    <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Ionicons name="school-outline" size={26} color="#9CA3AF" />
                     </View>
                   )}
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>{detail.name}</Text>
-                    <Text style={{ fontSize: 13, color: '#6B7280' }}>@{detail.slug}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: isMobile ? 17 : 20, fontWeight: '700', color: '#111827' }} numberOfLines={2}>{detail.name}</Text>
+                    <Text style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>@{detail.slug}</Text>
                   </View>
                 </View>
-                <View style={{ flexDirection: 'row', gap: 24, marginTop: 12, flexWrap: 'wrap' }}>
+                <View style={{ flexDirection: 'row', gap: isMobile ? 16 : 24, flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Members',  value: detail.members?.length ?? 0 },
+                    { label: 'Coaches',  value: detail.members?.filter(m => m.role === 'coach').length ?? 0 },
+                    { label: 'Managers', value: detail.members?.filter(m => m.role === 'manager').length ?? 0 },
+                  ].map(({ label, value }) => (
+                    <View key={label}>
+                      <Text style={{ fontSize: 11, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</Text>
+                      <Text style={{ fontSize: isMobile ? 18 : 22, fontWeight: '700', color: '#111827' }}>{value}</Text>
+                    </View>
+                  ))}
                   <View>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>Members</Text>
-                    <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>{detail.members?.length ?? 0}</Text>
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>Coaches</Text>
-                    <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>{detail.members?.filter(m => m.role === 'coach').length ?? 0}</Text>
-                  </View>
-                  <View>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF', fontWeight: '500', textTransform: 'uppercase', letterSpacing: 0.5 }}>Managers</Text>
-                    <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827' }}>{detail.members?.filter(m => m.role === 'manager').length ?? 0}</Text>
+                    <Text style={{ fontSize: 11, color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Royalty Rate</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2, marginTop: 2 }}>
+                      <Text style={{ fontSize: isMobile ? 18 : 22, fontWeight: '700', color: '#7C3AED' }}>{detail.royalty_rate ?? 10}%</Text>
+                      <Text style={{ fontSize: 12, color: '#9CA3AF' }}>/ coach</Text>
+                    </View>
                   </View>
                 </View>
               </View>
 
+              {/* Edit Details card */}
+              <View style={[styles.contentSection, { marginBottom: 20, padding: isMobile ? 14 : 20 }]}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 16 }}>Edit Academy Details</Text>
+
+                {/* Name */}
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Academy Name</Text>
+                <TextInput
+                  value={adminDetailEditName}
+                  onChangeText={setAdminDetailEditName}
+                  placeholder="Academy name"
+                  placeholderTextColor="#9CA3AF"
+                  style={{
+                    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
+                    paddingHorizontal: 14, paddingVertical: 11,
+                    fontSize: 15, color: '#111827', backgroundColor: '#F9FAFB',
+                    marginBottom: 20,
+                  }}
+                />
+
+                {/* Royalty rate */}
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#6B7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Commission / Royalty Rate</Text>
+                <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 10 }}>Percentage of earnings coaches pay back to this academy.</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                  {[7, 10, 15].map(rate => {
+                    const active = adminDetailEditRoyaltyRate === rate;
+                    return (
+                      <TouchableOpacity
+                        key={rate}
+                        onPress={() => setAdminDetailEditRoyaltyRate(rate)}
+                        style={{
+                          flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center',
+                          borderWidth: 2,
+                          borderColor: active ? '#7C3AED' : '#E5E7EB',
+                          backgroundColor: active ? '#EDE9FE' : '#F9FAFB',
+                        }}
+                      >
+                        <Text style={{ fontSize: 18, fontWeight: '800', color: active ? '#7C3AED' : '#374151' }}>{rate}%</Text>
+                        {rate === 10 && (
+                          <Text style={{ fontSize: 10, fontWeight: '600', color: active ? '#7C3AED' : '#9CA3AF', marginTop: 2 }}>Standard</Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* Save button */}
+                <TouchableOpacity
+                  onPress={() => handleAdminSaveAcademy(detail.id)}
+                  disabled={adminDetailSaving}
+                  style={{
+                    backgroundColor: adminDetailSaving ? '#C4B5FD' : '#7C3AED',
+                    borderRadius: 10, paddingVertical: 13, alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>
+                    {adminDetailSaving ? 'Saving…' : 'Save Changes'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Members list */}
               <Text style={[styles.sectionTitle, { fontSize: 15, marginBottom: 12 }]}>Members</Text>
-              <View style={[styles.modernTable, { marginBottom: 24 }]}>
-                <View style={styles.modernTableHeader}>
-                  <View style={[styles.modernTableHeaderCell, { flex: 2 }]}>
-                    <Text style={styles.modernTableHeaderText}>Member</Text>
-                  </View>
-                  <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
-                    <Text style={styles.modernTableHeaderText}>Role</Text>
-                  </View>
-                  <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
-                    <Text style={styles.modernTableHeaderText}>Active Students</Text>
-                  </View>
-                  <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
-                    <Text style={styles.modernTableHeaderText}>Joined</Text>
-                  </View>
+              {(detail.members || []).length === 0 ? (
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 14, color: '#9CA3AF' }}>No members yet</Text>
                 </View>
-                {(detail.members || []).map(member => (
-                  <View key={member.id} style={styles.modernTableRow}>
-                    <View style={[styles.modernTableCell, { flex: 2 }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
+              ) : isMobile ? (
+                /* ── Mobile: member cards ── */
+                <View style={{ gap: 8, marginBottom: 24 }}>
+                  {(detail.members || []).map(member => {
+                    const isManager = member.role === 'manager';
+                    return (
+                      <View key={member.id} style={{
+                        backgroundColor: '#F9FAFB', borderRadius: 10, padding: 12,
+                        borderWidth: 1, borderColor: '#E5E7EB',
+                        flexDirection: 'row', alignItems: 'center', gap: 10,
+                      }}>
+                        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>
                             {(member.user?.name || 'U').charAt(0).toUpperCase()}
                           </Text>
                         </View>
-                        <View>
-                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{member.user?.name || 'Unknown'}</Text>
-                          <Text style={{ fontSize: 12, color: '#6B7280' }}>{member.user?.email || ''}</Text>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }} numberOfLines={1}>{member.user?.name || 'Unknown'}</Text>
+                          <Text style={{ fontSize: 12, color: '#6B7280' }} numberOfLines={1}>{member.user?.email || ''}</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                          <View style={{
+                            paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12,
+                            backgroundColor: isManager ? '#DBEAFE' : '#D1FAE5',
+                          }}>
+                            <Text style={{ fontSize: 11, fontWeight: '600', color: isManager ? '#1D4ED8' : '#059669', textTransform: 'capitalize' }}>
+                              {member.role}
+                            </Text>
+                          </View>
+                          {member.role === 'coach' && (
+                            <Text style={{ fontSize: 11, color: '#6B7280' }}>{member.activeStudents ?? 0} students</Text>
+                          )}
                         </View>
                       </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                /* ── Desktop: table ── */
+                <View style={[styles.modernTable, { marginBottom: 24 }]}>
+                  <View style={styles.modernTableHeader}>
+                    <View style={[styles.modernTableHeaderCell, { flex: 2 }]}>
+                      <Text style={styles.modernTableHeaderText}>Member</Text>
                     </View>
-                    <View style={[styles.modernTableCell, { flex: 1 }]}>
-                      <View style={{
-                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12,
-                        backgroundColor: member.role === 'manager' ? '#DBEAFE' : '#D1FAE5',
-                        alignSelf: 'flex-start',
-                      }}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: member.role === 'manager' ? '#1D4ED8' : '#059669', textTransform: 'capitalize' }}>
-                          {member.role}
+                    <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                      <Text style={styles.modernTableHeaderText}>Role</Text>
+                    </View>
+                    <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                      <Text style={styles.modernTableHeaderText}>Active Students</Text>
+                    </View>
+                    <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
+                      <Text style={styles.modernTableHeaderText}>Joined</Text>
+                    </View>
+                  </View>
+                  {(detail.members || []).map(member => (
+                    <View key={member.id} style={styles.modernTableRow}>
+                      <View style={[styles.modernTableCell, { flex: 2 }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
+                              {(member.user?.name || 'U').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View>
+                            <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{member.user?.name || 'Unknown'}</Text>
+                            <Text style={{ fontSize: 12, color: '#6B7280' }}>{member.user?.email || ''}</Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={[styles.modernTableCell, { flex: 1 }]}>
+                        <View style={{
+                          paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12,
+                          backgroundColor: member.role === 'manager' ? '#DBEAFE' : '#D1FAE5',
+                          alignSelf: 'flex-start',
+                        }}>
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: member.role === 'manager' ? '#1D4ED8' : '#059669', textTransform: 'capitalize' }}>
+                            {member.role}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={[styles.modernTableCell, { flex: 1 }]}>
+                        {member.role === 'coach' ? (
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{member.activeStudents ?? 0}</Text>
+                        ) : (
+                          <Text style={{ fontSize: 13, color: '#9CA3AF' }}>—</Text>
+                        )}
+                      </View>
+                      <View style={[styles.modernTableCell, { flex: 1 }]}>
+                        <Text style={{ fontSize: 13, color: '#6B7280' }}>
+                          {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '—'}
                         </Text>
                       </View>
                     </View>
-                    <View style={[styles.modernTableCell, { flex: 1 }]}>
-                      {member.role === 'coach' ? (
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{member.activeStudents ?? 0}</Text>
-                      ) : (
-                        <Text style={{ fontSize: 13, color: '#9CA3AF' }}>—</Text>
-                      )}
-                    </View>
-                    <View style={[styles.modernTableCell, { flex: 1 }]}>
-                      <Text style={{ fontSize: 13, color: '#6B7280' }}>
-                        {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : '—'}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-                {(detail.members || []).length === 0 && (
-                  <View style={{ padding: 24, alignItems: 'center' }}>
-                    <Text style={{ fontSize: 14, color: '#9CA3AF' }}>No members yet</Text>
-                  </View>
-                )}
-              </View>
+                  ))}
+                </View>
+              )}
             </>
           )}
         </View>
@@ -3947,7 +4189,52 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
             <Ionicons name="school-outline" size={48} color="#D1D5DB" />
             <Text style={{ fontSize: 16, color: '#9CA3AF', marginTop: 12 }}>No academies yet</Text>
           </View>
+        ) : isMobile ? (
+          /* ── Mobile: academy cards ── */
+          <View style={{ gap: 10 }}>
+            {allAcademies.map(acad => {
+              const coachCount   = (acad.academy_members || []).filter(m => m.role === 'coach').length;
+              const studentCount = (acad.coach_students  || []).filter(s => s.is_active).length;
+              return (
+                <TouchableOpacity
+                  key={acad.id}
+                  style={{
+                    backgroundColor: '#fff', borderRadius: 12, padding: 14,
+                    borderWidth: 1, borderColor: '#E5E7EB',
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                  }}
+                  onPress={() => { setAdminAcademySelected(acad.id); fetchAdminAcademyDetail(acad.id); }}
+                  activeOpacity={0.75}
+                >
+                  {acad.logo_url ? (
+                    <Image source={{ uri: acad.logo_url }} style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#F3F4F6' }} />
+                  ) : (
+                    <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="school-outline" size={22} color="#9CA3AF" />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#111827' }} numberOfLines={1}>{acad.name}</Text>
+                    <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 1 }}>@{acad.slug}</Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>
+                        <Text style={{ fontWeight: '700', color: '#111827' }}>{coachCount}</Text> coaches
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#6B7280' }}>
+                        <Text style={{ fontWeight: '700', color: '#111827' }}>{studentCount}</Text> students
+                      </Text>
+                      <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, backgroundColor: '#EDE9FE' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#7C3AED' }}>{acad.royalty_rate ?? 10}% royalty</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color="#D1D5DB" />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         ) : (
+          /* ── Desktop: table ── */
           <View style={styles.modernTable}>
             <View style={styles.modernTableHeader}>
               <View style={[styles.modernTableHeaderCell, { flex: 2 }]}>
@@ -3958,6 +4245,9 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
               </View>
               <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
                 <Text style={styles.modernTableHeaderText}>Active Students</Text>
+              </View>
+              <View style={[styles.modernTableHeaderCell, { flex: 0.8 }]}>
+                <Text style={styles.modernTableHeaderText}>Royalty %</Text>
               </View>
               <View style={[styles.modernTableHeaderCell, { flex: 1 }]}>
                 <Text style={styles.modernTableHeaderText}>Created</Text>
@@ -3999,6 +4289,11 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
                   </View>
                   <View style={[styles.modernTableCell, { flex: 1 }]}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>{studentCount}</Text>
+                  </View>
+                  <View style={[styles.modernTableCell, { flex: 0.8 }]}>
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: '#EDE9FE', alignSelf: 'flex-start' }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: '#7C3AED' }}>{acad.royalty_rate ?? 10}%</Text>
+                    </View>
                   </View>
                   <View style={[styles.modernTableCell, { flex: 1 }]}>
                     <Text style={{ fontSize: 13, color: '#6B7280' }}>
@@ -4059,23 +4354,30 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
   };
 
   const renderOfferingsTab = () => (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
-      {/* Left: offerings list */}
-      <View style={{ flex: selectedOffering ? 0.55 : 1, borderRightWidth: selectedOffering ? 1 : 0, borderRightColor: '#E5E7EB' }}>
-        <OfferingsTable
-          key={offeringsTableKey}
-          sessionRole={sessionRole}
-          onSelectOffering={(o) => setSelectedOffering(o)}
-          onCreateOffering={() => setShowCreateOfferingModal(true)}
-        />
-      </View>
+    <View style={{ flex: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+      {/* List — hidden on mobile when a detail is open */}
+      {(!isMobile || !selectedOffering) && (
+        <View style={isMobile
+          ? { flex: 1 }
+          : { flex: selectedOffering ? 0.55 : 1, borderRightWidth: selectedOffering ? 1 : 0, borderRightColor: '#E5E7EB' }
+        }>
+          <OfferingsTable
+            key={offeringsTableKey}
+            sessionRole={sessionRole}
+            isMobile={isMobile}
+            onSelectOffering={(o) => setSelectedOffering(o)}
+            onCreateOffering={() => setShowCreateOfferingModal(true)}
+          />
+        </View>
+      )}
 
-      {/* Right: detail panel */}
+      {/* Detail panel — full screen on mobile, right column on desktop */}
       {selectedOffering && (
-        <View style={{ flex: 0.45 }}>
+        <View style={isMobile ? { flex: 1 } : { flex: 0.45 }}>
           <OfferingDetailPanel
             key={selectedOffering.id}
             offeringId={selectedOffering.id}
+            isMobile={isMobile}
             onEdit={() => setShowEditOfferingModal(true)}
             onViewRoster={(runId, runLabel) => { setRosterRunId(runId); setRosterRunLabel(runLabel); }}
             onDeleted={() => { setSelectedOffering(null); setOfferingsTableKey(k => k + 1); }}
@@ -5186,6 +5488,7 @@ export default function AdminDashboard({ navigation, adminRole, sessionRole, coa
         mobileDrawerOpen={mobileDrawerOpen}
         onCloseMobileDrawer={() => setMobileDrawerOpen(false)}
         sessionRole={sessionRole}
+        academyId={academyId}
         isMobile={isMobile}
         styles={styles}
       />

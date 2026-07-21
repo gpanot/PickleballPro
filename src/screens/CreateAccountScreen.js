@@ -74,13 +74,13 @@ export default function CreateAccountScreen({
         <View style={[styles.dividerLine, { backgroundColor: ot.borderColor }]} />
       </View>
 
-      {/* Email registration */}
+      {/* Email registration — de-emphasized text link (prefer Google/Apple) */}
       <TouchableOpacity
-        style={[styles.emailButton, { borderColor: ot.borderColor, backgroundColor: ot.surface }]}
+        style={styles.emailLink}
         onPress={handleContinueWithEmail}
-        activeOpacity={0.85}
+        activeOpacity={0.7}
       >
-        <Text style={[styles.emailButtonText, { color: ot.textPrimary, fontFamily: ot.t.fontBodySemibold }]}>
+        <Text style={[styles.emailLinkText, { color: ot.accent, fontFamily: ot.t.fontBody }]}>
           Register via email
         </Text>
       </TouchableOpacity>
@@ -130,14 +130,13 @@ const styles = StyleSheet.create({
   dividerText: {
     fontSize: 13,
   },
-  emailButton: {
-    borderRadius: 30,
-    paddingVertical: 15,
-    borderWidth: 1.5,
+  emailLink: {
     alignItems: 'center',
+    paddingVertical: 8,
   },
-  emailButtonText: {
-    fontSize: 16,
+  emailLinkText: {
+    fontSize: 15,
+    textDecorationLine: 'underline',
   },
   footer: {
     alignItems: 'center',

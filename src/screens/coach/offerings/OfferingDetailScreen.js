@@ -9,6 +9,7 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
@@ -16,13 +17,14 @@ import {
   Alert,
   Modal,
   ScrollView,
-  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Users, Calendar, DollarSign,
   Bell, X, CheckCircle, PlusCircle, Globe, EyeOff,
-  ClipboardCheck, UserCheck, UserX,
+  ClipboardCheck, UserCheck, UserX, ChevronLeft, MoreVertical,
+  Pencil, Trash2, Ban,
 } from 'lucide-react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import {
@@ -32,7 +34,10 @@ import {
   recordPayment,
   sendPaymentReminder,
   updateOffering,
-  createOfferingRun,
+  cancelOfferingRun,
+  deleteOfferingRun,
+  cancelOffering,
+  hardDeleteOffering,
   formatPrice,
   effectiveCapacity,
   getAttendanceForSession,
@@ -51,6 +56,7 @@ const PAYMENT_STATUS_COLOR = {
 
 export default function OfferingDetailScreen({ navigation, route }) {
   const { logbookTheme: t, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const { offeringId } = route.params;
 
   const [offering,      setOffering]      = useState(null);
@@ -65,17 +71,11 @@ export default function OfferingDetailScreen({ navigation, route }) {
   const [attendance,        setAttendance]        = useState([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [todaySessionDate,  setTodaySessionDate]  = useState(null); // YYYY-MM-DD or null
-  // Add Run inline modal state
-  const [addRunModal,   setAddRunModal]   = useState(false);
-  const [addRunStart,   setAddRunStart]   = useState('');
-  const [addRunEnd,     setAddRunEnd]     = useState('');
-  const [addRunSched,   setAddRunSched]   = useState('');
-  const [addRunPrice,   setAddRunPrice]   = useState('0');
-  const [addRunCur,     setAddRunCur]     = useState('USD');
-  const [addRunLink,    setAddRunLink]    = useState('');
-  const [addRunSaving,  setAddRunSaving]  = useState(false);
   // Prevents auto-selecting first run on re-focus; use ref so it doesn't cause re-renders
   const firstRunAutoSelectedRef = useRef(false);
+  // Action-sheet state
+  const [runMenu,      setRunMenu]      = useState(null); // run object when ⋯ tapped
+  const [offeringMenu, setOfferingMenu] = useState(false); // true when offering ⋯ tapped
 
   const load = useCallback(async () => {
     const { data, error } = await getOfferingWithRuns(offeringId);
@@ -175,6 +175,122 @@ export default function OfferingDetailScreen({ navigation, route }) {
     }
   };
 
+  // ── Run action-sheet handlers ──────────────────────────────────────────────
+
+  const handleRunEdit = (run) => {
+    setRunMenu(null);
+    navigation.navigate('RunForm', { mode: 'edit', run });
+  };
+
+  const handleRunCancel = (run) => {
+    setRunMenu(null);
+    Alert.alert(
+      'Cancel run?',
+      `This will cancel the run (${run.start_date} → ${run.end_date}) and notify all enrolled students. Continue?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel run',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await cancelOfferingRun(run.id);
+            if (error) { Alert.alert('Error', error.message); }
+            else { load(); }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRunDelete = (run) => {
+    setRunMenu(null);
+    Alert.alert(
+      'Delete run?',
+      `This will permanently delete the run (${run.start_date} → ${run.end_date}) and notify all enrolled students.\n\nThis cannot be undone. Are you sure?`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, delete',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Final confirmation',
+            'Deleting this run will remove all enrollment data. Proceed?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete permanently',
+                style: 'destructive',
+                onPress: async () => {
+                  const { error } = await deleteOfferingRun(run.id);
+                  if (error) { Alert.alert('Error', error.message); }
+                  else { load(); }
+                },
+              },
+            ]
+          ),
+        },
+      ]
+    );
+  };
+
+  // ── Offering action-sheet handlers ────────────────────────────────────────
+
+  const handleOfferingEdit = () => {
+    setOfferingMenu(false);
+    navigation.navigate('EditOffering', { offeringId, offering });
+  };
+
+  const handleOfferingCancel = () => {
+    setOfferingMenu(false);
+    Alert.alert(
+      'Cancel offering?',
+      `This will cancel "${offering.title}" and all its runs, and notify all enrolled students. The offering will remain visible as cancelled.`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, cancel offering',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await cancelOffering(offeringId);
+            if (error) { Alert.alert('Error', error.message); }
+            else { load(); }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOfferingDelete = () => {
+    setOfferingMenu(false);
+    Alert.alert(
+      'Delete offering?',
+      `This will permanently delete "${offering.title}", all its runs, and all enrollment data. All enrolled students will be notified.\n\nThis cannot be undone.`,
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, delete',
+          style: 'destructive',
+          onPress: () => Alert.alert(
+            'Final confirmation',
+            'All data will be lost. Are you absolutely sure?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete permanently',
+                style: 'destructive',
+                onPress: async () => {
+                  const { error } = await hardDeleteOffering(offeringId);
+                  if (error) { Alert.alert('Error', error.message); }
+                  else { navigation.goBack(); }
+                },
+              },
+            ]
+          ),
+        },
+      ]
+    );
+  };
+
   const handleCancelEnrollment = async (enrollmentId) => {
     Alert.alert(
       'Cancel enrollment',
@@ -206,31 +322,6 @@ export default function OfferingDetailScreen({ navigation, route }) {
     }
   };
 
-  const handleAddRun = async () => {
-    if (!addRunStart.trim() || !addRunEnd.trim() || !addRunSched.trim()) {
-      Alert.alert('Missing fields', 'Start date, end date, and schedule are required.');
-      return;
-    }
-    setAddRunSaving(true);
-    const { error } = await createOfferingRun({
-      offeringId,
-      startDate:      addRunStart.trim(),
-      endDate:        addRunEnd.trim(),
-      sessionSchedule: addRunSched.trim(),
-      priceAmount:    Math.max(0, parseInt(addRunPrice || '0', 10)),
-      priceCurrency:  addRunCur,
-      paymentLinkUrl: addRunLink.trim() || null,
-    });
-    setAddRunSaving(false);
-    if (error) {
-      Alert.alert('Error', error.message);
-    } else {
-      setAddRunModal(false);
-      setAddRunStart(''); setAddRunEnd(''); setAddRunSched('');
-      setAddRunPrice('0'); setAddRunCur('USD'); setAddRunLink('');
-      load();
-    }
-  };
 
   const handleRecordPayment = async (enrollmentId, type) => {
     const { error } = await recordPayment({ enrollmentId, paymentType: type });
@@ -244,7 +335,7 @@ export default function OfferingDetailScreen({ navigation, route }) {
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: t.bg }]}>
+      <View style={[styles.center, { backgroundColor: t.bg, paddingTop: insets.top }]}>
         <ActivityIndicator color={t.accentPurple} />
       </View>
     );
@@ -257,24 +348,49 @@ export default function OfferingDetailScreen({ navigation, route }) {
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: t.surfaceRaised, borderBottomColor: isDark ? t.border : '#E5E7EB' }]}>
+      <View style={[styles.header, { backgroundColor: t.surfaceRaised, borderBottomColor: isDark ? t.border : '#E5E7EB', paddingTop: insets.top + 12 }]}>
         <View style={styles.headerTop}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.backBtn}
+          >
+            <ChevronLeft size={24} color={t.textPrimary} strokeWidth={2} />
+          </TouchableOpacity>
           <Text style={[styles.offeringTitle, { color: t.textPrimary, fontFamily: t.fontHeading }]} numberOfLines={2}>
             {offering.title}
           </Text>
-          <TouchableOpacity
-            style={[styles.publishBtn, { backgroundColor: offering.is_public ? `${t.accentGreen}20` : `${t.accentPurple}15` }]}
-            onPress={handleTogglePublish}
-          >
-            {offering.is_public
-              ? <Globe size={14} color={t.accentGreen} strokeWidth={2} />
-              : <EyeOff size={14} color={t.accentPurple} strokeWidth={2} />
-            }
-            <Text style={[styles.publishBtnText, { color: offering.is_public ? t.accentGreen : t.accentPurple, fontFamily: t.fontBodySemibold }]}>
-              {offering.is_public ? 'Public' : 'Draft'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[styles.publishBtn, { backgroundColor: offering.is_public ? `${t.accentGreen}20` : `${t.accentPurple}15` }]}
+              onPress={handleTogglePublish}
+            >
+              {offering.is_public
+                ? <Globe size={14} color={t.accentGreen} strokeWidth={2} />
+                : <EyeOff size={14} color={t.accentPurple} strokeWidth={2} />
+              }
+              <Text style={[styles.publishBtnText, { color: offering.is_public ? t.accentGreen : t.accentPurple, fontFamily: t.fontBodySemibold }]}>
+                {offering.is_public ? 'Public' : 'Draft'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setOfferingMenu(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.moreBtn}
+            >
+              <MoreVertical size={20} color={t.textMuted} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Thumbnail banner */}
+        {offering.thumbnail_url ? (
+          <Image
+            source={{ uri: offering.thumbnail_url }}
+            style={styles.thumbnailBanner}
+            resizeMode="cover"
+          />
+        ) : null}
 
         {/* Tab toggle */}
         <View style={styles.tabRow}>
@@ -333,9 +449,17 @@ export default function OfferingDetailScreen({ navigation, route }) {
                   <Text style={[styles.runDates, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>
                     {run.start_date} → {run.end_date}
                   </Text>
-                  <Text style={[styles.runPrice, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
-                    {formatPrice(run.price_amount, run.price_currency)}
-                  </Text>
+                  <View style={styles.runCardRight}>
+                    <Text style={[styles.runPrice, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
+                      {formatPrice(run.price_amount, run.price_currency)}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setRunMenu(run)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <MoreVertical size={18} color={t.textMuted} strokeWidth={2} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 <Text style={[styles.runSchedule, { color: t.textMuted, fontFamily: t.fontBody }]}>
                   {run.session_schedule}
@@ -354,7 +478,7 @@ export default function OfferingDetailScreen({ navigation, route }) {
 
           <TouchableOpacity
             style={[styles.addRunBtn, { borderColor: t.accentPurple }]}
-            onPress={() => setAddRunModal(true)}
+            onPress={() => navigation.navigate('RunForm', { mode: 'add', offeringId })}
           >
             <PlusCircle size={16} color={t.accentPurple} strokeWidth={2} />
             <Text style={[styles.addRunText, { color: t.accentPurple, fontFamily: t.fontBodySemibold }]}>
@@ -524,60 +648,56 @@ export default function OfferingDetailScreen({ navigation, route }) {
         </View>
       )}
 
-      {/* Add Run Modal */}
-      <Modal visible={addRunModal} transparent animationType="slide" onRequestClose={() => setAddRunModal(false)}>
-        <View style={styles.modalOverlay}>
-          <ScrollView style={[styles.modalSheet, { backgroundColor: t.surfaceRaised }]} keyboardShouldPersistTaps="handled">
-            <Text style={[styles.modalTitle, { color: t.textPrimary, fontFamily: t.fontHeading }]}>Add a new run</Text>
-            {[
-              { label: 'Start date *', value: addRunStart, setter: setAddRunStart, placeholder: 'YYYY-MM-DD', kbd: 'numbers-and-punctuation' },
-              { label: 'End date *',   value: addRunEnd,   setter: setAddRunEnd,   placeholder: 'YYYY-MM-DD', kbd: 'numbers-and-punctuation' },
-              { label: 'Schedule *',   value: addRunSched, setter: setAddRunSched, placeholder: 'e.g. Every Mon & Wed 7–9PM', kbd: 'default' },
-              { label: 'Price',        value: addRunPrice, setter: setAddRunPrice, placeholder: '0',          kbd: 'number-pad' },
-            ].map(({ label, value, setter, placeholder, kbd }) => (
-              <View key={label}>
-                <Text style={[styles.addRunLabel, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>{label}</Text>
-                <TextInput
-                  style={[styles.addRunInput, { color: t.textPrimary, borderColor: isDark ? t.border : '#E5E7EB', backgroundColor: isDark ? t.bg : '#F9FAFB', fontFamily: t.fontBody }]}
-                  value={value}
-                  onChangeText={setter}
-                  placeholder={placeholder}
-                  placeholderTextColor={t.textMuted}
-                  keyboardType={kbd}
-                />
-              </View>
-            ))}
-            <Text style={[styles.addRunLabel, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Payment link</Text>
-            <TextInput
-              style={[styles.addRunInput, { color: t.textPrimary, borderColor: isDark ? t.border : '#E5E7EB', backgroundColor: isDark ? t.bg : '#F9FAFB', fontFamily: t.fontBody }]}
-              value={addRunLink}
-              onChangeText={setAddRunLink}
-              placeholder="https://..."
-              placeholderTextColor={t.textMuted}
-              keyboardType="url"
-              autoCapitalize="none"
-            />
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, marginBottom: 40 }}>
-              <TouchableOpacity
-                style={[styles.payTypeBtn, { flex: 1, justifyContent: 'center', borderColor: isDark ? t.border : '#E5E7EB' }]}
-                onPress={() => setAddRunModal(false)}
-                disabled={addRunSaving}
-              >
-                <Text style={[styles.payTypeTxt, { color: t.textMuted, fontFamily: t.fontBodySemibold }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.payTypeBtn, { flex: 2, justifyContent: 'center', backgroundColor: t.accentPurple, borderColor: t.accentPurple, opacity: addRunSaving ? 0.7 : 1 }]}
-                onPress={handleAddRun}
-                disabled={addRunSaving}
-              >
-                {addRunSaving
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={[styles.payTypeTxt, { color: '#fff', fontFamily: t.fontBodySemibold }]}>Save Run</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </View>
+      {/* Run action-sheet */}
+      <Modal visible={!!runMenu} transparent animationType="slide" onRequestClose={() => setRunMenu(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setRunMenu(null)}>
+          <View style={[styles.actionSheet, { backgroundColor: t.surfaceRaised }]}>
+            <Text style={[styles.actionSheetTitle, { color: t.textMuted, fontFamily: t.fontBody }]}>
+              {runMenu?.start_date} → {runMenu?.end_date}
+            </Text>
+            <TouchableOpacity style={styles.actionItem} onPress={() => handleRunEdit(runMenu)}>
+              <Pencil size={18} color={t.textPrimary} strokeWidth={2} />
+              <Text style={[styles.actionItemText, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Edit run</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionItem} onPress={() => handleRunCancel(runMenu)}>
+              <Ban size={18} color="#F59E0B" strokeWidth={2} />
+              <Text style={[styles.actionItemText, { color: '#F59E0B', fontFamily: t.fontBodySemibold }]}>Cancel run</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionItem} onPress={() => handleRunDelete(runMenu)}>
+              <Trash2 size={18} color="#EF4444" strokeWidth={2} />
+              <Text style={[styles.actionItemText, { color: '#EF4444', fontFamily: t.fontBodySemibold }]}>Delete run</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionItem, { borderTopWidth: 1, borderTopColor: isDark ? t.border : '#E5E7EB', marginTop: 4 }]} onPress={() => setRunMenu(null)}>
+              <Text style={[styles.actionItemText, { color: t.textMuted, fontFamily: t.fontBody, textAlign: 'center', flex: 1 }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Offering action-sheet */}
+      <Modal visible={offeringMenu} transparent animationType="slide" onRequestClose={() => setOfferingMenu(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setOfferingMenu(false)}>
+          <View style={[styles.actionSheet, { backgroundColor: t.surfaceRaised }]}>
+            <Text style={[styles.actionSheetTitle, { color: t.textMuted, fontFamily: t.fontBody }]} numberOfLines={1}>
+              {offering?.title}
+            </Text>
+            <TouchableOpacity style={styles.actionItem} onPress={handleOfferingEdit}>
+              <Pencil size={18} color={t.textPrimary} strokeWidth={2} />
+              <Text style={[styles.actionItemText, { color: t.textPrimary, fontFamily: t.fontBodySemibold }]}>Edit offering</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionItem} onPress={handleOfferingCancel}>
+              <Ban size={18} color="#F59E0B" strokeWidth={2} />
+              <Text style={[styles.actionItemText, { color: '#F59E0B', fontFamily: t.fontBodySemibold }]}>Cancel offering</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionItem} onPress={handleOfferingDelete}>
+              <Trash2 size={18} color="#EF4444" strokeWidth={2} />
+              <Text style={[styles.actionItemText, { color: '#EF4444', fontFamily: t.fontBodySemibold }]}>Delete offering</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionItem, { borderTopWidth: 1, borderTopColor: isDark ? t.border : '#E5E7EB', marginTop: 4 }]} onPress={() => setOfferingMenu(false)}>
+              <Text style={[styles.actionItemText, { color: t.textMuted, fontFamily: t.fontBody, textAlign: 'center', flex: 1 }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Payment Modal */}
@@ -612,18 +732,23 @@ export default function OfferingDetailScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container:      { flex: 1 },
   center:         { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header:         { padding: 16, borderBottomWidth: 1 },
-  headerTop:      { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
+  header:         { paddingHorizontal: 16, paddingBottom: 0, borderBottomWidth: 1 },
+  thumbnailBanner: { width: '100%', height: undefined, aspectRatio: 16 / 9, borderRadius: 8, marginBottom: 10 },
+  headerTop:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  backBtn:        { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
   offeringTitle:  { fontSize: 18, flex: 1, marginRight: 8 },
+  headerActions:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
   publishBtn:     { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   publishBtnText: { fontSize: 13 },
+  moreBtn:        { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
   tabRow:         { flexDirection: 'row', gap: 0 },
   tab:            { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 16 },
   tabText:        { fontSize: 14 },
   tabContent:     { padding: 16, paddingBottom: 48 },
   runCard:        { borderWidth: 1.5, borderRadius: 12, padding: 14, marginBottom: 10 },
-  runCardHeader:  { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  runDates:       { fontSize: 14 },
+  runCardHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  runCardRight:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  runDates:       { fontSize: 14, flex: 1 },
   runPrice:       { fontSize: 14 },
   runSchedule:    { fontSize: 13, marginBottom: 6 },
   runMeta:        { flexDirection: 'row', gap: 12 },
@@ -657,6 +782,9 @@ const styles = StyleSheet.create({
   attendanceToggleText: { fontSize: 13 },
   attendanceTime: { fontSize: 11, marginTop: 2 },
   cancelModalTxt: { fontSize: 15 },
-  addRunLabel:    { fontSize: 14, marginBottom: 6, marginTop: 14 },
-  addRunInput:    { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
+  // Action sheets
+  actionSheet:      { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 32 },
+  actionSheetTitle: { fontSize: 13, textAlign: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#E5E7EB' },
+  actionItem:       { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, paddingHorizontal: 4 },
+  actionItemText:   { fontSize: 16 },
 });

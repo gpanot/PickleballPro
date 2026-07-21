@@ -66,6 +66,7 @@ import RoutineDetailScreen from './src/screens/RoutineDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CreateCoachProfileScreen from './src/screens/CreateCoachProfileScreen';
 import CropAvatar from './src/components/CropAvatar';
+import CropImage  from './src/components/CropImage';
 import AdminRoute from './src/components/AdminRoute';
 import AppSettingsScreen from './src/screens/AppSettingsScreen';
 import HelpSupportScreen from './src/screens/HelpSupportScreen';
@@ -147,6 +148,11 @@ function AppContent() {
   const [onboardingInitialView, setOnboardingInitialView] = useState(null);
   const [authTimeout, setAuthTimeout] = useState(false);
   const [onboardingFinishGateReady, setOnboardingFinishGateReady] = useState(false);
+  // Incremented whenever a coach profile is created/updated so MainTabNavigator re-checks coach status
+  const [coachStatusRefreshKey, setCoachStatusRefreshKey] = useState(0);
+  const handleCoachStatusRefresh = React.useCallback(() => {
+    setCoachStatusRefreshKey(k => k + 1);
+  }, []);
   // Signals that Profile should be pushed on top of Main once it mounts
   // (used after coach onboarding save and after returning-coach sign-in)
   const pendingNavigateToProfile = React.useRef(false);
@@ -633,7 +639,7 @@ function AppContent() {
             <Stack.Screen name="Main">
               {(props) => {
                 console.log('🎯 Rendering Main screen for authenticated user, initialRouteName:', initialTabRoute);
-                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} trainingInitialView={onboardingInitialView} />;
+                return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} trainingInitialView={onboardingInitialView} coachStatusRefreshKey={coachStatusRefreshKey} />;
               }}
             </Stack.Screen>
             <Stack.Screen 
@@ -677,10 +683,11 @@ function AppContent() {
               options={{ headerShown: false }}
             />
             <Stack.Screen 
-              name="Profile" 
-              component={ProfileScreen}
+              name="Profile"
               options={{ headerShown: false }}
-            />
+            >
+              {(props) => <ProfileScreen {...props} onLogout={handleLogout} onCoachStatusRefresh={handleCoachStatusRefresh} />}
+            </Stack.Screen>
             <Stack.Screen
               name="MyBookings"
               component={MyBookingsScreen}
@@ -704,6 +711,11 @@ function AppContent() {
             <Stack.Screen 
               name="CropAvatar" 
               component={CropAvatar}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="CropImage"
+              component={CropImage}
               options={{ headerShown: false }}
             />
             <Stack.Screen 
@@ -880,7 +892,7 @@ function AppContent() {
                 <Stack.Screen name="Main">
                   {(props) => {
                     console.log('🎯 Rendering Main screen for completed onboarding (non-auth), initialRouteName:', initialTabRoute);
-                    return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} trainingInitialView={onboardingInitialView} />;
+                    return <MainTabNavigator {...props} onLogout={handleLogout} initialRouteName={initialTabRoute} trainingInitialView={onboardingInitialView} coachStatusRefreshKey={coachStatusRefreshKey} />;
                   }}
                 </Stack.Screen>
                 <Stack.Screen name="Auth">
@@ -920,9 +932,10 @@ function AppContent() {
                 />
                 <Stack.Screen 
                   name="Profile"
-                  component={ProfileScreen}
                   options={{ headerShown: false }}
-                />
+                >
+                  {(props) => <ProfileScreen {...props} onLogout={handleLogout} onCoachStatusRefresh={handleCoachStatusRefresh} />}
+                </Stack.Screen>
                 <Stack.Screen 
                   name="Admin" 
                   component={AdminRoute}

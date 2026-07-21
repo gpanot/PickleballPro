@@ -13,8 +13,9 @@ import StudentLogbookScreen from '../screens/coach/StudentLogbookScreen';
 import OfferingsListScreen from '../screens/coach/offerings/OfferingsListScreen';
 import CreateOfferingStep1Screen from '../screens/coach/offerings/CreateOfferingStep1Screen';
 import CreateOfferingStep2Screen from '../screens/coach/offerings/CreateOfferingStep2Screen';
-import CreateOfferingStep3Screen from '../screens/coach/offerings/CreateOfferingStep3Screen';
+import RunFormScreen from '../screens/coach/offerings/RunFormScreen';
 import OfferingDetailScreen from '../screens/coach/offerings/OfferingDetailScreen';
+import EditOfferingScreen from '../screens/coach/offerings/EditOfferingScreen';
 
 const Stack = createStackNavigator();
 
@@ -38,8 +39,9 @@ export default function CoachNavigator() {
       <Stack.Screen name="OfferingsList"         component={OfferingsListScreen}         options={{ title: 'Offerings' }} />
       <Stack.Screen name="CreateOfferingStep1"   component={CreateOfferingStep1Screen}   options={{ title: 'New Offering' }} />
       <Stack.Screen name="CreateOfferingStep2"   component={CreateOfferingStep2Screen}   options={{ title: 'Location & Capacity' }} />
-      <Stack.Screen name="CreateOfferingStep3"   component={CreateOfferingStep3Screen}   options={{ title: 'First Run' }} />
+      <Stack.Screen name="RunForm"               component={RunFormScreen}               options={{ title: 'Run' }} />
       <Stack.Screen name="OfferingDetail"        component={OfferingDetailScreen}        options={{ title: 'Offering Detail' }} />
+      <Stack.Screen name="EditOffering"          component={EditOfferingScreen}          options={{ title: 'Edit Offering' }} />
     </Stack.Navigator>
   );
 }

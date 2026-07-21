@@ -28,24 +28,34 @@ const ALL_NAV_ITEMS = [
 const COACH_NAV_IDS   = ['dashboard', 'content', 'offerings', 'academy', 'assessments'];
 const MANAGER_NAV_IDS = ['dashboard', 'content', 'offerings', 'academy', 'assessments'];
 
-function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole, insets }) {
-  const managerNavItem = { id: 'academy', label: 'My Academy', icon: 'school-outline' };
+const MY_ACADEMY_ITEM = { id: 'academy', label: 'My Academy', icon: 'school-outline' };
 
+function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, user, onExit, onToggleCollapse, isMobile, sessionRole, academyId, insets }) {
   let navItems;
   if (sessionRole === 'manager' || sessionRole === 'coach') {
     const allowedIds = sessionRole === 'manager' ? MANAGER_NAV_IDS : COACH_NAV_IDS;
     const base = ALL_NAV_ITEMS.filter(item => allowedIds.includes(item.id));
     // Insert Academy tab after Content
     const contentIdx = base.findIndex(i => i.id === 'content');
-    navItems = [...base.slice(0, contentIdx + 1), managerNavItem, ...base.slice(contentIdx + 1)];
+    navItems = [...base.slice(0, contentIdx + 1), MY_ACADEMY_ITEM, ...base.slice(contentIdx + 1)];
   } else {
-    navItems = ALL_NAV_ITEMS;
+    // Super admin — inject "My Academy" right after Dashboard when they have an academy
+    if (academyId) {
+      const dashIdx = ALL_NAV_ITEMS.findIndex(i => i.id === 'dashboard');
+      navItems = [
+        ...ALL_NAV_ITEMS.slice(0, dashIdx + 1),
+        MY_ACADEMY_ITEM,
+        ...ALL_NAV_ITEMS.slice(dashIdx + 1),
+      ];
+    } else {
+      navItems = ALL_NAV_ITEMS;
+    }
   }
 
   const topPad = isMobile && insets ? insets.top : 0;
   const bottomPad = isMobile && insets ? insets.bottom : 0;
 
-  return (
+    return (
     <View style={[localStyles.sidebar, isMobile ? localStyles.sidebarMobile : { width: sidebarCollapsed ? 80 : 280 }]}>
       {/* Header — padded for status bar on mobile */}
       <View style={[localStyles.sidebarHeader, topPad > 0 && { paddingTop: topPad + 14 }]}>
@@ -59,6 +69,7 @@ function SidebarContent({ sidebarCollapsed, activeTab, onChangeTab, profile, use
               <Text style={localStyles.logoSubtext}>
                 {sessionRole === 'manager' ? 'Academy Dashboard'
                   : sessionRole === 'coach' ? 'Coach Dashboard'
+                  : academyId ? 'Admin + Academy'
                   : 'Admin Dashboard'}
               </Text>
             </View>
@@ -150,6 +161,7 @@ export default function AdminSidebar({
   mobileDrawerOpen,
   onCloseMobileDrawer,
   sessionRole,
+  academyId,
   isMobile = false,
   styles: _ignored, // parent passes styles but we use local ones now
 }) {
@@ -178,6 +190,7 @@ export default function AdminSidebar({
               onExit={onSignOut}
               onToggleCollapse={onCloseMobileDrawer}
               sessionRole={sessionRole}
+              academyId={academyId}
               isMobile
               insets={insets}
             />
@@ -197,6 +210,7 @@ export default function AdminSidebar({
       onExit={onSignOut}
       onToggleCollapse={onToggleCollapse}
       sessionRole={sessionRole}
+      academyId={academyId}
       isMobile={false}
     />
   );

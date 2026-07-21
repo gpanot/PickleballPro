@@ -12,11 +12,13 @@ import {
   Linking,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle, Clock, ExternalLink } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 
 export default function BookingSuccessScreen({ navigation, route }) {
   const { logbookTheme: t, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     offeringTitle,
     runStartDate,
@@ -44,7 +46,7 @@ export default function BookingSuccessScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: t.bg }]}>
+    <View style={[styles.container, { backgroundColor: t.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Icon */}
       <View style={[styles.iconWrap, { backgroundColor: isWaitlisted ? `${t.accentOrange}15` : `${t.accentGreen}15` }]}>
         {isWaitlisted

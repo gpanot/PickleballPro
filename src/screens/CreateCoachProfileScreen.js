@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  TextInput,
+    TextInput,
   Platform,
   Modal,
   Linking,
   Image,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ChevronDown, ArrowLeft, Check, MapPin, Phone } from 'lucide-react-native';
 import { PlatformMap, PlatformMarker } from '../components/PlatformMap';
 import { useAuth } from '../context/AuthContext';
@@ -58,6 +59,7 @@ export default function CreateCoachProfileScreen({ navigation, fromOnboarding, o
   const [locationLoading, setLocationLoading] = useState(false);
   const [existingCoachProfile, setExistingCoachProfile] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [coachIsVerified, setCoachIsVerified] = useState(false);
   const [detectedCountry, setDetectedCountry] = useState(null);
   const [selectedCountry, setSelectedCountry] = useState(null);
   const [countryDetectionLoading, setCountryDetectionLoading] = useState(false);
@@ -244,6 +246,7 @@ export default function CreateCoachProfileScreen({ navigation, fromOnboarding, o
             console.log('Found existing coach profile:', existingCoach);
             setExistingCoachProfile(existingCoach);
             setIsEditMode(true);
+            setCoachIsVerified(existingCoach.is_verified || false);
             
             // On iOS, infer country from existing phone (if present) to set correct country
             if (Platform.OS === 'ios' && existingCoach.phone) {
@@ -1043,6 +1046,18 @@ export default function CreateCoachProfileScreen({ navigation, fromOnboarding, o
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {isEditMode && !coachIsVerified && (
+            <View style={styles.reviewPendingBanner}>
+              <Ionicons name="shield-checkmark-outline" size={22} color="#D97706" style={{ marginRight: 12, flexShrink: 0, marginTop: 1 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.reviewPendingTitle, { fontFamily: t.fontBodyBold }]}>Profile under review</Text>
+                <Text style={[styles.reviewPendingText, { fontFamily: t.fontBody }]}>
+                  We verify every coach as part of our quality process. Your profile will be visible in the directory once approved — this typically takes up to 48 hours. Feel free to update your details in the meantime.
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.introSection}>
             <Text style={[styles.introTitle, { color: t.textPrimary, fontFamily: t.fontDisplay }]}>Earn More with AcademyPro</Text>
             <Text style={[styles.introDescription, { color: t.textMuted, fontFamily: t.fontBody }]}>
@@ -1464,6 +1479,27 @@ export default function CreateCoachProfileScreen({ navigation, fromOnboarding, o
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  reviewPendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 24,
+  },
+  reviewPendingTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  reviewPendingText: {
+    fontSize: 13,
+    color: '#78350F',
+    lineHeight: 19,
+  },
   saveButton: {
     paddingHorizontal: 18,
     paddingVertical: 9,
