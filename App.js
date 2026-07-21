@@ -189,19 +189,30 @@ function AppContent() {
     }
   }, [authUser?.id, authUser?.email]);
 
-  // Restore gender-based theme when resuming mid-onboarding
+  // Restore gender-based theme only when actually mid-onboarding past gender
+  // selection. After logout, hasSelectedGender is false — do not overwrite the
+  // user's saved light/dark preference with a stale gender from the last session.
   useEffect(() => {
-    if (!isOnboardingHydrated || hasCompletedOnboarding) return;
+    if (!isOnboardingHydrated || hasCompletedOnboarding || !hasSelectedGender) return;
     if (user?.gender) {
       setThemeMode(getThemeModeForGender(user.gender));
     }
-  }, [isOnboardingHydrated, user?.gender, hasCompletedOnboarding, setThemeMode]);
+  }, [isOnboardingHydrated, user?.gender, hasSelectedGender, hasCompletedOnboarding, setThemeMode]);
 
   // Skip OnboardingFinish when the user already has training, has seen it twice, or completed it before.
+  // Coaches never see the player finish/intro screens — mark onboarding done and continue.
   useEffect(() => {
     if (!isOnboardingHydrated) return;
 
     if (!isAuthenticated || hasCompletedOnboarding) {
+      setOnboardingFinishGateReady(true);
+      onboardingFinishGateChecked.current = false;
+      return;
+    }
+
+    if (user?.role === 'coach') {
+      if (!hasCompletedCoachBenefits) completeCoachBenefits();
+      completeOnboarding();
       setOnboardingFinishGateReady(true);
       onboardingFinishGateChecked.current = false;
       return;
@@ -244,6 +255,8 @@ function AppContent() {
     isOnboardingHydrated,
     isAuthenticated,
     hasCompletedOnboarding,
+    hasCompletedCoachBenefits,
+    user?.role,
     authLoading,
     authTimeout,
   ]);
@@ -324,7 +337,11 @@ function AppContent() {
 
   const handleCoachProfileComplete = (source = 'unknown') => {
     console.log('[App] handleCoachProfileComplete', { source });
-    // Flag to push Profile screen once Main mounts
+    // Ensure player finish screens stay skipped after profile save
+    if (!hasCompletedOnboarding) completeOnboarding();
+    // Main opens on Academy so Profile back lands there
+    setInitialTabRoute('Academy');
+    // Flag to push Profile screen once Main mounts (Create Academy CTA)
     pendingNavigateToProfile.current = true;
     completeCoachProfile();
   };
@@ -433,16 +450,15 @@ function AppContent() {
     completeCoachBenefits();
     completeOnboarding();
 
-    // C9a: check if the signed-in user has a coaches row.
-    // authUser is available from AuthContext at this point (auth event already fired).
-    // If a coaches row exists, mark coach profile done and route to Profile.
+    // Returning coach: mark profile done and land on Academy tab (not Profile / player finish).
+    // Do not call completeRoleSelection here — it resets hasCompletedOnboarding.
     try {
       const uid = authUser?.id || user?.id;
       if (uid) {
         const coachAccess = await checkCoachAccess(uid);
         if (coachAccess?.isCoach) {
           completeCoachProfile();
-          pendingNavigateToProfile.current = true;
+          setInitialTabRoute('Academy');
         }
       }
     } catch (e) {
@@ -524,8 +540,8 @@ function AppContent() {
     return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
   }
 
-  // Wait for OnboardingFinish eligibility check (existing training / view cap)
-  if (isAuthenticated && !hasCompletedOnboarding && !onboardingFinishGateReady) {
+  // Wait for OnboardingFinish eligibility check (existing training / view cap) — players only
+  if (isAuthenticated && !hasCompletedOnboarding && user?.role !== 'coach' && !onboardingFinishGateReady) {
     return <View style={{ flex: 1, backgroundColor: warmFriendly.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#6366F1" /></View>;
   }
 
@@ -562,9 +578,10 @@ function AppContent() {
   // ── 4-way routing ──────────────────────────────────────────────────────────
   // Branch 1: Authenticated + onboarding done + not new coach → Main
   // Branch 2: Authenticated + new coach (!hasCompletedCoachProfile) → CreateCoachProfileScreen
-  // Branch 3: Authenticated + player onboarding NOT done → OnboardingFinish (new player)
+  // Branch 3: Authenticated + player onboarding NOT done → OnboardingFinish (new player only)
   // Branch 4: Not authenticated → pre-auth onboarding flow (role-aware)
-  const isNewCoach = isAuthenticated && hasCompletedOnboarding && !hasCompletedCoachProfile && user?.role === 'coach';
+  // New coaches skip player OnboardingFinish — do not require hasCompletedOnboarding here.
+  const isNewCoach = isAuthenticated && !hasCompletedCoachProfile && user?.role === 'coach';
 
   if (isNewCoach) {
     console.log('🏫 Decision: CreateCoachProfile (new coach, post-signup)');
@@ -609,8 +626,8 @@ function AppContent() {
     >
       <StatusBar style="auto" backgroundColor="transparent" translucent />
       <Stack.Navigator screenOptions={rootStackScreenOptions}>
-        {isAuthenticated && hasCompletedOnboarding && isNewCoach ? (
-          // BRANCH 2b: New coach — show CreateCoachProfileScreen before landing on Profile
+        {isNewCoach ? (
+          // BRANCH 2b: New coach — skip player finish; CreateCoachProfile before Profile
           <>
             <Stack.Screen name="CreateCoachProfile" options={{ headerShown: false }}>
               {(props) => (
@@ -622,8 +639,8 @@ function AppContent() {
               )}
             </Stack.Screen>
           </>
-        ) : isAuthenticated && !hasCompletedOnboarding ? (
-          // BRANCH 3: New player — show OnboardingFinish before Main
+        ) : isAuthenticated && !hasCompletedOnboarding && user?.role !== 'coach' ? (
+          // BRANCH 3: New player only — show OnboardingFinish before Main
           <Stack.Screen name="OnboardingFinish">
             {(props) => (
               <OnboardingFinishScreen

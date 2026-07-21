@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Users, Plus } from 'lucide-react-native';
 
 const getPageTitle = (activeTab) => {
   switch (activeTab) {
@@ -11,6 +12,7 @@ const getPageTitle = (activeTab) => {
     case 'academies':   return 'Academies';
     case 'feedback':    return 'User Feedback';
     case 'assessments': return 'Assessments';
+    case 'academy':     return 'My Academy';
     default:            return activeTab.charAt(0).toUpperCase() + activeTab.slice(1);
   }
 };
@@ -27,6 +29,10 @@ export default function AdminTopBar({
   onOpenMobileDrawer,
   isMobile = false,
   styles: parentStyles,
+  // My Academy tab callbacks
+  academyId,
+  onAcademyManageMembers,
+  onAcademyInviteCoach,
 }) {
   const pageTitle = getPageTitle(activeTab);
 
@@ -109,6 +115,25 @@ export default function AdminTopBar({
             {!isMobile && <Text style={parentStyles.primaryButtonText}>New template</Text>}
           </TouchableOpacity>
         )}
+
+        {activeTab === 'academy' && !!academyId && !isMobile && (
+          <>
+            <TouchableOpacity
+              style={localStyles.academyOutlineBtn}
+              onPress={onAcademyManageMembers}
+            >
+              <Users size={14} color="#000000" />
+              <Text style={localStyles.academyOutlineBtnText}>Manage Members</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={localStyles.academyPrimaryBtn}
+              onPress={onAcademyInviteCoach}
+            >
+              <Plus size={14} color="#FFFFFF" />
+              <Text style={localStyles.academyPrimaryBtnText}>Invite a Coach</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -128,5 +153,37 @@ const localStyles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     justifyContent: 'flex-end',
+  },
+  academyOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+  },
+  academyOutlineBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#000000',
+  },
+  academyPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+  },
+  academyPrimaryBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

@@ -479,7 +479,23 @@ export const UserProvider = ({ children }) => {
     setHasCompletedOnboarding(false);
     setHasCompletedCoachBenefits(false);
     setHasCompletedCoachProfile(false);
-    setUser(prev => ({ ...prev, role: null }));
+    // Clear onboarding profile fields so logout does not leave stale gender
+    // (which would re-apply the male dark theme on the role-selection screen).
+    setUser(prev => ({
+      ...prev,
+      role: null,
+      gender: null,
+      name: null,
+      duprRating: null,
+      ratingType: null,
+      tier: null,
+      goal: null,
+      timeCommitment: null,
+      intensity: null,
+      focus_areas: [],
+      coachPreference: null,
+      personalizedProgram: null,
+    }));
     AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY).catch(() => {});
     resetOnboardingFinishState().catch(() => {});
   };

@@ -23,7 +23,6 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
   const { user: authUser } = useAuth();
   const { theme, isDark, logbookTheme } = useTheme();
   const [isCoach, setIsCoach] = useState(false);
-  const [coachPublished, setCoachPublished] = useState(false);
   const [isManager, setIsManager] = useState(false);
   const [checkingCoach, setCheckingCoach] = useState(true);
   const [programBadge, setProgramBadge] = useState(false);
@@ -70,7 +69,7 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
     }
     
     try {
-      const { isCoach: coachStatus, coachId } = await checkCoachAccess(authUser.id);
+      const { isCoach: coachStatus } = await checkCoachAccess(authUser.id);
       setIsCoach(coachStatus);
 
       // Check academy manager role (C-4 fix: managers always see the Academy tab)
@@ -81,23 +80,9 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         .eq('role', 'manager')
         .maybeSingle();
       setIsManager(!!memberRow);
-
-      // If they're a coach, check if their profile is published (accepting students)
-      if (coachStatus && coachId) {
-        const { data, error } = await supabase
-          .from('coaches')
-          .select('is_accepting_students')
-          .eq('id', coachId)
-          .single();
-        
-        if (!error && data) {
-          setCoachPublished(data.is_accepting_students);
-        }
-      }
     } catch (error) {
       console.error('Error checking coach status:', error);
       setIsCoach(false);
-      setCoachPublished(false);
     } finally {
       setCheckingCoach(false);
     }
@@ -221,10 +206,13 @@ export default function MainTabNavigator({ route, onLogout, initialRouteName = '
         options={{ title: 'Explore' }}
         listeners={{ tabPress: hapticLight }}
       />
-      {((isCoach && coachPublished) || isManager) && (
+      {/* Active coaches and managers always get Academy (dashboard access via is_active).
+          Directory publish (is_accepting_students) no longer hides the tab. */}
+      {(isCoach || isManager) && (
         <Tab.Screen 
           name="Academy" 
           component={CoachNavigator}
+          options={{ title: 'Your Academy' }}
         />
       )}
       {/* Feedback screen hidden for now */}

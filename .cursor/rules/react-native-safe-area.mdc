@@ -1,0 +1,16 @@
+---
+description: HARD RULE — RN screens/modals must use useSafeAreaInsets for status bar and OS nav bar (CTAs must not sit under the system bars)
+alwaysApply: true
+---
+
+# React Native Safe Area (HARD RULE)
+
+When **creating or updating** any React Native screen, full-screen `Modal`, onboarding flow, or bottom sheet in this project:
+
+1. Import `useSafeAreaInsets` from `react-native-safe-area-context`.
+2. **Top** — apply `paddingTop: insets.top` on the root or header (never hard-code status-bar height).
+3. **Bottom CTAs / sticky footers** — apply `paddingBottom: Math.max(insets.bottom, 40)` inline (never `Platform.OS === 'ios' ? 34 : 24`).
+4. Do **not** rely on React Native’s `SafeAreaView` alone inside Modals — apply insets explicitly on chrome that sits at the edges.
+5. Absolute footers: `bottom: 0` on a full-bleed parent; put the bottom inset on the footer itself.
+
+See also the global rule `react-native-safe-area.mdc` for full patterns.

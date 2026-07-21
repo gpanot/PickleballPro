@@ -80,8 +80,9 @@ export function getOnboardingRootBackground(
   user,
   { hasSelectedGender, hasSetRating, hasSetName } = {},
 ) {
-  if (user?.gender !== 'male') return warmFriendly.bg;
-  if (!hasSelectedGender) return ONBOARDING_BG_RAMP[0];
+  // Pre-gender screens (role, sport, intro) and post-logout always use light.
+  // Stale user.gender after logout must not force the male dark ramp.
+  if (!hasSelectedGender || user?.gender !== 'male') return warmFriendly.bg;
   if (!hasSetRating) return ONBOARDING_BG_RAMP[1];
   if (!hasSetName) return ONBOARDING_BG_RAMP[2];
   return ONBOARDING_BG_RAMP[3];

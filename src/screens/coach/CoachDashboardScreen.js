@@ -519,7 +519,7 @@ export default function CoachDashboardScreen({ navigation }) {
         isDark={isDark}
         background="surface"
         bordered
-        title="Academy"
+        title="Your Academy"
         user={userProfile}
         onAvatarPress={() => navigation.getParent()?.navigate('Profile')}
       >

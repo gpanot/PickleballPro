@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Platform,
   Animated,
   Dimensions,
   Share,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Line, G, Text as SvgText } from 'react-native-svg';
 import {
   Layers,
@@ -151,7 +151,12 @@ const gb = StyleSheet.create({
 });
 
 function SetupFooter({ children }) {
-  return <View style={ft.wrap}>{children}</View>;
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[ft.wrap, { paddingBottom: Math.max(insets.bottom, 40) }]}>
+      {children}
+    </View>
+  );
 }
 const ft = StyleSheet.create({
   wrap: {
@@ -161,7 +166,7 @@ const ft = StyleSheet.create({
     right: 0,
     paddingTop: 14,
     paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+    // paddingBottom set inline via useSafeAreaInsets — never hard-code
     backgroundColor: C.white,
     borderTopWidth: 1,
     borderTopColor: C.border,
@@ -235,8 +240,9 @@ const ib = StyleSheet.create({
 });
 
 function IntroBottomBar({ dotsTotal, dotsActive, label, onPress }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={ibb.wrap}>
+    <View style={[ibb.wrap, { paddingBottom: Math.max(insets.bottom, 40) }]}>
       <ProgressDots total={dotsTotal} active={dotsActive} />
       <View style={{ height: 16 }} />
       <IntroButton label={label} onPress={onPress} />
@@ -247,7 +253,7 @@ const ibb = StyleSheet.create({
   wrap: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: Platform.OS === 'ios' ? 16 : 24,
+    // paddingBottom set inline via useSafeAreaInsets — never hard-code
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
     backgroundColor: '#FFFFFF',
@@ -1383,6 +1389,8 @@ export default function AcademyOnboardingFlow({ visible, onCreate, onDismiss }) 
     onDismiss();
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
@@ -1390,7 +1398,8 @@ export default function AcademyOnboardingFlow({ visible, onCreate, onDismiss }) 
       presentationStyle="fullScreen"
       onRequestClose={handleDismiss}
     >
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.white }}>
+      {/* Full-bleed root — apply insets.top here; bottom CTAs handle insets.bottom themselves */}
+      <View style={{ flex: 1, backgroundColor: C.white, paddingTop: insets.top }}>
         {step === 0 && (
           <Step0
             onContinue={() => setStep(1)}
@@ -1455,7 +1464,7 @@ export default function AcademyOnboardingFlow({ visible, onCreate, onDismiss }) 
             onBack={() => setStep(6)}
           />
         )}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
