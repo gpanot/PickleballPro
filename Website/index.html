@@ -3464,6 +3464,46 @@
         outline-offset: 2px;
     }
 
+    /* Download / Final CTA */
+    .final-cta {
+        text-align: center;
+        padding: 92px 0;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+    }
+    .final-cta .wrap {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 0 2rem;
+    }
+    .final-cta h2 {
+        font-size: clamp(28px, 4.4vw, 40px);
+        font-weight: 800;
+        line-height: 1.14;
+        color: #0f172a;
+        margin-bottom: 16px;
+    }
+    .final-cta p {
+        color: #475569;
+        font-size: 15.5px;
+        margin-bottom: 30px;
+    }
+    .store-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .store-badge {
+        display: inline-block;
+        line-height: 0;
+        transition: opacity 0.15s, transform 0.15s;
+    }
+    .store-badge:hover { opacity: 0.92; }
+    .store-badge:active { transform: translateY(1px); }
+    .store-badge img { height: 44px; width: auto; display: block; }
+
     </style>
 </head>
 <body>
@@ -4477,6 +4517,22 @@
                 <p>Top coaches trust AcademyPro to standardize their curriculum and scale their business.</p>
                 <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Book Your Demo</button>
                 <p style="font-size: 0.9rem; margin-top: 1.5rem; opacity: 0.8;">Limited partnerships available. Early access bonus: 3 months free.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="final-cta">
+        <div class="wrap">
+            <h2>Your coaches deserve<br>a system built to scale.</h2>
+            <p>Download AcademyPro and give every coach on your team the tools, structure, and visibility your academy needs to grow.</p>
+            <div class="store-row">
+                <a href="https://apps.apple.com/us/app/picklepro-pickleball-hero/id6753142959" class="store-badge" aria-label="Download on the App Store" target="_blank" rel="noopener noreferrer">
+                    <img src="Assets/Store=App Store, Type=Light, Language=English@4x.png" alt="Download on the App Store" height="44">
+                </a>
+                <a href="https://play.google.com/store/apps/details?id=com.picklepro.mobile" class="store-badge" aria-label="Get it on Google Play" target="_blank" rel="noopener noreferrer">
+                    <img src="Assets/Store=Google Play, Type=Light, Language=English@4x.png" alt="Get it on Google Play" height="44">
+                </a>
             </div>
         </div>
     </section>
