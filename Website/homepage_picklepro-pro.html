@@ -4693,69 +4693,6 @@
             }
         })();
 
-        // Floating "Start Free Trial" button
-        // Shows when user reaches the ROI section, stays visible until end of page
-        (function () {
-            var fba = document.createElement('a');
-            fba.href = 'https://cal.id/guillaume-panot/piklepro-academy';
-            fba.textContent = 'Start Free Trial →';
-            fba.setAttribute('aria-label', 'Start your free trial');
-            fba.style.cssText = [
-                'position:fixed',
-                'bottom:24px',
-                'right:24px',
-                'z-index:900',
-                'background:linear-gradient(135deg,#007AFF 0%,#0056b3 100%)',
-                'color:#fff',
-                'font-weight:700',
-                'font-size:0.9rem',
-                'text-decoration:none',
-                'padding:0.75rem 1.4rem',
-                'border-radius:100px',
-                'box-shadow:0 8px 24px rgba(16,185,129,0.35)',
-                'opacity:0',
-                'transform:translateY(12px)',
-                'transition:opacity 0.3s ease,transform 0.3s ease',
-                'pointer-events:none',
-            ].join(';');
-            document.body.appendChild(fba);
-
-            function showFba() {
-                fba.style.opacity = '1';
-                fba.style.transform = 'translateY(0)';
-                fba.style.pointerEvents = 'auto';
-            }
-            function hideFba() {
-                fba.style.opacity = '0';
-                fba.style.transform = 'translateY(12px)';
-                fba.style.pointerEvents = 'none';
-            }
-
-            // Trigger: show once "Built With Real Coaches" section enters viewport
-            var triggerSection = document.querySelector('.tanner-proof');
-            if (triggerSection) {
-                var showObserver = new IntersectionObserver(function (entries) {
-                    entries.forEach(function (entry) {
-                        if (entry.isIntersecting) {
-                            showFba();
-                            showObserver.disconnect(); // fire once, stay visible
-                        }
-                    });
-                }, { threshold: 0.1 });
-                showObserver.observe(triggerSection);
-            }
-
-            // Hide only when footer comes into view (avoids overlapping footer CTA)
-            var footer = document.querySelector('footer');
-            if (footer) {
-                var footerObserver = new IntersectionObserver(function (entries) {
-                    entries.forEach(function (entry) {
-                        if (entry.isIntersecting) { hideFba(); } else { showFba(); }
-                    });
-                }, { threshold: 0.1 });
-                footerObserver.observe(footer);
-            }
-        })();
     </script>
 
     <script>
