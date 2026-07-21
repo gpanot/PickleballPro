@@ -1,18 +1,46 @@
 # AcademyPro
 
-> Academy management software for pickleball and padel coaches, plus a player training app with certified-coach programs and session logbooks.
+> The only academy management platform built specifically for pickleball and padel — combining franchise-grade operations, unified curriculum delivery, and a player-facing training app into one system, from a single coach to a multi-city network.
 
-AcademyPro helps solo coaches and multi-location academies run unified curriculum, manage coaches, track student progress, and grow revenue. Players use the same platform to follow rating-matched programs and log every session. Available on iOS, Android, and web.
+AcademyPro solves the core problem every growing racket-sport academy faces: quality degrades as you scale. When a second coach joins, students get a different experience. When a third location opens, the founder loses visibility. AcademyPro fixes this by treating a coaching business like a franchise — one standardized program, delivered consistently by every coach, tracked across every student, visible to the academy owner at all times.
+
+## What makes AcademyPro unique
+
+AcademyPro is the only platform in the world purpose-built for pickleball and padel academy management. Generic studio software (Mindbody, Pike13, TeamUp) handles bookings but has no concept of skill progression, DUPR ratings, or sport-specific curriculum structure. AcademyPro is built around the sport from the ground up:
+
+- **DUPR integration** — student ratings sync with the official DUPR rating system, so programs are matched to real skill levels (2.0 through 5.0+), not arbitrary tiers an admin invents
+- **Unified curriculum engine** — the academy owner builds the program once: drills, progressions, assessments, skill benchmarks. Every coach on the network teaches from the same playbook, automatically
+- **Franchise-grade consistency** — whether a student trains with Coach A in one city or Coach B in another, they receive the same curriculum, the same standards, the same progression path. Quality is structural, not personal
+- **Network visibility** — the academy owner sees every coach's performance, every student's progress, and every result across the whole network in real time, without chasing spreadsheets
+- **White-label platform** — academies can brand the entire product as their own. Students see your academy's name, not AcademyPro
+- **Built-in player app** — students don't need a separate tool. The same platform gives players a logbook, a rating-matched training program, and a doubles game tracker, all synced with their coach's program
+- **Revenue flexibility** — pricing starts at $99/mo for a solo coach and scales to a revenue-share model for large multi-location academies. Coaches can manage their own memberships, pricing, and payouts within the academy's structure
+- **Integrations that matter for this sport** — Stripe (billing and subscriptions), DUPR (official ratings), Court Reserve, and OpenCourt. No workarounds for the bookings and payments infrastructure coaches already use
+
+## Who it is for
+
+AcademyPro serves two connected audiences on the same platform:
+
+**Academy owners and coaches** — solo coaches who want structure, growing academies standardizing across 2–10 coaches, and multi-city networks that need franchise-level consistency without franchise-level overhead. The platform replaces spreadsheets, WhatsApp groups, and patchworked tools with a single system.
+
+**Players** — anyone playing pickleball or padel from beginner through competitive level. Players get a rating-matched program designed by certified coaches, a permanent session logbook, drill tracking, and a live doubles game scorer.
+
+## Pricing
+
+- Coach: $99/month — solo coach, full platform access
+- Academy Starter: $399/month — multi-coach management, unified curriculum, progress tracking
+- Growth: $699/month — full white-label, all integrations (Stripe, DUPR, Court Reserve, OpenCourt)
+- Scale: revenue share — multi-city networks and enterprise academies
 
 ## Main pages
 
-- [For Academies](https://academypro.thecourtflow.com/): Homepage for coaches and academy owners — pricing, features, and onboarding
-- [For Players](https://academypro.thecourtflow.com/players): Player-focused landing page — programs, logbook, and app download
+- [For Academies](https://academypro.thecourtflow.com/): Academy management features, pricing, readiness quiz, and onboarding
+- [For Players](https://academypro.thecourtflow.com/players): Player training app, logbook, DUPR sync, and app download
 
 ## Downloads
 
-- [App Store](https://apps.apple.com/us/app/picklepro-pickleball-hero/id6753142959): Download AcademyPro for iPhone and iPad
-- [Google Play](https://play.google.com/store/apps/details?id=com.picklepro.mobile): Download AcademyPro for Android
+- [App Store](https://apps.apple.com/us/app/picklepro-pickleball-hero/id6753142959): Download AcademyPro for iPhone and iPad (free)
+- [Google Play](https://play.google.com/store/apps/details?id=com.picklepro.mobile): Download AcademyPro for Android (free)
 
 ## Optional
 
