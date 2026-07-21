@@ -3,7 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AcademyPro - Scale Your Coaching Academy</title>
+    <title>AcademyPro | Academy Management Software for Pickleball &amp; Padel Coaches</title>
+    <meta name="description" content="Run your pickleball or padel academy like a franchise. Unified curriculum, coach management, and revenue tools — from $99/mo to revenue share.">
+    <link rel="canonical" href="https://academypro.thecourtflow.com/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://academypro.thecourtflow.com/">
+    <meta property="og:title" content="AcademyPro | Academy Management Software for Pickleball &amp; Padel Coaches">
+    <meta property="og:description" content="Run your pickleball or padel academy like a franchise. Unified curriculum, coach management, and revenue tools — from $99/mo to revenue share.">
+    <meta property="og:image" content="https://academypro.thecourtflow.com/Assets/tanner_academy.png">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AcademyPro | Academy Management Software for Pickleball &amp; Padel Coaches">
+    <meta name="twitter:description" content="Run your pickleball or padel academy like a franchise. Unified curriculum, coach management, and revenue tools — from $99/mo to revenue share.">
+    <meta name="twitter:image" content="https://academypro.thecourtflow.com/Assets/tanner_academy.png">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AcademyPro",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "iOS, Android, Web",
+      "url": "https://academypro.thecourtflow.com/",
+      "description": "Academy management platform for pickleball and padel coaches. Unified curriculum delivery, coach network management, student progress tracking, and franchise-style revenue sharing — from solo coach to multi-location academy.",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Coach",
+          "price": "99",
+          "priceCurrency": "USD",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Academy Starter",
+          "price": "399",
+          "priceCurrency": "USD",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Growth",
+          "price": "699",
+          "priceCurrency": "USD",
+          "priceSpecification": { "@type": "UnitPriceSpecification", "billingDuration": "P1M" }
+        },
+        {
+          "@type": "Offer",
+          "name": "Scale",
+          "description": "Revenue share model for large multi-location academies"
+        }
+      ]
+    }
+    </script>
+
     <link rel="stylesheet" href="site-nav.css">
     <style>
         * {
@@ -2051,6 +2108,9 @@
             padding: 2.5rem;
             position: relative;
             transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         .pricing-card:hover {
@@ -2121,6 +2181,7 @@
             margin-bottom: 2rem;
             font-size: 0.9rem;
             color: #475569;
+            flex: 1;
         }
 
         .pricing-features li {
@@ -2139,6 +2200,10 @@
 
         .pricing-card .cta-button {
             width: 100%;
+        }
+
+        .pricing-card-actions {
+            margin-top: auto;
         }
 
         .pricing-note {
@@ -3464,6 +3529,46 @@
         outline-offset: 2px;
     }
 
+    /* Download / Final CTA */
+    .final-cta {
+        text-align: center;
+        padding: 92px 0;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+    }
+    .final-cta .wrap {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 0 2rem;
+    }
+    .final-cta h2 {
+        font-size: clamp(28px, 4.4vw, 40px);
+        font-weight: 800;
+        line-height: 1.14;
+        color: #0f172a;
+        margin-bottom: 16px;
+    }
+    .final-cta p {
+        color: #475569;
+        font-size: 15.5px;
+        margin-bottom: 30px;
+    }
+    .store-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .store-badge {
+        display: inline-block;
+        line-height: 0;
+        transition: opacity 0.15s, transform 0.15s;
+    }
+    .store-badge:hover { opacity: 0.92; }
+    .store-badge:active { transform: translateY(1px); }
+    .store-badge img { height: 44px; width: auto; display: block; }
+
     </style>
 </head>
 <body>
@@ -3480,7 +3585,7 @@
             
             <button class="cta-button" onclick="openReadinessQuiz()">Check My Readiness Score</button>
             <p class="hero-subtext">Free 90-second assessment. No signup required.</p>
-            <p class="hero-skip-link">Already sure you need this? <a href="https://cal.id/guillaume-panot/piklepro-academy">Book a call directly &rarr;</a></p>
+            <p class="hero-skip-link">Already sure you need this? <a href="#" onclick="openDownloadModal(); return false;">Start Now &rarr;</a></p>
 
             <div class="dashboard-mock">
                 <div class="dashboard-header">
@@ -3686,7 +3791,7 @@
                 </div>
                 <div class="tanner-right">
                     <div class="tanner-image-placeholder">
-                        <img src="Assets/tanner_academy.png" loading="lazy" alt="Tanner Academy Live Interface" />
+                        <img src="Assets/tanner_academy.png" loading="eager" fetchpriority="high" alt="Tanner Academy Live Interface" />
                     </div>
                 </div>
             </div>
@@ -4308,8 +4413,10 @@
                         <li>Student progress tracking</li>
                         <li>Listing in coach marketplace</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $99/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
+                        <p class="button-note">30 days. Then $99/mo or cancel.</p>
+                    </div>
                 </div>
 
                 <div class="pricing-card featured">
@@ -4328,8 +4435,10 @@
                         <li>Dedicated onboarding</li>
                         <li>Email support</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
+                        <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                    </div>
                 </div>
 
                 <div class="pricing-card">
@@ -4345,8 +4454,10 @@
                         <li>Dedicated onboarding</li>
                         <li>Priority support (email & chat)</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
+                        <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                    </div>
                 </div>
 
                 <div class="pricing-card">
@@ -4362,8 +4473,10 @@
                         <li>Dedicated account manager</li>
                         <li>Priority phone & chat support</li>
                     </ul>
-                    <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                    <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                    <div class="pricing-card-actions">
+                        <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
+                        <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                    </div>
                 </div>
             </div>
 
@@ -4475,8 +4588,24 @@
             <div class="cta-final" id="contact">
                 <h2>Ready to Scale?</h2>
                 <p>Top coaches trust AcademyPro to standardize their curriculum and scale their business.</p>
-                <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Book Your Demo</button>
+                <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
                 <p style="font-size: 0.9rem; margin-top: 1.5rem; opacity: 0.8;">Limited partnerships available. Early access bonus: 3 months free.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="final-cta">
+        <div class="wrap">
+            <h2>Your coaches deserve<br>a system built to scale.</h2>
+            <p>Download AcademyPro and give every coach on your team the tools, structure, and visibility your academy needs to grow.</p>
+            <div class="store-row">
+                <a href="https://apps.apple.com/us/app/picklepro-pickleball-hero/id6753142959" class="store-badge" aria-label="Download on the App Store" target="_blank" rel="noopener noreferrer">
+                    <img src="Assets/Store=App Store, Type=Light, Language=English@4x.png" alt="Download on the App Store" height="44">
+                </a>
+                <a href="https://play.google.com/store/apps/details?id=com.picklepro.mobile" class="store-badge" aria-label="Get it on Google Play" target="_blank" rel="noopener noreferrer">
+                    <img src="Assets/Store=Google Play, Type=Light, Language=English@4x.png" alt="Get it on Google Play" height="44">
+                </a>
             </div>
         </div>
     </section>
