@@ -4853,7 +4853,7 @@
         const section = document.getElementById('quizSection');
         rqBuildQuestions();
         section.style.display = 'block';
-        // smooth scroll into view
+        rqStartQuiz();
         setTimeout(() => {
             section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
