@@ -2845,6 +2845,60 @@
         padding: 1rem 0 2rem;
     }
 
+    /* Full-viewport overlay when opened from hero CTA — no page scroll */
+    .rq-section.rq-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        margin: 0;
+        padding: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background: linear-gradient(135deg, #E8F5FF 0%, #ffffff 70%);
+    }
+
+    body.rq-quiz-open {
+        overflow: hidden;
+    }
+
+    .rq-quiz-close {
+        display: none;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.4rem;
+        margin: 0;
+        color: #64748b;
+        line-height: 1;
+        border-radius: 8px;
+    }
+
+    .rq-section.rq-overlay .rq-quiz-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .rq-quiz-close:hover {
+        color: #0f172a;
+        background: rgba(15, 23, 42, 0.06);
+    }
+
+    .rq-section.rq-overlay .rq-quiz-shell {
+        min-height: 100%;
+        padding-top: 1.5rem;
+        padding-bottom: max(2rem, env(safe-area-inset-bottom));
+    }
+
+    .rq-section.rq-overlay .rq-quiz-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: linear-gradient(180deg, #E8F5FF 70%, rgba(232, 245, 255, 0));
+        padding-bottom: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
     .rq-quiz-shell, .rq-quiz-shell * {
         box-sizing: border-box;
     }
@@ -4095,7 +4149,12 @@
 
     <div class="rq-quiz-topbar">
         <div class="rq-quiz-logo">Academy<span>Pro</span></div>
-        <div class="rq-quiz-step-counter" id="rqStepCounter">Readiness Score</div>
+        <div style="display:flex;align-items:center;gap:0.75rem;">
+            <div class="rq-quiz-step-counter" id="rqStepCounter">Readiness Score</div>
+            <button type="button" class="rq-quiz-close" onclick="rqCloseQuiz()" aria-label="Close questionnaire">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
     </div>
 
     <div class="rq-progress-track" id="rqProgressTrack" style="display:none;">
@@ -4852,12 +4911,23 @@
     function openReadinessQuiz() {
         const section = document.getElementById('quizSection');
         rqBuildQuestions();
-        section.style.display = 'block';
+        section.classList.add('rq-overlay');
+        document.body.classList.add('rq-quiz-open');
         rqStartQuiz();
-        setTimeout(() => {
-            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 50);
     }
+
+    function rqCloseQuiz() {
+        const section = document.getElementById('quizSection');
+        section.classList.remove('rq-overlay');
+        document.body.classList.remove('rq-quiz-open');
+        rqRestartQuiz(true);
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('rq-quiz-open')) {
+            rqCloseQuiz();
+        }
+    });
 
     // ---------- NAVIGATION ----------
     function rqShowScreen(name) {
@@ -4937,7 +5007,7 @@
         }
     }
 
-    function rqRestartQuiz() {
+    function rqRestartQuiz(skipScroll) {
         rqCurrentIndex = -1;
         Object.keys(rqAnswers).forEach(k => delete rqAnswers[k]);
         rqTotalScore = 0;
@@ -4946,7 +5016,7 @@
         document.getElementById('rqProgressTrack').style.display = 'none';
         document.getElementById('rqStepCounter').textContent = 'Readiness Score';
         rqShowScreen('intro');
-        document.getElementById('quizSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Never scroll the page — overlay mode stays put; in-page retake stays put too
     }
 
     // ---------- SCORING ----------
