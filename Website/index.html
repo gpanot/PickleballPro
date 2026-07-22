@@ -207,6 +207,56 @@
             text-decoration: underline;
         }
 
+        /* Hero Carousel */
+        .hero-carousel {
+            position: relative;
+            min-height: 15rem; /* prevents layout jump between slides */
+        }
+
+        .hero-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .hero-slide.active {
+            position: relative;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .hero-dots {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 2rem;
+        }
+
+        .hero-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid #94a3b8;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .hero-dot.active {
+            background: #007AFF;
+            border-color: #007AFF;
+            transform: scale(1.25);
+        }
+
+        .hero-dot:hover:not(.active) {
+            border-color: #007AFF;
+        }
+
         .hero {
             text-align: center;
         }
@@ -3580,8 +3630,26 @@
     <section class="hero">
         <div class="hero-content">
             <div style="height: 3.2rem;"></div>
-            <h1>You Built the Brand.<br>Now Build the Network.</h1>
-            <p>Standardize your curriculum across coaches and cities — for <strong>Pickleball</strong> and <strong>Padel</strong> — so growth doesn't dilute what made you successful.</p>
+            <!-- Hero Carousel -->
+            <div class="hero-carousel" id="heroCarousel" aria-live="polite">
+                <div class="hero-slide active" data-index="0">
+                    <h1>You Built the Brand.<br>Now Build your Academy.</h1>
+                    <p>Deploy your curriculum across affiliated coaches in new cities, for <strong>Pickleball</strong> and <strong>Padel</strong>, without losing what made you great.</p>
+                </div>
+                <div class="hero-slide" data-index="1">
+                    <h1>A Coach in Miami Runs Your Program.<br>You Earn from Day One.</h1>
+                    <p>Affiliated coaches pay you a monthly royalty to run your programs under your brand.</p>
+                </div>
+                <div class="hero-slide" data-index="2">
+                    <h1>One Program. Ten Coaches.<br>Ten Revenue Streams.</h1>
+                    <p>Stop capping your income at the hours you can coach in a week.</p>
+                </div>
+            </div>
+            <div class="hero-dots" id="heroDots" role="tablist" aria-label="Slide indicators">
+                <button class="hero-dot active" data-slide="0" role="tab" aria-selected="true" aria-label="Slide 1"></button>
+                <button class="hero-dot" data-slide="1" role="tab" aria-selected="false" aria-label="Slide 2"></button>
+                <button class="hero-dot" data-slide="2" role="tab" aria-selected="false" aria-label="Slide 3"></button>
+            </div>
             
             <button class="cta-button" onclick="openReadinessQuiz()">Check My Readiness Score</button>
             <p class="hero-subtext">Free 90-second assessment. No signup required.</p>
@@ -5302,6 +5370,62 @@
     document.addEventListener('DOMContentLoaded', function() {
         rqBuildQuestions();
     });
+
+    // ── Hero Carousel ────────────────────────────────────────────────────────
+    (function() {
+        var slides = document.querySelectorAll('.hero-slide');
+        var dots   = document.querySelectorAll('.hero-dot');
+        var carousel = document.getElementById('heroCarousel');
+        var current = 0;
+        var total   = slides.length;
+        var timer   = null;
+        var INTERVAL = 5000;
+
+        function goTo(index) {
+            // Deactivate current
+            slides[current].classList.remove('active');
+            dots[current].classList.remove('active');
+            dots[current].setAttribute('aria-selected', 'false');
+
+            current = (index + total) % total;
+
+            // Activate next
+            slides[current].classList.add('active');
+            dots[current].classList.add('active');
+            dots[current].setAttribute('aria-selected', 'true');
+        }
+
+        function startTimer() {
+            timer = setInterval(function() {
+                goTo(current + 1);
+            }, INTERVAL);
+        }
+
+        function stopTimer() {
+            clearInterval(timer);
+            timer = null;
+        }
+
+        // Dot click — jump to slide and reset timer
+        dots.forEach(function(dot) {
+            dot.addEventListener('click', function() {
+                var idx = parseInt(dot.getAttribute('data-slide'), 10);
+                stopTimer();
+                goTo(idx);
+                startTimer();
+            });
+        });
+
+        // Pause on hover, resume on leave
+        carousel.addEventListener('mouseenter', stopTimer);
+        carousel.addEventListener('mouseleave', function() {
+            if (!timer) startTimer();
+        });
+
+        // Boot
+        startTimer();
+    })();
+    // ────────────────────────────────────────────────────────────────────────
 
     </script>
 </body>
