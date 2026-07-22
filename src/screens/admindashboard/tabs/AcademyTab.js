@@ -655,71 +655,79 @@ export default function AcademyTab({
       {/* ══ MEMBERS TAB ══ */}
       {myAcademySubTab === 'members' && (
         <View>
-          {/* Add Member + Invite via Link — 2-col grid on web */}
-          <View style={isMobile ? { gap: 16, marginBottom: 24 } : styles.academyMembersGrid}>
-            {/* Add Member card */}
-            <View style={[styles.academyCard, isMobile ? null : styles.academyMembersGridCol]}>
-              <Text style={styles.academyCardTitle}>Add Member</Text>
-              <Text style={styles.academyHintText}>
-                The user must already have an AcademyPro account. Existing members will be rejected.
-              </Text>
-              <View style={{ height: 12 }} />
-              <View style={isMobile ? styles.academyAddMemberColMobile : styles.academyAddMemberRow}>
-                <View style={styles.academyAddEmailWrap}>
-                  <Text style={styles.academyFieldLabel}>Email address</Text>
-                  <TextInput
-                    style={[styles.academyTextInput, addCoachError && styles.academyTextInputError]}
-                    placeholder="coach@example.com"
-                    placeholderTextColor="#9CA3AF"
-                    value={addCoachEmail}
-                    onChangeText={v => { setAddCoachEmail(v); setAddCoachError(''); setAddCoachSuccess(''); }}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
+          {/* Add a Coach — 2-step inline flow */}
+          <View ref={inviteCardRef} style={[styles.academyCard, { marginBottom: 24 }]}>
+            <Text style={styles.academyCardTitle}>Add a Coach</Text>
+
+            {/* ── Step 1 (inline) ── */}
+            <View style={[styles.addCoachStepRow, { marginTop: 16 }]}>
+              <View style={styles.addCoachStepBadge}>
+                <Text style={styles.addCoachStepBadgeText}>1</Text>
+              </View>
+              <Text style={styles.addCoachStepTitle}>Invite to Register</Text>
+              <View style={styles.addCoachStepAction}>
+                <View style={[styles.academyInviteLinkPreview, { flex: 1, marginBottom: 0 }]}>
+                  <Text style={styles.academyInviteLinkUrl} selectable numberOfLines={1}>{INVITE_URL}</Text>
                 </View>
-                <TouchableOpacity style={[styles.academyPrimaryBtn, styles.academyAddBtn]} onPress={handleAddCoachToAcademy} disabled={addCoachLoading}>
+                <TouchableOpacity
+                  style={[styles.academyOutlineBtn, copyConfirmed && { borderColor: '#10B981', backgroundColor: '#F0FDF4' }]}
+                  onPress={handleShareInvite}
+                >
+                  <Share2 size={14} color={copyConfirmed ? '#10B981' : '#374151'} />
+                  <Text style={[styles.academyOutlineBtnText, copyConfirmed && { color: '#10B981' }]}>
+                    {copyConfirmed ? 'Copied!' : 'Share'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ── Divider ── */}
+            <View style={styles.addCoachStepDivider}>
+              <View style={styles.addCoachStepDividerLine} />
+              <Text style={styles.addCoachStepDividerLabel}>then</Text>
+              <View style={styles.addCoachStepDividerLine} />
+            </View>
+
+            {/* ── Step 2 (inline) ── */}
+            <View style={styles.addCoachStepRow}>
+              <View style={[styles.addCoachStepBadge, { backgroundColor: '#111827' }]}>
+                <Text style={styles.addCoachStepBadgeText}>2</Text>
+              </View>
+              <Text style={styles.addCoachStepTitle}>Add to Your Academy</Text>
+              <View style={styles.addCoachStepAction}>
+                <TextInput
+                  style={[styles.academyTextInput, { flex: 1, marginBottom: 0 }, addCoachError && styles.academyTextInputError]}
+                  placeholder="coach@example.com"
+                  placeholderTextColor="#9CA3AF"
+                  value={addCoachEmail}
+                  onChangeText={v => { setAddCoachEmail(v); setAddCoachError(''); setAddCoachSuccess(''); }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+                <TouchableOpacity
+                  style={[styles.academyPrimaryBtn, { alignSelf: 'stretch' }]}
+                  onPress={handleAddCoachToAcademy}
+                  disabled={addCoachLoading}
+                >
                   {addCoachLoading
                     ? <ActivityIndicator size="small" color="#FFFFFF" />
                     : <Ionicons name="person-add-outline" size={15} color="#FFFFFF" />}
                   <Text style={styles.academyPrimaryBtnText}>{addCoachLoading ? 'Adding…' : 'Add'}</Text>
                 </TouchableOpacity>
               </View>
-              {addCoachError ? (
-                <View style={styles.academyFeedbackRow}>
-                  <Ionicons name="alert-circle-outline" size={15} color="#EF4444" />
-                  <Text style={styles.academyFeedbackError}>{addCoachError}</Text>
-                </View>
-              ) : null}
-              {addCoachSuccess ? (
-                <View style={styles.academyFeedbackRow}>
-                  <Ionicons name="checkmark-circle-outline" size={15} color="#10B981" />
-                  <Text style={styles.academyFeedbackSuccess}>{addCoachSuccess}</Text>
-                </View>
-              ) : null}
             </View>
-
-            {/* Invite via Link card */}
-            <View
-              ref={inviteCardRef}
-              style={[styles.academyCard, isMobile ? null : styles.academyMembersGridCol]}
-            >
-              <Text style={styles.academyCardTitle}>Invite a Coach</Text>
-              <Text style={styles.academyHintText}>Share the link below so coaches can download the app and join your academy.</Text>
-              <View style={{ height: 12 }} />
-              <View style={styles.academyInviteLinkPreview}>
-                <Text style={styles.academyInviteLinkUrl} selectable>{INVITE_URL}</Text>
+            {addCoachError ? (
+              <View style={[styles.academyFeedbackRow, { marginTop: 8, marginLeft: 42 }]}>
+                <Ionicons name="alert-circle-outline" size={15} color="#EF4444" />
+                <Text style={styles.academyFeedbackError}>{addCoachError}</Text>
               </View>
-              <View style={{ height: 12 }} />
-              <TouchableOpacity
-                style={[styles.academyPrimaryBtn, copyConfirmed && { backgroundColor: '#10B981' }]}
-                onPress={handleShareInvite}
-              >
-                <Share2 size={15} color="#FFFFFF" />
-                <Text style={styles.academyPrimaryBtnText}>
-                  {copyConfirmed ? 'Copied!' : 'Share Link'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            ) : null}
+            {addCoachSuccess ? (
+              <View style={[styles.academyFeedbackRow, { marginTop: 8, marginLeft: 42 }]}>
+                <Ionicons name="checkmark-circle-outline" size={15} color="#10B981" />
+                <Text style={styles.academyFeedbackSuccess}>{addCoachSuccess}</Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Members table */}
