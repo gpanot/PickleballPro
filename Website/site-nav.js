@@ -24,18 +24,107 @@
           '</div>'
         : '';
 
+    var sectionLinksHtml = !isPlayers
+        ? '<ul class="nav-drawer-links">' +
+              '<li><a href="#how" class="nav-drawer-link">How It Works</a></li>' +
+              '<li><a href="#features" class="nav-drawer-link">Features</a></li>' +
+              '<li><a href="#price-structure" class="nav-drawer-link">How You Make Money</a></li>' +
+              '<li><a href="#roi" class="nav-drawer-link">See the Math</a></li>' +
+              '<li><a href="#pricing" class="nav-drawer-link">Pricing</a></li>' +
+              '<li><a href="#quizSection" class="nav-drawer-link">Readiness Quiz</a></li>' +
+          '</ul>' +
+          '<button type="button" class="nav-drawer-cta" onclick="closeNavDrawer(); openDownloadModal();">Start Free</button>'
+        : '<ul class="nav-drawer-links">' +
+              '<li><a href="#download" class="nav-drawer-link">Get the App</a></li>' +
+          '</ul>';
+
     root.innerHTML =
         '<nav class="site-nav" aria-label="Main">' +
-            '<a href="' + academyHref + '" class="logo">AcademyPro</a>' +
+            '<div class="nav-left">' +
+                '<button type="button" class="nav-menu-btn" id="navMenuBtn" aria-label="Open menu" aria-expanded="false" aria-controls="navDrawer">' +
+                    '<span class="nav-menu-icon" aria-hidden="true">' +
+                        '<span></span><span></span><span></span>' +
+                    '</span>' +
+                '</button>' +
+                '<a href="' + academyHref + '" class="logo">AcademyPro</a>' +
+            '</div>' +
             '<ul class="nav-links">' +
                 '<li><a href="' + academyHref + '" class="nav-audience' + (isPlayers ? '' : ' active') + '">For Academies</a></li>' +
                 '<li><a href="' + playersHref + '" class="nav-audience' + (isPlayers ? ' active' : '') + '">For Players</a></li>' +
             '</ul>' +
             '<a href="' + cta.href + '" class="nav-mobile-cta"' + (cta.onclick ? ' onclick="' + cta.onclick + '"' : '') + '>' + cta.label + '</a>' +
         '</nav>' +
+        '<div class="nav-drawer-backdrop" id="navDrawerBackdrop" hidden></div>' +
+        '<div class="nav-drawer" id="navDrawer" role="dialog" aria-modal="true" aria-label="Site menu" hidden>' +
+            '<div class="nav-drawer-header">' +
+                '<div class="nav-drawer-audience">' +
+                    '<a href="' + academyHref + '" class="nav-audience' + (isPlayers ? '' : ' active') + '">For Academies</a>' +
+                    '<a href="' + playersHref + '" class="nav-audience' + (isPlayers ? ' active' : '') + '">For Players</a>' +
+                '</div>' +
+                '<button type="button" class="nav-drawer-close" id="navDrawerClose" aria-label="Close menu">&times;</button>' +
+            '</div>' +
+            sectionLinksHtml +
+        '</div>' +
         bannerHtml;
 
     document.body.classList.add('has-site-nav');
+
+    var menuBtn = document.getElementById('navMenuBtn');
+    var drawer = document.getElementById('navDrawer');
+    var backdrop = document.getElementById('navDrawerBackdrop');
+    var drawerClose = document.getElementById('navDrawerClose');
+
+    function openNavDrawer() {
+        if (!drawer || !backdrop || !menuBtn) return;
+        drawer.hidden = false;
+        backdrop.hidden = false;
+        // Force reflow so transition plays
+        void drawer.offsetWidth;
+        document.body.classList.add('nav-drawer-open');
+        menuBtn.setAttribute('aria-expanded', 'true');
+        menuBtn.setAttribute('aria-label', 'Close menu');
+    }
+
+    function closeNavDrawer() {
+        if (!drawer || !backdrop || !menuBtn) return;
+        document.body.classList.remove('nav-drawer-open');
+        menuBtn.setAttribute('aria-expanded', 'false');
+        menuBtn.setAttribute('aria-label', 'Open menu');
+        window.setTimeout(function () {
+            if (!document.body.classList.contains('nav-drawer-open')) {
+                drawer.hidden = true;
+                backdrop.hidden = true;
+            }
+        }, 220);
+    }
+
+    window.closeNavDrawer = closeNavDrawer;
+
+    if (menuBtn) {
+        menuBtn.addEventListener('click', function () {
+            if (document.body.classList.contains('nav-drawer-open')) {
+                closeNavDrawer();
+            } else {
+                openNavDrawer();
+            }
+        });
+    }
+    if (backdrop) backdrop.addEventListener('click', closeNavDrawer);
+    if (drawerClose) drawerClose.addEventListener('click', closeNavDrawer);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && document.body.classList.contains('nav-drawer-open')) {
+            closeNavDrawer();
+        }
+    });
+
+    if (drawer) {
+        drawer.querySelectorAll('a.nav-drawer-link').forEach(function (link) {
+            link.addEventListener('click', function () {
+                closeNavDrawer();
+            });
+        });
+    }
 
     // If banner is present, push page content down so nothing hides behind it.
     // We measure the banner's actual rendered height so wrapping on narrow screens
@@ -58,7 +147,8 @@
             if (pushStyle) {
                 pushStyle.textContent =
                     'body.has-site-nav { padding-top: ' + total + 'px !important; }' +
-                    '#sport-banner { top: ' + Math.ceil(navH) + 'px !important; }';
+                    '#sport-banner { top: ' + Math.ceil(navH) + 'px !important; }' +
+                    'body.has-site-nav [id] { scroll-margin-top: ' + (total + 12) + 'px; }';
             }
         }
 
