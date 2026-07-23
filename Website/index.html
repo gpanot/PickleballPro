@@ -371,6 +371,8 @@
             padding: 1.5rem;
             border-radius: 8px;
             border-left: 4px solid #007AFF;
+            display: flex;
+            flex-direction: column;
         }
 
         .mock-card-title {
@@ -380,12 +382,15 @@
             margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            /* Reserve height for the tallest 2-line label so numbers align */
+            min-height: 2.6rem;
         }
 
         .mock-card-value {
             font-size: 1.8rem;
             font-weight: 800;
             color: #0f172a;
+            margin-top: auto;
         }
 
         /* Main Sections */
@@ -2736,6 +2741,8 @@
             .mock-card-title {
                 font-size: 0.65rem;
                 margin-bottom: 0.25rem;
+                /* Reserve height for tallest 3-line label on narrow cards */
+                min-height: 3.2rem;
             }
 
             .mock-card-value {
