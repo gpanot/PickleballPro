@@ -14,10 +14,13 @@
         : { href: '#', label: 'Start Now', onclick: 'openDownloadModal();return false;' };
 
     var bannerHtml = !isPlayers
-        ? '<div id="sport-banner" style="position:fixed;top:64px;left:0;width:100%;z-index:999;background:linear-gradient(90deg,#007AFF 0%,#0056cc 100%);color:#fff;text-align:center;padding:0.55rem 1rem;font-size:0.85rem;font-weight:700;letter-spacing:0.01em;box-sizing:border-box;">' +
-              '<span style="background:rgba(255,255,255,0.22);border-radius:100px;padding:0.12rem 0.55rem;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;margin-right:0.55rem;">NEW</span>' +
-              'Start your Academy for <span style="text-decoration:underline;text-underline-offset:3px;">Pickleball</span> or <span style="text-decoration:underline;text-underline-offset:3px;">Padel</span> \u2014 one platform, both sports.\u00a0' +
-              '<a href="#" onclick="openDownloadModal();return false;" style="color:#fff;opacity:0.85;font-weight:600;white-space:nowrap;">Start Now \u2192</a>' +
+        ? '<style>@media(max-width:768px){#sport-banner{justify-content:flex-start!important;text-align:left!important;}}</style>' +
+          '<div id="sport-banner" style="position:fixed;top:64px;left:0;width:100%;z-index:999;background:linear-gradient(90deg,#007AFF 0%,#0056cc 100%);color:#fff;text-align:center;padding:0.55rem 1rem;font-size:0.85rem;font-weight:700;letter-spacing:0.01em;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0.5rem 0.75rem;">' +
+              '<span style="display:flex;align-items:center;gap:0.5rem;flex-shrink:1;min-width:0;">' +
+                '<span style="background:#fff;color:#007AFF;border-radius:100px;padding:0.12rem 0.6rem;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;white-space:nowrap;">NEW</span>' +
+                '<span style="flex-shrink:1;">Earn more. Run your academy. All in one app.</span>' +
+              '</span>' +
+              '<a href="#" onclick="openDownloadModal();return false;" style="display:inline-block;background:#fff;color:#007AFF;border-radius:20px;padding:4px 14px;font-weight:500;font-size:0.85rem;white-space:nowrap;text-decoration:none;flex-shrink:0;line-height:1.4;">Start for FREE \u2192</a>' +
           '</div>'
         : '';
 
@@ -34,11 +37,39 @@
 
     document.body.classList.add('has-site-nav');
 
-    // If banner is present, push page content down so nothing hides behind it
+    // If banner is present, push page content down so nothing hides behind it.
+    // We measure the banner's actual rendered height so wrapping on narrow screens
+    // never leaves a gap between the banner and the hero content.
     if (!isPlayers) {
         var style = document.createElement('style');
+        // Initial estimate — will be corrected by JS after render
+        style.id = 'site-nav-push-style';
         style.textContent = 'body.has-site-nav { padding-top: 106px !important; } @media(max-width:768px){ #sport-banner { top: 52px; } body.has-site-nav { padding-top: 92px !important; } }';
         document.head.appendChild(style);
+
+        function updateNavPush() {
+            var navEl = document.querySelector('.site-nav');
+            var bannerEl = document.getElementById('sport-banner');
+            if (!navEl || !bannerEl) return;
+            var navH = navEl.getBoundingClientRect().height;
+            var bannerH = bannerEl.getBoundingClientRect().height;
+            var total = Math.ceil(navH + bannerH);
+            var pushStyle = document.getElementById('site-nav-push-style');
+            if (pushStyle) {
+                pushStyle.textContent =
+                    'body.has-site-nav { padding-top: ' + total + 'px !important; }' +
+                    '#sport-banner { top: ' + Math.ceil(navH) + 'px !important; }';
+            }
+        }
+
+        // Run after layout is painted
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateNavPush);
+        } else {
+            // rAF ensures the banner has been laid out
+            requestAnimationFrame(updateNavPush);
+        }
+        window.addEventListener('resize', updateNavPush);
     }
 
     if (!isPlayers) {
