@@ -160,6 +160,11 @@
             letter-spacing: -1px;
         }
 
+        /* Slide 1 first line is longer — scale down so it stays on one line */
+        .hero-slide[data-index="1"] h1 {
+            font-size: 2.6rem;
+        }
+
         .hero p {
             font-size: 1.4rem;
             color: #475569;
@@ -205,6 +210,64 @@
 
         .hero-skip-link a:hover {
             text-decoration: underline;
+        }
+
+        /* Hero Carousel */
+        .hero-carousel {
+            position: relative;
+            min-height: 15rem; /* prevents layout jump between slides on desktop */
+        }
+
+        .hero-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+
+        .hero-slide.active {
+            position: relative;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        @media (max-width: 768px) {
+            /* On mobile the h1 wraps to more lines; reserve enough height for the
+               tallest slide so the content below never jumps when slides change. */
+            .hero-carousel {
+                min-height: 22rem;
+            }
+        }
+
+        .hero-dots {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 2rem;
+        }
+
+        .hero-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid #94a3b8;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+            transition: background 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .hero-dot.active {
+            background: #007AFF;
+            border-color: #007AFF;
+            transform: scale(1.25);
+        }
+
+        .hero-dot:hover:not(.active) {
+            border-color: #007AFF;
         }
 
         .hero {
@@ -313,6 +376,8 @@
             padding: 1.5rem;
             border-radius: 8px;
             border-left: 4px solid #007AFF;
+            display: flex;
+            flex-direction: column;
         }
 
         .mock-card-title {
@@ -322,12 +387,15 @@
             margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            /* Reserve height for the tallest 2-line label so numbers align */
+            min-height: 2.6rem;
         }
 
         .mock-card-value {
             font-size: 1.8rem;
             font-weight: 800;
             color: #0f172a;
+            margin-top: auto;
         }
 
         /* Main Sections */
@@ -1417,6 +1485,9 @@
             font-weight: 900;
             color: #0f172a;
             margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .simulator-result-card.savings .simulator-result-value {
@@ -1427,6 +1498,7 @@
             color: #475569;
             font-size: 0.9rem;
             margin: 0;
+            min-height: 2.8em;
         }
 
         @media (max-width: 768px) {
@@ -2085,19 +2157,38 @@
             text-align: center;
             font-size: 1rem;
             color: #64748b;
-            margin-bottom: 3rem;
+            margin-bottom: 1.5rem;
+            cursor: default;
+        }
+
+        .pricing-plans-heading {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2rem;
+            letter-spacing: -0.01em;
+        }
+
+        .pricing-grid-wrapper {
+            overflow-x: auto;
+            margin-bottom: 2rem;
+            /* padding-top lets the absolute "Most Popular" badge overflow the card top */
+            padding-top: 20px;
+            padding-bottom: 8px;
         }
 
         .pricing-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(220px, 1fr));
             gap: 1.5rem;
-            margin-bottom: 2rem;
+            align-items: stretch;
+            min-width: 0;
         }
 
         @media (max-width: 1200px) {
             .pricing-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, minmax(220px, 1fr));
             }
         }
 
@@ -2105,7 +2196,7 @@
             background: white;
             border: 2px solid #e2e8f0;
             border-radius: 16px;
-            padding: 2.5rem;
+            padding: 24px;
             position: relative;
             transition: all 0.3s ease;
             display: flex;
@@ -2119,47 +2210,186 @@
         }
 
         .pricing-card.featured {
-            border-color: #007AFF;
-            background: #E8F5FF;
+            border: 2px solid #007AFF;
+            background: #F8FBFF;
             transform: scale(1.05);
         }
 
         .pricing-badge {
             position: absolute;
-            top: -12px;
+            top: -14px;
             left: 50%;
             transform: translateX(-50%);
             background: #007AFF;
             color: white;
-            padding: 0.4rem 1.2rem;
+            padding: 0.35rem 1.1rem;
             border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.72rem;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* Founding badge sits just below most-popular badge */
+        .pricing-founding-badge {
+            display: block;
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #0056b3;
+            background: #E8F5FF;
+            border: 1px solid #007AFF;
+            border-radius: 6px;
+            padding: 0.3rem 0.7rem;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.3px;
         }
 
         .pricing-card h3 {
             font-size: 1.3rem;
             color: #0f172a;
-            margin: 1rem 0 0.75rem;
+            margin: 0 0 0.75rem;
             font-weight: 700;
         }
 
-        .pricing-from {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        /* Earnings Block */
+        .earnings-block {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .earnings-block-header {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.15rem;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .earnings-summary {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .earnings-amount {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #166534;
+            line-height: 1.2;
+            display: block;
+        }
+
+        .earnings-tagline {
+            font-size: 0.78rem;
+            color: #166534;
+            font-weight: 500;
+            opacity: 0.8;
+            display: block;
+            margin-top: 0.1rem;
+        }
+
+        .earnings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            margin: 0;
-            margin-bottom: -0.5rem;
+            color: #166534;
+            white-space: nowrap;
+            margin-top: 0.35rem;
+        }
+
+        .earnings-toggle svg {
+            transition: transform 0.25s ease;
+            flex-shrink: 0;
+        }
+
+        .earnings-block.open .earnings-toggle svg {
+            transform: rotate(180deg);
+        }
+
+        .earnings-breakdown {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+        }
+
+        .earnings-block.open .earnings-breakdown {
+            max-height: 300px;
+        }
+
+        .earnings-breakdown-inner {
+            padding: 0 1rem 0.85rem;
+            border-top: 1px solid #bbf7d0;
+        }
+
+        .earnings-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: #166534;
+            padding: 0.3rem 0;
+        }
+
+        .earnings-divider {
+            border: none;
+            border-top: 1px solid #bbf7d0;
+            margin: 0.4rem 0;
+        }
+
+        .earnings-total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: #166534;
+            padding: 0.3rem 0;
+            font-weight: 700;
+        }
+
+        .earnings-staff-row {
+            background: #dcfce7;
+            border-radius: 6px;
+            padding: 0.4rem 0.5rem;
+            margin-top: 0.4rem;
+        }
+
+        .earnings-staff-row .earnings-row {
+            padding: 0.15rem 0;
+        }
+
+        .earnings-staff-row .earnings-row span:first-child {
+            font-weight: 600;
+        }
+
+        /* Coach neutral block */
+        .coach-neutral-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .price-block {
+            margin: 0.25rem 0 0.5rem;
         }
 
         .price {
             font-size: 2.5rem;
             font-weight: 900;
             color: #007AFF;
-            margin: 1.5rem 0 0.5rem;
+            margin: 0;
+            line-height: 1.1;
         }
 
         .price span {
@@ -2168,26 +2398,24 @@
             font-weight: 600;
         }
 
-        .pricing-description {
-            font-size: 0.95rem;
-            color: #475569;
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
+        .price.free {
+            color: #0f172a;
         }
 
         .pricing-features {
             list-style: none;
             padding: 0;
-            margin-bottom: 2rem;
-            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
             color: #475569;
             flex: 1;
         }
 
         .pricing-features li {
-            padding: 0.6rem 0;
+            padding: 0.55rem 0;
             padding-left: 1.5rem;
             position: relative;
+            line-height: 1.4;
         }
 
         .pricing-features li:before {
@@ -2196,10 +2424,22 @@
             left: 0;
             color: #007AFF;
             font-weight: bold;
+            font-size: 1rem;
         }
 
         .pricing-card .cta-button {
             width: 100%;
+        }
+
+        .pricing-card .cta-button.ghost {
+            background: transparent;
+            color: #007AFF;
+            border: 2px solid #007AFF;
+        }
+
+        .pricing-card .cta-button.ghost:hover {
+            background: #007AFF;
+            color: white;
         }
 
         .pricing-card-actions {
@@ -2208,9 +2448,19 @@
 
         .pricing-note {
             text-align: center;
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-top: 1rem;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            margin-top: 0.6rem;
+            font-style: italic;
+        }
+
+        .pricing-disclaimer {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            max-width: 680px;
+            margin: 1.5rem auto 0;
+            line-height: 1.6;
         }
 
         /* Guarantee Section */
@@ -2453,7 +2703,8 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .hero h1 {
+            .hero h1,
+            .hero-slide[data-index="1"] h1 {
                 font-size: 2.2rem;
             }
 
@@ -2497,6 +2748,8 @@
             .mock-card-title {
                 font-size: 0.65rem;
                 margin-bottom: 0.25rem;
+                /* Reserve height for tallest 3-line label on narrow cards */
+                min-height: 3.2rem;
             }
 
             .mock-card-value {
@@ -2508,7 +2761,7 @@
             }
 
             .pricing-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(220px, 1fr);
             }
 
             .pricing-card.featured {
@@ -3580,16 +3833,34 @@
     <section class="hero">
         <div class="hero-content">
             <div style="height: 3.2rem;"></div>
-            <h1>You Built the Brand.<br>Now Build the Network.</h1>
-            <p>Standardize your curriculum across coaches and cities — for <strong>Pickleball</strong> and <strong>Padel</strong> — so growth doesn't dilute what made you successful.</p>
+            <!-- Hero Carousel -->
+            <div class="hero-carousel" id="heroCarousel" aria-live="polite">
+                <div class="hero-slide active" data-index="0">
+                    <h1>You Made Your Brand.<br>Now Make Your Academy!</h1>
+                    <p>Share your pickleball and padel lessons with coaches in new cities. Keep what makes you special.</p>
+                </div>
+                <div class="hero-slide" data-index="1">
+                    <h1>A Coach in Miami Teaches Your Class.<br>You Get Paid.</h1>
+                    <p>Coaches pay you every month to use your name and your way of teaching.</p>
+                </div>
+                <div class="hero-slide" data-index="2">
+                    <h1>One Plan. Ten Coaches.<br>Ten Ways to Make Money.</h1>
+                    <p>Stop only making money from the hours YOU teach.</p>
+                </div>
+            </div>
+            <div class="hero-dots" id="heroDots" role="tablist" aria-label="Slide indicators">
+                <button class="hero-dot active" data-slide="0" role="tab" aria-selected="true" aria-label="Slide 1"></button>
+                <button class="hero-dot" data-slide="1" role="tab" aria-selected="false" aria-label="Slide 2"></button>
+                <button class="hero-dot" data-slide="2" role="tab" aria-selected="false" aria-label="Slide 3"></button>
+            </div>
             
-            <button class="cta-button" onclick="openReadinessQuiz()">Check My Readiness Score</button>
-            <p class="hero-subtext">Free 90-second assessment. No signup required.</p>
-            <p class="hero-skip-link">Already sure you need this? <a href="#" onclick="openDownloadModal(); return false;">Start Now &rarr;</a></p>
+            <button class="cta-button" onclick="openReadinessQuiz()">Check If You're Ready</button>
+            <p class="hero-subtext">Free quiz! Takes 90 seconds. No sign-up needed.</p>
+            <p class="hero-skip-link">Sure you want this? <a href="#" onclick="openDownloadModal(); return false;">Start Now &rarr;</a></p>
 
             <div class="dashboard-mock">
                 <div class="dashboard-header">
-                    <h3>Academy Dashboard</h3>
+                    <h3>Your Academy Dashboard</h3>
                     <div class="dashboard-dots">
                         <span></span>
                         <span></span>
@@ -3598,7 +3869,7 @@
                 </div>
                 <div class="dashboard-content">
                     <div class="mock-card">
-                        <div class="mock-card-title">Active Students</div>
+                        <div class="mock-card-title">Students learning</div>
                         <div class="mock-card-value">247</div>
                     </div>
                     <div class="mock-card">
@@ -3606,19 +3877,19 @@
                         <div class="mock-card-value">12</div>
                     </div>
                     <div class="mock-card">
-                        <div class="mock-card-title">Avg Progress</div>
+                        <div class="mock-card-title">How far students got</div>
                         <div class="mock-card-value">89%</div>
                     </div>
                     <div class="mock-card">
-                        <div class="mock-card-title">Coaching Hours This Month</div>
+                        <div class="mock-card-title">Teaching hours this month</div>
                         <div class="mock-card-value">3847</div>
                     </div>
                     <div class="mock-card">
-                        <div class="mock-card-title">Ready to Level Up</div>
+                        <div class="mock-card-title">Students ready to move up</div>
                         <div class="mock-card-value">58</div>
                     </div>
                     <div class="mock-card">
-                        <div class="mock-card-title">Assessments Done</div>
+                        <div class="mock-card-title">Tests done</div>
                         <div class="mock-card-value">412</div>
                     </div>
                 </div>
@@ -3629,19 +3900,19 @@
     <!-- Problems Section -->
     <section class="problems">
         <div class="container">
-            <h2>The Academy Scaling Problem</h2>
+            <h2>The Big Problem for Growing Academies</h2>
             <div class="problems-grid">
                 <div class="problem-card fade-in">
-                    <h3>Inconsistent Teaching</h3>
-                    <p>Multiple coaches = multiple approaches. How do you ensure every student gets the same progression?</p>
+                    <h3>Teachers Teach Different Ways</h3>
+                    <p>Lots of coaches = lots of different styles. How do you make sure every student learns the same stuff?</p>
                 </div>
                 <div class="problem-card fade-in">
-                    <h3>No Progress Visibility</h3>
-                    <p>Spreadsheets don't scale. You can't see who's improving, who's stuck, or when to advance.</p>
+                    <h3>Can't See Who's Getting Better</h3>
+                    <p>Lists on paper don't work when you get big. You can't tell who's doing great and who needs help.</p>
                 </div>
                 <div class="problem-card fade-in">
-                    <h3>Manual Assessments</h3>
-                    <p>Evaluating at 10-hour checkpoints takes time and is scattered across different systems.</p>
+                    <h3>Tests Take Forever</h3>
+                    <p>Checking students every 10 hours is slow and messy.</p>
                 </div>
             </div>
         </div>
@@ -3655,22 +3926,22 @@
                     <img src="Assets/academy_org_structure.jpg" loading="lazy" alt="Academy, Regional Manager, and Coach organizational chart across multiple regions">
                 </div>
                 <div class="org-structure-content">
-                    <span class="feature-badge">One Mission. Many Leaders.</span>
-                    <h2>A Structure Built To Scale</h2>
-                    <p class="org-structure-intro">The Academy Owner sets the direction. Regional Managers bring the strategy to life in their area. Coaches deliver the impact on the ground, every region following the same playbook.</p>
+                    <span class="feature-badge">One Goal. Many Helpers.</span>
+                    <h2>A Plan That Grows With You</h2>
+                    <p class="org-structure-intro">The Academy Owner picks the big idea. Area Leaders make it happen in their town. Coaches teach the students. Every town follows the same rules.</p>
 
                     <div class="org-meaning-grid">
                         <div class="org-meaning-card">
                             <h4>What This Means</h4>
-                            <p>Every level has a clear role, so adding a new city never means losing control of quality or brand.</p>
+                            <p>Adding a new city doesn't mean things get messy or your name gets weaker.</p>
                         </div>
                         <div class="org-meaning-card">
                             <h4>Why It Works</h4>
                             <ul class="org-check-list">
-                                <li>Clear roles and responsibilities</li>
-                                <li>Stronger communication and support</li>
-                                <li>Empowered leaders at every level</li>
-                                <li>Scalable growth across regions</li>
+                                <li>Everyone knows their job</li>
+                                <li>People talk to each other</li>
+                                <li>Leaders help leaders</li>
+                                <li>You can grow and grow</li>
                             </ul>
                         </div>
                     </div>
@@ -3680,21 +3951,21 @@
                             <span class="org-legend-dot owner"></span>
                             <div>
                                 <strong>Academy Owner</strong>
-                                <p>Provides vision, strategy, and national leadership.</p>
+                                <p>Picks the big plan and leads everyone.</p>
                             </div>
                         </div>
                         <div class="org-legend-item">
                             <span class="org-legend-dot manager"></span>
                             <div>
-                                <strong>Regional Manager</strong>
-                                <p>Leads and supports coaches in the region.</p>
+                                <strong>Area Leader</strong>
+                                <p>Helps coaches in their town do a great job.</p>
                             </div>
                         </div>
                         <div class="org-legend-item">
                             <span class="org-legend-dot coach"></span>
                             <div>
                                 <strong>Coach</strong>
-                                <p>Delivers programs, mentors athletes, and drives impact.</p>
+                                <p>Teaches students, helps them get better, and makes a difference.</p>
                             </div>
                         </div>
                     </div>
@@ -3708,22 +3979,22 @@
         <div class="container">
             <div class="org-structure-layout">
                 <div class="org-structure-content">
-                    <span class="feature-badge">Build It Once. Deliver It Everywhere.</span>
-                    <h2>Academy Standard Flow</h2>
-                    <p class="org-structure-intro">A consistent operational loop that keeps every coach aligned and every student progressing, from the program the academy builds once to the results the academy sees across the whole network.</p>
+                    <span class="feature-badge">Build It Once. Use It Everywhere.</span>
+                    <h2>How Your Academy Works</h2>
+                    <p class="org-structure-intro">A simple plan that keeps every coach on track and every student moving forward. You build the plan once. Every coach uses it. Every student gets better.</p>
 
                     <div class="org-meaning-grid">
                         <div class="org-meaning-card">
                             <h4>What This Means</h4>
-                            <p>End to end consistency and visibility. Every coach follows the same program, every student's progress is tracked, and the academy keeps full visibility into results, network-wide.</p>
+                            <p>Everything is the same and easy to see. Every coach follows the same plan. Every student's progress is tracked. You can see how everyone is doing, everywhere.</p>
                         </div>
                         <div class="org-meaning-card">
                             <h4>Why It Works</h4>
                             <ul class="org-check-list">
-                                <li>Same quality everywhere</li>
-                                <li>Real progress data, not guesswork</li>
-                                <li>Easy to spot top performers</li>
-                                <li>Clear upsell path from assessments to advanced training</li>
+                                <li>Same great teaching everywhere</li>
+                                <li>Real facts, not guessing</li>
+                                <li>Easy to spot the best coaches and students</li>
+                                <li>Clear path from tests to harder classes</li>
                             </ul>
                         </div>
                     </div>
@@ -3732,22 +4003,22 @@
                         <div class="org-legend-item">
                             <span class="org-legend-dot owner"></span>
                             <div>
-                                <strong>Program</strong>
-                                <p>Standardized curriculum, drills, and skill benchmarks, set once.</p>
+                                <strong>The Plan</strong>
+                                <p>Same lessons, same games, same skill goals — set up one time.</p>
                             </div>
                         </div>
                         <div class="org-legend-item">
                             <span class="org-legend-dot manager"></span>
                             <div>
-                                <strong>Assessment</strong>
-                                <p>Regular skill assessments and logbook entries track real progress.</p>
+                                <strong>Tests</strong>
+                                <p>Regular check-ups and notes track real progress.</p>
                             </div>
                         </div>
                         <div class="org-legend-item">
                             <span class="org-legend-dot coach"></span>
                             <div>
-                                <strong>Performance dashboard</strong>
-                                <p>Compare coach performance and program results across the network.</p>
+                                <strong>Score Board</strong>
+                                <p>See how coaches and classes are doing across all your towns.</p>
                             </div>
                         </div>
                     </div>
@@ -3764,15 +4035,15 @@
         <div class="container">
             <div class="tanner-content">
                 <div class="tanner-left">
-                    <h2>Built With Real Coaches</h2>
-                    <p class="tanner-subheading">Tanner Tomassi's Academy is live on AcademyPro</p>
-                    <p>Tanner runs one of the fastest-growing pickleball academies in North America. With 62.5K TikTok followers and a published book, Tanner needed to scale his coaching without losing the consistency that made his academy work.</p>
-                    <p><strong>Result:</strong> 40+ students. 3 coaches. One unified curriculum. Zero inconsistency.</p>
+                    <h2>Made With Help From a Real Pro Coach</h2>
+                    <p class="tanner-subheading">Tanner Tomassi knows how to grow academies</p>
+                    <p>Tanner Tomassi is a famous pickleball coach. He has 62,500 TikTok fans, wrote a book, and knows how to keep every coach teaching the same way. AcademyPro was built using his best ideas: keep every coach on the same page, every student moving forward, and no lesson left to chance.</p>
+                    <p><strong>The result:</strong> a tool so academies of any size can teach 40+ students with 3 or more coaches using one plan and zero mix-ups.</p>
                     
                     <div class="tanner-stats">
                         <div class="stat">
                             <div class="stat-number">62.5K</div>
-                            <div class="stat-label">TikTok Followers</div>
+                            <div class="stat-label">TikTok Fans</div>
                         </div>
                         <div class="stat">
                             <div class="stat-number">40+</div>
@@ -3780,12 +4051,12 @@
                         </div>
                         <div class="stat">
                             <div class="stat-number">3</div>
-                            <div class="stat-label">Coaches (Unified)</div>
+                            <div class="stat-label">Coaches (All on the Same Page)</div>
                         </div>
                     </div>
 
                     <blockquote class="tanner-quote">
-                        "AcademyPro let me scale from 1 coach to 3 without losing what makes my academy special. My students get the same progression, same standards, every single session."
+                        "The hardest part of growing an academy isn't finding coaches — it's making them all teach the same way. One plan, same steps, same rules every class. That's what makes academies grow instead of fall apart."
                         <cite>Tanner Tomassi, Pro Coach & Academy Founder</cite>
                     </blockquote>
                 </div>
@@ -3801,7 +4072,7 @@
     <!-- Features Section -->
     <section class="features" id="features">
         <div class="container">
-            <h2>Built for Scaling</h2>
+            <h2>Built to Help You Grow</h2>
             
             <!-- Feature Navigator -->
             <div class="feature-navigator">
@@ -3810,31 +4081,31 @@
                         <div class="nav-icon">
                             <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                         </div>
-                        <span>Unified Curriculum</span>
+                        <span>Same Plan for Everyone</span>
                     </div>
                     <div class="nav-item" data-feature="progress">
                         <div class="nav-icon">
                             <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 17"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
                         </div>
-                        <span>Real-Time Progress</span>
+                        <span>See Progress Right Now</span>
                     </div>
                     <div class="nav-item" data-feature="logbook">
                         <div class="nav-icon">
                             <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         </div>
-                        <span>Student Logbook</span>
+                        <span>Students Track Their Own Progress</span>
                     </div>
                     <div class="nav-item" data-feature="coaching">
                         <div class="nav-icon">
                             <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
                         </div>
-                        <span>Coach Management</span>
+                        <span>Grow Your Coach Team Smoothly</span>
                     </div>
                     <div class="nav-item" data-feature="whitelabel">
                         <div class="nav-icon">
                             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path></svg>
                         </div>
-                        <span>White-Label</span>
+                        <span>Your Name. Your Look.</span>
                     </div>
                 </div>
 
@@ -3843,14 +4114,14 @@
                         <div class="feature-detail-text">
                             <div class="detail-header">
                                 <span class="feature-badge">Solve Inconsistency</span>
-                                <h3>Unified Curriculum</h3>
+                                <h3>Same Plan for Everyone</h3>
                             </div>
-                            <p>Stop juggling different coaching approaches. Import your methodology once. Every coach teaches the same progression. Every student learns consistently.</p>
+                            <p>Stop juggling different ways of teaching. Put your plan in once. Every coach teaches the same steps. Every student learns the same way.</p>
                             <ul class="detail-list">
-                                <li>Standardized progression levels</li>
-                                <li>Reusable exercises and drills</li>
-                                <li>DUPR-rated difficulty tiers</li>
-                                <li>All coaches on the same playbook</li>
+                                <li>Same skill levels for everyone</li>
+                                <li>Same games and drills to reuse</li>
+                                <li>Skill levels that match DUPR ratings</li>
+                                <li>All coaches use the same playbook</li>
                             </ul>
                         </div>
                         <div class="feature-detail-visual-container">
@@ -3866,14 +4137,14 @@
                         <div class="feature-detail-text">
                             <div class="detail-header">
                                 <span class="feature-badge">Real Visibility</span>
-                                <h3>Real-Time Progress</h3>
+                                <h3>See Progress Right Now</h3>
                             </div>
-                            <p>No more guessing. See where every student is, what they've completed, and who's ready to advance. Data-driven decisions at a glance.</p>
+                            <p>No more guessing. See where every student is, what they've finished, and who's ready to move up. Make smart choices in seconds.</p>
                             <ul class="detail-list">
-                                <li>Live student progress dashboard</li>
-                                <li>Automatic completion tracking</li>
-                                <li>Ready-to-advance indicators</li>
-                                <li>Coach-by-coach performance insights</li>
+                                <li>Live score board for all students</li>
+                                <li>Auto tracking of what's done</li>
+                                <li>Flags for who's ready to level up</li>
+                                <li>See how each coach is doing</li>
                             </ul>
                         </div>
                         <div class="feature-detail-visual-container">
@@ -3889,14 +4160,14 @@
                         <div class="feature-detail-text">
                             <div class="detail-header">
                                 <span class="feature-badge">Student Ownership</span>
-                                <h3>Student Logbook</h3>
+                                <h3>Students Track Their Own Progress</h3>
                             </div>
-                            <p>Let students track their own progress. They log sessions, self-evaluate, and watch themselves improve. Especially powerful for building women's confidence.</p>
+                            <p>Let students keep their own score. They write down practice time, check themselves, and watch themselves improve. Super great for building women's confidence!</p>
                             <ul class="detail-list">
-                                <li>Session tracking (duration, focus)</li>
-                                <li>Self-evaluation after every practice</li>
-                                <li>Personal progress statistics</li>
-                                <li>Builds confidence and awareness</li>
+                                <li>Track practice time and focus</li>
+                                <li>Self-check after every practice</li>
+                                <li>Personal stats and scores</li>
+                                <li>Builds confidence and self-awareness</li>
                             </ul>
                         </div>
                         <div class="feature-detail-visual-container">
@@ -3912,14 +4183,14 @@
                         <div class="feature-detail-text">
                             <div class="detail-header">
                                 <span class="feature-badge">Scale Smoothly</span>
-                                <h3>Coach Management</h3>
+                                <h3>Grow Your Coach Team Smoothly</h3>
                             </div>
-                            <p>From 1 coach to 10. Manage assignments, track their performance, and keep everyone aligned. No spreadsheets needed.</p>
+                            <p>From 1 coach to 10. Give out jobs, track how they're doing, and keep everyone on the same page. No more paper lists!</p>
                             <ul class="detail-list">
                                 <li>Assign students to coaches</li>
-                                <li>Track coach metrics</li>
-                                <li>Centralized scheduling</li>
-                                <li>Performance dashboards per coach</li>
+                                <li>Track coach scores</li>
+                                <li>One place for scheduling</li>
+                                <li>Score board for each coach</li>
                             </ul>
                         </div>
                         <div class="feature-detail-visual-container">
@@ -3935,14 +4206,14 @@
                         <div class="feature-detail-text">
                             <div class="detail-header">
                                 <span class="feature-badge">Your Brand</span>
-                                <h3>White-Label Platform</h3>
+                                <h3>Your Name. Your Look.</h3>
                             </div>
-                            <p>Your academy name. Your logo. Your pricing. Your students. We handle the infrastructure so you can focus on coaching.</p>
+                            <p>Your academy name. Your logo. Your prices. Your students. We handle the tech stuff so you can focus on teaching.</p>
                             <ul class="detail-list">
-                                <li>Custom branding and domain</li>
-                                <li>Your app icon and colors</li>
-                                <li>Control your own pricing</li>
-                                <li>Direct student relationships</li>
+                                <li>Your own look and web address</li>
+                                <li>Your own app picture and colors</li>
+                                <li>You pick the prices</li>
+                                <li>Direct connection to your students</li>
                             </ul>
                         </div>
                         <div class="feature-detail-visual-container">
@@ -3961,22 +4232,22 @@
     <!-- How It Works -->
     <section class="how-it-works" id="how">
         <div class="container">
-            <h2>Your Academy, Scaled</h2>
+            <h2>Grow Your Academy in 3 Easy Steps</h2>
             <div class="steps-container">
                 <div class="step-item fade-in">
                     <div class="step-number">1</div>
-                    <h3>Import Your Curriculum</h3>
-                    <p>Bring your coaching methodology into the platform. Structure it by progression levels.</p>
+                    <h3>Bring In Your Plan</h3>
+                    <p>Put your coaching steps into the tool. Organize by skill levels.</p>
                 </div>
                 <div class="step-item fade-in">
                     <div class="step-number">2</div>
                     <h3>Add Your Team</h3>
-                    <p>Invite coaches. They follow your framework. Students get consistent experience.</p>
+                    <p>Invite coaches. They follow your rules. Students get the same great experience.</p>
                 </div>
                 <div class="step-item fade-in">
                     <div class="step-number">3</div>
-                    <h3>Grow With Confidence</h3>
-                    <p>Scale to 5, 10, or 20 coaches. Every student follows the same path forward.</p>
+                    <h3>Grow Without Worry</h3>
+                    <p>Grow to 5, 10, or 20 coaches. Every student follows the same path.</p>
                 </div>
             </div>
         </div>
@@ -3990,22 +4261,22 @@
                     <img src="Assets/price_structure.jpg" loading="lazy" alt="Academy revenue structure: academy sets pricing, managers and coaches earn their share, academy keeps the margin">
                 </div>
                 <div class="org-structure-content">
-                    <span class="feature-badge">One Platform. Recurring Revenue.</span>
-                    <h2>Academy Structure Price Recommendation Flow</h2>
-                    <p class="org-structure-intro">A simple revenue structure that rewards your network without splitting your business. You set the price, your team earns its share, and the academy keeps the margin.</p>
+                    <span class="feature-badge">Make Money Every Month</span>
+                    <h2>Simple Money Plan</h2>
+                    <p class="org-structure-intro">A fair way to pay your team without giving away your business. You pick the price. Your team gets their share. You keep the rest.</p>
 
                     <div class="org-meaning-grid">
                         <div class="org-meaning-card">
                             <h4>What This Means</h4>
-                            <p>You own the revenue model instead of splitting your business. Every payout is automatic and transparent, so growth never means more admin work for you.</p>
+                            <p>You own the money plan. Every payment is automatic and clear. Growing bigger never means more paperwork for you.</p>
                         </div>
                         <div class="org-meaning-card">
                             <h4>Why It Works</h4>
                             <ul class="org-check-list">
-                                <li>Transparent payouts build trust</li>
-                                <li>Revenue grows with your network</li>
-                                <li>No manual invoicing or chasing payments</li>
-                                <li>You scale income without scaling your own hours</li>
+                                <li>Clear payments build trust</li>
+                                <li>Money grows as your team grows</li>
+                                <li>No hand-written bills or chasing people for money</li>
+                                <li>You make more without working more hours</li>
                             </ul>
                         </div>
                     </div>
@@ -4014,22 +4285,22 @@
                         <div class="org-legend-item">
                             <span class="org-legend-dot owner"></span>
                             <div>
-                                <strong>Academy sets pricing</strong>
-                                <p>You decide membership fees, program pricing, and payout structure.</p>
+                                <strong>You Pick the Price</strong>
+                                <p>You choose membership costs, class prices, and who gets paid what.</p>
                             </div>
                         </div>
                         <div class="org-legend-item">
                             <span class="org-legend-dot manager"></span>
                             <div>
-                                <strong>Managers and coaches earn their share</strong>
-                                <p>Automatic, transparent payout splits based on role and region.</p>
+                                <strong>Managers and Coaches Get Their Share</strong>
+                                <p>Automatic, clear payments based on their job and town.</p>
                             </div>
                         </div>
                         <div class="org-legend-item">
                             <span class="org-legend-dot coach"></span>
                             <div>
-                                <strong>Academy keeps the margin</strong>
-                                <p>Revenue scales as you add regions and coaches, without adding your own hours.</p>
+                                <strong>You Keep the Extra</strong>
+                                <p>Money grows as you add towns and coaches, without you working more hours.</p>
                             </div>
                         </div>
                     </div>
@@ -4039,56 +4310,56 @@
     </section>
 
     <!-- ROI & Financial Impact Section -->
-    <section class="roi-section">
+    <section class="roi-section" id="roi">
         <div class="container">
             <h2>The Math: Why AcademyPro Pays for Itself</h2>
-            <p class="roi-intro">You don't need massive growth to break even. Here's what coaches see in practice:</p>
+            <p class="roi-intro">You don't need to get HUGE to make your money back. Here's what coaches see:</p>
 
             <div class="roi-grid">
                 <div class="roi-card fade-in">
-                    <div class="roi-icon">SCALE</div>
-                    <h3>Scale Without Admin Headcount</h3>
+                    <div class="roi-icon">SAVE</div>
+                    <h3>Save on Office Work</h3>
                     <p class="roi-value">$1,500+</p>
-                    <p class="roi-subtext">in monthly admin costs eliminated</p>
+                    <p class="roi-subtext">saved on office helper costs every month</p>
                     <ul class="roi-list">
-                        <li>Start at $99/mo (solo coach)</li>
-                        <li>Academy Starter at $399/mo (2-3 coaches)</li>
-                        <li>Grow to $699/mo (4-10 coaches)</li>
-                        <li>Enterprise at $999/mo (10+ coaches)</li>
+                        <li>Start FREE (1 coach, up to 50 students)</li>
+                        <li>Academy Starter: $259/month (up to 2 coaches)</li>
+                        <li>Growth: $599/month (up to 5 coaches)</li>
+                        <li>Grow Everywhere: $2,999/month (up to 15 coaches)</li>
                     </ul>
                 </div>
 
                 <div class="roi-card fade-in">
-                    <div class="roi-icon">CONSISTENCY</div>
-                    <h3>Ensure Brand Consistency</h3>
-                    <p class="roi-value">+25-30%</p>
-                    <p class="roi-subtext">student retention improvement</p>
+                    <div class="roi-icon">KEEP</div>
+                    <h3>Keep Students Coming Back</h3>
+                    <p class="roi-value">25-30%</p>
+                    <p class="roi-subtext">more students stay in your academy</p>
                     <ul class="roi-list">
-                        <li>All coaches teach the same curriculum</li>
-                        <li>Students don't feel lost switching coaches</li>
-                        <li>Quality doesn't vary by geography</li>
-                        <li>Your brand stays unified</li>
+                        <li>All coaches teach the same plan</li>
+                        <li>Students don't feel lost with a new coach</li>
+                        <li>Quality stays the same in every town</li>
+                        <li>Your name stays strong</li>
                     </ul>
                 </div>
 
                 <div class="roi-card fade-in">
-                    <div class="roi-icon">GROWTH</div>
-                    <h3>Grow Geographically Without Risk</h3>
+                    <div class="roi-icon">GROW</div>
+                    <h3>Grow to New Towns Without Risk</h3>
                     <p class="roi-value">Unlimited</p>
                     <p class="roi-subtext">coaches you can manage</p>
                     <ul class="roi-list">
                         <li>Hire coaches in new cities/states</li>
-                        <li>No training or curriculum inconsistency risk</li>
-                        <li>Maintain quality across your entire network</li>
-                        <li>Same platform handles 3 or 300 coaches</li>
+                        <li>No risk of different teaching styles</li>
+                        <li>Same quality across your whole team</li>
+                        <li>Same tool handles 3 or 300 coaches</li>
                     </ul>
                 </div>
             </div>
 
             <!-- Savings & ROI Simulator -->
             <div class="simulator-section">
-                <h3>See Your Revenue, ROI, and Savings</h3>
-                <p class="example-intro">Drag the sliders to match your academy.</p>
+                <h3>See Your Money, Savings, and Growth</h3>
+                <p class="example-intro">Move the sliders to match your academy.</p>
 
                 <div class="simulator-controls simulator-controls-3">
                     <div class="simulator-control">
@@ -4100,28 +4371,28 @@
                         <input type="range" id="simStudentsPerCoach" min="3" max="50" value="15" oninput="updateSimulator()">
                     </div>
                     <div class="simulator-control">
-                        <label>Rate per hour: <span id="simRateVal">$75</span></label>
+                        <label>Price per hour: <span id="simRateVal">$75</span></label>
                         <input type="range" id="simRate" min="40" max="150" step="5" value="75" oninput="updateSimulator()">
                     </div>
                 </div>
 
-                <p class="simulator-total">Total students: <strong id="simTotalStudents">150</strong> &nbsp;&middot;&nbsp; assumes <select id="simSessions" onchange="updateSimulator()" style="font-size:0.88rem;font-weight:700;color:#007AFF;border:1px solid #93c5fd;border-radius:6px;padding:0.1rem 0.3rem;background:#EFF8FF;cursor:pointer;appearance:none;-webkit-appearance:none;"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select> sessions/student/month</p>
+                <p class="simulator-total">Total students: <strong id="simTotalStudents">150</strong> &nbsp;&middot;&nbsp; assumes <select id="simSessions" onchange="updateSimulator()" style="font-size:0.88rem;font-weight:700;color:#007AFF;border:1px solid #93c5fd;border-radius:6px;padding:0.1rem 0.3rem;background:#EFF8FF;cursor:pointer;appearance:none;-webkit-appearance:none;"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select> classes per student per month</p>
 
                 <div class="simulator-results">
                     <div class="simulator-result-card revenue">
-                        <p class="simulator-result-label">Monthly revenue</p>
+                        <p class="simulator-result-label">Money per month</p>
                         <p class="simulator-result-value" id="simRevenue">$56,250/mo</p>
                     </div>
                     <div class="simulator-result-card">
-                        <p class="simulator-result-label">Admin cost without AcademyPro</p>
+                        <p class="simulator-result-label">Office costs WITHOUT AcademyPro</p>
                         <p class="simulator-result-value" id="simAdminCost">$4,000/mo</p>
                     </div>
                     <div class="simulator-result-card highlight">
-                        <p class="simulator-result-label">AcademyPro platform cost</p>
+                        <p class="simulator-result-label">AcademyPro cost</p>
                         <p class="simulator-result-value" id="simPlatformCost">$699/mo</p>
                     </div>
                     <div class="simulator-result-card savings">
-                        <p class="simulator-result-label">You save</p>
+                        <p class="simulator-result-label">YOU SAVE</p>
                         <p class="simulator-result-value" id="simSavings">$3,301/mo</p>
                     </div>
                 </div>
@@ -4167,13 +4438,13 @@
                 </div>
 
                 <div class="benefits-content">
-                    <h2>Anyone Can Coach.<br><span class="italic-text">Winners Build Systems.</span></h2>
-                    <p class="benefits-subtitle">Turn coaching expertise into a scalable academy. Keep your team aligned. Keep your students progressing. Keep your business growing.</p>
+                    <h2>Anyone Can Teach.<br><span class="italic-text">Winners Build Systems.</span></h2>
+                    <p class="benefits-subtitle">Turn your coaching skills into an academy that grows. Keep your team on the same page. Keep your students moving forward. Keep your business getting bigger.</p>
 
                     <div class="benefits-list">
                         <div class="benefit-item">
                             <div class="benefit-toggle" onclick="toggleBenefit(this)">
-                                <span class="benefit-title">Unified Team Communication</span>
+                                <span class="benefit-title">Team talks in one place</span>
                                 <span class="toggle-icon">+</span>
                             </div>
                             <div class="benefit-content">
@@ -4183,7 +4454,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-toggle" onclick="toggleBenefit(this)">
-                                <span class="benefit-title">Student Progress Visibility</span>
+                                <span class="benefit-title">See how every student is doing</span>
                                 <span class="toggle-icon">+</span>
                             </div>
                             <div class="benefit-content">
@@ -4193,7 +4464,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-toggle" onclick="toggleBenefit(this)">
-                                <span class="benefit-title">Consistent Student Experience</span>
+                                <span class="benefit-title">Same great experience for every student</span>
                                 <span class="toggle-icon">+</span>
                             </div>
                             <div class="benefit-content">
@@ -4203,7 +4474,7 @@
 
                         <div class="benefit-item">
                             <div class="benefit-toggle" onclick="toggleBenefit(this)">
-                                <span class="benefit-title">Data-Driven Decisions</span>
+                                <span class="benefit-title">Smart choices using real facts</span>
                                 <span class="toggle-icon">+</span>
                             </div>
                             <div class="benefit-content">
@@ -4219,32 +4490,32 @@
     <!-- Integrations Section -->
     <section class="integrations-section">
         <div class="container">
-            <h2>Works With Your Stack</h2>
-            <p class="integrations-intro">AcademyPro integrates with the tools you already use</p>
+            <h2>Works With Your Other Tools</h2>
+            <p class="integrations-intro">AcademyPro connects to tools you already use:</p>
             
             <div class="integrations-grid">
                 <div class="integration-card">
                     <div class="integration-icon">STRIPE</div>
                     <h3>Stripe</h3>
-                    <p>Process payments, manage subscriptions, automate billing</p>
+                    <p>Take payments, manage plans, auto-send bills</p>
                 </div>
                 <div class="integration-card">
                     <div class="integration-icon">DUPR</div>
                     <h3>DUPR</h3>
-                    <p>Pull student ratings, track skill progression by official levels</p>
+                    <p>Pull student ratings, track skills by official levels</p>
                 </div>
                 <div class="integration-card">
                     <div class="integration-icon">RESERVE</div>
                     <h3>Court Reserve</h3>
-                    <p>Sync court bookings, manage academy schedules seamlessly</p>
+                    <p>Match court bookings with academy schedules</p>
                 </div>
                 <div class="integration-card">
                     <div class="integration-icon">OPENCOURT</div>
                     <h3>OpenCourt</h3>
-                    <p>Connect with the pickleball &amp; padel community, find matches and events</p>
+                    <p>Connect with the pickleball &amp; padel community, find games and events</p>
                 </div>
             </div>
-            <p class="integrations-note">More integrations coming. Contact us about API access for custom connections.</p>
+            <p class="integrations-note">More tools coming soon! Ask us about custom connections.</p>
         </div>
     </section>
 
@@ -4271,9 +4542,9 @@
         <!-- INTRO SCREEN -->
         <div class="rq-screen rq-active" data-rqscreen="intro">
             <div class="rq-intro">
-                <div class="rq-intro-eyebrow">Free 90-Second Diagnostic</div>
-                <h2 class="rq-intro-h1">What's Your <em>National Academy</em><br>Readiness Score?</h2>
-                <p class="rq-intro-p">Answer 7 quick questions about how your academy runs today. You'll get a personalized score and a breakdown of exactly what's standing between you and expanding past your home city.</p>
+                <div class="rq-intro-eyebrow">Free 90-Second Check-Up</div>
+                <h2 class="rq-intro-h1">How Ready Is Your Academy<br>to Grow?</h2>
+                <p class="rq-intro-p">Answer 7 quick questions about how your academy runs today. Get your own score and see exactly what's stopping you from growing past your home town.</p>
                 <div class="rq-intro-meta">
                     <div class="rq-intro-meta-item"><span class="rq-intro-meta-dot"></span>7 questions</div>
                     <div class="rq-intro-meta-item"><span class="rq-intro-meta-dot"></span>90 seconds</div>
@@ -4335,7 +4606,7 @@
         <div class="container">
             <div class="trial-content">
                 <h3>Start Free for 30 Days</h3>
-                <p>No credit card required. If your coaches aren't aligned by day 30, cancel anytime. Full refund, no questions asked.</p>
+                <p>No credit card needed. If your coaches aren't on the same page in 30 days, cancel anytime. Full refund, no questions asked.</p>
             </div>
         </div>
     </section>
@@ -4343,142 +4614,237 @@
     <!-- Implementation Timeline -->
     <section class="implementation-section">
         <div class="container">
-            <h2>You're Live in 8 Days</h2>
-            <p class="implementation-intro">Get your coaches aligned faster than you think. Here's how:</p>
+            <h2>You're Up and Running in 4 Days</h2>
+            <p class="implementation-intro">Get your coaches on the same page faster than you think!</p>
 
             <div class="timeline-container">
                 <div class="timeline-item">
                     <div class="timeline-number">DAY 1</div>
                     <div class="timeline-content">
                         <h4>Demo & Setup</h4>
-                        <p>30-min call with our team. We set up your academy, add your branding, bring in your first coaches.</p>
+                        <p>30-minute call with our team. We set up your academy, add your look, bring in your first coaches.</p>
                     </div>
                 </div>
 
                 <div class="timeline-arrow">→</div>
 
                 <div class="timeline-item">
-                    <div class="timeline-number">DAYS 2-3</div>
+                    <div class="timeline-number">DAY 2</div>
                     <div class="timeline-content">
-                        <h4>Curriculum Upload</h4>
-                        <p>We guide you through uploading your curriculum. Drills, progressions, assessments — everything gets organized and ready to teach.</p>
+                        <h4>Add Your Plan</h4>
+                        <p>We help you put in your plan. Games, steps, tests — everything gets organized and ready to teach.</p>
                     </div>
                 </div>
 
                 <div class="timeline-arrow">→</div>
 
                 <div class="timeline-item">
-                    <div class="timeline-number">DAYS 4-7</div>
+                    <div class="timeline-number">DAY 3</div>
                     <div class="timeline-content">
-                        <h4>Coach Onboarding</h4>
-                        <p>Your coaches log in, explore the curriculum, ask questions. We answer them. They get comfortable with how to teach it.</p>
+                        <h4>Teach Your Coaches</h4>
+                        <p>Your coaches log in, explore the plan, ask questions. We answer them. They get comfy with how to teach it.</p>
                     </div>
                 </div>
 
                 <div class="timeline-arrow">→</div>
 
                 <div class="timeline-item">
-                    <div class="timeline-number">DAY 8</div>
+                    <div class="timeline-number">DAY 4</div>
                     <div class="timeline-content">
-                        <h4>Live with Students</h4>
-                        <p>First students enroll. All your coaches are teaching from the same playbook. You have visibility into every student, every coach, every lesson.</p>
+                        <h4>Go Live With Students</h4>
+                        <p>First students sign up. All your coaches teach from the same plan. You can see every student, every coach, every lesson.</p>
                     </div>
                 </div>
             </div>
 
-            <p class="timeline-note"><strong>That's it.</strong> You went from "we need a unified system" to "all our coaches are aligned" in one week.</p>
+            <p class="timeline-note"><strong>That's it!</strong> You went from "we need a better system" to "all our coaches match" in 4 days.</p>
         </div>
     </section>
 
     <!-- Pricing Section -->
-    <section class="pricing-section">
+    <section class="pricing-section" id="pricing">
         <div class="container">
-            <div class="guarantee-hero">
-                <div class="guarantee-badge">ZERO RISK GUARANTEE</div>
-                <h2>Try AcademyPro For 30 Days.<br>If You Don't Love It, You Pay Nothing.</h2>
-                <p class="guarantee-text">Full access to all features. No credit card. No commitment. If AcademyPro isn't the best decision you make for your academy this year, we'll give you a full refund. No questions asked.</p>
-            </div>
+            <h2>One class launch pays for your whole year.</h2>
+            <p class="pricing-intro">Money up. New hires: zero. Tap to see the math.</p>
+            <h3 class="pricing-plans-heading">Pick Your Plan</h3>
 
+            <div class="pricing-grid-wrapper">
             <div class="pricing-grid">
+
+                <!-- Card 1: Coach (FREE) -->
                 <div class="pricing-card">
                     <h3>Coach</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$99<span>/month</span></p>
-                    <p class="pricing-description">One coach. No academy setup — upgrade anytime.</p>
+                    <div class="coach-neutral-block">
+                        Build your audience. Sell programs. Join an academy. Upgrade when you are ready to launch your own.
+                    </div>
+                    <div class="price-block">
+                        <p class="price free">FREE</p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>1 coach</li>
-                        <li>No academy (can upgrade to academy)</li>
+                        <li>1 coach up to 50 students</li>
                         <li>Ready training templates</li>
-                        <li>Assessments templates</li>
+                        <li>Assessment templates</li>
                         <li>Student progress tracking</li>
+                        <li>Sell programs in the marketplace</li>
+                        <li>Join academies for free</li>
                         <li>Listing in coach marketplace</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
-                        <p class="button-note">30 days. Then $99/mo or cancel.</p>
+                        <button class="cta-button ghost" onclick="openDownloadModal()">Get started free</button>
+                        <p class="pricing-note">No credit card required.</p>
                     </div>
                 </div>
 
+                <!-- Card 2: Academy Starter (FEATURED) -->
                 <div class="pricing-card featured">
-                    <div class="pricing-badge">MOST POPULAR</div>
-                    <div class="early-pricing-tag">FOUNDING: Lock in 20% Off</div>
+                    <div class="pricing-badge">Most Popular</div>
+                    <span class="pricing-founding-badge">$259 forever for first 25 customers</span>
                     <h3>Academy Starter</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$399<span>/month</span></p>
-                    <p class="founding-price"><strike>$499</strike> $399 forever (first 25 customers)</p>
-                    <p class="pricing-description">Launch your academy with a tight team.</p>
+
+                    <!-- Earnings Block -->
+                    <div class="earnings-block" id="earnings-starter">
+                        <div class="earnings-block-header" onclick="toggleEarnings('earnings-starter', this)">
+                            <div class="earnings-summary">
+                                <span class="earnings-amount">Earn $3,100+/mo</span>
+                                <span class="earnings-tagline">0 extra staff needed.</span>
+                            </div>
+                            <div class="earnings-toggle">
+                                <span class="toggle-label">See how</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="earnings-breakdown">
+                            <div class="earnings-breakdown-inner">
+                                <div class="earnings-row"><span>Program cohort (5 students x $500)</span><span>$2,500</span></div>
+                                <div class="earnings-row"><span>Affiliate royalties (2 coaches x $300)</span><span>$600</span></div>
+                                <hr class="earnings-divider">
+                                <div class="earnings-total-row"><span>Total potential</span><span>$3,100+/mo</span></div>
+                                <div class="earnings-row"><span>Platform cost</span><span>$259/mo</span></div>
+                                <div class="earnings-staff-row">
+                                    <div class="earnings-row"><span>Staff to run this traditionally</span><span>$0 vs $3,000+/mo</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-block">
+                        <p class="price">$259<span>/month</span></p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>Up to 3 coaches</li>
+                        <li>Up to 2 coaches</li>
                         <li>Unlimited students</li>
                         <li>Full white-label academy</li>
-                        <li>Stripe, DUPR, Court Reserve, OpenCourt</li>
+                        <li>Stripe + DUPR + CourtReserve + OpenCourt</li>
                         <li>Dedicated onboarding</li>
                         <li>Email support</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
-                        <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                        <button class="cta-button" onclick="openDownloadModal()">Start now</button>
+                        <p class="pricing-note">30 days free. Then $259/mo or cancel.</p>
                     </div>
                 </div>
 
+                <!-- Card 3: Growth -->
                 <div class="pricing-card">
                     <h3>Growth</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$699<span>/month</span></p>
-                    <p class="pricing-description">Scale your academy to 10 coaches.</p>
+
+                    <!-- Earnings Block -->
+                    <div class="earnings-block" id="earnings-growth">
+                        <div class="earnings-block-header" onclick="toggleEarnings('earnings-growth', this)">
+                            <div class="earnings-summary">
+                                <span class="earnings-amount">Earn $7,000+/mo</span>
+                                <span class="earnings-tagline">0 extra staff needed.</span>
+                            </div>
+                            <div class="earnings-toggle">
+                                <span class="toggle-label">See how</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="earnings-breakdown">
+                            <div class="earnings-breakdown-inner">
+                                <div class="earnings-row"><span>Program cohorts (5 coaches x 5 students x $500)</span><span>$12,500/qtr</span></div>
+                                <div class="earnings-row"><span>Affiliate royalties (5 coaches x $300)</span><span>$1,500/mo</span></div>
+                                <hr class="earnings-divider">
+                                <div class="earnings-total-row"><span>Total potential</span><span>$7,000+/mo</span></div>
+                                <div class="earnings-row"><span>Platform cost</span><span>$599/mo</span></div>
+                                <div class="earnings-staff-row">
+                                    <div class="earnings-row"><span>Staff to run this traditionally</span><span>$0 vs $8,000+/mo</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-block">
+                        <p class="price">$599<span>/month</span></p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>Up to 10 coaches</li>
+                        <li>Up to 5 coaches</li>
                         <li>Unlimited students</li>
                         <li>Full white-label academy</li>
+                        <li>Full analytics</li>
                         <li>All integrations</li>
                         <li>Dedicated onboarding</li>
-                        <li>Priority support (email & chat)</li>
+                        <li>Priority support (email and chat)</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
-                        <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                        <button class="cta-button ghost" onclick="openDownloadModal()">Start now</button>
+                        <p class="pricing-note">30 days free. Then $599/mo or cancel.</p>
                     </div>
                 </div>
 
+                <!-- Card 4: Scale Nationwide -->
                 <div class="pricing-card">
-                    <h3>Scale</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$999<span>/month</span></p>
-                    <p class="pricing-description">Multi-city networks and enterprise.</p>
+                    <h3>Scale Nationwide</h3>
+
+                    <!-- Earnings Block -->
+                    <div class="earnings-block" id="earnings-scale">
+                        <div class="earnings-block-header" onclick="toggleEarnings('earnings-scale', this)">
+                            <div class="earnings-summary">
+                                <span class="earnings-amount">Earn $21,500+/mo</span>
+                                <span class="earnings-tagline">0 extra staff needed.</span>
+                            </div>
+                            <div class="earnings-toggle">
+                                <span class="toggle-label">See how</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="earnings-breakdown">
+                            <div class="earnings-breakdown-inner">
+                                <div class="earnings-row"><span>Program cohorts (15 coaches x 5 students x $500)</span><span>$37,500/qtr</span></div>
+                                <div class="earnings-row"><span>Affiliate royalties (15 coaches x $300)</span><span>$4,500/mo</span></div>
+                                <hr class="earnings-divider">
+                                <div class="earnings-total-row"><span>Total potential</span><span>$21,500+/mo</span></div>
+                                <div class="earnings-row"><span>Platform cost</span><span>$2,999/mo</span></div>
+                                <div class="earnings-staff-row">
+                                    <div class="earnings-row"><span>Staff to run this traditionally</span><span>$0 vs $20,000+/mo</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-block">
+                        <p class="price">$2,999<span>/month</span></p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>Unlimited coaches</li>
+                        <li>Up to 15 coaches</li>
                         <li>Unlimited students</li>
                         <li>Full white-label academy</li>
-                        <li>All integrations</li>
+                        <li>Full analytics</li>
+                        <li>Campaign recommendations</li>
+                        <li>AI assistant</li>
                         <li>Dedicated account manager</li>
-                        <li>Priority phone & chat support</li>
+                        <li>Priority phone and chat support</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                        <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                        <button class="cta-button ghost" onclick="openDownloadModal()">Start now</button>
+                        <p class="pricing-note">30 days free. Then $2,999/mo or cancel.</p>
                     </div>
                 </div>
-            </div>
+
+            </div><!-- /.pricing-grid -->
+            </div><!-- /.pricing-grid-wrapper -->
+
+            <p class="pricing-disclaimer">Revenue figures are illustrative estimates based on a $500/student program price and $300/month affiliate royalty. Staff cost comparison reflects typical coordinator and admin hiring for an equivalent operation. Actual results vary.</p>
 
             <p class="pricing-faq">Questions? <a href="mailto:hello@picklepro.app">Email us</a> or <a href="https://cal.id/guillaume-panot/piklepro-academy">schedule a call</a>.</p>
         </div>
@@ -4653,31 +5019,33 @@
             document.getElementById('simTotalStudents').textContent = totalStudents.toLocaleString('en-US');
 
             const adminCost = Math.max(1500, Math.round(coaches * 400));
-            let platformCost = 99;
-            let planName = 'Coach';
-            if (coaches > 10) {
-                platformCost = 999;
-                planName = 'Scale';
-            } else if (coaches > 3) {
-                platformCost = 699;
+            let platformCost = 0;
+            let planName = 'Coach (FREE)';
+            if (coaches > 5) {
+                platformCost = 2999;
+                planName = 'Scale Nationwide';
+            } else if (coaches > 2) {
+                platformCost = 599;
                 planName = 'Growth';
             } else if (coaches > 1) {
-                platformCost = 399;
+                platformCost = 259;
                 planName = 'Academy Starter';
             }
 
             const savings = adminCost - platformCost;
             const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
-            const roiPercent = monthlyRevenue > 0 ? (platformCost / monthlyRevenue * 100) : 0;
+            const roiPercent = monthlyRevenue > 0 && platformCost > 0 ? (platformCost / monthlyRevenue * 100) : 0;
             const coachLabel = coaches === 1 ? 'coach' : 'coaches';
+            const platformDisplay = platformCost === 0 ? 'FREE' : fmt(platformCost) + '/mo';
 
             document.getElementById('simRevenue').textContent = fmt(monthlyRevenue) + '/mo';
             document.getElementById('simAdminCost').textContent = fmt(adminCost) + '/mo';
-            document.getElementById('simPlatformCost').textContent = fmt(platformCost) + '/mo';
+            document.getElementById('simPlatformCost').textContent = platformDisplay;
             document.getElementById('simSavings').textContent = fmt(savings) + '/mo';
 
-            document.getElementById('simNote').textContent =
-                `On the ${planName} plan (${fmt(platformCost)}/mo), AcademyPro costs just ${roiPercent.toFixed(1)}% of your monthly revenue to run ${coaches} ${coachLabel} and ${totalStudents.toLocaleString('en-US')} students.`;
+            document.getElementById('simNote').textContent = platformCost === 0
+                ? `On the Coach plan (FREE), AcademyPro costs nothing to run ${coaches} ${coachLabel} and ${totalStudents.toLocaleString('en-US')} students.`
+                : `On the ${planName} plan (${fmt(platformCost)}/mo), AcademyPro costs just ${roiPercent.toFixed(1)}% of your monthly revenue to run ${coaches} ${coachLabel} and ${totalStudents.toLocaleString('en-US')} students.`;
         }
         document.addEventListener('DOMContentLoaded', updateSimulator);
 
@@ -5302,6 +5670,76 @@
     document.addEventListener('DOMContentLoaded', function() {
         rqBuildQuestions();
     });
+
+    // ── Hero Carousel ────────────────────────────────────────────────────────
+    (function() {
+        var slides = document.querySelectorAll('.hero-slide');
+        var dots   = document.querySelectorAll('.hero-dot');
+        var carousel = document.getElementById('heroCarousel');
+        var current = 0;
+        var total   = slides.length;
+        var timer   = null;
+        var INTERVAL = 5000;
+
+        function goTo(index) {
+            // Deactivate current
+            slides[current].classList.remove('active');
+            dots[current].classList.remove('active');
+            dots[current].setAttribute('aria-selected', 'false');
+
+            current = (index + total) % total;
+
+            // Activate next
+            slides[current].classList.add('active');
+            dots[current].classList.add('active');
+            dots[current].setAttribute('aria-selected', 'true');
+        }
+
+        function startTimer() {
+            timer = setInterval(function() {
+                goTo(current + 1);
+            }, INTERVAL);
+        }
+
+        function stopTimer() {
+            clearInterval(timer);
+            timer = null;
+        }
+
+        // Dot click — jump to slide and reset timer
+        dots.forEach(function(dot) {
+            dot.addEventListener('click', function() {
+                var idx = parseInt(dot.getAttribute('data-slide'), 10);
+                stopTimer();
+                goTo(idx);
+                startTimer();
+            });
+        });
+
+        // Pause on hover, resume on leave
+        carousel.addEventListener('mouseenter', stopTimer);
+        carousel.addEventListener('mouseleave', function() {
+            if (!timer) startTimer();
+        });
+
+        // Boot
+        startTimer();
+    })();
+    // ────────────────────────────────────────────────────────────────────────
+
+    // ── Earnings Block Toggle ─────────────────────────────────────────────
+    function toggleEarnings(blockId, headerEl) {
+        var block = document.getElementById(blockId);
+        var label = headerEl.querySelector('.toggle-label');
+        if (block.classList.contains('open')) {
+            block.classList.remove('open');
+            label.textContent = 'See how';
+        } else {
+            block.classList.add('open');
+            label.textContent = 'Hide';
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     </script>
 </body>
