@@ -1,0 +1,37 @@
+---
+description: Vercel deployment target for the Website/ folder
+alwaysApply: true
+globs: "Website/**"
+---
+
+# Website/ → Vercel Project: picklepro-homepage
+
+## HARD RULE
+
+Whenever you update any file inside the `Website/` folder and the user asks to commit, push, or deploy, you **must** deploy to the Vercel project below — never to any other project.
+
+## Correct project
+
+| Field | Value |
+|---|---|
+| Project name | `picklepro-homepage` |
+| Project ID | `prj_8M9pmkeVs9nNtUNJkdRsqZKqvp30` |
+| Org / team ID | `team_wiF9YAYMy3tvn0tO3a3UBcsf` |
+| Production URL | `academypro.thecourtflow.com` |
+| Preview URL pattern | `picklepro-homepage-*.vercel.app` |
+
+## Deploy command (always run from inside Website/)
+
+```bash
+cd Website && VERCEL_PROJECT_ID=prj_8M9pmkeVs9nNtUNJkdRsqZKqvp30 VERCEL_ORG_ID=team_wiF9YAYMy3tvn0tO3a3UBcsf vercel deploy --prod --yes
+```
+
+The `VERCEL_PROJECT_ID` / `VERCEL_ORG_ID` env vars are **required** because the repo root has a separate `.vercel/project.json` pointing to a different project (`pickleball-hero`). Without them the CLI will pick up the wrong project.
+
+The `Website/.vercel/project.json` also encodes the correct project but the env vars are the reliable override.
+
+## Do NOT
+
+- Run `vercel deploy` from the repo root (deploys the wrong project).
+- Run `vercel deploy` without the env vars from any subdirectory (CLI walks up and finds the wrong root `.vercel`).
+- Deploy `Website/` to `pickleball-hero` (`prj_iNrUHlh38vtRwgbmAKheWfwDVjTR`).
