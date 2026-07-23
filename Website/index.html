@@ -2136,6 +2136,7 @@
             font-size: 1rem;
             color: #64748b;
             margin-bottom: 3rem;
+            cursor: default;
         }
 
         .pricing-grid {
@@ -2169,47 +2170,181 @@
         }
 
         .pricing-card.featured {
-            border-color: #007AFF;
-            background: #E8F5FF;
+            border: 2px solid #007AFF;
+            background: #F8FBFF;
             transform: scale(1.05);
         }
 
         .pricing-badge {
             position: absolute;
-            top: -12px;
+            top: -14px;
             left: 50%;
             transform: translateX(-50%);
             background: #007AFF;
             color: white;
-            padding: 0.4rem 1.2rem;
+            padding: 0.35rem 1.1rem;
             border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.72rem;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* Founding badge sits just below most-popular badge */
+        .pricing-founding-badge {
+            display: block;
+            text-align: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #0056b3;
+            background: #E8F5FF;
+            border: 1px solid #007AFF;
+            border-radius: 6px;
+            padding: 0.3rem 0.7rem;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.3px;
         }
 
         .pricing-card h3 {
             font-size: 1.3rem;
             color: #0f172a;
-            margin: 1rem 0 0.75rem;
+            margin: 0 0 0.75rem;
             font-weight: 700;
         }
 
-        .pricing-from {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        /* Earnings Block */
+        .earnings-block {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .earnings-block-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .earnings-summary {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .earnings-amount {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #166534;
+            line-height: 1.15;
+        }
+
+        .earnings-tagline {
+            font-size: 0.78rem;
+            color: #166534;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        .earnings-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            margin: 0;
-            margin-bottom: -0.5rem;
+            color: #166534;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .earnings-toggle svg {
+            transition: transform 0.25s ease;
+            flex-shrink: 0;
+        }
+
+        .earnings-block.open .earnings-toggle svg {
+            transform: rotate(180deg);
+        }
+
+        .earnings-breakdown {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+        }
+
+        .earnings-block.open .earnings-breakdown {
+            max-height: 300px;
+        }
+
+        .earnings-breakdown-inner {
+            padding: 0 1rem 0.85rem;
+            border-top: 1px solid #bbf7d0;
+        }
+
+        .earnings-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: #166534;
+            padding: 0.3rem 0;
+        }
+
+        .earnings-divider {
+            border: none;
+            border-top: 1px solid #bbf7d0;
+            margin: 0.4rem 0;
+        }
+
+        .earnings-total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: #166534;
+            padding: 0.3rem 0;
+            font-weight: 700;
+        }
+
+        .earnings-staff-row {
+            background: #dcfce7;
+            border-radius: 6px;
+            padding: 0.4rem 0.5rem;
+            margin-top: 0.4rem;
+        }
+
+        .earnings-staff-row .earnings-row {
+            padding: 0.15rem 0;
+        }
+
+        .earnings-staff-row .earnings-row span:first-child {
+            font-weight: 600;
+        }
+
+        /* Coach neutral block */
+        .coach-neutral-block {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .price-block {
+            margin: 0.25rem 0 0.5rem;
         }
 
         .price {
             font-size: 2.5rem;
             font-weight: 900;
             color: #007AFF;
-            margin: 1.5rem 0 0.5rem;
+            margin: 0;
+            line-height: 1.1;
         }
 
         .price span {
@@ -2218,26 +2353,24 @@
             font-weight: 600;
         }
 
-        .pricing-description {
-            font-size: 0.95rem;
-            color: #475569;
-            margin-bottom: 1.5rem;
-            line-height: 1.6;
+        .price.free {
+            color: #0f172a;
         }
 
         .pricing-features {
             list-style: none;
             padding: 0;
-            margin-bottom: 2rem;
-            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
             color: #475569;
             flex: 1;
         }
 
         .pricing-features li {
-            padding: 0.6rem 0;
+            padding: 0.55rem 0;
             padding-left: 1.5rem;
             position: relative;
+            line-height: 1.4;
         }
 
         .pricing-features li:before {
@@ -2246,10 +2379,22 @@
             left: 0;
             color: #007AFF;
             font-weight: bold;
+            font-size: 1rem;
         }
 
         .pricing-card .cta-button {
             width: 100%;
+        }
+
+        .pricing-card .cta-button.ghost {
+            background: transparent;
+            color: #007AFF;
+            border: 2px solid #007AFF;
+        }
+
+        .pricing-card .cta-button.ghost:hover {
+            background: #007AFF;
+            color: white;
         }
 
         .pricing-card-actions {
@@ -2258,9 +2403,19 @@
 
         .pricing-note {
             text-align: center;
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-top: 1rem;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            margin-top: 0.6rem;
+            font-style: italic;
+        }
+
+        .pricing-disclaimer {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            max-width: 680px;
+            margin: 1.5rem auto 0;
+            line-height: 1.6;
         }
 
         /* Guarantee Section */
@@ -4459,94 +4614,186 @@
     </section>
 
     <!-- Pricing Section -->
-    <section class="pricing-section">
+    <section class="pricing-section" id="pricing">
         <div class="container">
-            <div class="guarantee-hero">
-                <div class="guarantee-badge">ZERO RISK GUARANTEE</div>
-                <h2>Try AcademyPro For 30 Days.<br>If You Don't Love It, You Pay Nothing.</h2>
-                <p class="guarantee-text">Full access to all features. No credit card. No commitment. If AcademyPro isn't the best decision you make for your academy this year, we'll give you a full refund. No questions asked.</p>
-            </div>
+            <h2>One program launch covers your annual platform fee.</h2>
+            <p class="pricing-intro">Revenue up. Staff cost: zero. Tap to see the math.</p>
 
             <div class="pricing-grid">
+
+                <!-- Card 1: Coach (FREE) -->
                 <div class="pricing-card">
                     <h3>Coach</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$99<span>/month</span></p>
-                    <p class="pricing-description">One coach. No academy setup — upgrade anytime.</p>
+                    <div class="coach-neutral-block">
+                        Build your audience. Sell programs. Join an academy. Upgrade when you are ready to launch your own.
+                    </div>
+                    <div class="price-block">
+                        <p class="price free">FREE</p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>1 coach</li>
-                        <li>No academy (can upgrade to academy)</li>
+                        <li>1 coach up to 50 students</li>
                         <li>Ready training templates</li>
-                        <li>Assessments templates</li>
+                        <li>Assessment templates</li>
                         <li>Student progress tracking</li>
+                        <li>Sell programs in the marketplace</li>
+                        <li>Join academies for free</li>
                         <li>Listing in coach marketplace</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
-                        <p class="button-note">30 days. Then $99/mo or cancel.</p>
+                        <button class="cta-button ghost" onclick="openDownloadModal()">Get started free</button>
+                        <p class="pricing-note">No credit card required.</p>
                     </div>
                 </div>
 
+                <!-- Card 2: Academy Starter (FEATURED) -->
                 <div class="pricing-card featured">
-                    <div class="pricing-badge">MOST POPULAR</div>
-                    <div class="early-pricing-tag">FOUNDING: Lock in 20% Off</div>
+                    <div class="pricing-badge">Most Popular</div>
+                    <span class="pricing-founding-badge">$259 forever for first 25 customers</span>
                     <h3>Academy Starter</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$399<span>/month</span></p>
-                    <p class="founding-price"><strike>$499</strike> $399 forever (first 25 customers)</p>
-                    <p class="pricing-description">Launch your academy with a tight team.</p>
+
+                    <!-- Earnings Block -->
+                    <div class="earnings-block" id="earnings-starter">
+                        <div class="earnings-block-header" onclick="toggleEarnings('earnings-starter', this)">
+                            <div class="earnings-summary">
+                                <span class="earnings-amount">$3,100+/mo</span>
+                                <span class="earnings-tagline">0 extra staff needed.</span>
+                            </div>
+                            <div class="earnings-toggle">
+                                <span class="toggle-label">See how</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="earnings-breakdown">
+                            <div class="earnings-breakdown-inner">
+                                <div class="earnings-row"><span>Program cohort (5 students x $500)</span><span>$2,500</span></div>
+                                <div class="earnings-row"><span>Affiliate royalties (2 coaches x $300)</span><span>$600</span></div>
+                                <hr class="earnings-divider">
+                                <div class="earnings-total-row"><span>Total potential</span><span>$3,100+/mo</span></div>
+                                <div class="earnings-row"><span>Platform cost</span><span>$259/mo</span></div>
+                                <div class="earnings-staff-row">
+                                    <div class="earnings-row"><span>Staff to run this traditionally</span><span>$0 vs $3,000+/mo</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-block">
+                        <p class="price">$259<span>/month</span></p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>Up to 3 coaches</li>
+                        <li>Up to 2 coaches</li>
                         <li>Unlimited students</li>
                         <li>Full white-label academy</li>
-                        <li>Stripe, DUPR, Court Reserve, OpenCourt</li>
+                        <li>Stripe + DUPR + CourtReserve + OpenCourt</li>
                         <li>Dedicated onboarding</li>
                         <li>Email support</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
-                        <p class="button-note">30 days. Then $399/mo or cancel.</p>
+                        <button class="cta-button" onclick="openDownloadModal()">Start now</button>
+                        <p class="pricing-note">30 days free. Then $259/mo or cancel.</p>
                     </div>
                 </div>
 
+                <!-- Card 3: Growth -->
                 <div class="pricing-card">
                     <h3>Growth</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$699<span>/month</span></p>
-                    <p class="pricing-description">Scale your academy to 10 coaches.</p>
+
+                    <!-- Earnings Block -->
+                    <div class="earnings-block" id="earnings-growth">
+                        <div class="earnings-block-header" onclick="toggleEarnings('earnings-growth', this)">
+                            <div class="earnings-summary">
+                                <span class="earnings-amount">$7,000+/mo</span>
+                                <span class="earnings-tagline">0 extra staff needed.</span>
+                            </div>
+                            <div class="earnings-toggle">
+                                <span class="toggle-label">See how</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="earnings-breakdown">
+                            <div class="earnings-breakdown-inner">
+                                <div class="earnings-row"><span>Program cohorts (5 coaches x 5 students x $500)</span><span>$12,500/qtr</span></div>
+                                <div class="earnings-row"><span>Affiliate royalties (5 coaches x $300)</span><span>$1,500/mo</span></div>
+                                <hr class="earnings-divider">
+                                <div class="earnings-total-row"><span>Total potential</span><span>$7,000+/mo</span></div>
+                                <div class="earnings-row"><span>Platform cost</span><span>$599/mo</span></div>
+                                <div class="earnings-staff-row">
+                                    <div class="earnings-row"><span>Staff to run this traditionally</span><span>$0 vs $8,000+/mo</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-block">
+                        <p class="price">$599<span>/month</span></p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>Up to 10 coaches</li>
+                        <li>Up to 5 coaches</li>
                         <li>Unlimited students</li>
                         <li>Full white-label academy</li>
+                        <li>Full analytics</li>
                         <li>All integrations</li>
                         <li>Dedicated onboarding</li>
-                        <li>Priority support (email & chat)</li>
+                        <li>Priority support (email and chat)</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="openDownloadModal()">Start Now</button>
-                        <p class="button-note">30 days. Then $699/mo or cancel.</p>
+                        <button class="cta-button ghost" onclick="openDownloadModal()">Start now</button>
+                        <p class="pricing-note">30 days free. Then $599/mo or cancel.</p>
                     </div>
                 </div>
 
+                <!-- Card 4: Scale Nationwide -->
                 <div class="pricing-card">
-                    <h3>Scale</h3>
-                    <p class="pricing-from">from</p>
-                    <p class="price">$999<span>/month</span></p>
-                    <p class="pricing-description">Multi-city networks and enterprise.</p>
+                    <h3>Scale Nationwide</h3>
+
+                    <!-- Earnings Block -->
+                    <div class="earnings-block" id="earnings-scale">
+                        <div class="earnings-block-header" onclick="toggleEarnings('earnings-scale', this)">
+                            <div class="earnings-summary">
+                                <span class="earnings-amount">$21,500+/mo</span>
+                                <span class="earnings-tagline">0 extra staff needed.</span>
+                            </div>
+                            <div class="earnings-toggle">
+                                <span class="toggle-label">See how</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
+                        </div>
+                        <div class="earnings-breakdown">
+                            <div class="earnings-breakdown-inner">
+                                <div class="earnings-row"><span>Program cohorts (15 coaches x 5 students x $500)</span><span>$37,500/qtr</span></div>
+                                <div class="earnings-row"><span>Affiliate royalties (15 coaches x $300)</span><span>$4,500/mo</span></div>
+                                <hr class="earnings-divider">
+                                <div class="earnings-total-row"><span>Total potential</span><span>$21,500+/mo</span></div>
+                                <div class="earnings-row"><span>Platform cost</span><span>$2,999/mo</span></div>
+                                <div class="earnings-staff-row">
+                                    <div class="earnings-row"><span>Staff to run this traditionally</span><span>$0 vs $20,000+/mo</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-block">
+                        <p class="price">$2,999<span>/month</span></p>
+                    </div>
                     <ul class="pricing-features">
-                        <li>Unlimited coaches</li>
+                        <li>Up to 15 coaches</li>
                         <li>Unlimited students</li>
                         <li>Full white-label academy</li>
-                        <li>All integrations</li>
+                        <li>Full analytics</li>
+                        <li>Campaign recommendations</li>
+                        <li>AI assistant</li>
                         <li>Dedicated account manager</li>
-                        <li>Priority phone & chat support</li>
+                        <li>Priority phone and chat support</li>
                     </ul>
                     <div class="pricing-card-actions">
-                        <button class="cta-button" onclick="window.location.href='https://cal.id/guillaume-panot/piklepro-academy'">Start Free Trial</button>
-                        <p class="button-note">30 days. Then $999/mo or cancel.</p>
+                        <button class="cta-button ghost" onclick="openDownloadModal()">Start now</button>
+                        <p class="pricing-note">30 days free. Then $2,999/mo or cancel.</p>
                     </div>
                 </div>
-            </div>
+
+            </div><!-- /.pricing-grid -->
+
+            <p class="pricing-disclaimer">Revenue figures are illustrative estimates based on a $500/student program price and $300/month affiliate royalty. Staff cost comparison reflects typical coordinator and admin hiring for an equivalent operation. Actual results vary.</p>
 
             <p class="pricing-faq">Questions? <a href="mailto:hello@picklepro.app">Email us</a> or <a href="https://cal.id/guillaume-panot/piklepro-academy">schedule a call</a>.</p>
         </div>
@@ -5426,6 +5673,20 @@
         startTimer();
     })();
     // ────────────────────────────────────────────────────────────────────────
+
+    // ── Earnings Block Toggle ─────────────────────────────────────────────
+    function toggleEarnings(blockId, headerEl) {
+        var block = document.getElementById(blockId);
+        var label = headerEl.querySelector('.toggle-label');
+        if (block.classList.contains('open')) {
+            block.classList.remove('open');
+            label.textContent = 'See how';
+        } else {
+            block.classList.add('open');
+            label.textContent = 'Hide';
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     </script>
 </body>
