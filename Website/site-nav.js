@@ -14,7 +14,7 @@
         : { href: '#', label: 'Start Now', onclick: 'openDownloadModal();return false;' };
 
     var bannerHtml = !isPlayers
-        ? '<style>@media(max-width:768px){#sport-banner{justify-content:flex-start!important;text-align:left!important;}}</style>' +
+        ? '<style>@media(max-width:768px){#sport-banner{justify-content:flex-start!important;text-align:left!important;}#sport-banner a{margin-left:auto;}}</style>' +
           '<div id="sport-banner" style="position:fixed;top:64px;left:0;width:100%;z-index:999;background:linear-gradient(90deg,#007AFF 0%,#0056cc 100%);color:#fff;text-align:center;padding:0.55rem 1rem;font-size:0.85rem;font-weight:700;letter-spacing:0.01em;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0.5rem 0.75rem;">' +
               '<span style="display:flex;align-items:center;gap:0.5rem;flex-shrink:1;min-width:0;">' +
                 '<span style="background:#fff;color:#007AFF;border-radius:100px;padding:0.12rem 0.6rem;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;white-space:nowrap;">NEW</span>' +
