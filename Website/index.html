@@ -160,6 +160,11 @@
             letter-spacing: -1px;
         }
 
+        /* Slide 1 first line is longer — scale down so it stays on one line */
+        .hero-slide[data-index="1"] h1 {
+            font-size: 2.6rem;
+        }
+
         .hero p {
             font-size: 1.4rem;
             color: #475569;
@@ -2697,7 +2702,8 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .hero h1 {
+            .hero h1,
+            .hero-slide[data-index="1"] h1 {
                 font-size: 2.2rem;
             }
 
