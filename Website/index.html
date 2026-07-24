@@ -160,9 +160,9 @@
             letter-spacing: -1px;
         }
 
-        /* Slide 1 first line is longer — scale down so it stays on one line */
+        /* Slide 1: match base h1 size; the <br> keeps it to 2 lines */
         .hero-slide[data-index="1"] h1 {
-            font-size: 2.6rem;
+            font-size: 4rem;
         }
 
         .hero p {
@@ -2703,8 +2703,7 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .hero h1,
-            .hero-slide[data-index="1"] h1 {
+            .hero h1 {
                 font-size: 2.2rem;
             }
 
