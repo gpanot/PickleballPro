@@ -329,9 +329,11 @@ body.has-site-nav [id] {
         display: none;
     }
 
-    /* CTA hidden on mobile — drawer Start Free covers it */
+    /* CTA visible on mobile, right-aligned in the top bar */
     .site-nav .nav-mobile-cta {
-        display: none;
+        display: inline-flex;
+        align-items: center;
+        margin-left: auto;
     }
 }
 
