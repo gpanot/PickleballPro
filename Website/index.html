@@ -4308,97 +4308,131 @@
         </div>
     </section>
 
-    <!-- ROI & Financial Impact Section -->
-    <section class="roi-section" id="roi">
-        <div class="container">
-            <h2>The Math: Why AcademyPro Pays for Itself</h2>
-            <p class="roi-intro">You don't need to get HUGE to make your money back. Here's what coaches see:</p>
+    <!-- Coach Testimonials -->
+    <section id="roi" style="padding:80px 24px;max-width:1100px;margin:0 auto;">
+      <p style="font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#3b82f6;margin-bottom:8px;text-align:center;">
+        Coach stories
+      </p>
+      <h2 style="font-size:36px;font-weight:800;color:#0f172a;text-align:center;margin:0 0 8px;">
+        Real numbers from real academies
+      </h2>
+      <p style="font-size:16px;color:#64748b;text-align:center;margin:0 0 48px;line-height:1.6;">
+        Three coaches. Three cities. One platform.
+      </p>
 
-            <div class="roi-grid">
-                <div class="roi-card fade-in">
-                    <div class="roi-icon">SAVE</div>
-                    <h3>Save on Office Work</h3>
-                    <p class="roi-value">$1,500+</p>
-                    <p class="roi-subtext">saved on office helper costs every month</p>
-                    <ul class="roi-list">
-                        <li>Start FREE (1 coach, up to 50 students)</li>
-                        <li>Academy Starter: $259/month (up to 2 coaches)</li>
-                        <li>Growth: $599/month (up to 5 coaches)</li>
-                        <li>Grow Everywhere: $2,999/month (up to 15 coaches)</li>
-                    </ul>
-                </div>
+      <div class="coach-stories-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
 
-                <div class="roi-card fade-in">
-                    <div class="roi-icon">KEEP</div>
-                    <h3>Keep Students Coming Back</h3>
-                    <p class="roi-value">25-30%</p>
-                    <p class="roi-subtext">more students stay in your academy</p>
-                    <ul class="roi-list">
-                        <li>All coaches teach the same plan</li>
-                        <li>Students don't feel lost with a new coach</li>
-                        <li>Quality stays the same in every town</li>
-                        <li>Your name stays strong</li>
-                    </ul>
-                </div>
-
-                <div class="roi-card fade-in">
-                    <div class="roi-icon">GROW</div>
-                    <h3>Grow to New Towns Without Risk</h3>
-                    <p class="roi-value">Unlimited</p>
-                    <p class="roi-subtext">coaches you can manage</p>
-                    <ul class="roi-list">
-                        <li>Hire coaches in new cities/states</li>
-                        <li>No risk of different teaching styles</li>
-                        <li>Same quality across your whole team</li>
-                        <li>Same tool handles 3 or 300 coaches</li>
-                    </ul>
-                </div>
+        <!-- Card 1 -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#3b82f6;flex-shrink:0;">MR</div>
+            <div>
+              <p style="font-size:15px;font-weight:700;color:#0f172a;margin:0;">Marcus Rivera</p>
+              <p style="font-size:13px;color:#64748b;margin:0;">Austin, TX &nbsp;·&nbsp; Pickleball</p>
             </div>
-
-            <!-- Savings & ROI Simulator -->
-            <div class="simulator-section">
-                <h3>See Your Money, Savings, and Growth</h3>
-                <p class="example-intro">Move the sliders to match your academy.</p>
-
-                <div class="simulator-controls simulator-controls-3">
-                    <div class="simulator-control">
-                        <label>Coaches: <span id="simCoachesVal">10</span></label>
-                        <input type="range" id="simCoaches" min="1" max="50" value="10" oninput="updateSimulator()">
-                    </div>
-                    <div class="simulator-control">
-                        <label>Students per coach: <span id="simStudentsPerCoachVal">15</span></label>
-                        <input type="range" id="simStudentsPerCoach" min="3" max="50" value="15" oninput="updateSimulator()">
-                    </div>
-                    <div class="simulator-control">
-                        <label>Price per hour: <span id="simRateVal">$75</span></label>
-                        <input type="range" id="simRate" min="40" max="150" step="5" value="75" oninput="updateSimulator()">
-                    </div>
-                </div>
-
-                <p class="simulator-total">Total students: <strong id="simTotalStudents">150</strong> &nbsp;&middot;&nbsp; assumes <select id="simSessions" onchange="updateSimulator()" style="font-size:0.88rem;font-weight:700;color:#007AFF;border:1px solid #93c5fd;border-radius:6px;padding:0.1rem 0.3rem;background:#EFF8FF;cursor:pointer;appearance:none;-webkit-appearance:none;"><option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select> classes per student per month</p>
-
-                <div class="simulator-results">
-                    <div class="simulator-result-card revenue">
-                        <p class="simulator-result-label">Money per month</p>
-                        <p class="simulator-result-value" id="simRevenue">$56,250/mo</p>
-                    </div>
-                    <div class="simulator-result-card">
-                        <p class="simulator-result-label">Office costs WITHOUT AcademyPro</p>
-                        <p class="simulator-result-value" id="simAdminCost">$4,000/mo</p>
-                    </div>
-                    <div class="simulator-result-card highlight">
-                        <p class="simulator-result-label">AcademyPro cost</p>
-                        <p class="simulator-result-value" id="simPlatformCost">$699/mo</p>
-                    </div>
-                    <div class="simulator-result-card savings">
-                        <p class="simulator-result-label">YOU SAVE</p>
-                        <p class="simulator-result-value" id="simSavings">$3,301/mo</p>
-                    </div>
-                </div>
-
-                <p class="simulator-note" id="simNote">AcademyPro costs just 1.2% of your monthly revenue to run 10 coaches and 150 students.</p>
+          </div>
+          <p style="font-size:13px;color:#f59e0b;margin:0;letter-spacing:1px;" aria-label="5 out of 5 stars">★★★★★</p>
+          <p style="font-size:14px;color:#64748b;line-height:1.6;margin:0;font-style:italic;border-left:2px solid #e2e8f0;padding-left:12px;">
+            "I brought on one affiliated coach in Dallas. That alone added $600 a month in royalties without touching my own schedule."
+          </p>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Monthly revenue</div>
+              <div style="font-size:16px;font-weight:700;color:#3b82f6;">$5,800</div>
             </div>
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Royalty income</div>
+              <div style="font-size:16px;font-weight:700;color:#3b82f6;">$620</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Coaches</div>
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">2</div>
+            </div>
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Total students</div>
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">28</div>
+            </div>
+          </div>
         </div>
+
+        <!-- Card 2 -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#f0fdf4;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#16a34a;flex-shrink:0;">SL</div>
+            <div>
+              <p style="font-size:15px;font-weight:700;color:#0f172a;margin:0;">Sophia Lemaire</p>
+              <p style="font-size:13px;color:#64748b;margin:0;">Miami, FL &nbsp;·&nbsp; Padel</p>
+            </div>
+          </div>
+          <p style="font-size:13px;color:#f59e0b;margin:0;letter-spacing:1px;" aria-label="5 out of 5 stars">★★★★★</p>
+          <p style="font-size:14px;color:#64748b;line-height:1.6;margin:0;font-style:italic;border-left:2px solid #e2e8f0;padding-left:12px;">
+            "Three affiliated coaches running my program in two cities. My brand is in clubs I've never visited and the royalties land every month."
+          </p>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Monthly revenue</div>
+              <div style="font-size:16px;font-weight:700;color:#16a34a;">$11,400</div>
+            </div>
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Royalty income</div>
+              <div style="font-size:16px;font-weight:700;color:#16a34a;">$2,100</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Coaches</div>
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">4</div>
+            </div>
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Total students</div>
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">68</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:44px;height:44px;border-radius:50%;background:#f5f3ff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#7c3aed;flex-shrink:0;">DK</div>
+            <div>
+              <p style="font-size:15px;font-weight:700;color:#0f172a;margin:0;">David Kim</p>
+              <p style="font-size:13px;color:#64748b;margin:0;">Chicago, IL &nbsp;·&nbsp; Pickleball</p>
+            </div>
+          </div>
+          <p style="font-size:13px;color:#f59e0b;margin:0;letter-spacing:1px;" aria-label="5 out of 5 stars">★★★★★</p>
+          <p style="font-size:14px;color:#64748b;line-height:1.6;margin:0;font-style:italic;border-left:2px solid #e2e8f0;padding-left:12px;">
+            "Six affiliated coaches, four states, one curriculum. The royalties now cover my platform cost 10 times over."
+          </p>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Monthly revenue</div>
+              <div style="font-size:16px;font-weight:700;color:#7c3aed;">$23,800</div>
+            </div>
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Royalty income</div>
+              <div style="font-size:16px;font-weight:700;color:#7c3aed;">$7,400</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Coaches</div>
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">7</div>
+            </div>
+            <div style="flex:1;background:#f8fafc;border-radius:8px;padding:10px 12px;">
+              <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Total students</div>
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">142</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <style>
+        @media (max-width: 800px) {
+          .coach-stories-grid { grid-template-columns: 1fr !important; }
+        }
+      </style>
     </section>
 
     <!-- Benefits Section with Phone Mockup -->
@@ -4995,58 +5029,6 @@
                 }
             });
         });
-
-        // Revenue, ROI & Savings Simulator
-        function updateSimulator() {
-            const coachesEl = document.getElementById('simCoaches');
-            const perCoachEl = document.getElementById('simStudentsPerCoach');
-            const rateEl = document.getElementById('simRate');
-            if (!coachesEl || !perCoachEl || !rateEl) return;
-
-            const coaches = parseInt(coachesEl.value, 10);
-            const studentsPerCoach = parseInt(perCoachEl.value, 10);
-            const rate = parseInt(rateEl.value, 10);
-            const sessionsEl = document.getElementById('simSessions');
-            const sessionsPerMonth = sessionsEl ? parseInt(sessionsEl.value, 10) : 4;
-
-            const totalStudents = coaches * studentsPerCoach;
-            const monthlyRevenue = totalStudents * sessionsPerMonth * rate;
-
-            document.getElementById('simCoachesVal').textContent = coaches;
-            document.getElementById('simStudentsPerCoachVal').textContent = studentsPerCoach;
-            document.getElementById('simRateVal').textContent = '$' + rate;
-            document.getElementById('simTotalStudents').textContent = totalStudents.toLocaleString('en-US');
-
-            const adminCost = Math.max(1500, Math.round(coaches * 400));
-            let platformCost = 0;
-            let planName = 'Coach (FREE)';
-            if (coaches > 5) {
-                platformCost = 2999;
-                planName = 'Scale Nationwide';
-            } else if (coaches > 2) {
-                platformCost = 599;
-                planName = 'Growth';
-            } else if (coaches > 1) {
-                platformCost = 259;
-                planName = 'Academy Starter';
-            }
-
-            const savings = adminCost - platformCost;
-            const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
-            const roiPercent = monthlyRevenue > 0 && platformCost > 0 ? (platformCost / monthlyRevenue * 100) : 0;
-            const coachLabel = coaches === 1 ? 'coach' : 'coaches';
-            const platformDisplay = platformCost === 0 ? 'FREE' : fmt(platformCost) + '/mo';
-
-            document.getElementById('simRevenue').textContent = fmt(monthlyRevenue) + '/mo';
-            document.getElementById('simAdminCost').textContent = fmt(adminCost) + '/mo';
-            document.getElementById('simPlatformCost').textContent = platformDisplay;
-            document.getElementById('simSavings').textContent = fmt(savings) + '/mo';
-
-            document.getElementById('simNote').textContent = platformCost === 0
-                ? `On the Coach plan (FREE), AcademyPro costs nothing to run ${coaches} ${coachLabel} and ${totalStudents.toLocaleString('en-US')} students.`
-                : `On the ${planName} plan (${fmt(platformCost)}/mo), AcademyPro costs just ${roiPercent.toFixed(1)}% of your monthly revenue to run ${coaches} ${coachLabel} and ${totalStudents.toLocaleString('en-US')} students.`;
-        }
-        document.addEventListener('DOMContentLoaded', updateSimulator);
 
         // Benefit toggle with phone screenshot change
         function toggleBenefit(element) {
