@@ -18,7 +18,7 @@
           '<div id="sport-banner" style="position:fixed;top:64px;left:0;width:100%;z-index:999;background:linear-gradient(90deg,#007AFF 0%,#0056cc 100%);color:#fff;text-align:center;padding:0.55rem 1rem;font-size:0.85rem;font-weight:700;letter-spacing:0.01em;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0.5rem 0.75rem;">' +
               '<span style="display:flex;align-items:center;gap:0.5rem;flex-shrink:1;min-width:0;">' +
                 '<span style="background:#fff;color:#007AFF;border-radius:100px;padding:0.12rem 0.6rem;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;white-space:nowrap;">NEW</span>' +
-                '<span style="flex-shrink:1;">Earn more. Run your academy. All in one app.</span>' +
+                '<span style="flex-shrink:1;">Earn Royalties. Run your academy at scale. All in one app.</span>' +
               '</span>' +
               '' +
           '</div>'
