@@ -11,7 +11,7 @@
 
     var cta = isPlayers
         ? { href: '#download', label: 'Get the App' }
-        : { href: '#', label: 'Start Now', onclick: 'openDownloadModal();return false;' };
+        : { href: '#', label: 'Start for FREE', onclick: 'openDownloadModal();return false;' };
 
     var bannerHtml = !isPlayers
         ? '<style>@media(max-width:768px){#sport-banner{justify-content:flex-start!important;text-align:left!important;}#sport-banner a{margin-left:auto;}}</style>' +
@@ -20,7 +20,7 @@
                 '<span style="background:#fff;color:#007AFF;border-radius:100px;padding:0.12rem 0.6rem;font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;white-space:nowrap;">NEW</span>' +
                 '<span style="flex-shrink:1;">Earn more. Run your academy. All in one app.</span>' +
               '</span>' +
-              '<a href="#" onclick="openDownloadModal();return false;" style="display:inline-block;background:#fff;color:#007AFF;border-radius:20px;padding:4px 14px;font-weight:500;font-size:0.85rem;white-space:nowrap;text-decoration:none;flex-shrink:0;line-height:1.4;">Start for FREE \u2192</a>' +
+              '' +
           '</div>'
         : '';
 
@@ -206,6 +206,7 @@
                             '<img src="Assets/Store=Google Play, Type=Light, Language=English@4x.png" alt="Get it on Google Play" height="44">' +
                         '</a>' +
                     '</div>' +
+                    '<p style="margin-top:16px;font-size:13px;font-weight:600;color:#16a34a;letter-spacing:0.01em;">Always FREE for coaches</p>' +
                 '</div>';
             document.body.appendChild(modal);
         }
