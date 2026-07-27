@@ -65,6 +65,7 @@
     var totalPerCoach = classRevenuePerCoach + programRevenuePerCoach;
 
     var yourDirectRevenue = totalPerCoach;
+    var academyRevenue = coaches * totalPerCoach;
     var royaltyPerCoach = totalPerCoach * royaltyRate;
     var totalRoyalties = affiliateCoaches * royaltyPerCoach;
     var staffSavings = getStaffSavings(coaches);
@@ -79,6 +80,7 @@
       classRevenuePerCoach: classRevenuePerCoach,
       programRevenuePerCoach: programRevenuePerCoach,
       yourDirectRevenue: yourDirectRevenue,
+      academyRevenue: academyRevenue,
       royaltyPerCoach: royaltyPerCoach,
       totalRoyalties: totalRoyalties,
       staffSavings: staffSavings,
@@ -261,8 +263,8 @@
         '<div class="rs-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">' +
           statCard(
             "Academy Revenue",
-            fmt(c.yourDirectRevenue) + "/mo",
-            "Your direct coaching income",
+            fmt(c.academyRevenue) + "/mo",
+            coaches + " coach" + (coaches > 1 ? "es" : "") + " × " + fmt(c.yourDirectRevenue),
             "#fff7ed",
             "#fed7aa",
             "#ea580c",
