@@ -3131,12 +3131,12 @@
             opacity: 0;
         }
 
-        .mock-card:nth-child(1) .mock-card-value { animation-delay: 0.4s; }
-        .mock-card:nth-child(2) .mock-card-value { animation-delay: 0.5s; }
-        .mock-card:nth-child(3) .mock-card-value { animation-delay: 0.6s; }
-        .mock-card:nth-child(4) .mock-card-value { animation-delay: 0.7s; }
-        .mock-card:nth-child(5) .mock-card-value { animation-delay: 0.8s; }
-        .mock-card:nth-child(6) .mock-card-value { animation-delay: 0.9s; }
+        .mock-card:nth-child(1) .mock-card-value { animation-delay: 0.3s; }
+        .mock-card:nth-child(2) .mock-card-value { animation-delay: 0.4s; }
+        .mock-card:nth-child(3) .mock-card-value { animation-delay: 0.5s; }
+        .mock-card:nth-child(4) .mock-card-value { animation-delay: 0.6s; }
+        .mock-card:nth-child(5) .mock-card-value { animation-delay: 0.7s; }
+        .mock-card:nth-child(6) .mock-card-value { animation-delay: 0.8s; }
 
         /* Comparison table row animation */
         .comparison-table tbody tr {
@@ -3893,16 +3893,8 @@
                         <div class="mock-card-value">12</div>
                     </div>
                     <div class="mock-card">
-                        <div class="mock-card-title">How far students got</div>
-                        <div class="mock-card-value">89%</div>
-                    </div>
-                    <div class="mock-card">
                         <div class="mock-card-title">Teaching hours this month</div>
                         <div class="mock-card-value">1,784</div>
-                    </div>
-                    <div class="mock-card">
-                        <div class="mock-card-title">Students ready to move up</div>
-                        <div class="mock-card-value">58</div>
                     </div>
                     <div class="mock-card">
                         <div class="mock-card-title">Tests done</div>
@@ -5112,23 +5104,24 @@
         // Counter animation for numbers
         function animateCounters() {
             const cards = document.querySelectorAll('.mock-card-value, .roi-value, .stat-number');
-            
+
             cards.forEach(card => {
                 const text = card.textContent.trim();
+                const hasPrefix = text.startsWith('$');
                 const number = parseInt(text.replace(/[^\d]/g, ''));
-                const suffix = text.replace(/\d+/g, '');
-                
-                if (!isNaN(number)) {
+                // suffix = everything after the digits (e.g. '%', '/mo') but not a leading '$'
+                const suffixMatch = text.replace(/^\$/, '').match(/^[\d,]+(.*)$/);
+                const suffix = suffixMatch ? suffixMatch[1] : '';
+
+                if (!isNaN(number) && number > 0) {
                     let current = 0;
                     const increment = Math.ceil(number / 30);
                     const timer = setInterval(() => {
                         current += increment;
-                        if (current >= number) {
-                            card.textContent = number + suffix;
-                            clearInterval(timer);
-                        } else {
-                            card.textContent = current + suffix;
-                        }
+                        const val = current >= number ? number : current;
+                        const formatted = val.toLocaleString('en-US');
+                        card.textContent = (hasPrefix ? '$' : '') + formatted + suffix;
+                        if (current >= number) clearInterval(timer);
                     }, 30);
                 }
             });
