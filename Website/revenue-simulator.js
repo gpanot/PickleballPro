@@ -158,126 +158,109 @@
     var classesPerMonth = state.classesPerMonth;
     var programPrice = state.programPrice;
 
-    var breakdownHtml = "";
-    if (state.showBreakdown) {
-      breakdownHtml =
-        '<div style="margin-top:20px;border-top:1px solid #bbf7d0;padding-top:22px;">' +
-          sectionLabel("Your coaching") +
+    var breakdownHtml =
+      sectionLabel("Your coaching") +
+      breakdownRow(
+        "Class income (" + studentsPerCoach + " students × $" + pricePerHour + "/hr × " + classesPerMonth + " classes)",
+        fmt(c.classRevenuePerCoach)
+      ) +
+      (programPrice > 0
+        ? breakdownRow(
+            "Program sales (" + studentsPerCoach + " students × $" + programPrice + ")",
+            fmt(c.programRevenuePerCoach)
+          )
+        : "") +
+      breakdownRow("Your direct total", fmt(c.yourDirectRevenue), true) +
+      (c.affiliateCoaches > 0
+        ? sectionLabel("Affiliate royalties (15%)", 18) +
           breakdownRow(
-            "Class income (" + studentsPerCoach + " students × $" + pricePerHour + "/hr × " + classesPerMonth + " classes)",
-            fmt(c.classRevenuePerCoach)
-          ) +
-          (programPrice > 0
-            ? breakdownRow(
-                "Program sales (" + studentsPerCoach + " students × $" + programPrice + ")",
-                fmt(c.programRevenuePerCoach)
-              )
-            : "") +
-          breakdownRow("Your direct total", fmt(c.yourDirectRevenue), true) +
-          (c.affiliateCoaches > 0
-            ? sectionLabel("Affiliate royalties (15%)", 18) +
-              breakdownRow(
-                c.affiliateCoaches +
-                  " affiliated coach" +
-                  (c.affiliateCoaches > 1 ? "es" : "") +
-                  " × " +
-                  fmt(c.royaltyPerCoach) +
-                  " royalty each",
-                fmt(c.totalRoyalties)
-              )
-            : "") +
-          (c.staffSavings > 0
-            ? sectionLabel("Staff savings vs. traditional", 18) +
-              breakdownRow(
-                coaches >= 6
-                  ? "Admin staff replaced by AcademyPro ($3,000/mo)"
-                  : "Admin workload covered (" +
-                      Math.round((c.staffSavings / 3000) * 100) +
-                      "% of a $3,000/mo role)",
-                "+" + fmt(c.staffSavings),
-                false,
-                true
-              )
-            : "") +
-          '<div style="border-top:1px dashed #86efac;padding-top:16px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;">' +
-            '<span style="font-size:15px;font-weight:700;color:#15803d;">Total potential</span>' +
-            '<span style="font-size:20px;font-weight:800;color:#15803d;">' +
-            esc(fmt(c.totalRevenue)) +
-            "/mo</span>" +
-          "</div>" +
-        "</div>";
-    }
+            c.affiliateCoaches +
+              " affiliated coach" +
+              (c.affiliateCoaches > 1 ? "es" : "") +
+              " × " +
+              fmt(c.royaltyPerCoach) +
+              " royalty each",
+            fmt(c.totalRoyalties)
+          )
+        : "") +
+      (c.staffSavings > 0
+        ? sectionLabel("Staff savings vs. traditional", 18) +
+          breakdownRow(
+            coaches >= 6
+              ? "Admin staff replaced by AcademyPro ($3,000/mo)"
+              : "Admin workload covered (" +
+                  Math.round((c.staffSavings / 3000) * 100) +
+                  "% of a $3,000/mo role)",
+            "+" + fmt(c.staffSavings),
+            false,
+            true
+          )
+        : "") +
+      '<div style="border-top:1px dashed #86efac;padding-top:14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-size:14px;font-weight:700;color:#15803d;">Total potential</span>' +
+        '<span style="font-size:18px;font-weight:800;color:#15803d;">' + esc(fmt(c.totalRevenue)) + "/mo</span>" +
+      "</div>";
 
     root.innerHTML =
-      '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:860px;margin:0 auto;padding:48px 24px;background:#fff;">' +
+      '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-width:1060px;margin:0 auto;padding:48px 24px;background:#fff;">' +
+
+        /* ── Header ── */
         '<div style="text-align:center;margin-bottom:36px;">' +
           '<h2 style="font-size:34px;font-weight:800;color:#0f172a;margin:0;line-height:1.2;">See How Much You Could Earn</h2>' +
           '<p style="font-size:16px;color:#64748b;margin-top:10px;max-width:480px;margin-left:auto;margin-right:auto;line-height:1.6;">' +
-            "Move the sliders to match your academy. Watch your income grow as you scale beyond your own schedule." +
+            "Move the sliders to match your academy. Watch your income grow as you scale." +
           "</p>" +
         "</div>" +
 
-        '<div style="background:#f8fafc;border-radius:16px;padding:32px 36px;margin-bottom:28px;border:1px solid #e2e8f0;">' +
-          '<div class="rs-sliders" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0 40px;">' +
+        /* ── Two-column panel ── */
+        '<div class="rs-panel" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;align-items:start;">' +
+
+          /* LEFT — sliders */
+          '<div style="background:#f8fafc;border-radius:16px;padding:28px 28px;border:1px solid #e2e8f0;display:flex;flex-direction:column;gap:24px;">' +
+            '<div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:-8px;">Adjust your academy</div>' +
             sliderHtml("coaches", "Coaches", coaches, 1, 15, 1, String(coaches)) +
             sliderHtml("studentsPerCoach", "Students per coach", studentsPerCoach, 3, 40, 1, String(studentsPerCoach)) +
             sliderHtml("pricePerHour", "Price per hour", pricePerHour, 25, 200, 5, "$" + pricePerHour) +
+            sliderHtml("classesPerMonth", "Classes / student / month", classesPerMonth, 1, 30, 1, String(classesPerMonth)) +
+            '<div style="font-size:13px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:14px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;">' +
+              '<span>Total students: <strong style="color:#1e293b;">' + c.totalStudents + '</strong></span>' +
+              '<span style="color:#cbd5e1;">·</span>' +
+              "<span>program price</span>" +
+              inlineEditHtml("programPrice", programPrice) +
+              "<span>per student</span>" +
+            "</div>" +
           "</div>" +
-          '<div style="text-align:center;margin-top:24px;font-size:14px;color:#64748b;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">' +
-            "<span>Total students: <strong style=\"color:#1e293b;\">" +
-            c.totalStudents +
-            "</strong></span>" +
-            '<span style="color:#cbd5e1;">·</span>' +
-            "<span>assumes</span>" +
-            inlineEditHtml("classesPerMonth", classesPerMonth) +
-            "<span>classes per student per month</span>" +
-            '<span style="color:#cbd5e1;">·</span>' +
-            "<span>program price</span>" +
-            inlineEditHtml("programPrice", programPrice) +
-            "<span>per student</span>" +
-          "</div>" +
-        "</div>" +
 
-        '<div style="background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 60%,#f0f9ff 100%);border-radius:16px;padding:32px 36px;margin-bottom:20px;border:1px solid #bbf7d0;">' +
-          '<div style="text-align:center;margin-bottom:24px;">' +
-            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#16a34a;margin-bottom:8px;">Your monthly revenue potential</div>' +
-            '<div style="font-size:58px;font-weight:800;color:#15803d;line-height:1;">' +
+          /* RIGHT — results */
+          '<div style="background:linear-gradient(160deg,#f0fdf4 0%,#ecfdf5 60%,#f0f9ff 100%);border-radius:16px;padding:28px 28px;border:1px solid #bbf7d0;display:flex;flex-direction:column;gap:0;">' +
+            '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#16a34a;margin-bottom:6px;">Your monthly revenue potential</div>' +
+            '<div style="font-size:52px;font-weight:800;color:#15803d;line-height:1;margin-bottom:4px;">' +
               esc(fmt(c.totalRevenue - c.platformCost)) +
-              '<span style="font-size:22px;font-weight:500;color:#22c55e;">/mo</span>' +
+              '<span style="font-size:20px;font-weight:500;color:#22c55e;">/mo</span>' +
             "</div>" +
-            '<div style="font-size:13px;color:#4ade80;margin-top:6px;font-weight:600;">' +
-              "after " +
-              (c.platformCost === 0 ? "free plan" : fmt(c.platformCost) + "/mo platform cost") +
+            '<div style="font-size:13px;color:#4ade80;margin-bottom:20px;font-weight:600;">' +
+              "after " + (c.platformCost === 0 ? "free plan" : fmt(c.platformCost) + "/mo platform cost") +
+            "</div>" +
+            '<div style="font-size:13px;color:#334155;line-height:1.7;">' +
+              breakdownHtml +
             "</div>" +
           "</div>" +
-          '<button type="button" data-action="toggle-breakdown" style="display:flex;align-items:center;justify-content:center;gap:6px;margin:0 auto;background:none;border:none;cursor:pointer;font-size:14px;font-weight:600;color:#16a34a;padding:6px 12px;">' +
-            (state.showBreakdown ? "Hide" : "Show") +
-            " breakdown" +
-            '<span style="transform:rotate(' +
-            (state.showBreakdown ? "180" : "0") +
-            'deg);transition:transform 0.2s;display:inline-block;font-size:11px;">▼</span>' +
-          "</button>" +
-          breakdownHtml +
+
         "</div>" +
 
+        /* ── 4 KPI cards ── */
         '<div class="rs-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">' +
           statCard(
             "Academy Revenue",
             fmt(c.academyRevenue) + "/mo",
             coaches + " coach" + (coaches > 1 ? "es" : "") + " × " + fmt(c.yourDirectRevenue),
-            "#fff7ed",
-            "#fed7aa",
-            "#ea580c",
-            "#c2410c"
+            "#fff7ed", "#fed7aa", "#ea580c", "#c2410c"
           ) +
           statCard(
             "Your Total Revenue",
             fmt(c.totalRevenue) + "/mo",
             null,
-            "#f0fdf4",
-            "#bbf7d0",
-            "#16a34a",
-            "#15803d"
+            "#f0fdf4", "#bbf7d0", "#16a34a", "#15803d"
           ) +
           statCard(
             "From Royalties",
@@ -285,41 +268,29 @@
             c.affiliateCoaches > 0
               ? c.affiliateCoaches + " affiliated coach" + (c.affiliateCoaches > 1 ? "es" : "")
               : "Add coaches to earn royalties",
-            "#f0f9ff",
-            "#bae6fd",
-            "#0ea5e9",
-            "#0369a1"
+            "#f0f9ff", "#bae6fd", "#0ea5e9", "#0369a1"
           ) +
           statCard(
             "Academy Size",
             coaches + " coach" + (coaches > 1 ? "es" : ""),
             c.totalStudents + " students · " + c.tier.name,
-            "#f8fafc",
-            "#e2e8f0",
-            "#94a3b8",
-            "#334155"
+            "#f8fafc", "#e2e8f0", "#94a3b8", "#334155"
           ) +
         "</div>" +
 
         '<p style="text-align:center;font-size:14px;color:#94a3b8;line-height:1.6;max-width:600px;margin:0 auto;">' +
-          "On the " +
-          esc(c.tier.name) +
-          " plan" +
+          "On the " + esc(c.tier.name) + " plan" +
           (c.platformCost > 0 ? " (" + esc(fmt(c.platformCost)) + "/mo)" : "") +
-          ", AcademyPro costs just " +
-          esc(c.costPercent) +
-          "% of your monthly revenue to run " +
-          coaches +
-          " coach" +
-          (coaches > 1 ? "es" : "") +
-          " and " +
-          c.totalStudents +
-          " students." +
+          ", AcademyPro costs just " + esc(c.costPercent) +
+          "% of your monthly revenue to run " + coaches +
+          " coach" + (coaches > 1 ? "es" : "") +
+          " and " + c.totalStudents + " students." +
         "</p>" +
+
       "</div>" +
       "<style>" +
-        "@media (max-width:720px){" +
-          ".rs-sliders{grid-template-columns:1fr!important;gap:24px!important;}" +
+        "@media (max-width:760px){" +
+          ".rs-panel{grid-template-columns:1fr!important;}" +
           ".rs-stats{grid-template-columns:repeat(2,1fr)!important;}" +
         "}" +
         "input[data-slider]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#3b82f6;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}" +
