@@ -152,17 +152,12 @@
         }
 
         .hero h1 {
-            font-size: 4rem;
+            font-size: 3rem;
             font-weight: 900;
-            line-height: 1.1;
+            line-height: 1.15;
             margin-bottom: 1.5rem;
             color: #0f172a;
-            letter-spacing: -1px;
-        }
-
-        /* Slide 1: match base h1 size; the <br> keeps it to 2 lines */
-        .hero-slide[data-index="1"] h1 {
-            font-size: 4rem;
+            letter-spacing: -0.5px;
         }
 
         .hero p {
@@ -2711,9 +2706,8 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            .hero h1,
-            .hero-slide[data-index="1"] h1 {
-                font-size: 2.2rem;
+            .hero h1 {
+                font-size: 1.9rem;
             }
 
             .hero p {
@@ -3844,15 +3838,15 @@
             <!-- Hero Carousel -->
             <div class="hero-carousel" id="heroCarousel" aria-live="polite">
                 <div class="hero-slide active" data-index="0">
-                    <h1>Turn Your Coaching Into<br>an Academy Business.</h1>
+                    <h1>Turn Your Coaching<br>Into an Academy<br>Business.</h1>
                     <p>Teach once. Certify coaches. Earn recurring royalties.</p>
                 </div>
                 <div class="hero-slide" data-index="1">
-                    <h1>A Coach Across the Country<br>Teaches Your Program. You Get Paid.</h1>
+                    <h1>A Coach Across the Country<br>Teaches Your Program.<br>You Get Paid.</h1>
                     <p>Your methodology becomes a business that grows without you teaching every class.</p>
                 </div>
                 <div class="hero-slide" data-index="2">
-                    <h1>Build an Academy Players Follow —<br>Not Just a Schedule at One Club.</h1>
+                    <h1>Build an Academy<br>Players Follow — Not Just<br>a Schedule at One Club.</h1>
                     <p>Own your brand. Grow your community. Teach anywhere.</p>
                 </div>
             </div>
@@ -3862,9 +3856,7 @@
                 <button class="hero-dot" data-slide="2" role="tab" aria-selected="false" aria-label="Slide 3"></button>
             </div>
             
-            <button class="cta-button" onclick="openReadinessQuiz()">Check If You're Ready</button>
-            <p class="hero-subtext">Free quiz! Takes 90 seconds. No sign-up needed.</p>
-            <p class="hero-skip-link">Sure you want this? <a href="#" onclick="openDownloadModal(); return false;">Start Now &rarr;</a></p>
+            <button class="cta-button" onclick="openDownloadModal()">Start for FREE</button>
 
             <div class="dashboard-mock">
                 <div class="dashboard-header">
