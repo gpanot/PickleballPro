@@ -258,9 +258,18 @@
           breakdownHtml +
         "</div>" +
 
-        '<div class="rs-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">' +
+        '<div class="rs-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">' +
           statCard(
-            "Total Revenue",
+            "Academy Revenue",
+            fmt(c.yourDirectRevenue) + "/mo",
+            "Your direct coaching income",
+            "#fff7ed",
+            "#fed7aa",
+            "#ea580c",
+            "#c2410c"
+          ) +
+          statCard(
+            "Your Total Revenue",
             fmt(c.totalRevenue) + "/mo",
             null,
             "#f0fdf4",
@@ -309,7 +318,7 @@
       "<style>" +
         "@media (max-width:720px){" +
           ".rs-sliders{grid-template-columns:1fr!important;gap:24px!important;}" +
-          ".rs-stats{grid-template-columns:1fr!important;}" +
+          ".rs-stats{grid-template-columns:repeat(2,1fr)!important;}" +
         "}" +
         "input[data-slider]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#3b82f6;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}" +
         "input[data-slider]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#3b82f6;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}" +
