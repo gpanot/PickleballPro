@@ -71,13 +71,12 @@ body.nav-drawer-open .site-nav .nav-menu-icon span:nth-child(3) {
 }
 
 .site-nav .logo {
-    font-size: 1.3rem;
-    font-weight: 800;
     text-decoration: none;
-    background: linear-gradient(135deg, #007AFF 0%, #0056b3 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    background: none;
+    -webkit-text-fill-color: unset;
 }
 
 .site-nav .nav-links {
@@ -316,7 +315,6 @@ body.has-site-nav [id] {
     }
 
     .site-nav .logo {
-        font-size: 1.1rem;
         flex-shrink: 0;
     }
 
