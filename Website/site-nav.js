@@ -47,9 +47,7 @@
                     '</span>' +
                 '</button>' +
                 '<a href="' + academyHref + '" class="logo" style="display:flex;align-items:center;gap:9px;text-decoration:none;">' +
-                    '<span style="width:32px;height:32px;background:#007AFF;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-                        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>' +
-                    '</span>' +
+                    '<img src="/Assets/app-icon.png" alt="AcademyPro" width="32" height="32" style="border-radius:8px;flex-shrink:0;display:block;">' +
                     '<span style="font-size:18px;font-weight:700;letter-spacing:-0.3px;color:#0f172a;">Academy<span style="color:#007AFF;">Pro</span></span>' +
                 '</a>' +
             '</div>' +
