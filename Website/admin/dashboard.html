@@ -1713,7 +1713,7 @@ Takes 1 minute to claim it with immediate confirmation. The link is available fo
 
     // Footer buttons
     document.getElementById('dw-open-btn').href    = c.source_url || '#';
-    document.getElementById('dw-preview-btn').href = `${SITE_ORIGIN}/coaches`;
+    document.getElementById('dw-preview-btn').href = c.claim_code ? `${SITE_ORIGIN}/coach/claim/${encodeURIComponent(c.claim_code)}` : `${SITE_ORIGIN}/coaches`;
   }
 
   function copyDrawerUrl() {
@@ -1752,8 +1752,8 @@ Takes 1 minute to claim it with immediate confirmation. The link is available fo
       if (sc) sc.innerHTML = '<span class="sbadge none">New</span>';
       const row = document.querySelector(`tr[data-id="${DRAWER_COACH.id}"]`);
       if (row) row.classList.remove('done-row');
-      // Hide reset button and re-enable sent button
-      btn.style.display = 'none';
+      // Re-render the drawer so reset button disappears and all fields refresh
+      renderDrawer(DRAWER_COACH);
       const sentBtn = document.getElementById('sent-' + DRAWER_COACH.id);
       if (sentBtn) { sentBtn.classList.remove('done'); sentBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Mark sent'; }
       updateHeaderStats();
