@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AcademyPro Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary:        #007AFF;
+      --primary-dark:   #0062CC;
+      --primary-light:  #E8F2FF;
+      --success:        #22C55E;
+      --success-light:  #DCFCE7;
+      --warning:        #F59E0B;
+      --warning-light:  #FEF3C7;
+      --danger:         #EF4444;
+      --danger-light:   #FEE2E2;
+      --surface:        #F7F8FA;
+      --white:          #FFFFFF;
+      --border:         #E2E8F0;
+      --border-strong:  #CBD5E1;
+      --text:           #0F172A;
+      --text-secondary: #475569;
+      --text-muted:     #94A3B8;
+      --radius:         10px;
+      --header-h:       56px;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      height: var(--header-h);
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+    .header-logo { font-size: 18px; font-weight: 800; color: var(--primary); letter-spacing: -0.4px; }
+    .header-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+      background: var(--primary-light); color: var(--primary);
+      padding: 3px 8px; border-radius: 20px;
+    }
+    .header-spacer { flex: 1; }
+    .header-stats { display: flex; gap: 24px; }
+    .hstat { text-align: right; }
+    .hstat-val   { font-size: 20px; font-weight: 700; line-height: 1; }
+    .hstat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .header-logout {
+      font-size: 13px; color: var(--text-muted); cursor: pointer; padding: 6px 10px;
+      border-radius: 6px; border: 1px solid var(--border); user-select: none;
+    }
+    .header-logout:hover { background: var(--surface); }
+
+    /* Tabs */
+    .tabs {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      padding: 0 24px;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .tab {
+      padding: 14px 16px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+    .tab:hover:not(.active) { color: var(--text-secondary); }
+
+    /* Tab panels */
+    .tab-panel { display: none; flex: 1; min-height: 0; }
+    .tab-panel.active { display: flex; flex-direction: column; }
+
+    /* Toolbar */
+    .toolbar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 300px; }
+    .search-wrap svg {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      pointer-events: none; color: var(--text-muted);
+    }
+    .search-input {
+      width: 100%; padding: 8px 10px 8px 34px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 14px; outline: none; transition: border-color 0.15s;
+      background: var(--surface);
+    }
+    .search-input:focus { border-color: var(--primary); background: var(--white); }
+    select.filter {
+      padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 13px; background: var(--surface); color: var(--text);
+      cursor: pointer; outline: none; transition: border-color 0.15s;
+    }
+    select.filter:focus { border-color: var(--primary); }
+    .toolbar-count { font-size: 13px; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+
+    /* Message template */
+    .template-bar {
+      background: #FFFBEB;
+      border-bottom: 1px solid #FDE68A;
+      padding: 10px 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .template-bar label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--warning); white-space: nowrap; padding-top: 3px;
+    }
+    .template-bar textarea {
+      flex: 1; border: 1px solid #FDE68A; border-radius: 6px;
+      padding: 6px 10px; font-size: 13px; resize: vertical;
+      min-height: 46px; max-height: 120px; font-family: inherit;
+      background: var(--white); outline: none; line-height: 1.5;
+    }
+    .template-bar textarea:focus { border-color: var(--warning); }
+    .template-hint { font-size: 11px; color: var(--text-muted); white-space: nowrap; padding-top: 3px; align-self: center; }
+
+    /* Table */
+    .table-wrap { flex: 1; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      position: sticky; top: 0; background: var(--white);
+      border-bottom: 1px solid var(--border-strong);
+      padding: 10px 14px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-muted); text-align: left; white-space: nowrap; z-index: 10;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:hover { background: #F8FAFC; }
+    tbody tr.done-row { opacity: 0.4; }
+    tbody td { padding: 10px 14px; vertical-align: middle; }
+
+    /* Avatar */
+    .av-cell { display: flex; align-items: center; gap: 10px; }
+    .av {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      object-fit: cover; background: var(--primary-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--primary); overflow: hidden;
+    }
+    .av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .coach-name { font-weight: 600; font-size: 14px; line-height: 1.2; }
+    .coach-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* Chips */
+    .rating-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    }
+    .rating-chip svg { color: #F59E0B; }
+
+    /* Status badge */
+    .sbadge {
+      display: inline-block; padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .sbadge.none      { background: var(--surface); color: var(--text-muted); }
+    .sbadge.contacted { background: var(--primary-light); color: var(--primary); }
+    .sbadge.replied   { background: var(--success-light); color: #15803D; }
+    .sbadge.declined  { background: var(--danger-light); color: var(--danger); }
+    .sbadge.claimed   { background: #F3E8FF; color: #7C3AED; }
+
+    /* Intent badge */
+    .ibadge {
+      display: inline-block; padding: 3px 9px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+    .ibadge.create_academy { background: #DCFCE7; color: #16A34A; }
+    .ibadge.join_academy   { background: #DBEAFE; color: #2563EB; }
+    .ibadge.solo_coach     { background: #F1F5F9; color: #64748B; }
+    .ibadge.none           { background: var(--surface); color: var(--text-muted); }
+
+    /* Buttons */
+    .actions { display: flex; gap: 6px; align-items: center; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 6px 11px; border-radius: 7px; font-size: 12px; font-weight: 600;
+      cursor: pointer; border: 1.5px solid transparent; transition: all 0.15s;
+      white-space: nowrap; text-decoration: none; font-family: inherit;
+    }
+    .btn-open  { background: var(--surface); color: var(--text-secondary); border-color: var(--border); }
+    .btn-open:hover { border-color: var(--border-strong); background: #EFF2F7; }
+    .btn-copy  { background: var(--primary-light); color: var(--primary); }
+    .btn-copy:hover { background: #D1E9FF; }
+    .btn-copy.copied { background: var(--success-light); color: #15803D; }
+    .btn-sent  { background: var(--surface); color: var(--text-muted); border-color: var(--border); }
+    .btn-sent:hover { background: var(--success-light); color: #15803D; border-color: #86EFAC; }
+    .btn-sent.done  { background: var(--success-light); color: #15803D; border-color: #86EFAC; pointer-events: none; }
+
+    /* States */
+    .state-msg { text-align: center; padding: 80px 24px; color: var(--text-muted); font-size: 14px; }
+    .state-msg strong { display: block; font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; }
+
+    /* Sources tab */
+    .sources-panel { padding: 32px 24px; max-width: 700px; }
+    .sources-panel h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .sources-panel p  { font-size: 14px; color: var(--text-muted); margin-bottom: 28px; }
+    .source-card {
+      background: var(--white); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px 24px; display: flex; align-items: center; gap: 20px; margin-bottom: 12px;
+    }
+    .source-icon {
+      width: 44px; height: 44px; border-radius: 10px; background: var(--primary-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .source-info { flex: 1; }
+    .source-name { font-size: 16px; font-weight: 700; }
+    .source-meta { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .source-stats { display: flex; gap: 20px; }
+    .sstat { text-align: right; }
+    .sstat-val   { font-size: 20px; font-weight: 700; }
+    .sstat-label { font-size: 11px; color: var(--text-muted); }
+
+    /* ===== DIRECTORY TAB ===== */
+    .dir-grid { display:flex; flex-direction:column; gap:12px; }
+
+    .dir-card {
+      display:flex; background:var(--white);
+      border:1px solid var(--border); border-radius:12px;
+      overflow:hidden; transition:box-shadow .2s,transform .2s;
+    }
+    .dir-card:hover { box-shadow:0 8px 24px -8px rgba(0,0,0,.12); transform:translateY(-1px); }
+
+    .dir-photo { width:160px; flex-shrink:0; position:relative; overflow:hidden; background:var(--surface); min-height:130px; }
+    .dir-photo img { width:100%; height:100%; object-fit:cover; display:block; position:absolute; inset:0; }
+    .dir-photo-fallback {
+      width:100%; height:100%; min-height:130px;
+      display:flex; align-items:center; justify-content:center;
+      background:var(--primary-light); color:var(--primary);
+      font-size:22px; font-weight:700;
+    }
+
+    .dir-body { flex:1; padding:14px 16px; display:flex; flex-direction:column; justify-content:space-between; min-width:0; }
+
+    .dir-top { display:flex; align-items:center; gap:8px; }
+    .dir-name { font-size:16px; font-weight:700; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .dir-rating { font-size:12px; font-weight:700; background:#FFFBEB; color:#92400E; padding:3px 9px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+    .dir-rating span { font-weight:400; color:var(--text-muted); }
+
+    .dir-feat-star {
+      width:28px; height:28px; border-radius:50%; background:var(--surface);
+      border:1.5px solid var(--border); color:var(--text-muted);
+      font-size:14px; cursor:pointer; flex-shrink:0; transition:all .15s;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .dir-feat-star:hover { border-color:#F59E0B; color:#F59E0B; }
+    .dir-feat-star.on { background:#FFFBEB; border-color:#F59E0B; color:#F59E0B; }
+
+    .dir-loc { font-size:12px; color:var(--text-muted); margin-top:4px; }
+    .dir-bio { font-size:12.5px; color:var(--text-secondary); line-height:1.5; margin-top:6px;
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+    .dir-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+
+    .dir-style-tag {
+      font-size:10px; font-weight:600; padding:3px 9px; border-radius:20px;
+      background:rgba(194,104,122,.08); color:#A8455A; border:1px solid rgba(194,104,122,.15);
+    }
+    .dir-sport-tag {
+      font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px;
+      letter-spacing:.02em; text-transform:uppercase; white-space:nowrap;
+    }
+    .dir-sport-tag.pb   { background:#DCFCE7; color:#16A34A; }
+    .dir-sport-tag.padel { background:#DBEAFE; color:#2563EB; }
+
+    .dir-gender-tag {
+      font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px;
+      text-transform:uppercase; letter-spacing:.02em;
+    }
+    .dir-gender-tag.female { background:#FDF2F8; color:#9D174D; }
+    .dir-gender-tag.male   { background:#EFF6FF; color:#1D4ED8; }
+
+    .dir-sessions { display:flex; flex-wrap:wrap; gap:4px; }
+    .dir-sess-tag {
+      font-size:10px; font-weight:600; padding:3px 8px; border-radius:20px;
+      background:var(--surface); color:var(--text-secondary); border:1px solid var(--border);
+    }
+    .dir-sess-tag.women-only { background:#FDF4FF; color:#7E22CE; border-color:rgba(126,34,206,.2); }
+
+    .dir-verified { font-size:11px; font-weight:700; color:#16A34A; }
+    .dir-price { font-size:15px; font-weight:700; color:var(--text); white-space:nowrap; }
+    .dir-price span { font-size:11px; font-weight:400; color:var(--text-muted); }
+
+    .dir-bottom { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:10px; }
+
+    .dir-gap { font-size:10px; font-weight:600; color:#D97706; background:#FFF7ED; border:1px solid #FDE68A; padding:3px 8px; border-radius:20px; }
+
+    input.filter-num {
+      padding:8px 10px; border:1.5px solid var(--border); border-radius:8px;
+      font-size:13px; background:var(--surface); color:var(--text);
+      outline:none; transition:border-color .15s; width:72px;
+    }
+    input.filter-num:focus { border-color:var(--primary); }
+
+    .dir-info-bar {
+      padding:8px 24px; background:#FFF7ED; border-bottom:1px solid #FED7AA;
+      font-size:12px; color:#92400E; flex-shrink:0;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: #1E293B; color: #fff; padding: 10px 20px;
+      border-radius: 8px; font-size: 13px; font-weight: 500;
+      transition: transform 0.25s ease; pointer-events: none; z-index: 999; white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Add-Player button */
+    .btn-add-player {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; background: var(--success); color: #fff;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .btn-add-player:hover { background: #16A34A; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      z-index: 200; align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--white); border-radius: 14px; width: 100%; max-width: 520px;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 24px 60px -12px rgba(0,0,0,.35);
+      animation: slideUp .2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity:0 } to { transform: translateY(0); opacity:1 } }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-close {
+      width: 28px; height: 28px; border-radius: 50%; background: var(--surface);
+      border: none; cursor: pointer; font-size: 16px; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; transition: background .15s;
+    }
+    .modal-close:hover { background: var(--border); color: var(--text); }
+    .modal-body { padding: 20px 24px; }
+    .form-row { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .4px; }
+    .form-input {
+      width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+      border-radius: 8px; font-size: 14px; font-family: inherit; outline: none;
+      transition: border-color .15s; background: var(--white); color: var(--text);
+    }
+    .form-input:focus { border-color: var(--primary); }
+    .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .invite-preview {
+      background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 14px; font-size: 13px; line-height: 1.6; color: var(--text);
+      white-space: pre-wrap; word-break: break-word; font-family: inherit;
+      min-height: 80px; max-height: 260px; overflow-y: auto; user-select: all;
+    }
+    .modal-footer {
+      display: flex; gap: 10px; padding: 16px 24px 20px;
+      border-top: 1px solid var(--border);
+    }
+    .btn-modal-primary {
+      flex: 1; padding: 10px 0; background: var(--primary); color: #fff;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background .15s;
+    }
+    .btn-modal-primary:hover { background: var(--primary-dark); }
+    .btn-modal-secondary {
+      padding: 10px 20px; background: var(--surface); color: var(--text-secondary);
+      border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn-modal-secondary:hover { border-color: var(--border-strong); }
+
+    /* Profile Drawer */
+    #drawer-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.3);
+      z-index: 150; display: none; cursor: pointer;
+    }
+    #drawer-overlay.open { display: block; }
+    #profile-drawer {
+      position: fixed; top: 0; right: 0; width: 500px; max-width: 95vw; height: 100vh;
+      background: var(--white); z-index: 151;
+      transform: translateX(100%); transition: transform .28s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column; box-shadow: -8px 0 40px rgba(0,0,0,.15);
+    }
+    #profile-drawer.open { transform: translateX(0); }
+    .dw-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      background: var(--white); position: sticky; top: 0; z-index: 5; flex-shrink: 0;
+    }
+    .dw-title { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+    .dw-close {
+      width: 30px; height: 30px; border-radius: 50%; background: var(--surface);
+      border: none; cursor: pointer; font-size: 16px; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .dw-close:hover { background: var(--border); color: var(--text); }
+    .dw-scroll { flex: 1; overflow-y: auto; }
+    .dw-photo {
+      width: 100%; height: 280px; object-fit: cover; object-position: top;
+      display: block; background: var(--surface);
+    }
+    .dw-photo-fallback {
+      width: 100%; height: 280px; display: flex; align-items: center; justify-content: center;
+      background: var(--primary-light); font-size: 80px; font-weight: 700; color: var(--primary);
+    }
+    .dw-body { padding: 20px; }
+    .dw-name { font-size: 20px; font-weight: 700; line-height: 1.2; }
+    .dw-loc { font-size: 13px; color: var(--text-muted); margin-top: 5px; }
+    .dw-stats {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 1px;
+      background: var(--border); border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; margin: 16px 0;
+    }
+    .dw-stat { background: var(--white); padding: 12px 8px; text-align: center; }
+    .dw-stat-v { font-size: 17px; font-weight: 700; }
+    .dw-stat-l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+    .dw-section { margin-top: 20px; }
+    .dw-section-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .dw-bio { font-size: 13.5px; color: var(--text-secondary); line-height: 1.65; }
+    .dw-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .dw-tag { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }
+    .dw-tag.rose { background: rgba(194,104,122,.08); color: #A8455A; border-color: rgba(194,104,122,.15); }
+    .dw-tag.purple { background: #F5ECF7; color: #7E22CE; border-color: rgba(126,34,206,.2); }
+    .dw-tag.green { background: var(--success-light); color: #15803D; border-color: rgba(34,197,94,.2); }
+    .dw-review { background: var(--surface); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+    .dw-review-stars { font-size: 12px; color: var(--warning); margin-bottom: 4px; }
+    .dw-review-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; font-style: italic; }
+    .dw-review-who { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-weight: 600; }
+    .dw-divider { height: 1px; background: var(--border); margin: 20px 0; }
+    .dw-source { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .dw-footer {
+      padding: 14px 20px; border-top: 1px solid var(--border); background: var(--white);
+      display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .dw-btn {
+      flex: 1; min-width: 80px; padding: 9px 12px; border-radius: 8px;
+      font-size: 13px; font-weight: 700; cursor: pointer; text-align: center;
+      border: none; transition: all .15s; text-decoration: none; display: inline-flex;
+      align-items: center; justify-content: center; gap: 5px; white-space: nowrap;
+    }
+    .dw-btn-msg  { background: var(--primary); color: #fff; }
+    .dw-btn-msg:hover  { background: var(--primary-dark); }
+    .dw-btn-msg2 { background: var(--primary-light); color: var(--primary); }
+    .dw-btn-msg2:hover { background: #D0E9FF; }
+    .dw-btn-open { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }
+    .dw-btn-open:hover { background: var(--border); }
+    /* Make rows clickable */
+    #coaches-tbody tr { cursor: pointer; }
+    #coaches-tbody tr:hover { background: #F8FAFF; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">AcademyPro</div>
+  <div class="header-badge">Admin</div>
+  <div class="header-spacer"></div>
+  <div class="header-stats">
+    <div class="hstat">
+      <div class="hstat-val" id="stat-total">0</div>
+      <div class="hstat-label">Total</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" style="color:var(--text-muted)" id="stat-contacted">0</div>
+      <div class="hstat-label">Contacted</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" style="color:var(--success)" id="stat-claimed">0</div>
+      <div class="hstat-label">Claimed</div>
+    </div>
+  </div>
+  <a href="https://academypro.thecourtflow.com/coaches" target="_blank" rel="noopener"
+     style="font-size:13px;color:var(--primary);cursor:pointer;padding:6px 10px;border-radius:6px;border:1px solid var(--primary-light);background:var(--primary-light);font-weight:600;white-space:nowrap;text-decoration:none;display:flex;align-items:center;gap:5px">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+    Coach Directory
+  </a>
+  <div class="header-logout" onclick="logout()">Sign out</div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('coaches')">Coaches</div>
+  <div class="tab" onclick="switchTab('sources')">Sources</div>
+  <div class="tab" onclick="switchTab('directory')">Directory Preview</div>
+</div>
+
+<!-- TAB: Coaches -->
+<div class="tab-panel active" id="tab-coaches">
+
+  <!-- Message templates -->
+  <div class="template-bar">
+    <label>Message 1 — First outreach</label>
+    <textarea id="tpl" spellcheck="false">Hi {name}, I found you on TeachMe and I'd love to feature you on AcademyPro - it's always a free app where pickleball coaches grow their Academy and earn royalties when other coaches run your programs. Would love to have you onboard with the other 1600 coaches! It is complementary to your TeachMe account. If you are interested just reply YES I will create your account and send your link ready to run. Always Free for coaches. Giom</textarea>
+    <span class="template-hint">Token: {name}</span>
+  </div>
+  <div class="template-bar" style="margin-top:8px">
+    <label>Message 2 — After coach replies YES</label>
+    <textarea id="tpl2" spellcheck="false">Great! Your profile is already set up at, one last step:
+{claim_url}
+Takes 1 minute to claim it with immediate confirmation. The link is available for 24h. Giom</textarea>
+    <span class="template-hint">Token: {claim_url}</span>
+  </div>
+
+  <!-- Filters -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" id="search" type="text" placeholder="Search name or city..." oninput="applyFilters()" />
+    </div>
+    <select class="filter" id="fStatus" onchange="applyFilters()">
+      <option value="">All statuses</option>
+      <option value="none">Not contacted</option>
+      <option value="contacted">Contacted</option>
+      <option value="replied">Replied</option>
+      <option value="declined">Declined</option>
+      <option value="claimed">Claimed</option>
+    </select>
+    <select class="filter" id="fIntent" onchange="applyFilters()">
+      <option value="">All intents</option>
+      <option value="create_academy">Create Academy</option>
+      <option value="join_academy">Join Academy</option>
+      <option value="solo_coach">Solo Coach</option>
+      <option value="none">No intent</option>
+    </select>
+    <select class="filter" id="fPlatform" onchange="applyFilters()">
+      <option value="">All sources</option>
+    </select>
+    <select class="filter" id="fSort" onchange="applyFilters()">
+      <option value="rating">Sort: Rating</option>
+      <option value="lessons">Sort: Lessons</option>
+      <option value="price">Sort: Price</option>
+      <option value="name">Sort: Name A-Z</option>
+    </select>
+    <div class="toolbar-count" id="row-count"></div>
+    <button class="btn-add-player" onclick="openAddPlayerModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/><path d="M16 11h6M19 8v6"/></svg>
+      Add Player
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="state-msg" id="loading-msg"><strong>Loading coaches...</strong>Fetching from Supabase</div>
+    <table id="coaches-table" style="display:none">
+      <thead>
+        <tr>
+          <th style="min-width:220px">Coach</th>
+          <th>Location</th>
+          <th>Price</th>
+          <th>Rating</th>
+          <th>Lessons</th>
+          <th>DUPR</th>
+          <th>Source</th>
+          <th>Preview</th>
+          <th>Intent</th>
+          <th>Status</th>
+          <th style="min-width:290px">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="coaches-tbody"></tbody>
+    </table>
+    <div class="state-msg" id="empty-msg" style="display:none"><strong>No coaches found</strong>Try adjusting the filters</div>
+  </div>
+  <div id="load-more-wrap" style="display:none;padding:20px 24px;border-top:1px solid var(--border);background:var(--white);flex-shrink:0;text-align:center">
+    <button id="load-more-btn" onclick="loadMore()" style="padding:10px 28px;background:var(--surface);border:1.5px solid var(--border-strong);border-radius:8px;font-size:14px;font-weight:600;color:var(--text-secondary);cursor:pointer;">Load 50 more</button>
+  </div>
+</div>
+
+<!-- TAB: Sources -->
+<div class="tab-panel" id="tab-sources">
+  <div class="sources-panel">
+    <h2>Scraped Sources</h2>
+    <p>Coverage and recency per platform. Re-scraping is done via CLI.</p>
+    <div id="sources-list"><div class="state-msg" style="padding:40px 0"><strong>Loading...</strong></div></div>
+  </div>
+</div>
+
+<!-- TAB: Directory Preview -->
+<div class="tab-panel" id="tab-directory">
+
+  <!-- Filters toolbar (Phase 3) -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" id="dir-search" type="text" placeholder="Search coaches..." oninput="dirDebounce()" />
+    </div>
+    <select class="filter" id="dir-gender" onchange="applyDirFilters()">
+      <option value="">All genders</option>
+      <option value="female">Female</option>
+      <option value="male">Male</option>
+    </select>
+    <select class="filter" id="dir-session" onchange="applyDirFilters()">
+      <option value="">All sessions</option>
+      <option value="1on1">1-on-1</option>
+      <option value="duo">Duo</option>
+      <option value="small_group">Small group</option>
+      <option value="women_only">Women-only</option>
+    </select>
+    <input type="number" class="filter-num" id="dir-price-min" placeholder="Min $" oninput="dirDebounce()" />
+    <input type="number" class="filter-num" id="dir-price-max" placeholder="Max $" oninput="dirDebounce()" />
+    <select class="filter" id="dir-sort" onchange="applyDirFilters()">
+      <option value="rating">Top Rated</option>
+      <option value="lessons">Most Lessons</option>
+      <option value="price_asc">Price: Low–High</option>
+      <option value="price_desc">Price: High–Low</option>
+      <option value="newest">Newest</option>
+      <option value="name">Name A–Z</option>
+    </select>
+    <div class="toolbar-count" id="dir-count"></div>
+  </div>
+
+  <!-- Legend -->
+  <div class="dir-info-bar">
+    <strong>Orange badge</strong> = missing data (fill via coach profile or scraper).&nbsp;&nbsp;
+    <strong>★</strong> = featured toggle (click to feature/unfeature).
+  </div>
+
+  <!-- Cards scroll area -->
+  <div style="flex:1;overflow-y:auto;padding:20px 24px">
+    <div class="state-msg" id="dir-loading"><strong>Loading coaches...</strong>Fetching from Supabase</div>
+    <div class="state-msg" id="dir-empty" style="display:none"><strong>No coaches found</strong>Try adjusting the filters</div>
+    <div id="dir-cards" class="dir-grid"></div>
+    <div style="text-align:center;padding:20px 0;display:none" id="dir-load-more-wrap">
+      <button id="dir-load-more" onclick="loadMoreDir()"
+        style="padding:10px 28px;background:var(--surface);border:1.5px solid var(--border-strong);border-radius:8px;font-size:14px;font-weight:600;color:var(--text-secondary);cursor:pointer">
+        Load 50 more
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Profile Drawer -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="profile-drawer">
+  <div class="dw-header">
+    <div class="dw-title" id="dw-title">Coach Profile</div>
+    <button class="dw-close" onclick="closeDrawer()">&#x2715;</button>
+  </div>
+  <div class="dw-scroll">
+    <div id="dw-photo-wrap">
+      <div class="dw-photo-fallback" id="dw-photo-fallback">?</div>
+    </div>
+    <div class="dw-body">
+      <div class="dw-name" id="dw-name">Loading...</div>
+      <div class="dw-loc"  id="dw-loc"></div>
+      <div class="dw-stats">
+        <div class="dw-stat"><div class="dw-stat-v" id="dw-stat-rating">n/a</div><div class="dw-stat-l">Rating</div></div>
+        <div class="dw-stat"><div class="dw-stat-v" id="dw-stat-reviews">0</div><div class="dw-stat-l">Reviews</div></div>
+        <div class="dw-stat"><div class="dw-stat-v" id="dw-stat-lessons">0</div><div class="dw-stat-l">Lessons</div></div>
+        <div class="dw-stat"><div class="dw-stat-v" id="dw-stat-price">Ask</div><div class="dw-stat-l">Per hour</div></div>
+      </div>
+      <div class="dw-section" id="dw-bio-sec" style="display:none">
+        <div class="dw-section-label">About</div>
+        <div class="dw-bio" id="dw-bio"></div>
+      </div>
+      <div class="dw-section" id="dw-style-sec" style="display:none">
+        <div class="dw-section-label">Coaching style</div>
+        <div class="dw-tags" id="dw-style"></div>
+      </div>
+      <div class="dw-section" id="dw-sess-sec" style="display:none">
+        <div class="dw-section-label">Session types</div>
+        <div class="dw-tags" id="dw-sess"></div>
+      </div>
+      <div class="dw-section" id="dw-cert-sec" style="display:none">
+        <div class="dw-section-label">Certifications</div>
+        <div class="dw-tags" id="dw-cert"></div>
+      </div>
+      <div class="dw-divider"></div>
+      <div class="dw-section" id="dw-reviews-sec" style="display:none">
+        <div class="dw-section-label" id="dw-reviews-label">Reviews</div>
+        <div id="dw-reviews-list"></div>
+      </div>
+      <div class="dw-divider" id="dw-reviews-divider" style="display:none"></div>
+      <div class="dw-section">
+        <div class="dw-section-label">Outreach info</div>
+        <div style="display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--text-secondary)">
+          <div id="dw-email-row"  style="display:none;align-items:center;gap:8px;flex-wrap:wrap"><strong>Email:</strong> <span id="dw-email"></span><button id="dw-reset-btn" onclick="resetClaim()" style="display:none;padding:3px 10px;font-size:11px;font-weight:700;background:#FEE2E2;color:#B91C1C;border:1px solid #FECACA;border-radius:6px;cursor:pointer;white-space:nowrap" title="Reset claim — coach can re-claim">Reset claim</button></div>
+          <div id="dw-dupr-row"   style="display:none"><strong>DUPR:</strong> <span id="dw-dupr"></span></div>
+          <div id="dw-exp-row"    style="display:none"><strong>Experience:</strong> <span id="dw-exp"></span></div>
+          <div id="dw-gender-row" style="display:none"><strong>Gender:</strong> <span id="dw-gender"></span></div>
+          <div id="dw-since-row"  style="display:none"><strong>Coaching since:</strong> <span id="dw-since"></span></div>
+          <div><strong>Source:</strong> <span id="dw-source"></span></div>
+          <div><strong>Claim code:</strong> <code id="dw-code" style="background:var(--surface);padding:2px 8px;border-radius:4px;font-size:12px"></code></div>
+          <div style="margin-top:4px">
+            <strong>Claim URL:</strong>
+            <div id="dw-url-text" style="margin-top:4px;background:var(--surface);padding:8px 10px;border-radius:8px;font-size:11px;font-family:monospace;word-break:break-all;color:var(--text-muted)"></div>
+            <button onclick="copyDrawerUrl()" style="margin-top:6px;padding:6px 14px;font-size:12px;font-weight:700;background:var(--primary-light);color:var(--primary);border:none;border-radius:6px;cursor:pointer">Copy claim URL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="dw-footer">
+    <button class="dw-btn dw-btn-msg"  id="dw-msg1-btn" onclick="drawerMsg1()">Copy Msg 1</button>
+    <button class="dw-btn dw-btn-msg2" id="dw-msg2-btn" onclick="drawerMsg2()">Copy Msg 2</button>
+    <a class="dw-btn dw-btn-open" id="dw-open-btn" href="#" target="_blank" rel="noopener">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Source
+    </a>
+    <a class="dw-btn dw-btn-open" id="dw-preview-btn" href="#" target="_blank" rel="noopener">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+      Preview
+    </a>
+  </div>
+</div>
+
+<!-- Add Player Modal -->
+<div class="modal-overlay" id="add-player-modal" onclick="if(event.target===this)closeAddPlayerModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">Add Player</div>
+      <button class="modal-close" onclick="closeAddPlayerModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="apm-form">
+        <div class="form-row">
+          <label class="form-label" for="apm-name">Full name <span style="color:var(--danger)">*</span></label>
+          <input class="form-input" id="apm-name" type="text" placeholder="e.g. Sarah Johnson" oninput="apmDirty()" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="apm-email">Email <span style="color:var(--danger)">*</span></label>
+          <input class="form-input" id="apm-email" type="email" placeholder="sarah@example.com" oninput="apmDirty()" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="apm-phone">Phone (optional)</label>
+          <input class="form-input" id="apm-phone" type="tel" placeholder="+1 555 000 0000" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="apm-sport">Sport</label>
+          <select class="form-input" id="apm-sport" style="cursor:pointer;appearance:auto">
+            <option value="pickleball">Pickleball</option>
+            <option value="padel">Padel</option>
+            <option value="both">Pickleball &amp; Padel</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="apm-note">Personal note (optional)</label>
+          <textarea class="form-input" id="apm-note" rows="2" placeholder="e.g. Met at the Austin open, beginner looking for a coach" style="resize:vertical"></textarea>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);padding:10px 14px;background:var(--surface);border-radius:8px;line-height:1.5">
+          Generates a personalized invitation message you can copy and send via text, email, or any platform.
+          The player signs up through the app, which creates their account automatically.
+        </div>
+      </div>
+
+      <div id="apm-result" style="display:none">
+        <div style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">
+          Invitation message — tap to select all
+        </div>
+        <div class="invite-preview" id="apm-preview" onclick="this.focus();document.execCommand('selectAll')"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button onclick="copyInvite()" style="flex:1;padding:9px 0;background:var(--primary-light);color:var(--primary);border:1.5px solid var(--primary-light);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--primary-light)'">
+            Copy message
+          </button>
+          <a id="apm-mailto" href="#" style="flex:1;padding:9px 0;background:var(--success-light);color:#15803D;border:1.5px solid var(--success-light);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;text-decoration:none;text-align:center" onmouseover="this.style.borderColor=var('--success')" onmouseout="this.style.borderColor='var(--success-light)'">
+            Open in Mail
+          </a>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">
+          The player will be added to your roster automatically once they sign up
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="apm-footer">
+      <button class="btn-modal-secondary" onclick="closeAddPlayerModal()">Cancel</button>
+      <button class="btn-modal-primary" id="apm-submit" onclick="generatePlayerInvite()">Generate Invitation</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Auth guard
+  if (sessionStorage.getItem('ap_admin') !== 'true') window.location.replace('/admin');
+  function logout() { sessionStorage.removeItem('ap_admin'); window.location.replace('/admin'); }
+
+  const SUPA_URL   = 'https://qdlvidtnfqnqjgrhxwtz.supabase.co';
+  const SUPA_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkbHZpZHRuZnFucWpncmh4d3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzg3MTksImV4cCI6MjA5Nzc1NDcxOX0.zlRtmQrST5Z1JdBZXHbsSZ_GT-v__HJ_M7MJziOR7L0';
+  const SITE_ORIGIN = 'https://academypro.thecourtflow.com';
+
+  let ALL_COACHES = [];     // coaches currently displayed (may be partial)
+  let CURRENT_OFFSET = 0;   // how many rows we have fetched so far
+  let HAS_MORE = false;     // whether there are more rows to fetch
+  let CURRENT_FILTERS = {}; // last applied filter state (for load-more continuity)
+  const PAGE_SIZE = 50;
+
+  // Supabase helpers
+  async function sbPatch(id, body) {
+    const url = `${SUPA_URL}/rest/v1/unclaimed_coaches?id=eq.${id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  }
+
+  // Toast
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  // Tab switching
+  const TAB_IDS = ['coaches','sources','directory'];
+  function switchTab(id) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', TAB_IDS[i] === id);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'tab-' + id);
+    });
+    if (id === 'sources')   renderSources();
+    if (id === 'directory') initDirectory();
+  }
+
+  // Build Supabase query string from current filter state
+  function buildQuery(offset) {
+    const q         = document.getElementById('search').value.toLowerCase().trim();
+    const fStatus   = document.getElementById('fStatus').value;
+    const fIntent   = document.getElementById('fIntent').value;
+    const fPlatform = document.getElementById('fPlatform').value;
+    const fSort     = document.getElementById('fSort').value;
+
+    const sortMap = {
+      rating: 'rating.desc.nullslast',
+      lessons: 'lesson_count.desc.nullslast',
+      price: 'price_per_hour.desc.nullslast',
+      name: 'name.asc',
+    };
+    const order = sortMap[fSort] || sortMap.rating;
+
+    let url = `${SUPA_URL}/rest/v1/unclaimed_coaches`
+      + `?select=id,slug,name,first_name,photo_url,locations,price_per_hour,rating,review_count,lesson_count,dupr_rating,source_url,source_platform,scraped_at,status,outreach_status,outreach_sent_at,claim_code,intent`
+      + `&order=${order}`
+      + `&limit=${PAGE_SIZE}&offset=${offset}`;
+
+    if (q)         url += `&or=(name.ilike.*${encodeURIComponent(q)}*,locations.ilike.*${encodeURIComponent(q)}*)`;
+    if (fPlatform) url += `&source_platform=eq.${encodeURIComponent(fPlatform)}`;
+    if (fIntent === 'none')           url += '&intent=is.null';
+    else if (fIntent)                 url += `&intent=eq.${encodeURIComponent(fIntent)}`;
+
+    if (fStatus === 'none')      url += '&outreach_status=is.null&status=neq.claimed';
+    else if (fStatus === 'claimed')   url += '&status=eq.claimed';
+    else if (fStatus === 'contacted') url += '&outreach_status=eq.contacted';
+    else if (fStatus === 'replied')   url += '&outreach_status=eq.replied';
+    else if (fStatus === 'declined')  url += '&outreach_status=eq.declined';
+
+    return url;
+  }
+
+  // Fetch one page from Supabase
+  async function fetchPage(offset) {
+    const url = buildQuery(offset);
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON,
+        'Accept': 'application/json', 'Prefer': 'count=exact',
+      }
+    });
+    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+    const batch = await res.json();
+    if (!Array.isArray(batch)) throw new Error('Unexpected response: ' + JSON.stringify(batch).slice(0, 120));
+    // Supabase returns total count in Content-Range header
+    const range = res.headers.get('Content-Range') || '';
+    const total = parseInt((range.match(/\/(\d+)$/) || [])[1]) || null;
+    return { batch, total };
+  }
+
+  // Initial load / filter reset — fetches first 50
+  async function applyFilters() {
+    ALL_COACHES = [];
+    CURRENT_OFFSET = 0;
+    HAS_MORE = false;
+
+    const tbody = document.getElementById('coaches-tbody');
+    tbody.innerHTML = '';
+    document.getElementById('coaches-table').style.display = 'none';
+    document.getElementById('empty-msg').style.display = 'none';
+    document.getElementById('loading-msg').style.display = '';
+    document.getElementById('loading-msg').innerHTML = '<strong>Loading...</strong>Fetching from Supabase';
+    updateLoadMoreBtn();
+
+    try {
+      const { batch, total } = await fetchPage(0);
+      ALL_COACHES = batch;
+      CURRENT_OFFSET = batch.length;
+      HAS_MORE = batch.length === PAGE_SIZE;
+
+      updateHeaderStats(total);
+      document.getElementById('loading-msg').style.display = 'none';
+
+      if (!batch.length) {
+        document.getElementById('empty-msg').style.display = '';
+        updateLoadMoreBtn();
+        return;
+      }
+
+      document.getElementById('coaches-table').style.display = '';
+      batch.forEach(c => tbody.appendChild(buildRow(c)));
+      updateRowCount(batch.length, total);
+      updateLoadMoreBtn(total);
+    } catch(e) {
+      document.getElementById('loading-msg').innerHTML = `<strong>Failed to load</strong>${e.message}`;
+    }
+  }
+
+  // Load next 50
+  async function loadMore() {
+    const btn = document.getElementById('load-more-btn');
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+    try {
+      const { batch, total } = await fetchPage(CURRENT_OFFSET);
+      const tbody = document.getElementById('coaches-tbody');
+      batch.forEach(c => { ALL_COACHES.push(c); tbody.appendChild(buildRow(c)); });
+      CURRENT_OFFSET += batch.length;
+      HAS_MORE = batch.length === PAGE_SIZE;
+      updateRowCount(CURRENT_OFFSET, total);
+      updateLoadMoreBtn(total);
+    } catch(e) {
+      toast('Load more failed: ' + e.message);
+      btn.disabled = false;
+      btn.textContent = 'Load more';
+    }
+  }
+
+  function updateRowCount(shown, total) {
+    document.getElementById('row-count').textContent =
+      total != null
+        ? `Showing ${shown} of ${total}`
+        : `${shown} coaches`;
+  }
+
+  function updateLoadMoreBtn(total) {
+    const wrap = document.getElementById('load-more-wrap');
+    if (!wrap) return;
+    if (HAS_MORE) {
+      const remaining = total != null ? total - CURRENT_OFFSET : null;
+      wrap.style.display = '';
+      const btn = document.getElementById('load-more-btn');
+      btn.disabled = false;
+      btn.textContent = remaining != null ? `Load 50 more  (${remaining} remaining)` : 'Load 50 more';
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
+  // Initial stats from full count (Supabase header gives us total for current filter)
+  function updateHeaderStats(filteredTotal) {
+    // We only have partial data — show live counts from what we've fetched
+    // and rely on the full-count header for the total display
+    const contacted = ALL_COACHES.filter(c => c.outreach_status === 'contacted' || c.outreach_status === 'replied').length;
+    const claimed   = ALL_COACHES.filter(c => c.status === 'claimed').length;
+    // Fetch totals separately (no filter, just counts)
+    fetch(`${SUPA_URL}/rest/v1/unclaimed_coaches?select=id&limit=1`,
+      { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Prefer': 'count=exact' } })
+      .then(r => { const h = r.headers.get('Content-Range') || ''; return parseInt((h.match(/\/(\d+)$/) || [])[1]) || 0; })
+      .then(total => document.getElementById('stat-total').textContent = total)
+      .catch(() => {});
+    fetch(`${SUPA_URL}/rest/v1/unclaimed_coaches?select=id&outreach_status=in.(contacted,replied)&limit=1`,
+      { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Prefer': 'count=exact' } })
+      .then(r => { const h = r.headers.get('Content-Range') || ''; return parseInt((h.match(/\/(\d+)$/) || [])[1]) || 0; })
+      .then(n => document.getElementById('stat-contacted').textContent = n)
+      .catch(() => {});
+    fetch(`${SUPA_URL}/rest/v1/unclaimed_coaches?select=id&status=eq.claimed&limit=1`,
+      { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Prefer': 'count=exact' } })
+      .then(r => { const h = r.headers.get('Content-Range') || ''; return parseInt((h.match(/\/(\d+)$/) || [])[1]) || 0; })
+      .then(n => document.getElementById('stat-claimed').textContent = n)
+      .catch(() => {});
+  }
+
+  // Populate platform filter (fetch distinct values)
+  async function populatePlatformFilter() {
+    try {
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/unclaimed_coaches?select=source_platform&limit=1000`,
+        { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Accept': 'application/json' } }
+      );
+      const rows = await res.json();
+      const platforms = [...new Set((rows || []).map(r => r.source_platform).filter(Boolean))];
+      const sel = document.getElementById('fPlatform');
+      platforms.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o); });
+    } catch(e) {}
+  }
+
+  // Build row
+  function buildRow(c) {
+    const tr = document.createElement('tr');
+    const isDone = c.outreach_status != null || c.status === 'claimed';
+    if (isDone) tr.classList.add('done-row');
+    tr.dataset.id = c.id;
+    tr.onclick = (e) => { if (!e.target.closest('.btn, a, button, select')) openDrawer(c.id); };
+
+    const initials = (c.name || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    const avatar = c.photo_url
+      ? `<div class="av"><img src="${esc(c.photo_url)}" onerror="this.parentNode.textContent='${initials}'" /></div>`
+      : `<div class="av">${initials}</div>`;
+
+    const loc    = (c.locations || '').split(';')[0].trim() || 'Unknown';
+    const price  = c.price_per_hour ? `$${c.price_per_hour}` : 'n/a';
+    const rating = c.rating
+      ? `<span class="rating-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>${parseFloat(c.rating).toFixed(1)} <span style="color:var(--text-muted);font-weight:400">(${c.review_count || 0})</span></span>`
+      : 'n/a';
+    const lessons = c.lesson_count || 'n/a';
+    const dupr    = c.dupr_rating ? parseFloat(c.dupr_rating).toFixed(2) : 'n/a';
+
+    const effectiveStatus = c.status === 'claimed' ? 'claimed' : (c.outreach_status || 'none');
+    const statusLabels = { none: 'New', contacted: 'Contacted', replied: 'Replied', declined: 'Declined', claimed: 'Claimed' };
+    const statusBadge = `<span class="sbadge ${effectiveStatus}">${statusLabels[effectiveStatus] || effectiveStatus}</span>`;
+
+    const claimUrl = `${SITE_ORIGIN}/coach/${encodeURIComponent(c.slug)}`;
+    const openUrl  = esc(c.source_url || claimUrl);
+    const sentDone = isDone;
+
+    const intentLabels = { create_academy: 'Create Academy', join_academy: 'Join Academy', solo_coach: 'Solo Coach' };
+    const intentClass  = c.intent || 'none';
+    const intentBadge  = c.intent
+      ? `<span class="ibadge ${intentClass}">${intentLabels[c.intent] || c.intent}</span>`
+      : `<span class="ibadge none">—</span>`;
+
+    tr.innerHTML = `
+      <td>
+        <div class="av-cell">
+          ${avatar}
+          <div>
+            <div class="coach-name">${esc(c.name || 'Unknown')}</div>
+            ${c.claim_code ? `<div class="coach-sub">Code: ${c.claim_code}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td style="font-size:13px;color:var(--text-secondary);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(loc)}</td>
+      <td style="font-weight:600;white-space:nowrap">${price}</td>
+      <td>${rating}</td>
+      <td style="font-size:13px">${lessons}</td>
+      <td style="font-size:13px">${dupr}</td>
+      <td><span style="font-size:12px;color:var(--text-muted)">${esc(c.source_platform || 'n/a')}</span></td>
+      <td><a href="${claimUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--primary);text-decoration:none;white-space:nowrap;font-weight:500" title="${claimUrl}">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        View
+      </a></td>
+      <td>${intentBadge}</td>
+      <td id="status-${c.id}">${statusBadge}</td>
+      <td>
+        <div class="actions">
+          <a class="btn btn-open" href="${openUrl}" target="_blank" rel="noopener">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Open
+          </a>
+          <button class="btn btn-copy" id="copy-${c.id}" onclick="copyMsg('${c.id}','${esc(c.name)}','${esc(claimUrl)}','tpl')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            Msg 1
+          </button>
+          <button class="btn btn-copy" id="copy2-${c.id}" onclick="copyMsg('copy2-${c.id}','${esc(c.name)}','${esc(claimUrl)}','tpl2')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+            Msg 2
+          </button>
+          <button class="btn btn-sent ${sentDone ? 'done' : ''}" id="sent-${c.id}" onclick="markSent('${c.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            ${sentDone ? 'Sent' : 'Mark sent'}
+          </button>
+        </div>
+      </td>`;
+    return tr;
+  }
+
+  // Copy message to clipboard
+  // btnId can be a full element id (e.g. "copy2-abc") or a coach id (legacy, resolves to "copy-<id>")
+  function copyMsg(btnOrId, name, claimUrl, tplId) {
+    const tplEl = document.getElementById(tplId || 'tpl');
+    const msg = tplEl.value.replace(/\{name\}/g, name).replace(/\{claim_url\}/g, claimUrl);
+    // btnOrId may be the full button id or just the coach uuid — normalise
+    const btnId = btnOrId.startsWith('copy') ? btnOrId : 'copy-' + btnOrId;
+    navigator.clipboard.writeText(msg).then(() => {
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.classList.add('copied'); btn.textContent = 'Copied!';
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = orig; }, 2000);
+      }
+      toast('Message copied to clipboard');
+    }).catch(() => toast('Copy failed. Check browser permissions.'));
+  }
+
+  // Mark as contacted
+  async function markSent(id) {
+    const btn = document.getElementById('sent-' + id);
+    const orig = btn.innerHTML;
+    btn.textContent = '...';
+    try {
+      await sbPatch(id, { outreach_status: 'contacted', outreach_sent_at: new Date().toISOString() });
+      const coach = ALL_COACHES.find(c => c.id === id);
+      if (coach) { coach.outreach_status = 'contacted'; coach.outreach_sent_at = new Date().toISOString(); }
+      btn.classList.add('done');
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Sent';
+      const sc = document.getElementById('status-' + id);
+      if (sc) sc.innerHTML = '<span class="sbadge contacted">Contacted</span>';
+      const row = btn.closest('tr');
+      if (row) row.classList.add('done-row');
+      updateHeaderStats();
+      toast('Marked as contacted');
+    } catch(e) {
+      btn.innerHTML = orig;
+      toast('Save failed: ' + e.message);
+    }
+  }
+
+  // Sources tab — fetch full aggregate from Supabase (not from partial ALL_COACHES)
+  async function renderSources() {
+    const el = document.getElementById('sources-list');
+    el.innerHTML = '<div class="state-msg" style="padding:40px 0"><strong>Loading...</strong></div>';
+    try {
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/unclaimed_coaches?select=source_platform,status,outreach_status,scraped_at&limit=2000`,
+        { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Accept': 'application/json' } }
+      );
+      const rows = await res.json();
+      const groups = {};
+      (rows || []).forEach(c => {
+        const p = c.source_platform || 'unknown';
+        if (!groups[p]) groups[p] = { total: 0, unclaimed: 0, contacted: 0, lastScraped: null };
+        groups[p].total++;
+        if (c.status === 'unclaimed') groups[p].unclaimed++;
+        if (c.outreach_status === 'contacted' || c.outreach_status === 'replied') groups[p].contacted++;
+        if (c.scraped_at && (!groups[p].lastScraped || c.scraped_at > groups[p].lastScraped)) groups[p].lastScraped = c.scraped_at;
+      });
+      const icons = { 'teachme.to': '🎾' };
+      el.innerHTML = Object.entries(groups).map(([p, g]) => {
+        const date = g.lastScraped ? new Date(g.lastScraped).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown';
+        return `<div class="source-card">
+          <div class="source-icon">${icons[p] || '🌐'}</div>
+          <div class="source-info">
+            <div class="source-name">${p}</div>
+            <div class="source-meta">Last scraped: ${date}</div>
+          </div>
+          <div class="source-stats">
+            <div class="sstat"><div class="sstat-val">${g.total}</div><div class="sstat-label">Scraped</div></div>
+            <div class="sstat"><div class="sstat-val" style="color:var(--text-muted)">${g.unclaimed}</div><div class="sstat-label">Unclaimed</div></div>
+            <div class="sstat"><div class="sstat-val" style="color:var(--primary)">${g.contacted}</div><div class="sstat-label">Contacted</div></div>
+          </div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      el.innerHTML = '<div class="state-msg">Failed to load sources</div>';
+    }
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  populatePlatformFilter();
+  applyFilters();
+
+  // ===================================================================
+  // DIRECTORY TAB — Phase 2 + 3
+  // Fetches from `coaches` table (live, claimed) with all enrichment
+  // columns added in Phase 1. Fully filterable + is_featured toggle.
+  // ===================================================================
+
+  let DIR_ALL     = [];
+  let DIR_OFFSET  = 0;
+  let DIR_HAS_MORE = false;
+  let DIR_INIT_DONE = false;
+  const DIR_PAGE  = 50;
+  let _dirTimer   = null;
+
+  function initDirectory() {
+    if (!DIR_INIT_DONE) { DIR_INIT_DONE = true; loadDirectory(0); }
+  }
+
+  function dirDebounce() {
+    clearTimeout(_dirTimer);
+    _dirTimer = setTimeout(applyDirFilters, 350);
+  }
+
+  function applyDirFilters() {
+    DIR_ALL = []; DIR_OFFSET = 0; DIR_HAS_MORE = false;
+    loadDirectory(0);
+  }
+
+  function buildDirQuery(offset) {
+    const q        = (document.getElementById('dir-search').value || '').trim();
+    const fGender  = document.getElementById('dir-gender').value;
+    const fSess    = document.getElementById('dir-session').value;
+    const fSort    = document.getElementById('dir-sort').value;
+    const fPrMin   = parseInt(document.getElementById('dir-price-min').value) || 0;
+    const fPrMax   = parseInt(document.getElementById('dir-price-max').value) || 0;
+
+    const sortMap = {
+      rating:    'rating_avg.desc.nullslast',
+      lessons:   'lesson_count.desc.nullslast',
+      price_asc: 'hourly_rate.asc.nullslast',
+      price_desc:'hourly_rate.desc.nullslast',
+      newest:    'created_at.desc',
+      name:      'name.asc',
+    };
+    const order = sortMap[fSort] || sortMap.rating;
+
+    let url = `${SUPA_URL}/rest/v1/coaches`
+      + `?select=id,name,bio,avatar_url,location,hourly_rate,rating_avg,rating_count,`
+      + `dupr_rating,is_verified,is_featured,gender,session_types,coaching_style,`
+      + `years_experience,lesson_count,response_time_hours,certifications,specialties,`
+      + `created_at,sport:sport_id(slug,name)`
+      + `&order=${order}`
+      + `&limit=${DIR_PAGE}&offset=${offset}`;
+
+    if (q)       url += `&or=(name.ilike.*${encodeURIComponent(q)}*,bio.ilike.*${encodeURIComponent(q)}*,location.ilike.*${encodeURIComponent(q)}*)`;
+    if (fGender) url += `&gender=eq.${encodeURIComponent(fGender)}`;
+    if (fSess)   url += `&session_types=cs.{${encodeURIComponent(fSess)}}`;
+    if (fPrMin)  url += `&hourly_rate=gte.${fPrMin}`;
+    if (fPrMax)  url += `&hourly_rate=lte.${fPrMax}`;
+    return url;
+  }
+
+  async function loadDirectory(offset) {
+    const container = document.getElementById('dir-cards');
+    const emptyEl   = document.getElementById('dir-empty');
+    const loadingEl = document.getElementById('dir-loading');
+    const countEl   = document.getElementById('dir-count');
+    const lmWrap    = document.getElementById('dir-load-more-wrap');
+    const lmBtn     = document.getElementById('dir-load-more');
+
+    if (offset === 0) {
+      DIR_ALL = []; container.innerHTML = '';
+      emptyEl.style.display = 'none';
+      loadingEl.style.display = '';
+      loadingEl.innerHTML = '<strong>Loading coaches...</strong>Fetching from Supabase';
+      lmWrap.style.display = 'none';
+    }
+
+    try {
+      const res = await fetch(buildDirQuery(offset), {
+        headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON,
+                   'Accept': 'application/json', 'Prefer': 'count=exact' },
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + await res.text());
+      const batch = await res.json();
+      const range = res.headers.get('Content-Range') || '';
+      const total = parseInt((range.match(/\/(\d+)$/) || [])[1]) || null;
+
+      loadingEl.style.display = 'none';
+
+      if (!batch.length && offset === 0) {
+        emptyEl.style.display = '';
+        countEl.textContent = '0 coaches';
+        return;
+      }
+
+      batch.forEach(c => { DIR_ALL.push(c); container.appendChild(buildDirCard(c)); });
+      DIR_OFFSET  = offset + batch.length;
+      DIR_HAS_MORE = batch.length === DIR_PAGE;
+      // Lazy-load gallery thumbnails for this batch
+      fetchGalleryThumbnails(batch);
+      countEl.textContent = total != null
+        ? `Showing ${DIR_OFFSET} of ${total}`
+        : `${DIR_OFFSET} coaches`;
+
+      if (DIR_HAS_MORE) {
+        const rem = total != null ? total - DIR_OFFSET : null;
+        lmWrap.style.display = '';
+        lmBtn.disabled = false;
+        lmBtn.textContent = rem != null ? `Load 50 more  (${rem} remaining)` : 'Load 50 more';
+      } else {
+        lmWrap.style.display = 'none';
+      }
+    } catch(e) {
+      loadingEl.style.display = '';
+      loadingEl.innerHTML = `<strong>Failed to load</strong>${esc(e.message)}`;
+    }
+  }
+
+  async function loadMoreDir() {
+    const btn = document.getElementById('dir-load-more');
+    btn.disabled = true; btn.textContent = 'Loading…';
+    await loadDirectory(DIR_OFFSET);
+    // After load-more completes, fetch gallery thumbnails for the new batch
+    const loaded = DIR_ALL.slice(DIR_OFFSET - (DIR_ALL.length - DIR_OFFSET));
+    fetchGalleryThumbnails(DIR_ALL.slice(-50));
+  }
+
+  // Fetch gallery thumbnails for a batch of coaches and insert into their cards
+  async function fetchGalleryThumbnails(coaches) {
+    if (!coaches || !coaches.length) return;
+    const ids = coaches.map(c => `"${c.id}"`).join(',');
+    try {
+      const res = await fetch(
+        `${SUPA_URL}/rest/v1/coach_photos?select=coach_id,url,position&coach_id=in.(${ids})&order=position.asc&limit=500`,
+        { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Accept': 'application/json' } }
+      );
+      if (!res.ok) return;
+      const photos = await res.json();
+      // Group by coach_id
+      const byCoach = {};
+      (photos || []).forEach(p => {
+        if (!byCoach[p.coach_id]) byCoach[p.coach_id] = [];
+        byCoach[p.coach_id].push(p);
+      });
+      // Inject thumbnail strips into the cards
+      Object.entries(byCoach).forEach(([coachId, coachPhotos]) => {
+        const card = document.querySelector(`.dir-card[data-id="${coachId}"]`);
+        if (!card) return;
+        // Remove old strip if present
+        const old = card.querySelector('.dir-gallery-strip');
+        if (old) old.remove();
+        const strip = document.createElement('div');
+        strip.className = 'dir-gallery-strip';
+        strip.style.cssText = 'display:flex;gap:4px;padding:8px 16px 10px;border-top:1px solid var(--border);overflow-x:auto;';
+        coachPhotos.slice(0, 5).forEach(p => {
+          const img = document.createElement('img');
+          img.src = p.url;
+          img.style.cssText = 'width:60px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;';
+          strip.appendChild(img);
+        });
+        if (coachPhotos.length > 5) {
+          const more = document.createElement('div');
+          more.style.cssText = 'width:60px;height:60px;border-radius:6px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text-muted);flex-shrink:0';
+          more.textContent = `+${coachPhotos.length - 5}`;
+          strip.appendChild(more);
+        }
+        card.appendChild(strip);
+      });
+    } catch(_) {}
+  }
+
+  function gap(label) {
+    return `<span class="dir-gap">${label}</span>`;
+  }
+
+  function buildDirCard(c) {
+    const el = document.createElement('div');
+    el.className = 'dir-card';
+    el.dataset.id = c.id;
+
+    const initials = (c.name || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    const photoInner = c.avatar_url
+      ? `<img src="${esc(c.avatar_url)}" alt="" loading="lazy"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+         <div class="dir-photo-fallback" style="display:none">${initials}</div>`
+      : `<div class="dir-photo-fallback">${initials}</div>`;
+
+    const sport = c.sport;
+    const sportBadge = sport
+      ? `<span class="dir-sport-tag ${sport.slug === 'padel' ? 'padel' : 'pb'}">${esc(sport.name)}</span>`
+      : gap('No sport');
+
+    const ratingHtml = c.rating_avg
+      ? `<span class="dir-rating">★ ${parseFloat(c.rating_avg).toFixed(1)} <span>(${c.rating_count||0})</span></span>`
+      : gap('No rating');
+
+    const priceHtml = c.hourly_rate
+      ? `<span class="dir-price">$${c.hourly_rate}<span>/hr</span></span>`
+      : gap('No price');
+
+    const locTxt = (c.location || '').trim();
+
+    const stylesTags = (c.coaching_style && c.coaching_style.length)
+      ? c.coaching_style.map(s => `<span class="dir-style-tag">${esc(s)}</span>`).join('')
+      : gap('No coaching style');
+
+    const sessTags = (c.session_types && c.session_types.length)
+      ? c.session_types.map(s => {
+          const lbl = {'1on1':'1-on-1',duo:'Duo',small_group:'Small group',women_only:'Women-only'}[s] || s;
+          return `<span class="dir-sess-tag ${s==='women_only'?'women-only':''}">${esc(lbl)}</span>`;
+        }).join('')
+      : gap('No session types');
+
+    const genderHtml = c.gender
+      ? `<span class="dir-gender-tag ${c.gender.toLowerCase()}">${esc(c.gender)}</span>`
+      : gap('No gender');
+
+    const expHtml = c.years_experience
+      ? `<span style="font-size:11px;color:var(--text-muted)">${c.years_experience} yrs exp</span>`
+      : '';
+
+    const verifiedHtml = c.is_verified
+      ? '<span class="dir-verified">✓ Verified</span>'
+      : '';
+
+    const featClass = c.is_featured ? 'dir-feat-star on' : 'dir-feat-star';
+    const featTitle = c.is_featured ? 'Featured — click to unfeature' : 'Click to feature';
+
+    const bioText = (c.bio || '').trim();
+
+    el.innerHTML = `
+      <div class="dir-photo">${photoInner}</div>
+      <div class="dir-body">
+        <div>
+          <div class="dir-top">
+            <div class="dir-name">${esc(c.name||'Unknown')}</div>
+            ${ratingHtml}
+            <button class="${featClass}" title="${featTitle}"
+              onclick="toggleFeatured('${c.id}',this)">★</button>
+          </div>
+          <div class="dir-loc">${esc(locTxt)||gap('No location')}${verifiedHtml ? '&nbsp;·&nbsp;'+verifiedHtml : ''}</div>
+          ${bioText ? `<div class="dir-bio">${esc(bioText)}</div>` : `<div style="margin-top:6px">${gap('No bio')}</div>`}
+          <div class="dir-tags">${stylesTags}</div>
+        </div>
+        <div class="dir-bottom">
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+            ${sportBadge}
+            ${genderHtml}
+            <div class="dir-sessions">${sessTags}</div>
+            ${expHtml}
+          </div>
+          ${priceHtml}
+        </div>
+      </div>`;
+
+    return el;
+  }
+
+  async function toggleFeatured(id, btn) {
+    const coach = DIR_ALL.find(c => c.id === id);
+    if (!coach) return;
+    const newVal = !coach.is_featured;
+    try {
+      const res = await fetch(`${SUPA_URL}/rest/v1/coaches?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON,
+          'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({ is_featured: newVal }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      coach.is_featured = newVal;
+      btn.classList.toggle('on', newVal);
+      btn.title = newVal ? 'Featured — click to unfeature' : 'Click to feature';
+      toast(newVal ? 'Coach featured ★' : 'Coach unfeatured');
+    } catch(e) {
+      toast('Failed: ' + e.message);
+    }
+  }
+
+  /* ===== ADD PLAYER MODAL ===== */
+  const APP_STORE   = 'https://apps.apple.com/app/academypro/id6744882557';
+  const PLAY_STORE  = 'https://play.google.com/store/apps/details?id=com.squadd.thehub.app';
+  let _apmGenerated = false;
+
+  function openAddPlayerModal() {
+    document.getElementById('apm-name').value  = '';
+    document.getElementById('apm-email').value = '';
+    document.getElementById('apm-phone').value = '';
+    document.getElementById('apm-note').value  = '';
+    document.getElementById('apm-sport').value = 'pickleball';
+    document.getElementById('apm-form').style.display    = '';
+    document.getElementById('apm-result').style.display  = 'none';
+    document.getElementById('apm-footer').style.display  = '';
+    document.getElementById('apm-submit').textContent    = 'Generate Invitation';
+    document.getElementById('apm-submit').disabled       = false;
+    _apmGenerated = false;
+    document.getElementById('add-player-modal').classList.add('open');
+    setTimeout(() => document.getElementById('apm-name').focus(), 120);
+  }
+
+  function closeAddPlayerModal() {
+    document.getElementById('add-player-modal').classList.remove('open');
+  }
+
+  function apmDirty() {
+    if (_apmGenerated) {
+      document.getElementById('apm-result').style.display = 'none';
+      document.getElementById('apm-form').style.display   = '';
+      document.getElementById('apm-submit').textContent   = 'Generate Invitation';
+      _apmGenerated = false;
+    }
+  }
+
+  function generatePlayerInvite() {
+    const name  = document.getElementById('apm-name').value.trim();
+    const email = document.getElementById('apm-email').value.trim();
+    const phone = document.getElementById('apm-phone').value.trim();
+    const sport = document.getElementById('apm-sport').value;
+    const note  = document.getElementById('apm-note').value.trim();
+
+    if (!name)  { document.getElementById('apm-name').focus();  toast('Name is required'); return; }
+    if (!email || !email.includes('@')) { document.getElementById('apm-email').focus(); toast('Valid email is required'); return; }
+
+    const sportLabel = { pickleball:'pickleball', padel:'padel', both:'pickleball & padel' }[sport] || sport;
+    const firstName  = name.split(' ')[0];
+
+    const msg = [
+      `Hi ${firstName}! 👋`,
+      '',
+      `I just added you to AcademyPro — the best app to track your ${sportLabel} progress, find coaches, and join training programs.`,
+      '',
+      'Download the app here:',
+      `📱 iPhone → ${APP_STORE}`,
+      `🤖 Android → ${PLAY_STORE}`,
+      '',
+      'When you sign up, use this email: ' + email,
+      note ? `\nNote: ${note}` : '',
+      '',
+      'See you on the court!',
+    ].filter(l => l !== undefined).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+    document.getElementById('apm-preview').textContent = msg;
+
+    const subject = encodeURIComponent(`Join me on AcademyPro — ${sportLabel}`);
+    const body    = encodeURIComponent(msg);
+    const to      = encodeURIComponent(email);
+    document.getElementById('apm-mailto').href = `mailto:${to}?subject=${subject}&body=${body}`;
+
+    document.getElementById('apm-form').style.display   = 'none';
+    document.getElementById('apm-result').style.display = '';
+    document.getElementById('apm-submit').textContent   = 'Edit details';
+    _apmGenerated = true;
+
+    // Re-wire footer button to go back to editing
+    document.getElementById('apm-submit').onclick = () => {
+      document.getElementById('apm-form').style.display   = '';
+      document.getElementById('apm-result').style.display = 'none';
+      document.getElementById('apm-submit').textContent   = 'Generate Invitation';
+      document.getElementById('apm-submit').onclick       = generatePlayerInvite;
+      _apmGenerated = false;
+    };
+  }
+
+  function copyInvite() {
+    const text = document.getElementById('apm-preview').textContent;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => toast('Message copied to clipboard ✓'));
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      toast('Message copied to clipboard ✓');
+    }
+  }
+
+  // Close modal on Escape
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAddPlayerModal(); closeDrawer(); } });
+
+  /* ===== PROFILE DRAWER ===== */
+  let DRAWER_COACH = null;
+
+  function openDrawer(id) {
+    const cached = ALL_COACHES.find(c => c.id === id);
+    if (!cached) return;
+    // Optimistically render with cached data
+    DRAWER_COACH = cached;
+    renderDrawer(cached);
+    document.getElementById('drawer-overlay').classList.add('open');
+    document.getElementById('profile-drawer').classList.add('open');
+    // Fetch full record for extra fields (bio, coaching_style, etc.)
+    fetch(`${SUPA_URL}/rest/v1/unclaimed_coaches?select=*&id=eq.${id}`, {
+      headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON, 'Accept': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(rows => { if (rows && rows[0]) { DRAWER_COACH = rows[0]; renderDrawer(rows[0]); } })
+    .catch(() => {});
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawer-overlay').classList.remove('open');
+    document.getElementById('profile-drawer').classList.remove('open');
+  }
+
+  function renderDrawer(c) {
+    const ini = (c.name || '?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+    document.getElementById('dw-title').textContent = c.name || 'Coach Profile';
+    document.getElementById('dw-name').textContent  = c.name || 'Unknown';
+    document.getElementById('dw-loc').textContent   = c.locations || '';
+
+    // Photo
+    const wrap = document.getElementById('dw-photo-wrap');
+    const fb   = document.getElementById('dw-photo-fallback');
+    if (c.photo_url) {
+      // remove any existing img
+      const old = wrap.querySelector('img');
+      if (old) old.remove();
+      fb.style.display = 'none';
+      const img = document.createElement('img');
+      img.className = 'dw-photo';
+      img.src = c.photo_url;
+      img.alt = c.name || '';
+      img.onerror = () => { img.remove(); fb.style.display = ''; fb.textContent = ini; };
+      wrap.insertBefore(img, fb);
+    } else {
+      const old = wrap.querySelector('img');
+      if (old) old.remove();
+      fb.style.display = '';
+      fb.textContent = ini;
+    }
+
+    // Stats
+    document.getElementById('dw-stat-rating').textContent  = c.rating ? parseFloat(c.rating).toFixed(1) : 'n/a';
+    document.getElementById('dw-stat-reviews').textContent = c.review_count || '0';
+    document.getElementById('dw-stat-lessons').textContent = c.lesson_count || '0';
+    document.getElementById('dw-stat-price').textContent   = c.price_per_hour ? '$' + c.price_per_hour : 'Ask';
+
+    // Bio
+    const bioSec = document.getElementById('dw-bio-sec');
+    if (c.bio) {
+      document.getElementById('dw-bio').textContent = c.bio;
+      bioSec.style.display = '';
+    } else { bioSec.style.display = 'none'; }
+
+    // Coaching style
+    const styleSec = document.getElementById('dw-style-sec');
+    if (c.coaching_style && c.coaching_style.length) {
+      document.getElementById('dw-style').innerHTML = c.coaching_style.map(s => `<span class="dw-tag rose">${esc(s)}</span>`).join('');
+      styleSec.style.display = '';
+    } else { styleSec.style.display = 'none'; }
+
+    // Session types
+    const sessSec = document.getElementById('dw-sess-sec');
+    const sessLabels = { '1on1': '1-on-1', duo: 'Duo', small_group: 'Small group', women_only: 'Women-only' };
+    if (c.session_types && c.session_types.length) {
+      document.getElementById('dw-sess').innerHTML = c.session_types.map(s => `<span class="dw-tag ${s==='women_only'?'purple':''}">${esc(sessLabels[s]||s)}</span>`).join('');
+      sessSec.style.display = '';
+    } else { sessSec.style.display = 'none'; }
+
+    // Certifications
+    const certSec = document.getElementById('dw-cert-sec');
+    if (c.certifications && c.certifications.length) {
+      document.getElementById('dw-cert').innerHTML = c.certifications.map(s => `<span class="dw-tag green">${esc(s)}</span>`).join('');
+      certSec.style.display = '';
+    } else { certSec.style.display = 'none'; }
+
+    // Reviews from reviews_json
+    const revSec  = document.getElementById('dw-reviews-sec');
+    const revDiv  = document.getElementById('dw-reviews-divider');
+    const revList = document.getElementById('dw-reviews-list');
+    const revLabel= document.getElementById('dw-reviews-label');
+    const reviews = Array.isArray(c.reviews_json) ? c.reviews_json : [];
+    if (reviews.length) {
+      revLabel.textContent = `Reviews (${reviews.length})`;
+      revList.innerHTML = reviews.slice(0, 6).map(r => {
+        const stars = '★'.repeat(Math.min(5, Math.round(r.star_rating || 5))) + '☆'.repeat(Math.max(0, 5 - Math.round(r.star_rating || 5)));
+        return `<div class="dw-review">
+          <div class="dw-review-stars">${stars}</div>
+          <div class="dw-review-text">"${esc(r.review_text || '')}"</div>
+          <div class="dw-review-who">${esc(r.reviewer_name || 'Anonymous')}${r.reviewer_level ? ' · ' + esc(r.reviewer_level) : ''}${r.lessons_taken ? ' · ' + r.lessons_taken + ' lessons' : ''}</div>
+        </div>`;
+      }).join('');
+      revSec.style.display  = '';
+      revDiv.style.display  = '';
+    } else {
+      revSec.style.display  = 'none';
+      revDiv.style.display  = 'none';
+    }
+
+    // Outreach info fields
+    function showField(rowId, spanId, val) {
+      const row = document.getElementById(rowId);
+      if (val) { document.getElementById(spanId).textContent = val; row.style.display = ''; }
+      else { row.style.display = 'none'; }
+    }
+    showField('dw-email-row',  'dw-email',  c.email);
+    // Show reset button only when profile is claimed
+    const resetBtn = document.getElementById('dw-reset-btn');
+    resetBtn.style.display = (c.status === 'claimed') ? '' : 'none';
+    showField('dw-dupr-row',   'dw-dupr',   c.dupr_rating ? parseFloat(c.dupr_rating).toFixed(2) : null);
+    showField('dw-exp-row',    'dw-exp',    c.years_experience ? c.years_experience + ' years' : null);
+    showField('dw-gender-row', 'dw-gender', c.gender);
+    showField('dw-since-row',  'dw-since',  c.coaching_since_year ? String(c.coaching_since_year) : null);
+    document.getElementById('dw-source').textContent = c.source_platform || 'unknown';
+    document.getElementById('dw-code').textContent   = c.claim_code || 'n/a';
+
+    const claimUrl = `${SITE_ORIGIN}/coach/claim/${encodeURIComponent(c.claim_code || '')}`;
+    document.getElementById('dw-url-text').textContent = claimUrl;
+
+    // Footer buttons
+    document.getElementById('dw-open-btn').href    = c.source_url || '#';
+    document.getElementById('dw-preview-btn').href = `${SITE_ORIGIN}/coaches`;
+  }
+
+  function copyDrawerUrl() {
+    const url = document.getElementById('dw-url-text').textContent;
+    if (navigator.clipboard) { navigator.clipboard.writeText(url).then(() => toast('Claim URL copied')); }
+    else { const t = document.createElement('textarea'); t.value = url; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); toast('Claim URL copied'); }
+  }
+
+  function drawerMsg1() {
+    if (!DRAWER_COACH) return;
+    const claimUrl = `${SITE_ORIGIN}/coach/claim/${encodeURIComponent(DRAWER_COACH.claim_code || '')}`;
+    copyMsg('dw-msg1-btn', DRAWER_COACH.name, claimUrl, 'tpl');
+  }
+  function drawerMsg2() {
+    if (!DRAWER_COACH) return;
+    const claimUrl = `${SITE_ORIGIN}/coach/claim/${encodeURIComponent(DRAWER_COACH.claim_code || '')}`;
+    copyMsg('dw-msg2-btn', DRAWER_COACH.name, claimUrl, 'tpl2');
+  }
+
+  async function resetClaim() {
+    if (!DRAWER_COACH) return;
+    if (!confirm(`Reset claim for ${DRAWER_COACH.name}? This will set their status back to unclaimed so they can re-claim.`)) return;
+    const btn = document.getElementById('dw-reset-btn');
+    btn.textContent = '...';
+    btn.disabled = true;
+    try {
+      await sbPatch(DRAWER_COACH.id, { status: 'unclaimed', outreach_status: null, outreach_sent_at: null });
+      // Update cached object
+      DRAWER_COACH.status = 'unclaimed';
+      DRAWER_COACH.outreach_status = null;
+      DRAWER_COACH.outreach_sent_at = null;
+      const cached = ALL_COACHES.find(c => c.id === DRAWER_COACH.id);
+      if (cached) { cached.status = 'unclaimed'; cached.outreach_status = null; cached.outreach_sent_at = null; }
+      // Update table row badge + done-row state
+      const sc = document.getElementById('status-' + DRAWER_COACH.id);
+      if (sc) sc.innerHTML = '<span class="sbadge none">New</span>';
+      const row = document.querySelector(`tr[data-id="${DRAWER_COACH.id}"]`);
+      if (row) row.classList.remove('done-row');
+      // Hide reset button and re-enable sent button
+      btn.style.display = 'none';
+      const sentBtn = document.getElementById('sent-' + DRAWER_COACH.id);
+      if (sentBtn) { sentBtn.classList.remove('done'); sentBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Mark sent'; }
+      updateHeaderStats();
+      toast('Claim reset — coach can re-claim');
+    } catch(e) {
+      btn.textContent = 'Reset claim';
+      btn.disabled = false;
+      toast('Reset failed: ' + e.message);
+    }
+  }
+</script>
+</body>
+</html>
