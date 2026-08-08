@@ -1,5 +1,16 @@
 {
   "outputDirectory": ".",
-  "cleanUrls": true,
-  "trailingSlash": false
+  "routes": [
+    { "src": "/players(?:/)?",         "dest": "/players.html" },
+    { "src": "/coaches(?:/)?",         "dest": "/coaches.html" },
+    { "src": "/privacy(?:/)?",         "dest": "/privacy.html" },
+    { "src": "/terms(?:/)?",           "dest": "/terms.html" },
+    { "src": "/admin/dashboard(?:/)?", "dest": "/admin/dashboard.html" },
+    { "src": "/admin(?:/)?",           "dest": "/admin/index.html" },
+    { "src": "/coach/callback",        "dest": "/coach/callback.html" },
+    { "src": "/coach/([^/]+)/welcome", "dest": "/coach/welcome.html" },
+    { "src": "/coach/([^/]+)",         "dest": "/coach/claim.html" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)",                  "dest": "/$1" }
+  ]
 }
